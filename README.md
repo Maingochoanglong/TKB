@@ -6,8 +6,35 @@ với tên "chưa có"** (ví dụ `chưa có | bộ môn 6 | 23`) thay vì bỏ
 
 ## Cài đặt và chạy
 
+Cài thư viện (một lần):
+
 ```bash
 pip install -r requirements.txt
+```
+
+### Cách 1 — bấm nút Run trong `main.py` (dễ nhất)
+
+1. Mở `main.py` và sửa các hằng số ở đầu file:
+
+| Hằng số | Ý nghĩa | Mặc định |
+|---|---|---|
+| `THU_MUC_IN` | Thư mục chứa file đầu vào | `data` |
+| `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có | `out` |
+| `FILE_NHAN_SU` | Tên file danh sách nhân sự trong `THU_MUC_IN` | `Input_Danh_Sach_Nhan_Su_V5.xlsx` |
+| `FILE_CHUONG_TRINH` | Tên file chương trình học trong `THU_MUC_IN`; `None` = dùng chương trình mặc định | `None` |
+| `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
+| `THOI_GIAN_TOI_DA` | Giới hạn thời gian xếp giờ (giây) | `120` |
+| `LUAT_HOC_SINH` | Bật luật bảo vệ học sinh | `True` |
+| `CHO_NHAN_ENTER_KHI_XONG` | Chờ nhấn Enter trước khi đóng, dùng khi mở bằng cách nhấp đúp file | `False` |
+
+   - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
+   - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\in"` hoặc `"C:/Users/ten/TKB/in"`.
+2. Bấm **Run ▶** (VS Code, PyCharm...) hoặc chạy `python main.py`.
+3. Kết quả nằm trong `THU_MUC_OUT`: file `TKB.xlsx` và `<tên file nhân sự>_cap_nhat.xlsx`.
+
+### Cách 2 — dòng lệnh
+
+```bash
 python -m tkb data/Input_Danh_Sach_Nhan_Su_V5.xlsx -o out/TKB.xlsx
 ```
 
@@ -103,6 +130,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 
 | File | Nội dung |
 |---|---|
+| `main.py` | File chạy nhanh: sửa hằng số thư mục vào/ra rồi bấm Run |
 | `tkb/config.py` | Toàn bộ tham số nghiệp vụ: chương trình, khung giờ, quyền dạy, thứ tự cắt/bù, trọng số |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |
 | `tkb/program.py` | Đọc file chương trình học (tuỳ chọn) |
