@@ -181,7 +181,11 @@ class Weights:
 class Settings:
     student_rules: bool = True
     merge_enhanced_limits: bool = False
-    time_limit: float = 120.0
+    time_limit: float = 240.0
+    # Chạy lại cùng dữ liệu luôn ra cùng một TKB (xem solver._configure).
+    reproducible: bool = True
+    deterministic_per_second: float = 1.0  # quy đổi time_limit sang thời gian tất định
+    safety_factor: float = 20.0  # giới hạn giây thực = time_limit × hệ số này (chỉ để chặn treo)
     workers: int = 8
     seed: int = 0
     weights: Weights = field(default_factory=Weights)

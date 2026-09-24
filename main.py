@@ -28,8 +28,14 @@ FILE_CHUONG_TRINH = None
 # Tên file TKB xuất ra trong THU_MUC_OUT.
 FILE_TKB = "TKB.xlsx"
 
-# Giới hạn thời gian xếp giờ (giây). Tăng lên nếu muốn TKB đẹp hơn.
-THOI_GIAN_TOI_DA = 120
+# Lượng tính toán dành cho bước xếp giờ, đơn vị xấp xỉ giây (240 ≈ 3,5 phút trên máy thử).
+# Tăng lên nếu muốn TKB đẹp hơn. Khi CHAY_TAI_LAP_DUOC = True, máy chậm sẽ chạy lâu hơn
+# nhưng kết quả không đổi.
+THOI_GIAN_TOI_DA = 240
+
+# True: cùng dữ liệu thì lần chạy nào cũng ra đúng một TKB.
+# False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
+CHAY_TAI_LAP_DUOC = True
 
 # Bật luật bảo vệ học sinh (không môn nặng tiết 7, tối đa 2 tiết TV/Toán mỗi buổi...).
 LUAT_HOC_SINH = True
@@ -50,7 +56,7 @@ def _resolve(path: str | Path) -> Path:
 def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_OUT,
         file_nhan_su: str = FILE_NHAN_SU, file_chuong_trinh: str | None = FILE_CHUONG_TRINH,
         file_tkb: str = FILE_TKB, thoi_gian_toi_da: float = THOI_GIAN_TOI_DA,
-        luat_hoc_sinh: bool = LUAT_HOC_SINH) -> int:
+        luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC) -> int:
     """Chạy xếp TKB; trả về 0 nếu thành công."""
     try:
         from tkb.__main__ import main as tkb_main
@@ -79,6 +85,8 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
         argv += ["--program", str(program)]
     if not luat_hoc_sinh:
         argv.append("--no-student-rules")
+    if not chay_tai_lap_duoc:
+        argv.append("--non-reproducible")
 
     print(f"Thư mục vào: {in_dir}")
     print(f"Thư mục ra : {out_dir}")

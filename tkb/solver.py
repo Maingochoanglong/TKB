@@ -101,6 +101,24 @@ def allowed_slots(course: Course, problem: Problem, student_rules: bool) -> list
     return result
 
 
+def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: float) -> None:
+    """Đặt tham số CP-SAT.
+
+    Chế độ tái lập (settings.reproducible): các luồng chạy xen kẽ theo thứ tự cố định và dừng theo
+    "thời gian tất định" (đếm khối lượng tính toán, không phụ thuộc máy nhanh/chậm), nên cùng dữ
+    liệu + cùng phiên bản OR-Tools + cùng số luồng thì lần nào cũng ra đúng một kết quả.
+    """
+    p = solver.parameters
+    p.num_workers = settings.workers
+    p.random_seed = settings.seed
+    if settings.reproducible:
+        p.interleave_search = True
+        p.max_deterministic_time = seconds * settings.deterministic_per_second
+        p.max_time_in_seconds = seconds * settings.safety_factor  # chỉ để chặn treo
+    else:
+        p.max_time_in_seconds = seconds
+
+
 # --------------------------------------------------------------------------
 # Phần chung: số tiết mỗi GV dạy cho mỗi course, tải tuần, GV bổ sung
 # --------------------------------------------------------------------------
@@ -212,9 +230,7 @@ def assign(problem: Problem, settings: config.Settings) -> Assignment:
     m = cp_model.CpModel()
     alloc = _Allocation(m, problem, settings.weights)
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = max(10.0, settings.time_limit / 8)
-    solver.parameters.num_workers = settings.workers
-    solver.parameters.random_seed = settings.seed
+    _configure(solver, settings, max(10.0, settings.time_limit / 8))
 
     main = sum(alloc.main)
     m.Minimize(main)
@@ -403,9 +419,7 @@ def timetable(problem: Problem, settings: config.Settings,
                 m.AddHint(alloc.used[cid, g], 1 if hint.get((cid, g), 0) > 0 else 0)
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = settings.time_limit
-    solver.parameters.num_workers = settings.workers
-    solver.parameters.random_seed = settings.seed
+    _configure(solver, settings, settings.time_limit)
     start = time.time()
     status = solver.Solve(m)
     wall = time.time() - start
@@ -442,7 +456,8 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None,
 
     problem = build_problem(staff, curriculum, plan.counts)
     fixed = {k: v for k, v in plan.lessons.items() if k[1] in problem.teachers}
-    log(f"Bước 2/2: xếp giờ (giới hạn {settings.time_limit:.0f}s)...")
+    mode = "chế độ tái lập" if settings.reproducible else "giới hạn giây thực"
+    log(f"Bước 2/2: xếp giờ (~{settings.time_limit:.0f}s, {mode})...")
     solution = timetable(problem, settings, fixed=fixed)
     if solution is not None:
         solution.notes.append("Số tiết thiếu và số GV bổ sung là nhỏ nhất (đã chứng minh tối ưu)"
