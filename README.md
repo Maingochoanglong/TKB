@@ -40,7 +40,7 @@ File Excel có 3 cột **Tên**, **Chức vụ**, **Số tiết**.
      - Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
      - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
      - Mỗi ô ghi môn và chức vụ trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `chủ nhiệm 1/1`. Chiều Thứ 6 ghi `Nghỉ`.
-     - Font Times New Roman 10, dòng tiêu đề nền xám nhạt, viền mảnh.
+     - Font Times New Roman cỡ 14 (phóng to so với template cỡ 10 cho dễ đọc; đổi ở `FONT_SIZE` trong `tkb/writer.py`), dòng tiêu đề nền xám nhạt, viền mảnh. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
    - Sheet **Danh sách nhân sự**: danh sách đã cập nhật, kèm số tiết thực dạy. Người bổ sung có tên `chưa có`, Số tiết ghi theo **định mức tuyển đầy đủ** của chức vụ (bộ môn: 23), dù thực dạy có thể ít hơn.
    - Sheet **Thống kê**:
      - Các chức vụ thiếu và số tiết thiếu, kèm chi tiết lớp/môn.

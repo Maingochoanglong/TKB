@@ -16,16 +16,17 @@ THIN = Side(style="thin", color="000000")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
-# Định dạng theo Output_Template_TKB_V5_Formatted.xlsx
+# Định dạng theo Output_Template_TKB_V5_Formatted.xlsx, cỡ chữ phóng to cho dễ đọc.
 FONT_NAME = "Times New Roman"
-FONT_SIZE = 10
+FONT_SIZE = 14
 NORMAL = Font(name=FONT_NAME, size=FONT_SIZE)
 BOLD = Font(name=FONT_NAME, size=FONT_SIZE, bold=True)
-TITLE_FONT = Font(name=FONT_NAME, size=12, bold=True)
+TITLE_FONT = Font(name=FONT_NAME, size=FONT_SIZE + 2, bold=True)
 HEADER_FONT = BOLD
 HEADER_FILL = PatternFill("solid", fgColor="F0F0F0")
-LESSON_ROW_HEIGHT = 28
-COLUMN_WIDTHS = {"class": 8, "session": 8, "period": 6, "day": 25}
+LESSON_ROW_HEIGHT = 42  # đủ 2 dòng (môn + chức vụ) ở cỡ chữ 14
+HEADER_ROW_HEIGHT = 24
+COLUMN_WIDTHS = {"class": 11, "session": 11, "period": 8, "day": 24}
 
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
 
@@ -75,10 +76,16 @@ def _grade_sheets(wb, solution: Solution) -> None:
         ws.column_dimensions["C"].width = COLUMN_WIDTHS["period"]
         for i in range(len(days)):
             ws.column_dimensions[get_column_letter(first_day_col + i)].width = COLUMN_WIDTHS["day"]
+        # In: khổ ngang, co vừa 1 trang theo chiều rộng.
+        ws.page_setup.orientation = "landscape"
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
         classes = sorted((c for c in problem.classes if int(c.split("/")[0]) == grade), key=class_sort_key)
         top = 1
         for cls in classes:
             header = ["LỚP", "BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
+            ws.row_dimensions[top].height = HEADER_ROW_HEIGHT
             for col, text in enumerate(header, start=1):
                 _style(ws.cell(top, col, text), HEADER_FONT, HEADER_FILL)
             first = top + 1
@@ -144,7 +151,7 @@ def _staff_sheet(wb, solution: Solution) -> None:
         rows.append([t.name, t.title, t.max_lessons, load[t.title], note])
     _write_table(ws, 1, "DANH SÁCH NHÂN SỰ (đã cập nhật)",
                  ["Tên", "Chức vụ", "Số tiết", "Số tiết thực dạy", "Ghi chú"], rows)
-    for col, width in zip("ABCDE", (30, 22, 10, 16, 36)):
+    for col, width in zip("ABCDE", (38, 26, 12, 22, 46)):
         ws.column_dimensions[col].width = width
 
 
@@ -169,7 +176,7 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
     problem = solution.problem
     load = solution.teacher_load()
     row = 1
-    ws.cell(row, 1, "THỐNG KÊ XẾP THỜI KHÓA BIỂU").font = Font(name=FONT_NAME, size=14, bold=True)
+    ws.cell(row, 1, "THỐNG KÊ XẾP THỜI KHÓA BIỂU").font = Font(name=FONT_NAME, size=FONT_SIZE + 4, bold=True)
     row += 1
     info = [
         ("Kiểm tra luật bắt buộc", "ĐẠT" if not errors else f"KHÔNG ĐẠT ({len(errors)} lỗi)"),
@@ -222,11 +229,11 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
     if errors:
         row = _write_table(ws, row, "4. LỖI KIỂM TRA", ["Lỗi"], [[e] for e in errors])
 
-    ws.column_dimensions["A"].width = 42
-    ws.column_dimensions["B"].width = 30
+    ws.column_dimensions["A"].width = 54
+    ws.column_dimensions["B"].width = 38
     for col in "CDEFGHIJK":
-        ws.column_dimensions[col].width = 14
-    ws.column_dimensions["D"].width = 60  # cột chi tiết của bảng 1
+        ws.column_dimensions[col].width = 18
+    ws.column_dimensions["D"].width = 80  # cột chi tiết của bảng 1
 
 
 def write_timetable(solution: Solution, path: str | Path, errors: list[str], warnings: list[str]) -> None:

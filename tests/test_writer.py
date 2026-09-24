@@ -4,6 +4,7 @@ from tkb import config
 from tkb.checker import check
 from tkb.solver import solve
 from tkb.staff import read_staff
+from tkb import writer
 from tkb.writer import write_timetable, write_updated_staff
 
 from .conftest import small_staff
@@ -34,10 +35,12 @@ def test_timetable_layout(tmp_path):
     assert [ws.cell(r, 8).value for r in (6, 7, 8)] == ["Nghỉ"] * 3
     cells = [ws.cell(r, c).value for r in range(2, 9) for c in range(4, 9)]
     assert all(v for v in cells) and not any("thiếu" in v for v in cells)
-    assert ws["D2"].font.name == "Times New Roman" and ws["D2"].font.sz == 10
+    assert ws["D2"].font.name == "Times New Roman" and ws["D2"].font.sz == writer.FONT_SIZE == 14
+    assert ws["A1"].font.sz == 14 and ws["A2"].font.sz == 14 and ws["C2"].font.sz == 14
     assert ws["A1"].fill.fgColor.rgb.endswith("F0F0F0") and ws["A1"].font.b
-    assert ws.column_dimensions["A"].width == 8 and ws.column_dimensions["D"].width == 25
-    assert ws.row_dimensions[2].height == 28
+    assert ws.column_dimensions["A"].width == writer.COLUMN_WIDTHS["class"]
+    assert ws.column_dimensions["D"].width == writer.COLUMN_WIDTHS["day"]
+    assert ws.row_dimensions[2].height == writer.LESSON_ROW_HEIGHT
     assert ws["A5"].border.left.style == "thin"  # viền cả ô nằm trong vùng gộp
     stats = [v for row in wb["Thống kê"].iter_rows(values_only=True) for v in row if v is not None]
     assert "ĐẠT" in stats
