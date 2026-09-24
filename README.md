@@ -25,6 +25,7 @@ pip install -r requirements.txt
 | `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
 | `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn | `240` (≈ 3,5 phút) |
 | `CHAY_TAI_LAP_DUOC` | `True`: cùng dữ liệu thì lần nào chạy cũng ra đúng một TKB; `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
+| `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 | `LUAT_HOC_SINH` | Bật luật bảo vệ học sinh | `True` |
 | `CHO_NHAN_ENTER_KHI_XONG` | Chờ nhấn Enter trước khi đóng, dùng khi mở bằng cách nhấp đúp file | `False` |
 

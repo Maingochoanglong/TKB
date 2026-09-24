@@ -37,6 +37,11 @@ THOI_GIAN_TOI_DA = 240
 # False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
 CHAY_TAI_LAP_DUOC = True
 
+# Số luồng tìm kiếm song song của bộ giải (mỗi luồng chạy một chiến lược khác nhau).
+# Nên để >= số nhân CPU; 8 chạy tốt trên máy 4 nhân. Đổi số này thì TKB ra sẽ khác
+# (vẫn đúng luật) — giữ cố định nếu muốn các lần chạy/các máy cho cùng kết quả.
+SO_LUONG = 8
+
 # Bật luật bảo vệ học sinh (không môn nặng tiết 7, tối đa 2 tiết TV/Toán mỗi buổi...).
 LUAT_HOC_SINH = True
 
@@ -56,7 +61,8 @@ def _resolve(path: str | Path) -> Path:
 def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_OUT,
         file_nhan_su: str = FILE_NHAN_SU, file_chuong_trinh: str | None = FILE_CHUONG_TRINH,
         file_tkb: str = FILE_TKB, thoi_gian_toi_da: float = THOI_GIAN_TOI_DA,
-        luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC) -> int:
+        luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC,
+        so_luong: int = SO_LUONG) -> int:
     """Chạy xếp TKB; trả về 0 nếu thành công."""
     try:
         from tkb.__main__ import main as tkb_main
@@ -76,7 +82,12 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
             print("  Các file .xlsx có trong THU_MUC_IN: " + ", ".join(found))
         return 1
 
-    argv = [str(staff), "-o", str(out_dir / file_tkb), "--time-limit", str(thoi_gian_toi_da)]
+    if not isinstance(so_luong, int) or so_luong < 1:
+        print(f"LỖI: SO_LUONG phải là số nguyên >= 1 (đang là {so_luong!r})")
+        return 1
+
+    argv = [str(staff), "-o", str(out_dir / file_tkb), "--time-limit", str(thoi_gian_toi_da),
+            "--workers", str(so_luong)]
     if file_chuong_trinh:
         program = in_dir / file_chuong_trinh
         if not program.is_file():
@@ -90,6 +101,7 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
 
     print(f"Thư mục vào: {in_dir}")
     print(f"Thư mục ra : {out_dir}")
+    print(f"Số luồng   : {so_luong}")
     return tkb_main(argv)
 
 
