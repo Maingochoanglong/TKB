@@ -174,6 +174,7 @@ class Weights:
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
     general_on_specialist: int = 1  # mỗi tiết bộ môn dạy thay môn chuyên biệt
     load_balance: int = 50  # mỗi tiết dư lớn nhất giữa các GV cùng chức vụ
+    supplement_order: int = 1  # dồn tiết cho GV bổ sung số thứ tự nhỏ trước
 
 
 @dataclass

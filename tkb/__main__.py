@@ -50,9 +50,9 @@ def main(argv: list[str] | None = None) -> int:
     extra = solution.used_supplements()
     print(f"Kết quả: {solution.status}, kiểm tra luật bắt buộc: {'ĐẠT' if not errors else 'KHÔNG ĐẠT'}")
     if extra:
-        print(f"Cần bổ sung {len(extra)} GV, tổng {sum(load[t.title] for t in extra)} tiết:")
+        print(f"Cần bổ sung {len(extra)} GV cho {sum(load[t.title] for t in extra)} tiết thiếu:")
         for t in extra:
-            print(f"  {t.name} | {t.title} | {load[t.title]} tiết")
+            print(f"  {t.name} | {t.title} | {t.max_lessons} tiết (thực dạy {load[t.title]})")
     else:
         print("Không cần bổ sung giáo viên.")
     for e in errors[:20]:
