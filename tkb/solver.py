@@ -166,6 +166,9 @@ class _Allocation:
             for a, b in zip(titles, titles[1:]):
                 m.Add(self.load[a] >= self.load[b])
                 m.AddImplication(self.hired[b], self.hired[a])
+            # Dồn tiết cho người bổ sung đầu trước (đủ định mức rồi mới sang người sau).
+            for i, t in enumerate(titles):
+                secondary.append(w.supplement_order * i * self.load[t])
 
         specialist = set(config.SPECIALIST_ROLES.values())
         for (cid, g), a in self.a.items():

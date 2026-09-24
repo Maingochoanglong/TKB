@@ -2,7 +2,7 @@
 
 Chương trình Python đọc **danh sách nhân sự** (Excel) và xếp thời khóa biểu tuần cho toàn trường
 bằng OR-Tools CP-SAT. Khi trường thiếu người, chương trình **thêm giáo viên mới vào danh sách nhân sự
-với tên "chưa có"** (ví dụ `chưa có | bộ môn 6 | 21`) thay vì bỏ trống tiết.
+với tên "chưa có"** (ví dụ `chưa có | bộ môn 6 | 23`) thay vì bỏ trống tiết.
 
 ## Cài đặt và chạy
 
@@ -36,14 +36,18 @@ File Excel có 3 cột **Tên**, **Chức vụ**, **Số tiết**.
 ## Đầu ra
 
 1. **`TKB.xlsx`**
-   - Sheet **Khối 1…5**: mỗi lớp một bảng gồm 5 cột Thứ 2–Thứ 6 và 7 hàng Tiết 1–7 (Sáng: 1–4, Chiều: 5–7). Mỗi ô ghi `chức vụ (môn)`, ví dụ `chủ nhiệm 1/1 (HĐTN)`. Chiều Thứ 6 ghi `Nghỉ`. Ô của giáo viên bổ sung được tô vàng.
-   - Sheet **Danh sách nhân sự**: danh sách đã cập nhật, kèm số tiết thực dạy. Người bổ sung có tên `chưa có`.
+   - Sheet **Khối 1…5**: định dạng theo `data/Output_Template_TKB_V5_Formatted.xlsx`.
+     - Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
+     - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
+     - Mỗi ô ghi môn và chức vụ trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `chủ nhiệm 1/1`. Chiều Thứ 6 ghi `Nghỉ`.
+     - Font Times New Roman 10, dòng tiêu đề nền xám nhạt, viền mảnh.
+   - Sheet **Danh sách nhân sự**: danh sách đã cập nhật, kèm số tiết thực dạy. Người bổ sung có tên `chưa có`, Số tiết ghi theo **định mức tuyển đầy đủ** của chức vụ (bộ môn: 23), dù thực dạy có thể ít hơn.
    - Sheet **Thống kê**:
      - Các chức vụ thiếu và số tiết thiếu, kèm chi tiết lớp/môn.
      - Tổng hợp theo nhóm chức vụ: định mức, đã dạy, dư, thiếu.
      - Tải từng giáo viên theo từng ngày.
      - Kết quả kiểm tra luật bắt buộc.
-2. **`<tên input>_cap_nhat.xlsx`**: file nhân sự gốc, có thêm các dòng `chưa có` ở cuối. File này dùng làm đầu vào cho lần chạy sau được. File gốc không bị sửa.
+2. **`<tên input>_cap_nhat.xlsx`**: file nhân sự gốc, có thêm các dòng `chưa có` ở cuối, Số tiết = định mức tuyển (vd 23). File này dùng làm đầu vào cho lần chạy sau được. File gốc không bị sửa.
 
 ## Quy tắc nghiệp vụ
 
@@ -71,9 +75,10 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 
 **Giáo viên bổ sung** (khi thiếu người)
 - Chức vụ là `<chức vụ> n+1, n+2…`, tên `chưa có`.
-- Định mức tối đa bằng mức của giáo viên cùng chức vụ (bộ môn: 23).
+- Được tuyển với định mức đầy đủ bằng mức của giáo viên cùng chức vụ (bộ môn: 23), và ghi 23 trong danh sách nhân sự.
 - Không dạy hai lớp cùng lúc.
 - Chương trình ưu tiên (1) ít tiết thiếu nhất, rồi (2) ít người bổ sung nhất.
+- Tiết được dồn cho người bổ sung đầu trước; người cuối có thể dạy chưa đủ định mức, ví dụ 23 + 23 + 6.
 
 **Luật bảo vệ học sinh** (đặc tả V15)
 - Không xếp môn nặng vào tiết 7.

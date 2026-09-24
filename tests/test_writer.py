@@ -20,16 +20,25 @@ def test_timetable_layout(tmp_path):
     wb = openpyxl.load_workbook(out)
     assert wb.sheetnames == ["Khối 3", "Danh sách nhân sự", "Thống kê"]
     ws = wb["Khối 3"]
-    assert {str(r) for r in ws.merged_cells.ranges} == {"A1:F1", "A12:F12"}
-    assert ws["A1"].value == "THỜI KHÓA BIỂU LỚP 3/1"
-    assert ws["A12"].value == "THỜI KHÓA BIỂU LỚP 3/2"
-    assert [ws.cell(2, c).value for c in range(1, 7)] == ["Tiết / Ngày", *config.DAYS]
-    assert ws["A3"].value == "Tiết 1 (Sáng)" and ws["A9"].value == "Tiết 7 (Chiều)"
-    assert ws["B3"].value == "chủ nhiệm 3/1 (HĐTN)"
-    assert ws["F6"].value == "chủ nhiệm 3/1 (HĐTN)"
-    assert [ws.cell(r, 6).value for r in (7, 8, 9)] == ["Nghỉ"] * 3
-    cells = [ws.cell(r, c).value for r in range(3, 10) for c in range(2, 7)]
+    # Bố cục theo Output_Template_TKB_V5_Formatted.xlsx: mỗi lớp 1 dòng tiêu đề + 7 tiết + 2 dòng trống.
+    assert [ws.cell(1, c).value for c in range(1, 9)] == [
+        "LỚP", "BUỔI", "TIẾT", "THỨ 2", "THỨ 3", "THỨ 4", "THỨ 5", "THỨ 6"]
+    assert {str(r) for r in ws.merged_cells.ranges} == {
+        "A2:A8", "B2:B5", "B6:B8", "A12:A18", "B12:B15", "B16:B18"}
+    assert ws["A2"].value == "LỚP 3/1" and ws["A12"].value == "LỚP 3/2"
+    assert ws["A11"].value == "LỚP"
+    assert ws["B2"].value == "SÁNG" and ws["B6"].value == "CHIỀU"
+    assert [ws.cell(r, 3).value for r in range(2, 9)] == [1, 2, 3, 4, 1, 2, 3]
+    assert ws["D2"].value == "HĐTN\nchủ nhiệm 3/1"
+    assert ws["H5"].value == "HĐTN\nchủ nhiệm 3/1"
+    assert [ws.cell(r, 8).value for r in (6, 7, 8)] == ["Nghỉ"] * 3
+    cells = [ws.cell(r, c).value for r in range(2, 9) for c in range(4, 9)]
     assert all(v for v in cells) and not any("thiếu" in v for v in cells)
+    assert ws["D2"].font.name == "Times New Roman" and ws["D2"].font.sz == 10
+    assert ws["A1"].fill.fgColor.rgb.endswith("F0F0F0") and ws["A1"].font.b
+    assert ws.column_dimensions["A"].width == 8 and ws.column_dimensions["D"].width == 25
+    assert ws.row_dimensions[2].height == 28
+    assert ws["A5"].border.left.style == "thin"  # viền cả ô nằm trong vùng gộp
     stats = [v for row in wb["Thống kê"].iter_rows(values_only=True) for v in row if v is not None]
     assert "ĐẠT" in stats
 
@@ -39,9 +48,10 @@ def test_supplement_added_to_staff_list(tmp_path):
     out = tmp_path / "TKB.xlsx"
     write_timetable(sol, out, [], [])
     rows = list(openpyxl.load_workbook(out)["Danh sách nhân sự"].iter_rows(min_row=3, values_only=True))
-    assert rows[-1][:4] == ("chưa có", "bộ môn 1", 8, 8)
+    # Tuyển theo định mức đầy đủ 23 tiết, thực dạy 8 tiết.
+    assert rows[-1][:4] == ("chưa có", "bộ môn 1", 23, 8)
     grid = [v for row in openpyxl.load_workbook(out)["Khối 3"].iter_rows(values_only=True) for v in row if v]
-    assert any(v.startswith("bộ môn 1 (") for v in grid)
+    assert any(isinstance(v, str) and v.endswith("\nbộ môn 1") for v in grid)
 
 
 def test_updated_staff_file_is_reusable(tmp_path):
@@ -57,6 +67,7 @@ def test_updated_staff_file_is_reusable(tmp_path):
     write_updated_staff(sol, src, dst)
     again = read_staff(dst)
     assert again[-1].name == "chưa có" and again[-1].title == "bộ môn 1"
+    assert again[-1].max_lessons == 23
     sol2 = solve(again, None, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
     assert sol2.used_supplements() == []
     assert check(sol2.problem, sol2.lessons) == []

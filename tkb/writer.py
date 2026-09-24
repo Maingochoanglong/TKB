@@ -12,18 +12,20 @@ from . import config
 from .solver import Solution
 from .staff import Teacher, _find_columns, class_sort_key
 
-THIN = Side(style="thin")
+THIN = Side(style="thin", color="000000")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
-TITLE_FILL = PatternFill("solid", fgColor="D9E1F2")
-HEADER_FILL = PatternFill("solid", fgColor="1F497D")
-OFF_FILL = PatternFill("solid", fgColor="E7E6E6")
-SUPPLEMENT_FILL = PatternFill("solid", fgColor="FFF2CC")
-TITLE_FONT = Font(bold=True, size=12)
-HEADER_FONT = Font(bold=True, color="FFFFFF")
-BOLD = Font(bold=True)
-OFF_FONT = Font(color="595959")
+# Định dạng theo Output_Template_TKB_V5_Formatted.xlsx
+FONT_NAME = "Times New Roman"
+FONT_SIZE = 10
+NORMAL = Font(name=FONT_NAME, size=FONT_SIZE)
+BOLD = Font(name=FONT_NAME, size=FONT_SIZE, bold=True)
+TITLE_FONT = Font(name=FONT_NAME, size=12, bold=True)
+HEADER_FONT = BOLD
+HEADER_FILL = PatternFill("solid", fgColor="F0F0F0")
+LESSON_ROW_HEIGHT = 28
+COLUMN_WIDTHS = {"class": 8, "session": 8, "period": 6, "day": 25}
 
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
 
@@ -32,69 +34,77 @@ def subject_label(subject: str) -> str:
     return config.DISPLAY_NAMES.get(subject, subject)
 
 
-def all_periods() -> list[tuple[int, str]]:
-    seen: dict[int, str] = {}
-    for sessions in config.DAY_SESSIONS.values():
-        for s in sessions:
-            for p in s.periods:
-                seen.setdefault(p, s.name)
-    return sorted(seen.items())
+def session_rows() -> list[tuple[config.Session, int, int]]:
+    """Các hàng của bảng TKB: (buổi, tiết trong ngày, số thứ tự tiết trong buổi)."""
+    sessions: dict[str, config.Session] = {}
+    for d in sorted(config.DAY_SESSIONS):
+        for s in config.DAY_SESSIONS[d]:
+            sessions.setdefault(s.name, s)
+    ordered = sorted(sessions.values(), key=lambda s: s.periods[0])
+    return [(s, p, i) for s in ordered for i, p in enumerate(s.periods, start=1)]
 
 
-def _style(cell, font=None, fill=None, align=CENTER):
+def _style(cell, font=NORMAL, fill=None, align=CENTER):
     cell.border = BORDER
     cell.alignment = align
-    if font:
-        cell.font = font
+    cell.font = font
     if fill:
         cell.fill = fill
 
 
+def _merge(ws, r1: int, c1: int, r2: int, c2: int, value, font=BOLD) -> None:
+    for r in range(r1, r2 + 1):
+        for c in range(c1, c2 + 1):
+            _style(ws.cell(r, c), font)
+    ws.cell(r1, c1, value)
+    if (r1, c1) != (r2, c2):
+        ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
+
+
 def _grade_sheets(wb, solution: Solution) -> None:
-    problem = solution.problem
     grid = {(l.class_name, l.day, l.period): l for l in solution.lessons}
     days = sorted(config.DAY_SESSIONS)
-    periods = all_periods()
+    rows = session_rows()
     day_periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
-    ncols = 1 + len(days)
-    grades = sorted({int(c.split("/")[0]) for c in problem.classes})
-    for grade in grades:
+    first_day_col = 4
+    problem = solution.problem
+    for grade in sorted({int(c.split("/")[0]) for c in problem.classes}):
         ws = wb.create_sheet(f"Khối {grade}")
-        ws.column_dimensions["A"].width = 15
+        ws.column_dimensions["A"].width = COLUMN_WIDTHS["class"]
+        ws.column_dimensions["B"].width = COLUMN_WIDTHS["session"]
+        ws.column_dimensions["C"].width = COLUMN_WIDTHS["period"]
         for i in range(len(days)):
-            ws.column_dimensions[get_column_letter(i + 2)].width = 25
+            ws.column_dimensions[get_column_letter(first_day_col + i)].width = COLUMN_WIDTHS["day"]
         classes = sorted((c for c in problem.classes if int(c.split("/")[0]) == grade), key=class_sort_key)
-        row = 1
+        top = 1
         for cls in classes:
-            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=ncols)
-            ws.cell(row, 1, f"THỜI KHÓA BIỂU LỚP {cls}")
-            for col in range(1, ncols + 1):
-                _style(ws.cell(row, col), TITLE_FONT, TITLE_FILL)
-            ws.cell(row + 1, 1, "Tiết / Ngày")
-            for i, d in enumerate(days):
-                ws.cell(row + 1, i + 2, config.DAYS[d])
-            for col in range(1, ncols + 1):
-                _style(ws.cell(row + 1, col), HEADER_FONT, HEADER_FILL)
-            for j, (p, session_name) in enumerate(periods):
-                r = row + 2 + j
-                ws.row_dimensions[r].height = 30
-                _style(ws.cell(r, 1, f"Tiết {p} ({session_name})"), BOLD)
+            header = ["LỚP", "BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
+            for col, text in enumerate(header, start=1):
+                _style(ws.cell(top, col, text), HEADER_FONT, HEADER_FILL)
+            first = top + 1
+            _merge(ws, first, 1, first + len(rows) - 1, 1, f"LỚP {cls}")
+            r = first
+            for session in dict.fromkeys(s for s, _, _ in rows):
+                n = sum(1 for s, _, _ in rows if s is session)
+                _merge(ws, r, 2, r + n - 1, 2, session.name.upper())
+                r += n
+            for j, (_, period, number) in enumerate(rows):
+                r = first + j
+                ws.row_dimensions[r].height = LESSON_ROW_HEIGHT
+                _style(ws.cell(r, 3, number))
                 for i, d in enumerate(days):
-                    cell = ws.cell(r, i + 2)
-                    if p not in day_periods[d]:
+                    cell = ws.cell(r, first_day_col + i)
+                    _style(cell)
+                    if period not in day_periods[d]:
                         cell.value = config.OFF_LABEL
-                        _style(cell, OFF_FONT, OFF_FILL)
                         continue
-                    les = grid.get((cls, d, p))
+                    les = grid.get((cls, d, period))
                     if les is not None:
-                        cell.value = f"{les.teacher} ({subject_label(les.subject)})"
-                        _style(cell, fill=SUPPLEMENT_FILL if problem.teachers[les.teacher].supplementary else None)
-                    else:
-                        _style(cell)
-            row += 2 + len(periods) + BLOCK_GAP
+                        cell.value = f"{subject_label(les.subject)}\n{les.teacher}"
+            top = first + len(rows) + BLOCK_GAP
 
 
-def _write_table(ws, row: int, title: str, header: list[str], rows: list[list], widths=None) -> int:
+def _write_table(ws, row: int, title: str, header: list[str], rows: list[list]) -> int:
     ws.cell(row, 1, title).font = TITLE_FONT
     row += 1
     for i, h in enumerate(header, start=1):
@@ -125,19 +135,15 @@ def _staff_sheet(wb, solution: Solution) -> None:
     load = solution.teacher_load()
     rows = []
     for t in staff_rows(solution):
+        spare = t.max_lessons - load[t.title]
         if t.supplementary:
-            note = f"Cần bổ sung (tối đa {t.max_lessons} tiết/tuần)"
-            rows.append([t.name, t.title, load[t.title], load[t.title], note])
+            note = "Cần tuyển bổ sung" + (f", còn dư {spare} tiết" if spare > 0 else "")
         else:
-            spare = t.max_lessons - load[t.title]
             note = f"Còn dư {spare} tiết" if spare > 0 else ""
-            rows.append([t.name, t.title, t.max_lessons, load[t.title], note])
-    end = _write_table(ws, 1, "DANH SÁCH NHÂN SỰ (đã cập nhật)",
-                       ["Tên", "Chức vụ", "Số tiết", "Số tiết thực dạy", "Ghi chú"], rows)
-    for r in range(3, end - 1):
-        if ws.cell(r, 1).value == config.SUPPLEMENT_NAME:
-            for c in range(1, 6):
-                ws.cell(r, c).fill = SUPPLEMENT_FILL
+        # Người bổ sung được tuyển theo định mức đầy đủ của chức vụ (vd bộ môn 23 tiết).
+        rows.append([t.name, t.title, t.max_lessons, load[t.title], note])
+    _write_table(ws, 1, "DANH SÁCH NHÂN SỰ (đã cập nhật)",
+                 ["Tên", "Chức vụ", "Số tiết", "Số tiết thực dạy", "Ghi chú"], rows)
     for col, width in zip("ABCDE", (30, 22, 10, 16, 36)):
         ws.column_dimensions[col].width = width
 
@@ -163,7 +169,7 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
     problem = solution.problem
     load = solution.teacher_load()
     row = 1
-    ws.cell(row, 1, "THỐNG KÊ XẾP THỜI KHÓA BIỂU").font = Font(bold=True, size=14)
+    ws.cell(row, 1, "THỐNG KÊ XẾP THỜI KHÓA BIỂU").font = Font(name=FONT_NAME, size=14, bold=True)
     row += 1
     info = [
         ("Kiểm tra luật bắt buộc", "ĐẠT" if not errors else f"KHÔNG ĐẠT ({len(errors)} lỗi)"),
@@ -174,13 +180,10 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
         ("Tổng số tiết thiếu (giao cho GV bổ sung)", sum(load[t.title] for t in solution.used_supplements())),
         ("Số GV cần bổ sung", len(solution.used_supplements())),
     ]
-    for k, v in info:
+    for k, v in info + [("Ghi chú", note) for note in solution.notes + warnings]:
         ws.cell(row, 1, k).font = BOLD
-        ws.cell(row, 2, v)
-        row += 1
-    for note in solution.notes + warnings:
-        ws.cell(row, 1, "Ghi chú").font = BOLD
-        ws.cell(row, 2, note)
+        ws.cell(row, 2, v).font = NORMAL
+        ws.cell(row, 2).alignment = Alignment(horizontal="left")
         row += 1
     row += 1
 
@@ -210,8 +213,7 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
         classes_of[les.teacher].add(les.class_name)
     load_rows = []
     for t in staff_rows(solution):
-        cap = load[t.title] if t.supplementary else t.max_lessons
-        load_rows.append([t.title, t.name, cap, load[t.title], cap - load[t.title],
+        load_rows.append([t.title, t.name, t.max_lessons, load[t.title], t.max_lessons - load[t.title],
                           *[per_day[t.title][d] for d in days], len(classes_of[t.title])])
     row = _write_table(ws, row, "3. TẢI TỪNG GIÁO VIÊN",
                        ["Chức vụ", "Tên", "Định mức", "Thực dạy", "Dư", *[config.DAYS[d] for d in days],
@@ -244,11 +246,10 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     _, cols = _find_columns(ws)
     last = max((r for r in range(1, ws.max_row + 1)
                 if ws.cell(r, cols["title"]).value not in (None, "")), default=1)
-    load = solution.teacher_load()
     for i, t in enumerate(solution.used_supplements(), start=1):
         r = last + i
         ws.cell(r, cols["name"], t.name)
         ws.cell(r, cols["title"], t.title)
-        ws.cell(r, cols["lessons"], load[t.title])
+        ws.cell(r, cols["lessons"], t.max_lessons)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
