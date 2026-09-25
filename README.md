@@ -24,7 +24,7 @@ pip install -r requirements.txt
 |---|---|---|
 | `THU_MUC_IN` | Thư mục chứa file đầu vào | `data` |
 | `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có | `out` |
-| `FILE_NHAN_SU` | Tên file danh sách nhân sự trong `THU_MUC_IN` | `Input_Danh_Sach_Nhan_Su_V5.xlsx` |
+| `FILE_NHAN_SU` | Tên file danh sách nhân sự trong `THU_MUC_IN` | `Input_Danh_Sach_Nhan_Su_V6.xlsx` |
 | `FILE_CHUONG_TRINH` | Tên file chương trình học trong `THU_MUC_IN`; `None` = dùng chương trình mặc định | `None` |
 | `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
 | `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn | `240` (≈ 3,5 phút) |
@@ -42,7 +42,7 @@ pip install -r requirements.txt
 ### Cách 2 — dòng lệnh
 
 ```bash
-python -m tkb data/Input_Danh_Sach_Nhan_Su_V5.xlsx -o out/TKB.xlsx
+python -m tkb data/Input_Danh_Sach_Nhan_Su_V6.xlsx -o out/TKB.xlsx
 ```
 
 Tuỳ chọn:
@@ -62,12 +62,26 @@ Chạy test: `python -m pytest -q`
 
 ## Đầu vào
 
-File Excel có 3 cột **Tên**, **Chức vụ**, **Số tiết**.
+File Excel 1 sheet, 4 cột, ví dụ `data/Input_Danh_Sach_Nhan_Su_V6.xlsx`:
 
-- Chức vụ = tên chức vụ + số thứ tự: `chủ nhiệm 1/1`, `bộ môn 4`, `tiếng anh 2`, `quản lý 1`...
-- Thêm chữ `ts` nếu giáo viên hưởng chế độ thai sản: `bộ môn 5 ts`, `chủ nhiệm 5/5 ts`.
+| Tên | Chức vụ | Số tiết | Thai sản |
+|---|---|---|---|
+| Nguyễn Văn A | chủ nhiệm 1/1 | 19 | |
+| Trần Thị B | chủ nhiệm 5/5 | 16 | Có |
+| Lê Văn C | bộ môn 5 | 19 | Có |
+
+- **Chức vụ** chọn từ danh sách thả xuống: tên chức vụ + số thứ tự, ví dụ `chủ nhiệm 1/1`, `bộ môn 4`, `tiếng anh 2`, `quản lý 1`. Chức vụ bị trùng tự tô đỏ.
+- **Số tiết** là mức tối đa mỗi tuần (số nguyên 0–40). Người hưởng thai sản ghi mức đã giảm.
+- **Thai sản**: ghi `Có` nếu đang hưởng chế độ thai sản, để trống nếu không. Trong TKB người này hiện là `... ts`, ví dụ `chủ nhiệm 5/5 ts`.
 - Danh sách lớp lấy từ các dòng `chủ nhiệm khối/stt`, vì mỗi lớp luôn có một GVCN.
-- Số tiết là **mức tối đa** mỗi tuần của giáo viên.
+- File cũ 3 cột (ghi chữ `ts` sau chức vụ, ví dụ `bộ môn 5 ts`) vẫn đọc được.
+
+Tạo file mẫu mới, hoặc chuyển file cũ sang file mẫu:
+
+```bash
+python -m tkb.template data/Mau_Nhan_Su.xlsx                                    # file mẫu trống
+python -m tkb.template data/Nhan_Su_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V5.xlsx   # chép dữ liệu file cũ
+```
 
 ## Đầu ra
 
@@ -152,6 +166,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `main.py` | File chạy nhanh: sửa hằng số thư mục vào/ra rồi bấm Run |
 | `tkb/config.py` | Toàn bộ tham số nghiệp vụ: chương trình, khung giờ, quyền dạy, thứ tự cắt/bù, trọng số |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |
+| `tkb/template.py` | Tạo file mẫu nhân sự (danh sách thả xuống), chuyển file cũ sang file mẫu |
 | `tkb/program.py` | Đọc file chương trình học (tuỳ chọn) |
 | `tkb/allocation.py` | Phân phần GVCN, sinh lớp-môn và danh sách giáo viên được dạy, sinh giáo viên bổ sung |
 | `tkb/solver.py` | Mô hình CP-SAT |

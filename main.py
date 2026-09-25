@@ -18,8 +18,8 @@ THU_MUC_IN = "data"
 # Thư mục ghi kết quả (tự tạo nếu chưa có).
 THU_MUC_OUT = "out"
 
-# Tên file danh sách nhân sự (cột Tên, Chức vụ, Số tiết) nằm trong THU_MUC_IN.
-FILE_NHAN_SU = "Input_Danh_Sach_Nhan_Su_V5.xlsx"
+# Tên file danh sách nhân sự (cột Tên, Chức vụ, Số tiết, Thai sản) nằm trong THU_MUC_IN.
+FILE_NHAN_SU = "Input_Danh_Sach_Nhan_Su_V6.xlsx"
 
 # Tên file chương trình học trong THU_MUC_IN (cột Môn học, Khối 1..5).
 # Để None thì dùng chương trình mặc định trong tkb/config.py.
