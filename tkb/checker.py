@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from . import config
-from .allocation import Problem, all_slots, manager_allowed
+from .allocation import Problem, all_slots, manager_allowed, specialist_subjects
 from .solver import Lesson
 
 
@@ -51,8 +51,10 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                           f"{', '.join(i.class_name for i in items)}")
     load = Counter(les.teacher for les in lessons)
     for g, n in load.items():
-        if g in teachers and n > teachers[g].max_lessons:
-            errors.append(f"{g} dạy {n} tiết, vượt định mức {teachers[g].max_lessons}")
+        extra = problem.overtime.get(g, 0)
+        if g in teachers and n > teachers[g].max_lessons + extra:
+            errors.append(f"{g} dạy {n} tiết, vượt định mức {teachers[g].max_lessons}"
+                          + (f" + {extra} tiết bù" if extra else ""))
     for g, need in problem.manager_load.items():
         if load.get(g, 0) != need:
             errors.append(f"{g} dạy {load.get(g, 0)} tiết, yêu cầu đúng {need} tiết")
@@ -64,6 +66,8 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             continue
         grade = int(les.class_name.split("/")[0])
         at = f"{les.class_name} {where(les.day, les.period)}"
+        if les.period in config.HOMEROOM_PERIODS and t.class_name != les.class_name:
+            errors.append(f"{at}: tiết của GVCN nhưng giao cho {t.title}")
         if t.role == config.ROLE_HOMEROOM:
             if t.class_name != les.class_name:
                 errors.append(f"{at}: {t.title} không phải GVCN lớp này")
@@ -79,12 +83,21 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             if les.subject != config.SPECIALIST_ROLES[t.role]:
                 errors.append(f"{at}: {t.title} chỉ được dạy {config.SPECIALIST_ROLES[t.role]}")
 
-    # GVCN nhận đúng phần đã phân; phần còn lại không bị chia cho quá nhiều GV.
+    # GVCN dạy đủ phần đã phân; phần dạy thêm chỉ là tiết bù hợp lệ (chế độ bù giờ).
+    homeroom = {t.class_name: t.title for t in teachers.values() if t.class_name}
     for cls, take in problem.homeroom_take.items():
         got = Counter(les.subject for les in lessons
                       if les.class_name == cls and teachers[les.teacher].class_name == cls)
-        if dict(got) != {s: n for s, n in take.items() if n > 0}:
+        want = Counter({s: n for s, n in take.items() if n > 0})
+        extra = got - want
+        if want - got:
             errors.append(f"Lớp {cls}: GVCN dạy {dict(got)}, phân công là {take}")
+        elif extra:
+            allowed = problem.overtime.get(homeroom[cls], 0)
+            banned = sorted(s for s in extra if s in specialist_subjects())
+            if sum(extra.values()) > allowed or banned:
+                errors.append(f"Lớp {cls}: GVCN dạy bù {dict(extra)} không hợp lệ (tối đa {allowed} tiết, "
+                              f"không bù môn chuyên biệt)")
 
     # HĐTN: 2 slot cố định + phần còn lại trong các ngày linh hoạt.
     for cls in problem.classes:
@@ -103,24 +116,12 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
 
 def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
     errors = []
-    limits = config.SESSION_SUBJECT_LIMITS
     grid: dict[tuple[str, int, int], str] = {(l.class_name, l.day, l.period): l.subject for l in lessons}
-    for les in lessons:
-        if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_FORBIDDEN_PERIODS:
-            errors.append(f"Lớp {les.class_name}: môn nặng {les.subject} ở {config.DAYS[les.day]} "
-                          f"tiết {les.period}")
     for cls in problem.classes:
         for d, sessions in config.DAY_SESSIONS.items():
             for session in sessions:
                 subjects = [grid.get((cls, d, p)) for p in session.periods]
-                cap = config.MAX_CONSECUTIVE_HEAVY.get(session.name)
-                run = best = 0
-                for s in subjects:
-                    run = run + 1 if s in config.HEAVY_SUBJECTS else 0
-                    best = max(best, run)
-                if cap is not None and best > cap:
-                    errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: {best} tiết nặng liên tiếp")
-                for group, limit in limits:
+                for group, limit in config.SESSION_SUBJECT_LIMITS:
                     n = sum(1 for s in subjects if s in group)
                     if n > limit:
                         errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: "

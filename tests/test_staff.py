@@ -1,8 +1,9 @@
+import openpyxl
 import pytest
 
 from tkb import config
 from tkb.program import read_program
-from tkb.staff import InputError, build_teacher, classes_from_staff, parse_title, validate
+from tkb.staff import InputError, build_teacher, classes_from_staff, parse_title, read_staff, validate
 
 from .conftest import PROGRAM_FILE
 
@@ -50,3 +51,28 @@ def test_read_real_staff(real_staff):
 
 def test_program_file_matches_default():
     assert read_program(PROGRAM_FILE) == config.DEFAULT_CURRICULUM
+
+
+def _staff_file(path, rows, header=("Tên", "Chức vụ", "Số tiết", "Thai sản")):
+    wb = openpyxl.Workbook()
+    wb.active.append(list(header))
+    for r in rows:
+        wb.active.append(list(r))
+    wb.save(path)
+    return path
+
+
+def test_maternity_column(tmp_path):
+    path = _staff_file(tmp_path / "ns.xlsx", [("A", "chủ nhiệm 1/1", 16, "Có"), ("B", "bộ môn 1", 23, None),
+                                             ("C", "bộ môn 2 ts", 19, None), ("D", "bộ môn 3", 23, "không")])
+    a, b, c, d = read_staff(path)
+    assert (a.title, a.maternity) == ("chủ nhiệm 1/1 ts", True)
+    assert (b.title, b.maternity) == ("bộ môn 1", False)
+    assert (c.title, c.maternity) == ("bộ môn 2 ts", True)  # file cũ ghi "ts" sau chức vụ vẫn hiểu
+    assert not d.maternity
+
+
+def test_maternity_column_rejects_other_values(tmp_path):
+    path = _staff_file(tmp_path / "ns.xlsx", [("A", "chủ nhiệm 1/1", 16, "đang nghỉ")])
+    with pytest.raises(InputError, match="Thai sản"):
+        read_staff(path)

@@ -33,6 +33,11 @@ class Problem:
     manager_load: dict[str, int]  # quản lý -> số tiết bắt buộc dạy
     slots: list[tuple[int, int]]
     warnings: list[str] = field(default_factory=list)
+    overtime: dict[str, int] = field(default_factory=dict)  # GV -> số tiết được dạy bù tối đa
+    overtime_max: int = 0  # > 0: chế độ bù giờ
+
+    def overtime_mode(self) -> bool:
+        return self.overtime_max > 0
 
     def class_courses(self, class_name: str) -> list[Course]:
         return [c for c in self.courses if c.class_name == class_name]
@@ -111,11 +116,20 @@ def make_supplements(role: str, count: int, teachers: list[Teacher]) -> list[Tea
             for i in range(1, count + 1)]
 
 
+def overtime_allowance(t: Teacher, overtime_max: int) -> int:
+    """Số tiết bù tối đa của một GV ở chế độ bù giờ (người hưởng thai sản không bù)."""
+    if overtime_max <= 0 or t.supplementary or t.maternity or t.role not in config.OVERTIME_ROLES:
+        return 0
+    return overtime_max
+
+
 def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None = None,
-                  supplement_counts: dict[str, int] | None = None) -> Problem:
+                  supplement_counts: dict[str, int] | None = None, overtime_max: int = 0) -> Problem:
     """Dựng bài toán.
 
     supplement_counts: số GV bổ sung dự kiến cho từng chức vụ; None = đủ lớn để luôn có nghiệm.
+    overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn (trừ người hưởng thai sản) được dạy vượt
+    định mức tối đa ngần ấy tiết; GVCN bù các môn không thuộc GV chuyên biệt của lớp mình.
     """
     curriculum = curriculum or config.DEFAULT_CURRICULUM
     slots = all_slots()
@@ -143,6 +157,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
     homeroom_take: dict[str, dict[str, int]] = {}
     pool: list[tuple[str, int, str, int]] = []
     fixed_hdtn = tuple(config.HDTN_FIXED_SLOTS)
+    homeroom_slots = [s for s in slots if s[1] in config.HOMEROOM_PERIODS]
 
     for cls in classes:
         grade = int(cls.split("/")[0])
@@ -150,6 +165,10 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
         cn = homeroom[cls]
         take = split_homeroom(cls, req, cn.max_lessons, reserved_by_grade.get(grade, set()))
         homeroom_take[cls] = take
+        if sum(take.values()) < len(homeroom_slots):
+            raise InputError(f"Lớp {cls}: GVCN chỉ dạy {sum(take.values())} tiết, không đủ "
+                             f"{len(homeroom_slots)} tiết bắt buộc của GVCN "
+                             f"(tiết {', '.join(map(str, sorted(config.HOMEROOM_PERIODS)))} mỗi ngày)")
         for subject, n in take.items():
             if subject == config.HDTN:
                 n_fixed = min(n, len(fixed_hdtn))
@@ -196,9 +215,12 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
     for t in all_teachers:
         by_role.setdefault(t.role, []).append(t)
 
+    overtime = {t.title: n for t in staff if (n := overtime_allowance(t, overtime_max)) > 0}
     manager_pool_lessons: dict[str, int] = {m.title: 0 for m in managers}
     for cls, grade, subject, n in pool:
         eligible = [t.title for r in roles_for_subject(subject) for t in by_role.get(r, [])]
+        if homeroom[cls].title in overtime and subject not in specialist_subjects():
+            eligible.append(homeroom[cls].title)
         for m in managers:
             if any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
                 eligible.append(m.title)
@@ -224,4 +246,6 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
         manager_load=manager_load,
         slots=slots,
         warnings=warnings,
+        overtime=overtime,
+        overtime_max=max(overtime_max, 0),
     )

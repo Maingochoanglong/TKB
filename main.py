@@ -18,8 +18,8 @@ THU_MUC_IN = "data"
 # Thư mục ghi kết quả (tự tạo nếu chưa có).
 THU_MUC_OUT = "out"
 
-# Tên file danh sách nhân sự (cột Tên, Chức vụ, Số tiết) nằm trong THU_MUC_IN.
-FILE_NHAN_SU = "Input_Danh_Sach_Nhan_Su_V5.xlsx"
+# Tên file danh sách nhân sự (cột Tên, Chức vụ, Số tiết, Thai sản) nằm trong THU_MUC_IN.
+FILE_NHAN_SU = "Input_Danh_Sach_Nhan_Su_V6.xlsx"
 
 # Tên file chương trình học trong THU_MUC_IN (cột Môn học, Khối 1..5).
 # Để None thì dùng chương trình mặc định trong tkb/config.py.
@@ -28,12 +28,17 @@ FILE_CHUONG_TRINH = None
 # Tên file TKB xuất ra trong THU_MUC_OUT.
 FILE_TKB = "TKB.xlsx"
 
+# Tên file thống kê giáo viên (tên, chức vụ, số tiết quy định, số tiết bù) trong THU_MUC_OUT.
+FILE_THONG_KE = "Thong_Ke.xlsx"
+
 # Lượng tính toán dành cho bước xếp giờ, đơn vị xấp xỉ giây (240 ≈ 3,5 phút trên máy thử).
 # Tăng lên nếu muốn TKB đẹp hơn. Khi CHAY_TAI_LAP_DUOC = True, máy chậm sẽ chạy lâu hơn
 # nhưng kết quả không đổi.
 THOI_GIAN_TOI_DA = 240
 
-# True: cùng dữ liệu thì lần chạy nào cũng ra đúng một TKB.
+# True: chạy lại bao nhiêu lần cũng ra đúng một TKB (ở cả chế độ tuyen_them lẫn bu_gio), miễn là
+#       giữ nguyên file đầu vào, CHE_DO, SO_TIET_BU_TOI_DA, THOI_GIAN_TOI_DA, SO_LUONG và phiên bản
+#       OR-Tools (đã ghim trong requirements.txt).
 # False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
 CHAY_TAI_LAP_DUOC = True
 
@@ -42,7 +47,17 @@ CHAY_TAI_LAP_DUOC = True
 # (vẫn đúng luật) — giữ cố định nếu muốn các lần chạy/các máy cho cùng kết quả.
 SO_LUONG = 8
 
-# Bật luật bảo vệ học sinh (không môn nặng tiết 7, tối đa 2 tiết TV/Toán mỗi buổi...).
+# Khi thiếu người:
+#   "tuyen_them": thêm GV mới tên "chưa có" vào danh sách nhân sự.
+#   "bu_gio"    : GVCN và bộ môn dạy bù vượt định mức (GVCN bù trước, ngay ở lớp mình,
+#                 môn ưu tiên trước); chỉ khi bù vẫn không đủ mới thêm GV "chưa có".
+CHE_DO = "bu_gio"
+
+# Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần.
+# Người hưởng thai sản không bao giờ phải bù.
+SO_TIET_BU_TOI_DA = 2
+
+# Bật luật bảo vệ học sinh (tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi).
 LUAT_HOC_SINH = True
 
 # ==========================================================================
@@ -59,9 +74,11 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
         file_nhan_su: str = FILE_NHAN_SU, file_chuong_trinh: str | None = FILE_CHUONG_TRINH,
         file_tkb: str = FILE_TKB, thoi_gian_toi_da: float = THOI_GIAN_TOI_DA,
         luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC,
-        so_luong: int = SO_LUONG) -> int:
+        so_luong: int = SO_LUONG, che_do: str = CHE_DO, so_tiet_bu_toi_da: int = SO_TIET_BU_TOI_DA,
+        file_thong_ke: str = FILE_THONG_KE) -> int:
     """Chạy xếp TKB; trả về 0 nếu thành công."""
     try:
+        from tkb import config
         from tkb.__main__ import main as tkb_main
     except ImportError as exc:
         print(f"LỖI: thiếu thư viện ({exc.name}). Cài bằng lệnh:  pip install -r requirements.txt")
@@ -83,8 +100,16 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
         print(f"LỖI: SO_LUONG phải là số nguyên >= 1 (đang là {so_luong!r})")
         return 1
 
+    if che_do not in config.MODES:
+        print(f"LỖI: CHE_DO phải là một trong {', '.join(repr(m) for m in config.MODES)} (đang là {che_do!r})")
+        return 1
+    if not isinstance(so_tiet_bu_toi_da, int) or so_tiet_bu_toi_da < 0:
+        print(f"LỖI: SO_TIET_BU_TOI_DA phải là số nguyên >= 0 (đang là {so_tiet_bu_toi_da!r})")
+        return 1
+
     argv = [str(staff), "-o", str(out_dir / file_tkb), "--time-limit", str(thoi_gian_toi_da),
-            "--workers", str(so_luong)]
+            "--workers", str(so_luong), "--mode", che_do, "--max-overtime", str(so_tiet_bu_toi_da),
+            "--stats-out", str(out_dir / file_thong_ke)]
     if file_chuong_trinh:
         program = in_dir / file_chuong_trinh
         if not program.is_file():
@@ -99,6 +124,8 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
     print(f"Thư mục vào: {in_dir}")
     print(f"Thư mục ra : {out_dir}")
     print(f"Số luồng   : {so_luong}")
+    print(f"Chế độ     : {che_do}" + (f" (bù tối đa {so_tiet_bu_toi_da} tiết/người)"
+                                     if che_do == config.MODE_OVERTIME else ""))
     return tkb_main(argv)
 
 

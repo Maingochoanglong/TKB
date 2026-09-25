@@ -2,7 +2,7 @@ import pytest
 
 from tkb import config
 from tkb.allocation import build_problem, split_homeroom
-from tkb.staff import InputError
+from tkb.staff import InputError, build_teacher
 
 C = config
 
@@ -73,3 +73,26 @@ def test_supplement_numbering(real_staff):
     assert p.supplement_roles["tin học"] == ["tin học 2"]
     t = p.teachers["bộ môn 6"]
     assert t.name == config.SUPPLEMENT_NAME and t.supplementary and t.max_lessons == 23
+
+
+def test_homeroom_needs_enough_lessons_for_locked_periods(monkeypatch):
+    # GVCN 8 tiết không đủ nếu khoá tiết 1 và tiết 2 mỗi ngày (10 tiết).
+    monkeypatch.setattr(config, "HOMEROOM_PERIODS", {1, 2})
+    staff = [build_teacher("CN", "chủ nhiệm 3/1", 8, row=2), build_teacher("BM", "bộ môn 1", 23, row=3)]
+    with pytest.raises(InputError, match="tiết bắt buộc của GVCN"):
+        build_problem(staff)
+
+
+def test_overtime_allowances_and_eligibility(real_staff):
+    p = build_problem(real_staff, overtime_max=2)
+    assert p.overtime["chủ nhiệm 1/1"] == 2 and p.overtime["bộ môn 1"] == 2
+    assert "chủ nhiệm 5/5 ts" not in p.overtime and "bộ môn 5 ts" not in p.overtime  # thai sản không bù
+    assert all(p.teachers[g].role in C.OVERTIME_ROLES for g in p.overtime)
+    pool = {(c.class_name, c.subject): c for c in p.courses if not c.homeroom}
+    assert "chủ nhiệm 1/1" in pool["1/1", C.TV].teachers
+    assert "chủ nhiệm 1/1" in pool["1/1", C.TNXH].teachers
+    assert "chủ nhiệm 1/1" not in pool["1/1", C.TIENG_ANH].teachers  # không bù môn chuyên biệt
+    assert "chủ nhiệm 1/2" not in pool["1/1", C.TV].teachers  # chỉ bù lớp mình
+    hire = build_problem(real_staff)
+    assert hire.overtime == {} and not hire.overtime_mode()
+    assert all(not hire.teachers[g].class_name for c in hire.courses if not c.homeroom for g in c.teachers)

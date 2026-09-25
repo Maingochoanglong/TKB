@@ -1,4 +1,4 @@
-"""Đọc và kiểm tra file Excel danh sách nhân sự (Tên / Chức vụ / Số tiết)."""
+"""Đọc và kiểm tra file Excel danh sách nhân sự (Tên / Chức vụ / Số tiết / Thai sản)."""
 from __future__ import annotations
 
 import re
@@ -18,7 +18,7 @@ class InputError(ValueError):
 @dataclass
 class Teacher:
     name: str
-    title: str  # chức vụ chuẩn hóa, dùng làm mã và nhãn trong TKB, vd "bộ môn 5 ts"
+    title: str  # chức vụ chuẩn hóa, dùng làm mã giáo viên, vd "bộ môn 5 ts"
     role: str  # "chủ nhiệm", "bộ môn", "quản lý", hoặc một chức vụ chuyên biệt
     index: int | None  # số thứ tự trong chức vụ (không áp dụng cho chủ nhiệm)
     class_name: str | None  # lớp chủ nhiệm, vd "1/1"
@@ -71,7 +71,8 @@ def canonical_title(role: str, index: int | None, class_name: str | None, matern
 
 
 def _find_columns(ws) -> tuple[int, dict[str, int]]:
-    wanted = {"tên": "name", "chức vụ": "title", "số tiết": "lessons"}
+    """Dòng tiêu đề và vị trí các cột; cột "Thai sản" không bắt buộc (file cũ ghi "ts" sau chức vụ)."""
+    wanted = {"tên": "name", "chức vụ": "title", "số tiết": "lessons", "thai sản": "maternity"}
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
         found = {}
         for cell in row:
@@ -80,7 +81,7 @@ def _find_columns(ws) -> tuple[int, dict[str, int]]:
             key = normalize(cell.value)
             if key in wanted:
                 found[wanted[key]] = cell.column
-        if len(found) == 3:
+        if {"name", "title", "lessons"} <= found.keys():
             return row[0].row, found
     raise InputError("Không tìm thấy dòng tiêu đề có đủ các cột 'Tên', 'Chức vụ', 'Số tiết'")
 
@@ -97,8 +98,27 @@ def _to_lessons(value, title: str) -> int:
     return int(number)
 
 
-def build_teacher(name: str, raw_title: str, lessons, row: int | None = None) -> Teacher:
-    role, index, class_name, maternity = parse_title(raw_title)
+_YES = {"có", "co", "x"}
+_NO = {"", "không", "khong"}
+
+
+def to_maternity(value) -> bool:
+    """Giá trị cột Thai sản: "Có" (hoặc "x") là đang hưởng chế độ, để trống/"Không" là không."""
+    if value is None:
+        return False
+    text = normalize(value)
+    if text in _YES:
+        return True
+    if text in _NO:
+        return False
+    raise InputError(f"cột Thai sản chỉ ghi 'Có' hoặc để trống, đang ghi {value!r}")
+
+
+def build_teacher(name: str, raw_title: str, lessons, row: int | None = None,
+                  maternity: bool = False) -> Teacher:
+    """maternity: giá trị cột Thai sản; chữ "ts" sau chức vụ (file cũ) cũng được hiểu là thai sản."""
+    role, index, class_name, ts = parse_title(raw_title)
+    maternity = maternity or ts
     title = canonical_title(role, index, class_name, maternity)
     return Teacher(
         name=str(name).strip() if name is not None else "",
@@ -148,7 +168,8 @@ def read_staff(path: str | Path) -> list[Teacher]:
                 continue
             raise InputError(f"Dòng {r}: thiếu chức vụ")
         try:
-            teachers.append(build_teacher(name, title, lessons, row=r))
+            maternity = to_maternity(ws.cell(r, cols["maternity"]).value) if "maternity" in cols else False
+            teachers.append(build_teacher(name, title, lessons, row=r, maternity=maternity))
         except InputError as exc:
             raise InputError(f"Dòng {r}: {exc}") from None
     validate(teachers)

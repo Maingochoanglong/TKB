@@ -3,7 +3,7 @@ import openpyxl
 from tkb import config
 from tkb.checker import check
 from tkb.solver import solve
-from tkb.staff import read_staff
+from tkb.staff import build_teacher, read_staff
 from tkb import writer
 from tkb.writer import write_timetable, write_updated_staff
 
@@ -30,8 +30,8 @@ def test_timetable_layout(tmp_path):
     assert ws["A11"].value == "LỚP"
     assert ws["B2"].value == "SÁNG" and ws["B6"].value == "CHIỀU"
     assert [ws.cell(r, 3).value for r in range(2, 9)] == [1, 2, 3, 4, 1, 2, 3]
-    assert ws["D2"].value == "HĐTN\nchủ nhiệm 3/1"
-    assert ws["H5"].value == "HĐTN\nchủ nhiệm 3/1"
+    assert ws["D2"].value == "HĐTN\nCN A"  # môn, xuống dòng tên giáo viên
+    assert ws["H5"].value == "HĐTN\nCN A"
     assert [ws.cell(r, 8).value for r in (6, 7, 8)] == ["Nghỉ"] * 3
     cells = [ws.cell(r, c).value for r in range(2, 9) for c in range(4, 9)]
     assert all(v for v in cells) and not any("thiếu" in v for v in cells)
@@ -54,7 +54,7 @@ def test_supplement_added_to_staff_list(tmp_path):
     # Tuyển theo định mức đầy đủ 23 tiết, thực dạy 8 tiết.
     assert rows[-1][:4] == ("chưa có", "bộ môn 1", 23, 8)
     grid = [v for row in openpyxl.load_workbook(out)["Khối 3"].iter_rows(values_only=True) for v in row if v]
-    assert any(isinstance(v, str) and v.endswith("\nbộ môn 1") for v in grid)
+    assert any(isinstance(v, str) and v.endswith("\nchưa có (bộ môn 1)") for v in grid)
 
 
 def test_updated_staff_file_is_reusable(tmp_path):
@@ -74,3 +74,80 @@ def test_updated_staff_file_is_reusable(tmp_path):
     sol2 = solve(again, None, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
     assert sol2.used_supplements() == []
     assert check(sol2.problem, sol2.lessons) == []
+
+
+def test_overtime_columns(tmp_path):
+    settings = config.Settings(time_limit=20, workers=4, mode=config.MODE_OVERTIME, overtime_max=4)
+    sol = solve(small_staff(general=False), None, settings, log=lambda *_: None)
+    out = tmp_path / "TKB.xlsx"
+    write_timetable(sol, out, check(sol.problem, sol.lessons), [])
+    wb = openpyxl.load_workbook(out)
+    staff = list(wb["Danh sách nhân sự"].iter_rows(min_row=2, values_only=True))
+    assert staff[0] == ("Tên", "Chức vụ", "Số tiết", "Số tiết thực dạy", "Số tiết bù", "Ghi chú")
+    assert staff[1][:5] == ("CN A", "chủ nhiệm 3/1", 19, 23, 4)
+    stats = [v for row in wb["Thống kê"].iter_rows(values_only=True) for v in row if v is not None]
+    assert "2. DẠY BÙ (vượt định mức)" in stats
+    assert any(isinstance(v, str) and v.startswith("Bù giờ") for v in stats)
+    assert any(isinstance(v, str) and "TNXH ×2" in v for v in stats)
+
+
+def test_teacher_labels():
+    teachers = {t.title: t for t in [build_teacher("Lan", "chủ nhiệm 1/1", 19), build_teacher("Lan", "bộ môn 1", 23),
+                                     build_teacher("", "bộ môn 2", 23), build_teacher("Hoa", "bộ môn 3", 23)]}
+    labels = writer.teacher_labels(teachers)
+    assert labels == {"chủ nhiệm 1/1": "Lan (chủ nhiệm 1/1)", "bộ môn 1": "Lan (bộ môn 1)",
+                      "bộ môn 2": "bộ môn 2", "bộ môn 3": "Hoa"}
+
+
+def test_long_names_widen_columns_and_rows(tmp_path):
+    staff = small_staff()
+    staff[0].name = "Nguyễn Thị Thanh Hương Giang Mai"  # GVCN 3/1, tên rất dài
+    sol = solve(staff, None, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
+    out = tmp_path / "TKB.xlsx"
+    write_timetable(sol, out, [], [])
+    ws = openpyxl.load_workbook(out)["Khối 3"]
+    assert ws["D2"].value == "HĐTN\nNguyễn Thị Thanh Hương Giang Mai"
+    assert ws.column_dimensions["D"].width == writer.MAX_DAY_WIDTH  # nới hết mức
+    assert ws.row_dimensions[2].height > writer.LESSON_ROW_HEIGHT  # tên xuống dòng, hàng cao thêm
+
+
+def test_statistics_file(tmp_path):
+    out = tmp_path / "Thong_Ke.xlsx"
+    writer.write_statistics(_solve_small(general=False), out)
+    wb = openpyxl.load_workbook(out)
+    assert wb.sheetnames == ["Thống kê giáo viên", "Phân công", "Theo ngày", "Theo chức vụ"]
+    rows = list(wb["Thống kê giáo viên"].iter_rows(min_row=2, values_only=True))
+    assert rows[0] == ("STT", "Tên giáo viên", "Chức vụ", "Số tiết quy định", "Số tiết bù", "Số tiết thực dạy",
+                       "Số tiết còn dư")
+    assert rows[1] == (1, "CN A", "chủ nhiệm 3/1", 19, 0, 19, 0)
+    assert rows[-2] == (8, "tuyển thêm", "bộ môn 1", 23, 0, 8, 15)  # người cần tuyển
+    assert rows[-1] == (None, "Tổng", None, 19 * 2 + 23 * 6, 0, 64, 19 * 2 + 23 * 6 - 64)
+
+    assign = list(wb["Phân công"].iter_rows(min_row=3, values_only=True))
+    assert any(r[1:] == ("CN A", "chủ nhiệm 3/1", "3/1", "HĐTN", 3) for r in assign)
+    assert sum(r[5] for r in assign) == 64
+    assert any(r[1:4] == ("tuyển thêm", "bộ môn 1", "3/2") for r in assign)
+
+    daily = list(wb["Theo ngày"].iter_rows(min_row=2, values_only=True))
+    assert daily[0][3:8] == ("Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6")
+    assert all(sum(r[3:8]) == r[8] for r in daily[1:])
+    assert daily[-1][8] == 64
+
+    roles = {r[1]: r[2:] for r in wb["Theo chức vụ"].iter_rows(min_row=3, values_only=True)}
+    assert roles["chủ nhiệm"] == (2, 38, 38, 0, 0, 0, 0)
+    assert roles["bộ môn"] == (0, 0, 0, 0, 0, 1, 8)
+    assert roles["Tổng"][5:] == (1, 8)
+
+
+def test_statistics_file_overtime(tmp_path):
+    settings = config.Settings(time_limit=20, workers=4, mode=config.MODE_OVERTIME, overtime_max=4)
+    sol = solve(small_staff(general=False), None, settings, log=lambda *_: None)
+    out = tmp_path / "Thong_Ke.xlsx"
+    writer.write_statistics(sol, out)
+    wb = openpyxl.load_workbook(out)
+    rows = list(wb["Thống kê giáo viên"].iter_rows(min_row=3, values_only=True))
+    assert rows[0] == (1, "CN A", "chủ nhiệm 3/1", 19, 4, 23, 0) and rows[1][4] == 4
+    assert all(r[1] != "tuyển thêm" for r in rows)
+    assert rows[-1][1] == "Tổng" and rows[-1][4] == 8
+    roles = {r[1]: r[2:] for r in wb["Theo chức vụ"].iter_rows(min_row=3, values_only=True)}
+    assert roles["chủ nhiệm"][3] == 8  # cột Số tiết bù

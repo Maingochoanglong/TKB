@@ -131,6 +131,8 @@ HOMEROOM_PRIORITY: list[str] = [TV, TOAN, HDTN, KH, LSDL, DD]
 HOMEROOM_CUT_ORDER: list[str] = [TV, TOAN, KH, LSDL]
 # Thiếu định mức: nhận thêm theo thứ tự này (không bao giờ nhận môn của GV chuyên biệt).
 HOMEROOM_FILL_ORDER: list[str] = [TV_TC, TOAN_TC, TNXH, KNS, CONG_NGHE]
+# Các tiết luôn do GVCN của lớp dạy, ở mọi ngày (tiết 1-4 là buổi sáng, 5-7 là buổi chiều).
+HOMEROOM_PERIODS: set[int] = {1}
 
 # --------------------------------------------------------------------------
 # GV bổ sung khi thiếu người
@@ -140,12 +142,22 @@ SUPPLEMENT_NAME = "chưa có"
 FALLBACK_SUPPLEMENT_LOAD = 23
 
 # --------------------------------------------------------------------------
-# Luật bảo vệ học sinh (V15)
+# Chế độ xử lý khi thiếu người
 # --------------------------------------------------------------------------
+MODE_HIRE = "tuyen_them"  # thêm GV bổ sung "chưa có" vào danh sách nhân sự
+MODE_OVERTIME = "bu_gio"  # GVCN/bộ môn dạy bù vượt định mức; chỉ tuyển khi bù vẫn không đủ
+MODES = (MODE_HIRE, MODE_OVERTIME)
+# Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt; GVCN bù
+# trước, bộ môn chỉ bù khi GVCN đã bù hết mức. Người hưởng thai sản ("ts") không bao giờ bù.
+OVERTIME_ROLES: set[str] = {ROLE_HOMEROOM, ROLE_GENERAL}
+OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức được duyệt)
+
+# --------------------------------------------------------------------------
+# Luật bảo vệ học sinh
+# --------------------------------------------------------------------------
+# Môn nặng: hạn chế xếp vào các tiết này (mục tiêu mềm, trọng số Weights.heavy_late).
 HEAVY_SUBJECTS: set[str] = {TOAN, TOAN_TC, TV, TV_TC, TIENG_ANH, KH, TIN_HOC}
-HEAVY_FORBIDDEN_PERIODS: set[int] = {7}
-# Số tiết nặng liên tiếp tối đa trong một buổi.
-MAX_CONSECUTIVE_HEAVY: dict[str, int] = {"Sáng": 3, "Chiều": 2}
+HEAVY_LATE_PERIODS: set[int] = {7}
 # Nhóm môn -> số tiết tối đa mỗi buổi (môn tăng cường được đếm riêng, không gộp vào môn gốc).
 SESSION_SUBJECT_LIMITS: list[tuple[frozenset[str], int]] = [
     (frozenset({TV}), 2),
@@ -165,16 +177,25 @@ class Weights:
     day_over_preferred: int = 100  # mỗi tiết vượt tải ngày mong muốn
     day_over_buffer: int = 300  # mỗi tiết vượt tải ngày mong muốn + 1
     hdtn_flex_distance: int = 200  # mỗi tiết cách cuối buổi của HĐTN flex
+    heavy_late: int = 200  # mỗi tiết môn nặng ở tiết 7
     subject_spread: int = 20  # mỗi tiết vượt mức rải đều môn/ngày
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
     general_on_specialist: int = 1  # mỗi tiết bộ môn dạy thay môn chuyên biệt
     load_balance: int = 50  # mỗi tiết dư lớn nhất giữa các GV cùng chức vụ
     supplement_order: int = 1  # dồn tiết cho GV bổ sung số thứ tự nhỏ trước
+    # Chế độ bù giờ (thứ tự ưu tiên: ít tiết bù của bộ môn > ít tiết bù của GVCN > chia đều >
+    # GVCN bù đúng thứ tự môn > hạn chế chia môn).
+    overtime_general: int = 200_000  # mỗi tiết bộ môn dạy bù (đắt hơn GVCN để GVCN bù trước)
+    overtime_homeroom: int = 100_000  # mỗi tiết GVCN dạy bù
+    overtime_second: int = 50_000  # mỗi tiết bù từ tiết thứ 2 của một người (ai cũng +1 rồi mới +2)
+    overtime_subject_order: int = 3_000  # × hạng môn: môn ưu tiên (0) rồi HOMEROOM_FILL_ORDER (1, 2...)
 
 
 @dataclass
 class Settings:
     student_rules: bool = True
+    mode: str = MODE_HIRE
+    overtime_max: int = OVERTIME_MAX  # chỉ dùng ở chế độ bù giờ
     time_limit: float = 240.0
     # Chạy lại cùng dữ liệu luôn ra cùng một TKB (xem solver._configure).
     reproducible: bool = True
