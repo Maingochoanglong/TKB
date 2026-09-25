@@ -144,6 +144,9 @@ FALLBACK_SUPPLEMENT_LOAD = 23
 # --------------------------------------------------------------------------
 # Luật bảo vệ học sinh
 # --------------------------------------------------------------------------
+# Môn nặng: hạn chế xếp vào các tiết này (mục tiêu mềm, trọng số Weights.heavy_late).
+HEAVY_SUBJECTS: set[str] = {TOAN, TOAN_TC, TV, TV_TC, TIENG_ANH, KH, TIN_HOC}
+HEAVY_LATE_PERIODS: set[int] = {7}
 # Nhóm môn -> số tiết tối đa mỗi buổi (môn tăng cường được đếm riêng, không gộp vào môn gốc).
 SESSION_SUBJECT_LIMITS: list[tuple[frozenset[str], int]] = [
     (frozenset({TV}), 2),
@@ -163,6 +166,7 @@ class Weights:
     day_over_preferred: int = 100  # mỗi tiết vượt tải ngày mong muốn
     day_over_buffer: int = 300  # mỗi tiết vượt tải ngày mong muốn + 1
     hdtn_flex_distance: int = 200  # mỗi tiết cách cuối buổi của HĐTN flex
+    heavy_late: int = 200  # mỗi tiết môn nặng ở tiết 7
     subject_spread: int = 20  # mỗi tiết vượt mức rải đều môn/ngày
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
     general_on_specialist: int = 1  # mỗi tiết bộ môn dạy thay môn chuyên biệt

@@ -67,6 +67,12 @@ def test_homeroom_teaches_first_period(small_solution):
         assert les.teacher == f"chủ nhiệm {les.class_name}"
 
 
+def test_heavy_subjects_avoid_last_period(small_solution):
+    late = [l for l in small_solution.lessons
+            if l.subject in config.HEAVY_SUBJECTS and l.period in config.HEAVY_LATE_PERIODS]
+    assert late == []
+
+
 def test_slot_capacity_limits_assignment():
     # 7 lớp x 4 tiết Tiếng Anh = 28 tiết, nhưng GV tiếng anh chỉ có 26 slot ngoài tiết của GVCN/HĐTN.
     rows = [(f"CN {i}", f"chủ nhiệm 3/{i}", 19) for i in range(1, 8)]

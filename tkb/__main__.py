@@ -56,6 +56,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {t.name} | {t.title} | {t.max_lessons} tiết (thực dạy {load[t.title]})")
     else:
         print("Không cần bổ sung giáo viên.")
+    late = sum(1 for les in solution.lessons
+               if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_LATE_PERIODS)
+    print(f"Môn nặng ở tiết {', '.join(map(str, sorted(config.HEAVY_LATE_PERIODS)))}: {late} tiết "
+          f"(mục tiêu mềm, càng ít càng tốt)")
     for e in errors[:20]:
         print(f"  LỖI: {e}")
     print(f"Đã ghi: {output}")

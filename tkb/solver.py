@@ -361,6 +361,12 @@ def timetable(problem: Problem, settings: config.Settings,
             objective.append(sum(w.hdtn_flex_distance * distance_to_session_end(s) * x[c.id, s]
                                  for s in dom[c.id] if distance_to_session_end(s) > 0))
 
+    # Hạn chế môn nặng ở tiết cuối ngày.
+    for c in problem.courses:
+        if c.subject in config.HEAVY_SUBJECTS:
+            objective.extend(w.heavy_late * x[c.id, s] for s in dom[c.id]
+                             if s[1] in config.HEAVY_LATE_PERIODS)
+
     # Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
     days = sorted(config.DAY_SESSIONS)
     for title, t in problem.teachers.items():

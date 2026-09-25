@@ -111,9 +111,10 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 
 **Luật bảo vệ học sinh**
 - Mỗi buổi tối đa 2 tiết Tiếng Việt và 2 tiết Toán (tiết tăng cường được đếm riêng).
-- Không còn luật môn nặng (tiết 7, số tiết nặng liên tiếp); thay bằng luật tiết 1 của GVCN ở trên.
+- Môn nặng ở tiết 7 không bị cấm nữa, chỉ hạn chế bằng mục tiêu mềm (xem dưới). Không giới hạn số tiết nặng liên tiếp.
 
 **Mục tiêu mềm**
+- Hạn chế môn nặng ở tiết 7 (Toán, Tiếng Việt, tiết tăng cường, Tiếng Anh, Khoa học, Tin học; đổi ở `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, trọng số `heavy_late`).
 - Cân bằng số tiết mỗi ngày của giáo viên.
 - Ít tiết trống giữa buổi.
 - Rải đều các môn trong tuần.
