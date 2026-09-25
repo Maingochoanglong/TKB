@@ -45,9 +45,6 @@ SO_LUONG = 8
 # Bật luật bảo vệ học sinh (không môn nặng tiết 7, tối đa 2 tiết TV/Toán mỗi buổi...).
 LUAT_HOC_SINH = True
 
-# Dừng lại chờ nhấn Enter khi chạy xong (hữu ích khi mở bằng cách nhấp đúp file).
-CHO_NHAN_ENTER_KHI_XONG = False
-
 # ==========================================================================
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -106,7 +103,4 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
 
 
 if __name__ == "__main__":
-    code = run()
-    if CHO_NHAN_ENTER_KHI_XONG:
-        input("Nhấn Enter để thoát...")
-    sys.exit(code)
+    sys.exit(run())
