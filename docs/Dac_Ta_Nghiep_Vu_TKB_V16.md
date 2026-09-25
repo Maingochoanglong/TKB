@@ -2,7 +2,8 @@
 
 > **V16 thay thế V15.** Tài liệu này mô tả đúng hành vi của chương trình trong repo (thư mục `tkb/`, file chạy `main.py`).
 >
-> - Mọi tham số nghiệp vụ nằm ở `tkb/config.py`. Các tuỳ chọn chạy nằm ở `main.py`.
+> - Dữ liệu của trường (môn, số tiết, giáo viên, chức vụ, lớp, định mức, style) chỉ lấy từ file vào (mục 2.4).
+> - Các luật nghiệp vụ mà file vào không có nằm ở `tkb/config.py`. Các tuỳ chọn chạy nằm ở `main.py` (mục 12.1).
 > - Nếu chương trình và đặc tả khác nhau, coi đó là lỗi và sửa một trong hai cho khớp.
 >
 > Quy ước trong tài liệu:
@@ -32,24 +33,25 @@
 | 15 | File vào | Hai file: nhân sự (Tên, Chức vụ kèm số thứ tự, Số tiết) và chương trình học | **Một file duy nhất (mẫu V8):** sheet NHÂN SỰ (Họ và Tên, Chức Vụ không số thứ tự, Lớp khối/số thứ tự, Số Tiết/Tuần, Chế Độ) và sheet CHƯƠNG TRÌNH HỌC (bắt buộc) |
 | 16 | Dữ liệu trong code | Chương trình học, danh sách môn, danh sách chức vụ chuyên biệt, định mức 23 nằm trong code | **Không còn trong code.** Những gì suy ra được từ file vào thì lấy từ file vào (mục 2.4) |
 | 17 | Định dạng file ra | Cố định trong code | **Chép style của file vào** (phông, cỡ chữ, viền, căn lề, chiều cao dòng 25), được thêm cột (mục 11) |
+| 18 | Tuỳ chọn chạy (`main.py`) | Thời gian cố định | `THU_MUC_OUT` để trống thì ghi vào thư mục dự án; `THOI_GIAN_TOI_DA` để trống thì **không giới hạn** (Ctrl+C dừng sớm). Mặc định: bù giờ, áp dụng luật học sinh, 240 giây, tái lập (mục 12.1) |
 
 ---
 
 ## 1. Phạm vi và thuật ngữ
 
-**Phạm vi.** Xếp TKB **tuần** cho một trường tiểu học 5 khối. Đầu vào là file danh sách nhân sự. Đầu ra gồm:
+**Phạm vi.** Xếp TKB **tuần** cho một trường tiểu học. Đầu vào là một file Excel gồm danh sách nhân sự và chương trình học. Đầu ra gồm:
 - TKB từng lớp.
 - Danh sách nhân sự đã cập nhật.
 - Bảng thống kê: thiếu người, dạy bù, tải giáo viên.
 
 | Thuật ngữ | Nghĩa |
 |---|---|
-| GVCN | Giáo viên chủ nhiệm, chức vụ `chủ nhiệm k/n` (lớp k/n) |
-| Bộ môn (GVBM) | Chức vụ `bộ môn n`, dạy được nhiều môn (mục 4) |
+| GVCN | Giáo viên chủ nhiệm, chức vụ `Chủ Nhiệm`, Mã GV `Chủ Nhiệm k/n` (lớp k/n) |
+| Bộ môn (GVBM) | Chức vụ `Bộ Môn`, Mã GV `Bộ Môn n`, dạy được nhiều môn (mục 4) |
 | GV chuyên biệt | Chức vụ **trùng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (ví dụ `Tiếng Anh`, `Thể Dục`, `Tin Học`); chỉ dạy đúng môn đó |
 | Mã GV | Chức vụ kèm số thứ tự hoặc lớp, ví dụ `Chủ Nhiệm 1/1`, `Tiếng Anh 2`, `Bộ Môn 6`. Dùng để nhận ra giáo viên khi cột tên để trống |
-| Quản lý | Chức vụ `quản lý n` |
-| Thai sản (ts) | Giáo viên đang hưởng chế độ thai sản. Số tiết ghi mức đã giảm. Ở danh sách nhân sự và thống kê, chức vụ có thêm `ts` |
+| Quản lý | Chức vụ `Quản Lý`, Mã GV `Quản Lý n` |
+| Thai sản | Giáo viên đang hưởng chế độ thai sản (cột Chế Độ = `Có`). Số tiết ghi mức đã giảm. Được dạy bù như mọi người |
 | Số tiết (định mức) | Số tiết **tối đa** giáo viên dạy mỗi tuần |
 | Tiết bù | Tiết dạy **vượt** định mức, chỉ có ở chế độ bù giờ |
 | Người bổ sung | Người cần tuyển, tên `chưa có`, chức vụ `<chức vụ> n+1, n+2…` |
@@ -82,8 +84,8 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 | Chế Độ | Không | `Có` (hoặc `Thai sản`) nếu đang hưởng chế độ thai sản; để trống nếu không |
 | STT, cột khác | Không | Không dùng |
 
-- **Tự đánh số thứ tự:** mỗi chức vụ (trừ Chủ Nhiệm) được đánh số 1, 2, 3… theo thứ tự dòng trong file, ví dụ Bộ Môn thứ hai là `bộ môn 2`. Chủ Nhiệm được nhận diện theo Lớp (`chủ nhiệm 1/1`). Người thai sản có thêm `ts` (`bộ môn 5 ts`).
-- **File cũ vẫn đọc được** (một sheet nhân sự, chương trình học lấy mặc định hoặc `--program`):
+- **Tự đánh số thứ tự (Mã GV):** mỗi chức vụ (trừ Chủ Nhiệm) được đánh số 1, 2, 3… theo thứ tự dòng trong file, ví dụ Bộ Môn thứ hai là `Bộ Môn 2`. Chủ Nhiệm được nhận diện theo Lớp (`Chủ Nhiệm 1/1`).
+- **File cũ vẫn đọc được** (một sheet nhân sự; chương trình học lấy từ `--program`):
   - V7: `Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần`.
   - V6: `Tên | Chức vụ | Số tiết | Thai sản`, chức vụ ghi kèm số (`bộ môn 5`, `chủ nhiệm 1/1`).
   - V5: 3 cột, thai sản ghi bằng chữ `ts` sau chức vụ (`bộ môn 5 ts`).
@@ -106,7 +108,7 @@ Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối
 
 ### 2.2. Danh sách lớp
 
-Lấy từ các dòng `chủ nhiệm k/n`, vì mỗi lớp luôn có đúng một GVCN. Lớp được sắp theo khối, rồi theo số thứ tự.
+Lấy từ cột Lớp của các dòng Chủ Nhiệm, vì mỗi lớp luôn có đúng một GVCN. Lớp được sắp theo khối, rồi theo số thứ tự.
 
 ### 2.3. Chương trình học
 
@@ -209,10 +211,10 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 ### 5.3. GVCN thiếu định mức: nhận thêm
 
 - Nhận thêm theo thứ tự **TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ** (`HOMEROOM_FILL_ORDER`).
-- Không bao giờ nhận môn của GV chuyên biệt (Tiếng Anh, Tin học, Thể dục, Âm nhạc, Mỹ thuật).
+- Không bao giờ nhận môn có GV chuyên biệt (chức vụ trùng tên môn, ví dụ Tiếng Anh, Tin học, Thể dục, Âm nhạc, Mỹ thuật).
 - Nếu trường có quản lý thì không nhận môn dành cho quản lý (KNS khối 4).
 
-### 5.4. Kết quả với dữ liệu hiện tại
+### 5.4. Kết quả với dữ liệu mẫu
 
 | Lớp (định mức GVCN) | GVCN dạy | Phần chuyển đi |
 |---|---|---|
@@ -220,7 +222,7 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 | Khối 2 (19) | TV 10, Toán 5, HĐTN 3, Đạo đức 1 | – |
 | Khối 3 (19) | TV 7, Toán 5, HĐTN 3, Đạo đức 1, TV tăng cường 1, Toán tăng cường 2 | – |
 | Khối 4, 5/1–5/4 (19) | TV 6, Toán 5, HĐTN 3, Khoa học 2, LS-ĐL 2, Đạo đức 1 | TV 1 tiết/lớp |
-| 5/5 thai sản (16) | TV 3, Toán 5, HĐTN 3, Khoa học 2, LS-ĐL 2, Đạo đức 1 | TV 4 tiết |
+| 5/5 thai sản (16) | TV 3, Toán 5, HĐTN 3, Khoa học 2, LS-ĐL 2, Đạo đức 1 | TV 4 tiết (ở chế độ bù giờ, GVCN này có thể bù lại) |
 
 ### 5.5. Tiết 1 buổi sáng
 
@@ -247,7 +249,7 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 
 **Môn nặng** (`HEAVY_SUBJECTS`): Toán, Toán tăng cường, Tiếng Việt, Tiếng Việt tăng cường, Tiếng Anh, Khoa học, Tin học.
 
-Với dữ liệu hiện tại, còn đúng **4 tiết Tiếng Anh ở tiết 7**, mỗi GV tiếng anh 1 tiết. Đây là mức tối thiểu:
+Với dữ liệu mẫu, còn đúng **4 tiết Tiếng Anh ở tiết 7**, mỗi GV tiếng anh 1 tiết. Đây là mức tối thiểu:
 - Mỗi GV tiếng anh dạy 23 tiết.
 - Ngoài tiết 1, Thứ 6 tiết 4 và tiết 7, họ chỉ còn 22 slot.
 
@@ -261,7 +263,7 @@ Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy d�
 
 - Phần không ai dạy được giao cho **người bổ sung**:
   - Tên `chưa có`.
-  - Chức vụ `<chức vụ> n+1, n+2…`, với n là số thứ tự lớn nhất hiện có của chức vụ đó.
+  - Mã GV `<chức vụ> n+1, n+2…` (ví dụ `Bộ Môn 6`), với n là số thứ tự lớn nhất hiện có của chức vụ đó.
 - **Định mức tuyển** của người bổ sung = Số tiết lớn nhất của các giáo viên cùng chức vụ trong file vào, không tính người thai sản. Nếu chức vụ đó chưa có ai thì lấy Số tiết lớn nhất của các giáo viên không chủ nhiệm, không quản lý.
 - Người bổ sung là một người thật sẽ tuyển: không dạy 2 lớp cùng lúc, và không dạy quá định mức tuyển.
 - Thứ tự ưu tiên:
@@ -337,9 +339,13 @@ Chương trình giải hai lần:
 6. **Kiểm tra độc lập** (mục 10) và xuất file (mục 11).
 
 **Thời gian và tái lập:**
-- `THOI_GIAN_TOI_DA` (mặc định 240) là lượng tính toán dành cho bước xếp giờ, tính xấp xỉ bằng giây.
-- **[Cứng] Tái lập:** khi `CHAY_TAI_LAP_DUOC = True`, chạy lại bao nhiêu lần cũng ra **đúng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
-  - file nhân sự (và file chương trình học nếu có);
+- `THOI_GIAN_TOI_DA` (mặc định 240) là lượng tính toán dành cho bước xếp giờ, tính xấp xỉ bằng giây. Bước phân công dùng 1/8 lượng này (tối thiểu 10).
+- **Không giới hạn** (`THOI_GIAN_TOI_DA` để trống hoặc 0, dòng lệnh `--time-limit 0`):
+  - Bước phân công: nhóm chính (tiết thiếu, người tuyển, tiết bù) giải đến khi **chứng minh tối ưu** (vài giây). Nhóm phụ (chia đều, thứ tự môn…) gần như không bao giờ chứng minh được nên vẫn giới hạn (`Settings.unlimited_polish_time`, 30).
+  - Bước xếp giờ: chạy đến khi chứng minh TKB tốt nhất. Với trường cỡ 29 lớp, việc này gần như không kết thúc.
+  - Bấm **Ctrl+C** thì bộ giải dừng, giữ TKB tốt nhất đã tìm được, kiểm tra luật và ghi đủ các file ra như bình thường. Kết quả khi dừng bằng tay phụ thuộc thời điểm dừng nên không tái lập.
+- **[Cứng] Tái lập:** khi `CHAY_TAI_LAP_DUOC = True` và có giới hạn thời gian, chạy lại bao nhiêu lần cũng ra **đúng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
+  - file vào (và file chương trình học riêng nếu có);
   - `CHE_DO`, `SO_TIET_BU_TOI_DA`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, `LUAT_HOC_SINH`;
   - phiên bản OR-Tools (ghim trong `requirements.txt`).
 - Máy nhanh hay chậm, máy đang bận hay rảnh không ảnh hưởng kết quả, vì bộ giải dừng theo **lượng tính toán**, không theo giây thực.
@@ -421,7 +427,7 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 
 - Màn hình in: các bước giải, người cần bổ sung, tiết dạy bù (tổng, theo GVCN/bộ môn, số người +2/+1), số tiết môn nặng ở tiết 7, lỗi kiểm tra.
 - Mã thoát:
-  - `0`: thành công.
+  - `0`: thành công (kể cả khi dừng sớm bằng Ctrl+C ở chế độ không giới hạn thời gian).
   - `1`: lỗi đầu vào, hoặc không xếp được.
   - `2`: đã xuất file nhưng kiểm tra luật **không đạt**.
 
@@ -455,17 +461,19 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 | `HOMEROOM_PERIODS` | Tiết luôn do GVCN dạy (mục 5.5) |
 | `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `SESSION_SUBJECT_LIMITS` | Luật học sinh (mục 6) |
 | `SUPPLEMENT_NAME` | Tên người bổ sung (mục 7.1) |
+| `ROLE_LABELS` | Cách ghi ba chức vụ Chủ Nhiệm, Bộ Môn, Quản Lý trong file ra |
 | `OVERTIME_ROLES`, `OVERTIME_MAX` | Bù giờ (mục 7.2) |
 | `Weights` | Trọng số mục tiêu (mục 8) |
+| `Settings` | Tham số chạy mặc định (thời gian, tái lập, số luồng; `unlimited_polish_time` ở mục 9) |
 
 ---
 
-## 13. Kết quả tham chiếu với dữ liệu hiện tại
+## 13. Kết quả tham chiếu với dữ liệu mẫu
 
-**Nhân sự** (`Input_TKB_V8.xlsx`): 45 người, gồm:
+**Nhân sự** (`data/Input_TKB_V8.xlsx`, tên giả): 45 người, gồm:
 - 29 GVCN, ứng với 29 lớp: khối 1–4 mỗi khối 6 lớp, khối 5 có 5 lớp.
 - 5 bộ môn, 4 tiếng anh, 3 thể dục, 1 âm nhạc, 1 mỹ thuật, 1 tin học, 1 quản lý.
-- 2 người thai sản: chủ nhiệm 5/5 (16 tiết) và bộ môn 5 (19 tiết).
+- 2 người thai sản: `Chủ Nhiệm 5/5` (16 tiết) và `Bộ Môn 5` (19 tiết).
 
 **Nhu cầu so với năng lực** (ngoài phần GVCN):
 
@@ -481,7 +489,7 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 
 | Chế độ | Kết quả |
 |---|---|
-| Tuyển thêm | Thiếu **52** tiết. Tuyển `bộ môn 6`, `bộ môn 7`, `bộ môn 8` (định mức 23; thực dạy 23/23/6) |
+| Tuyển thêm | Thiếu **52** tiết. Tuyển `Bộ Môn 6`, `Bộ Môn 7`, `Bộ Môn 8` (định mức 23; thực dạy 23/23/6) |
 | Bù giờ (+2) | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN, kể cả GVCN thai sản 5/5 (29 người: 23 người +2, 6 người +1). Bộ môn không phải bù |
 | Cả hai | 145/145 ô tiết 1 buổi sáng là GVCN của lớp. Môn nặng ở tiết 7: 4 tiết (Tiếng Anh, mức tối thiểu) |
 
@@ -492,10 +500,10 @@ Cả hai chế độ đều đã **chứng minh tối ưu** ở bước phân c�
 ## 14. Giả định và hạn chế đã biết
 
 1. **Tiết 1 buổi sáng thuộc GVCN** làm giáo viên không chủ nhiệm chỉ còn 26 slot/tuần. Giáo viên có định mức trên 26 sẽ bị phát hiện ngay ở bước phân công và cần người bổ sung hoặc bù.
-2. **Thai sản** không có ngày bắt đầu/kết thúc. Khi chế độ thay đổi, sửa cột Thai sản và Số tiết rồi chạy lại.
+2. **Thai sản** không có ngày bắt đầu/kết thúc. Khi chế độ thay đổi, sửa cột Chế Độ và Số Tiết/Tuần rồi chạy lại.
 3. **Người được bù +1 thay vì +2**, lớp nào quản lý dạy KNS, và cách chia các tiết cùng chi phí là do chương trình chọn. Các phương án này tương đương nhau theo mục tiêu. Đổi dữ liệu hoặc `SO_LUONG` có thể làm đổi lựa chọn.
-4. **Bước xếp giờ** chỉ bảo đảm TKB hợp lệ và tốt trong thời gian cho phép (trạng thái FEASIBLE). Mục tiêu mềm không được chứng minh là tốt nhất.
-5. **Người bổ sung** được ghi theo định mức tuyển đầy đủ, dù có thể dạy ít hơn (ví dụ `bộ môn 8` ghi 23, thực dạy 6).
+4. **Bước xếp giờ** chỉ bảo đảm TKB hợp lệ và tốt trong thời gian cho phép (trạng thái FEASIBLE). Mục tiêu mềm không được chứng minh là tốt nhất, kể cả khi để không giới hạn thời gian rồi dừng bằng Ctrl+C.
+5. **Người bổ sung** được ghi theo định mức tuyển đầy đủ, dù có thể dạy ít hơn (ví dụ `Bộ Môn 8` ghi 23, thực dạy 6).
 6. **"Kỹ năng số"** trong yêu cầu ban đầu được hiểu là **Kỹ năng sống**, vì chương trình không có môn Kỹ năng số.
 7. **Số thứ tự tự đánh theo thứ tự dòng:** đổi thứ tự các dòng cùng chức vụ thì Mã GV (ví dụ `Bộ Môn 2`) đổi theo. Khi cột tên để trống, hãy dùng cột Mã GV trong file cập nhật để biết ai là ai.
 8. **Tên môn phải khớp luật:** môn viết khác hẳn tên trong config (ví dụ `TV` thay cho `Tiếng Việt`) sẽ không nhận luật của môn đó; chương trình cảnh báo khi luật nhắc môn không có trong file.

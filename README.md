@@ -4,7 +4,7 @@ Chương trình Python đọc **một file Excel** (danh sách nhân sự và ch
 thời khóa biểu tuần cho toàn trường bằng OR-Tools CP-SAT. Khi trường thiếu người, có hai chế độ:
 
 - **Tuyển thêm** (`tuyen_them`): thêm giáo viên mới vào danh sách nhân sự với tên "chưa có"
-  (ví dụ `chưa có | bộ môn 6 | 23`) thay vì bỏ trống tiết.
+  (ví dụ `chưa có | Bộ Môn | 23`, Mã GV `Bộ Môn 6`) thay vì bỏ trống tiết.
 - **Bù giờ** (`bu_gio`): GVCN và bộ môn dạy bù vượt định mức, mỗi người tối đa 2 tiết/tuần
   (kể cả người hưởng thai sản). Chỉ khi bù vẫn không đủ mới thêm người "chưa có".
 
@@ -35,7 +35,8 @@ pip install -r requirements.txt
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
-   - **Chạy lại ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file đầu vào, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, phiên bản OR-Tools (đã ghim trong `requirements.txt`). Máy nhanh hay chậm không ảnh hưởng kết quả, chỉ ảnh hưởng thời gian chạy.
+   - **Chạy lại ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file vào, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, phiên bản OR-Tools (đã ghim trong `requirements.txt`). Máy nhanh hay chậm không ảnh hưởng kết quả, chỉ ảnh hưởng thời gian chạy.
+   - **Không giới hạn thời gian** (`THOI_GIAN_TOI_DA` để trống hoặc `0`): bước phân công vẫn chứng minh tối ưu số tiết thiếu/bù trong vài giây; bước xếp giờ chạy đến khi chứng minh TKB tốt nhất, với trường cỡ 29 lớp gần như không tự dừng. Bấm **Ctrl+C** để dừng, chương trình vẫn kiểm tra luật và ghi đủ các file ra. Dừng bằng tay thì mỗi lần có thể ra TKB khác nhau.
    - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\input.xlsx"` hoặc `"C:/Users/ten/TKB/input.xlsx"`.
 2. Bấm **Run ▶** (VS Code, PyCharm...) hoặc chạy `python main.py`.
 3. Kết quả nằm trong `THU_MUC_OUT`: `TKB.xlsx`, `Thong_Ke.xlsx` và `<tên file vào>_cap_nhat.xlsx`.
@@ -54,7 +55,7 @@ Tuỳ chọn:
 | `--staff-out` | File nhân sự cập nhật (mặc định `<thư mục output>/<tên input>_cap_nhat.xlsx`) |
 | `--stats-out` | File thống kê giáo viên (mặc định `<thư mục output>/Thong_Ke.xlsx`) |
 | `--program` | File chương trình học riêng; mặc định đọc sheet `CHƯƠNG TRÌNH HỌC` của file vào |
-| `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; `0` = không giới hạn) |
+| `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; `0` = không giới hạn, Ctrl+C để dừng) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
 | `--mode` | `tuyen_them` (mặc định) hoặc `bu_gio` |
 | `--max-overtime` | Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định 2) |
@@ -190,7 +191,7 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 ## Cách giải
 
 1. **Phân công** (chưa xếp giờ): CP-SAT tìm số tiết mỗi giáo viên dạy cho từng lớp-môn, không vượt định mức và số tiết trống giáo viên đó có thể xếp. Mục tiêu đầu tiên là ít tiết thiếu nhất, rồi ít người bổ sung nhất (chế độ bù giờ: rồi ít tiết bù của bộ môn, ít tiết bù của GVCN); sau đó mới đến chia đều tiết bù, hạn chế chia môn và cân bằng tải. Kết quả này là cận dưới của bài toán.
-2. **Xếp giờ** với phân công cố định. Nếu xếp được thì nghiệm đạt đúng cận dưới ở bước 1.
+2. **Xếp giờ** với phân công cố định, trong `THOI_GIAN_TOI_DA` (để trống thì đến khi chứng minh tối ưu hoặc bấm Ctrl+C). Nếu xếp được thì nghiệm đạt đúng cận dưới ở bước 1.
 3. **Dự phòng:** nếu bước 2 không xếp được, chương trình giải mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ) với thêm giáo viên bổ sung dự phòng.
 
 Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trên TKB, độc lập với solver.
@@ -199,7 +200,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 
 | File | Nội dung |
 |---|---|
-| `main.py` | File chạy nhanh: sửa hằng số thư mục vào/ra rồi bấm Run |
+| `main.py` | File chạy nhanh: sửa hằng số (file vào, thư mục ra, chế độ, luật học sinh, thời gian, tái lập) rồi bấm Run |
 | `tkb/config.py` | Luật nghiệp vụ không có trong file vào: khung giờ, quyền dạy, thứ tự cắt/bù, luật học sinh, trọng số |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |
 | `tkb/template.py` | Tạo file vào mẫu V8 (NHÂN SỰ + CHƯƠNG TRÌNH HỌC), chuyển file cũ sang file mẫu |
