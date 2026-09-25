@@ -1,8 +1,12 @@
 # Xếp thời khóa biểu tự động (TKB)
 
 Chương trình Python đọc **danh sách nhân sự** (Excel) và xếp thời khóa biểu tuần cho toàn trường
-bằng OR-Tools CP-SAT. Khi trường thiếu người, chương trình **thêm giáo viên mới vào danh sách nhân sự
-với tên "chưa có"** (ví dụ `chưa có | bộ môn 6 | 23`) thay vì bỏ trống tiết.
+bằng OR-Tools CP-SAT. Khi trường thiếu người, có hai chế độ:
+
+- **Tuyển thêm** (`tuyen_them`): thêm giáo viên mới vào danh sách nhân sự với tên "chưa có"
+  (ví dụ `chưa có | bộ môn 6 | 23`) thay vì bỏ trống tiết.
+- **Bù giờ** (`bu_gio`): GVCN và bộ môn dạy bù vượt định mức, mỗi người tối đa 2 tiết/tuần
+  (người hưởng thai sản tối đa 1). Chỉ khi bù vẫn không đủ mới thêm người "chưa có".
 
 ## Cài đặt và chạy
 
@@ -26,6 +30,8 @@ pip install -r requirements.txt
 | `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn | `240` (≈ 3,5 phút) |
 | `CHAY_TAI_LAP_DUOC` | `True`: cùng dữ liệu thì lần nào chạy cũng ra đúng một TKB; `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
+| `CHE_DO` | Khi thiếu người: `"tuyen_them"` (thêm GV "chưa có") hoặc `"bu_gio"` (GVCN/bộ môn dạy bù) | `"bu_gio"` |
+| `SO_TIET_BU_TOI_DA` | Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (thai sản luôn tối đa 1) | `2` |
 | `LUAT_HOC_SINH` | Bật luật bảo vệ học sinh | `True` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
@@ -48,6 +54,8 @@ Tuỳ chọn:
 | `--program` | File chương trình học (cột `Môn học`, `Khối 1..5`); mặc định dùng chương trình trong `tkb/config.py` |
 | `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
+| `--mode` | `tuyen_them` (mặc định) hoặc `bu_gio` |
+| `--max-overtime` | Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định 2) |
 | `--no-student-rules` | Tắt luật bảo vệ học sinh (dùng để tìm nguyên nhân khi không xếp được) |
 
 Chạy test: `python -m pytest -q`
@@ -69,9 +77,10 @@ File Excel có 3 cột **Tên**, **Chức vụ**, **Số tiết**.
      - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
      - Mỗi ô ghi môn và chức vụ trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `chủ nhiệm 1/1`. Chiều Thứ 6 ghi `Nghỉ`.
      - Font Times New Roman cỡ 14 (phóng to so với template cỡ 10 cho dễ đọc; đổi ở `FONT_SIZE` trong `tkb/writer.py`), dòng tiêu đề nền xám nhạt, viền mảnh. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
-   - Sheet **Danh sách nhân sự**: danh sách đã cập nhật, kèm số tiết thực dạy. Người bổ sung có tên `chưa có`, Số tiết ghi theo **định mức tuyển đầy đủ** của chức vụ (bộ môn: 23), dù thực dạy có thể ít hơn.
+   - Sheet **Danh sách nhân sự**: danh sách đã cập nhật, kèm số tiết thực dạy (chế độ bù giờ có thêm cột **Số tiết bù**). Người bổ sung có tên `chưa có`, Số tiết ghi theo **định mức tuyển đầy đủ** của chức vụ (bộ môn: 23), dù thực dạy có thể ít hơn.
    - Sheet **Thống kê**:
      - Các chức vụ thiếu và số tiết thiếu, kèm chi tiết lớp/môn.
+     - Chế độ bù giờ: ai dạy bù, bao nhiêu tiết, GVCN bù môn gì.
      - Tổng hợp theo nhóm chức vụ: định mức, đã dạy, dư, thiếu.
      - Tải từng giáo viên theo từng ngày.
      - Kết quả kiểm tra luật bắt buộc.
@@ -109,6 +118,14 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 - Chương trình ưu tiên (1) ít tiết thiếu nhất, rồi (2) ít người bổ sung nhất.
 - Tiết được dồn cho người bổ sung đầu trước; người cuối có thể dạy chưa đủ định mức, ví dụ 23 + 23 + 6.
 
+**Chế độ bù giờ** (`CHE_DO = "bu_gio"`)
+- Chỉ GVCN và bộ môn được dạy bù (vượt Số tiết định mức), mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần.
+- **Người hưởng thai sản bù tối đa 1 tiết** (luật cứng), và chỉ phải bù khi không còn cách khác.
+- GVCN chỉ bù ở lớp mình, không bù môn của giáo viên chuyên biệt. Thứ tự môn: môn ưu tiên của GVCN (lấy lại tiết đã bị cắt) → TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ.
+- GVCN bù trước; bộ môn chỉ bù khi GVCN đã bù hết mức.
+- Chia đều: mọi người bù +1 rồi mới có người bù +2.
+- Nếu bù hết mức vẫn thiếu thì phần còn lại mới thêm GV "chưa có" như chế độ tuyển thêm.
+
 **Luật bảo vệ học sinh**
 - Mỗi buổi tối đa 2 tiết Tiếng Việt và 2 tiết Toán (tiết tăng cường được đếm riêng).
 - Môn nặng ở tiết 7 không bị cấm nữa, chỉ hạn chế bằng mục tiêu mềm (xem dưới). Không giới hạn số tiết nặng liên tiếp.
@@ -122,7 +139,7 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 
 ## Cách giải
 
-1. **Phân công** (chưa xếp giờ): CP-SAT tìm số tiết mỗi giáo viên dạy cho từng lớp-môn, không vượt định mức và số tiết trống giáo viên đó có thể xếp. Mục tiêu đầu tiên là ít tiết thiếu nhất, rồi ít người bổ sung nhất; sau đó mới đến hạn chế chia môn và cân bằng tải. Kết quả này là cận dưới của bài toán.
+1. **Phân công** (chưa xếp giờ): CP-SAT tìm số tiết mỗi giáo viên dạy cho từng lớp-môn, không vượt định mức và số tiết trống giáo viên đó có thể xếp. Mục tiêu đầu tiên là ít tiết thiếu nhất, rồi ít người bổ sung nhất (chế độ bù giờ: rồi ít tiết bù của bộ môn, ít tiết bù của GVCN); sau đó mới đến bảo vệ người thai sản, chia đều tiết bù, hạn chế chia môn và cân bằng tải. Kết quả này là cận dưới của bài toán.
 2. **Xếp giờ** với phân công cố định. Nếu xếp được thì nghiệm đạt đúng cận dưới ở bước 1.
 3. **Dự phòng:** nếu bước 2 không xếp được, chương trình giải mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ) với thêm giáo viên bổ sung dự phòng.
 

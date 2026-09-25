@@ -137,9 +137,34 @@ def staff_rows(solution: Solution) -> list[Teacher]:
     return real + solution.used_supplements()
 
 
+def mode_label(problem) -> str:
+    if not problem.overtime_mode():
+        return "Tuyển thêm (thiếu người thì thêm GV \"chưa có\")"
+    ts = min(problem.overtime_max, config.MATERNITY_OVERTIME_MAX)
+    return (f"Bù giờ (GVCN, bộ môn bù tối đa {problem.overtime_max} tiết/người, "
+            f"người hưởng thai sản tối đa {ts} tiết)")
+
+
+def overtime_details(solution: Solution) -> dict[str, str]:
+    """GVCN -> các môn dạy bù ở lớp mình, vd "TV tăng cường ×2"."""
+    problem = solution.problem
+    result = {}
+    for g in solution.overtime():
+        t = problem.teachers[g]
+        if not t.class_name:
+            continue
+        got = Counter(les.subject for les in solution.lessons
+                      if les.teacher == g and les.class_name == t.class_name)
+        extra = got - Counter(problem.homeroom_take.get(t.class_name, {}))
+        result[g] = "; ".join(f"{subject_label(s)} ×{n}" for s, n in sorted(extra.items()))
+    return result
+
+
 def _staff_sheet(wb, solution: Solution) -> None:
     ws = wb.create_sheet("Danh sách nhân sự")
     load = solution.teacher_load()
+    overtime = solution.overtime()
+    with_ot = solution.problem.overtime_mode()
     rows = []
     for t in staff_rows(solution):
         spare = t.max_lessons - load[t.title]
@@ -148,10 +173,14 @@ def _staff_sheet(wb, solution: Solution) -> None:
         else:
             note = f"Còn dư {spare} tiết" if spare > 0 else ""
         # Người bổ sung được tuyển theo định mức đầy đủ của chức vụ (vd bộ môn 23 tiết).
-        rows.append([t.name, t.title, t.max_lessons, load[t.title], note])
-    _write_table(ws, 1, "DANH SÁCH NHÂN SỰ (đã cập nhật)",
-                 ["Tên", "Chức vụ", "Số tiết", "Số tiết thực dạy", "Ghi chú"], rows)
-    for col, width in zip("ABCDE", (38, 26, 12, 22, 46)):
+        row = [t.name, t.title, t.max_lessons, load[t.title]]
+        if with_ot:
+            row.append(overtime.get(t.title))
+        rows.append(row + [note])
+    header = ["Tên", "Chức vụ", "Số tiết", "Số tiết thực dạy"] + (["Số tiết bù"] if with_ot else []) + ["Ghi chú"]
+    _write_table(ws, 1, "DANH SÁCH NHÂN SỰ (đã cập nhật)", header, rows)
+    widths = (38, 26, 12, 22) + ((16,) if with_ot else ()) + (46,)
+    for col, width in zip("ABCDEF", widths):
         ws.column_dimensions[col].width = width
 
 
@@ -167,7 +196,11 @@ def role_summary(solution: Solution) -> list[list]:
             continue
         cap = sum(t.max_lessons for t in real)
         used = sum(load[t.title] for t in real)
-        rows.append([role, len(real), cap, used, cap - used, sum(load[t.title] for t in extra), len(extra)])
+        spare = sum(max(0, t.max_lessons - load[t.title]) for t in real)
+        row = [role, len(real), cap, used, spare]
+        if problem.overtime_mode():
+            row.append(sum(max(0, load[t.title] - t.max_lessons) for t in real))
+        rows.append(row + [sum(load[t.title] for t in extra), len(extra)])
     return rows
 
 
@@ -175,10 +208,13 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
     ws = wb.create_sheet("Thống kê")
     problem = solution.problem
     load = solution.teacher_load()
+    overtime = solution.overtime()
+    with_ot = problem.overtime_mode()
     row = 1
     ws.cell(row, 1, "THỐNG KÊ XẾP THỜI KHÓA BIỂU").font = Font(name=FONT_NAME, size=FONT_SIZE + 4, bold=True)
     row += 1
     info = [
+        ("Chế độ", mode_label(problem)),
         ("Kiểm tra luật bắt buộc", "ĐẠT" if not errors else f"KHÔNG ĐẠT ({len(errors)} lỗi)"),
         ("Trạng thái solver", f"{solution.status} ({solution.stage})"),
         ("Thời gian xếp giờ (giây)", round(solution.wall_time, 1)),
@@ -187,6 +223,8 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
         ("Tổng số tiết thiếu (giao cho GV bổ sung)", sum(load[t.title] for t in solution.used_supplements())),
         ("Số GV cần bổ sung", len(solution.used_supplements())),
     ]
+    if with_ot:
+        info.append(("Tổng số tiết dạy bù", sum(overtime.values())))
     for k, v in info + [("Ghi chú", note) for note in solution.notes + warnings]:
         ws.cell(row, 1, k).font = BOLD
         ws.cell(row, 2, v).font = NORMAL
@@ -206,12 +244,23 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
         sup_rows.append(["Tổng", "", sum(r[2] for r in sup_rows), ""])
     else:
         sup_rows.append(["(không thiếu)", "", 0, ""])
-    row = _write_table(ws, row, "1. CHỨC VỤ THIẾU VÀ SỐ TIẾT THIẾU (GV bổ sung \"chưa có\")",
+    number = iter(range(1, 10))
+    row = _write_table(ws, row, f"{next(number)}. CHỨC VỤ THIẾU VÀ SỐ TIẾT THIẾU (GV bổ sung \"chưa có\")",
                        ["Chức vụ", "Tên", "Số tiết thiếu", "Chi tiết (lớp môn × số tiết)"], sup_rows)
 
-    row = _write_table(ws, row, "2. THEO NHÓM CHỨC VỤ",
+    if with_ot:
+        subjects = overtime_details(solution)
+        # Cùng bố cục với bảng 1: cột D (rộng) là phần chi tiết.
+        ot_rows = [[t.title, t.name, overtime[t.title], subjects.get(t.title, ""), t.max_lessons, load[t.title]]
+                   for t in staff_rows(solution) if t.title in overtime]
+        ot_rows.append(["Tổng", "", sum(overtime.values()), "", "", ""])
+        row = _write_table(ws, row, f"{next(number)}. DẠY BÙ (vượt định mức)",
+                           ["Chức vụ", "Tên", "Số tiết bù", "Môn bù (GVCN, lớp mình)", "Định mức", "Thực dạy"],
+                           ot_rows)
+
+    row = _write_table(ws, row, f"{next(number)}. THEO NHÓM CHỨC VỤ",
                        ["Chức vụ", "Số GV hiện có", "Tổng định mức", "Đã dạy", "Dư (chưa dùng)",
-                        "Tiết thiếu", "Số GV bổ sung"], role_summary(solution))
+                        *(["Dạy bù"] if with_ot else []), "Tiết thiếu", "Số GV bổ sung"], role_summary(solution))
 
     days = sorted(config.DAY_SESSIONS)
     per_day = daily_loads(solution)
@@ -220,18 +269,19 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str])
         classes_of[les.teacher].add(les.class_name)
     load_rows = []
     for t in staff_rows(solution):
-        load_rows.append([t.title, t.name, t.max_lessons, load[t.title], t.max_lessons - load[t.title],
+        load_rows.append([t.title, t.name, t.max_lessons, load[t.title], max(0, t.max_lessons - load[t.title]),
+                          *([overtime.get(t.title, 0)] if with_ot else []),
                           *[per_day[t.title][d] for d in days], len(classes_of[t.title])])
-    row = _write_table(ws, row, "3. TẢI TỪNG GIÁO VIÊN",
-                       ["Chức vụ", "Tên", "Định mức", "Thực dạy", "Dư", *[config.DAYS[d] for d in days],
-                        "Số lớp dạy"], load_rows)
+    row = _write_table(ws, row, f"{next(number)}. TẢI TỪNG GIÁO VIÊN",
+                       ["Chức vụ", "Tên", "Định mức", "Thực dạy", "Dư", *(["Bù"] if with_ot else []),
+                        *[config.DAYS[d] for d in days], "Số lớp dạy"], load_rows)
 
     if errors:
-        row = _write_table(ws, row, "4. LỖI KIỂM TRA", ["Lỗi"], [[e] for e in errors])
+        row = _write_table(ws, row, f"{next(number)}. LỖI KIỂM TRA", ["Lỗi"], [[e] for e in errors])
 
     ws.column_dimensions["A"].width = 54
     ws.column_dimensions["B"].width = 38
-    for col in "CDEFGHIJK":
+    for col in "CDEFGHIJKL":
         ws.column_dimensions[col].width = 18
     ws.column_dimensions["D"].width = 80  # cột chi tiết của bảng 1
 

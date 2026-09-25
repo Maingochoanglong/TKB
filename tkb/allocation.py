@@ -33,6 +33,11 @@ class Problem:
     manager_load: dict[str, int]  # quản lý -> số tiết bắt buộc dạy
     slots: list[tuple[int, int]]
     warnings: list[str] = field(default_factory=list)
+    overtime: dict[str, int] = field(default_factory=dict)  # GV -> số tiết được dạy bù tối đa
+    overtime_max: int = 0  # > 0: chế độ bù giờ
+
+    def overtime_mode(self) -> bool:
+        return self.overtime_max > 0
 
     def class_courses(self, class_name: str) -> list[Course]:
         return [c for c in self.courses if c.class_name == class_name]
@@ -111,11 +116,21 @@ def make_supplements(role: str, count: int, teachers: list[Teacher]) -> list[Tea
             for i in range(1, count + 1)]
 
 
+def overtime_allowance(t: Teacher, overtime_max: int) -> int:
+    """Số tiết bù tối đa của một GV ở chế độ bù giờ."""
+    if overtime_max <= 0 or t.supplementary or t.role not in config.OVERTIME_ROLES:
+        return 0
+    return min(overtime_max, config.MATERNITY_OVERTIME_MAX) if t.maternity else overtime_max
+
+
 def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None = None,
-                  supplement_counts: dict[str, int] | None = None) -> Problem:
+                  supplement_counts: dict[str, int] | None = None, overtime_max: int = 0) -> Problem:
     """Dựng bài toán.
 
     supplement_counts: số GV bổ sung dự kiến cho từng chức vụ; None = đủ lớn để luôn có nghiệm.
+    overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn được dạy vượt định mức tối đa ngần ấy tiết
+    (người hưởng thai sản tối đa MATERNITY_OVERTIME_MAX); GVCN bù các môn không thuộc GV chuyên
+    biệt của lớp mình.
     """
     curriculum = curriculum or config.DEFAULT_CURRICULUM
     slots = all_slots()
@@ -201,9 +216,12 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
     for t in all_teachers:
         by_role.setdefault(t.role, []).append(t)
 
+    overtime = {t.title: n for t in staff if (n := overtime_allowance(t, overtime_max)) > 0}
     manager_pool_lessons: dict[str, int] = {m.title: 0 for m in managers}
     for cls, grade, subject, n in pool:
         eligible = [t.title for r in roles_for_subject(subject) for t in by_role.get(r, [])]
+        if homeroom[cls].title in overtime and subject not in specialist_subjects():
+            eligible.append(homeroom[cls].title)
         for m in managers:
             if any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
                 eligible.append(m.title)
@@ -229,4 +247,6 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
         manager_load=manager_load,
         slots=slots,
         warnings=warnings,
+        overtime=overtime,
+        overtime_max=max(overtime_max, 0),
     )

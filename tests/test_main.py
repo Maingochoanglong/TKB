@@ -18,7 +18,8 @@ def test_run_writes_outputs(tmp_path):
     in_dir, out_dir = tmp_path / "in", tmp_path / "out"
     in_dir.mkdir()
     _write_staff(in_dir / "nhan_su.xlsx", general=False)
-    code = main.run(in_dir, out_dir, "nhan_su.xlsx", None, "TKB.xlsx", thoi_gian_toi_da=20)
+    code = main.run(in_dir, out_dir, "nhan_su.xlsx", None, "TKB.xlsx", thoi_gian_toi_da=20,
+                    che_do="tuyen_them")
     assert code == 0
     assert (out_dir / "TKB.xlsx").is_file()
     rows = list(openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx").active.iter_rows(values_only=True))
@@ -56,3 +57,24 @@ def test_run_passes_thread_count(tmp_path, monkeypatch):
     main.run(in_dir, tmp_path / "out", "nhan_su.xlsx", None, "TKB.xlsx", so_luong=4)
     argv = seen["argv"]
     assert argv[argv.index("--workers") + 1] == "4"
+
+
+def test_run_overtime_mode_needs_no_hire(tmp_path):
+    in_dir, out_dir = tmp_path / "in", tmp_path / "out"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx", general=False)
+    code = main.run(in_dir, out_dir, "nhan_su.xlsx", None, "TKB.xlsx", thoi_gian_toi_da=20,
+                    che_do="bu_gio", so_tiet_bu_toi_da=4)
+    assert code == 0
+    rows = list(openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx").active.iter_rows(values_only=True))
+    assert all(r[0] != "chưa có" for r in rows)
+
+
+def test_run_rejects_bad_mode(tmp_path, capsys):
+    in_dir = tmp_path / "in"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx")
+    assert main.run(in_dir, tmp_path / "out", "nhan_su.xlsx", None, "TKB.xlsx", che_do="khac") == 1
+    assert "CHE_DO" in capsys.readouterr().out
+    assert main.run(in_dir, tmp_path / "out", "nhan_su.xlsx", None, "TKB.xlsx", so_tiet_bu_toi_da=-1) == 1
+    assert "SO_TIET_BU_TOI_DA" in capsys.readouterr().out

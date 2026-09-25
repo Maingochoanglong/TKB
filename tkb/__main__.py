@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections import Counter
 from pathlib import Path
 
 from . import config
@@ -25,11 +26,20 @@ def main(argv: list[str] | None = None) -> int:
                     help="Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau")
     ap.add_argument("--workers", type=int, default=8, help="Số luồng CP-SAT (mặc định 8)")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--mode", choices=config.MODES, default=config.MODE_HIRE,
+                    help="Khi thiếu người: tuyen_them = thêm GV \"chưa có\"; bu_gio = GVCN/bộ môn dạy bù "
+                         "(mặc định tuyen_them)")
+    ap.add_argument("--max-overtime", type=int, default=config.OVERTIME_MAX,
+                    help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định {config.OVERTIME_MAX}; "
+                         f"người hưởng thai sản tối đa {config.MATERNITY_OVERTIME_MAX})")
     ap.add_argument("--no-student-rules", action="store_true",
                     help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi)")
     args = ap.parse_args(argv)
 
+    if args.max_overtime < 0:
+        ap.error("--max-overtime phải >= 0")
     settings = config.Settings(student_rules=not args.no_student_rules,
+                               mode=args.mode, overtime_max=args.max_overtime,
                                time_limit=args.time_limit, workers=args.workers, seed=args.seed,
                                reproducible=not args.non_reproducible)
     try:
@@ -56,6 +66,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {t.name} | {t.title} | {t.max_lessons} tiết (thực dạy {load[t.title]})")
     else:
         print("Không cần bổ sung giáo viên.")
+    if solution.problem.overtime_mode():
+        overtime = solution.overtime()
+        teachers = solution.problem.teachers
+        homeroom = {g: n for g, n in overtime.items() if teachers[g].class_name}
+        general = {g: n for g, n in overtime.items() if not teachers[g].class_name}
+        print(f"Dạy bù {sum(overtime.values())} tiết: GVCN {sum(homeroom.values())} tiết ({len(homeroom)} người), "
+              f"bộ môn {sum(general.values())} tiết ({len(general)} người)")
+        levels = Counter(overtime.values())
+        if levels:
+            print("  " + ", ".join(f"{levels[k]} người bù +{k}" for k in sorted(levels, reverse=True)))
     late = sum(1 for les in solution.lessons
                if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_LATE_PERIODS)
     print(f"Môn nặng ở tiết {', '.join(map(str, sorted(config.HEAVY_LATE_PERIODS)))}: {late} tiết "

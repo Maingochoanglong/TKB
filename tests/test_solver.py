@@ -11,6 +11,7 @@ from tkb.staff import build_teacher
 from .conftest import small_staff
 
 FAST = config.Settings(time_limit=20, workers=4)
+OVERTIME = dataclasses.replace(FAST, mode=config.MODE_OVERTIME)
 
 
 @pytest.fixture(scope="module")
@@ -98,3 +99,57 @@ def test_reproducible_mode_gives_identical_timetables():
     runs = [solve(small_staff(general=False), None, settings, log=lambda *_: None) for _ in range(2)]
     key = [sorted((l.class_name, l.day, l.period, l.subject, l.teacher) for l in r.lessons) for r in runs]
     assert key[0] == key[1]
+
+
+@pytest.fixture(scope="module")
+def overtime_solution():
+    settings = dataclasses.replace(OVERTIME, overtime_max=4)
+    return solve(small_staff(general=False), None, settings, log=lambda *_: None)
+
+
+def test_overtime_mode_covers_shortage_without_hiring(overtime_solution):
+    sol = overtime_solution
+    assert check(sol.problem, sol.lessons) == []
+    assert sol.used_supplements() == []
+    # Khối 3 mỗi lớp còn TNXH 2 + KNS 1 + Công nghệ 1: GVCN bù hết ở lớp mình.
+    assert sol.overtime() == {"chủ nhiệm 3/1": 4, "chủ nhiệm 3/2": 4}
+
+
+def test_overtime_mode_hires_only_the_remainder():
+    sol = solve(small_staff(general=False), None, OVERTIME, log=lambda *_: None)
+    assert check(sol.problem, sol.lessons) == []
+    assert sol.overtime() == {"chủ nhiệm 3/1": 2, "chủ nhiệm 3/2": 2}
+    assert [t.title for t in sol.used_supplements()] == ["bộ môn 1"]
+    assert sol.teacher_load()["bộ môn 1"] == 4
+
+
+def test_overtime_maternity_cap_and_homeroom_first():
+    rows = [("CN A", "chủ nhiệm 3/1", 19), ("CN B", "chủ nhiệm 3/2 ts", 19), ("TA", "tiếng anh 1", 23),
+            ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23),
+            ("BM", "bộ môn 1", 3)]
+    staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    sol = solve(staff, None, OVERTIME, log=lambda *_: None)
+    assert check(sol.problem, sol.lessons) == []
+    assert sol.used_supplements() == []
+    # Thiếu 8 - 3 = 5 tiết: GVCN bù trước (thai sản tối đa 1), bộ môn bù phần còn lại.
+    assert sol.overtime() == {"chủ nhiệm 3/1": 2, "chủ nhiệm 3/2 ts": 1, "bộ môn 1": 2}
+
+
+def test_checker_flags_invalid_overtime(overtime_solution):
+    sol = overtime_solution
+    lessons = list(sol.lessons)
+    i = next(k for k, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == config.TIENG_ANH)
+    bad = lessons[:i] + [dataclasses.replace(lessons[i], teacher="chủ nhiệm 3/1")] + lessons[i + 1:]
+    errors = check(sol.problem, bad)
+    assert any("dạy bù" in e for e in errors)
+    assert any("vượt định mức 19 + 4 tiết bù" in e for e in errors)
+
+
+def test_real_data_overtime_assignment(real_staff):
+    problem = build_problem(real_staff, overtime_max=2)
+    plan = assign(problem, config.Settings(time_limit=80, workers=4))
+    assert plan.supplement_lessons == 0
+    assert sum(plan.overtime.values()) == 52
+    # Chỉ GVCN bù, người thai sản không phải bù, không ai quá 2 tiết.
+    assert all(problem.teachers[g].class_name and not problem.teachers[g].maternity for g in plan.overtime)
+    assert max(plan.overtime.values()) == 2

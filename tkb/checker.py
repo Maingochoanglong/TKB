@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from . import config
-from .allocation import Problem, all_slots, manager_allowed
+from .allocation import Problem, all_slots, manager_allowed, specialist_subjects
 from .solver import Lesson
 
 
@@ -51,8 +51,10 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                           f"{', '.join(i.class_name for i in items)}")
     load = Counter(les.teacher for les in lessons)
     for g, n in load.items():
-        if g in teachers and n > teachers[g].max_lessons:
-            errors.append(f"{g} dạy {n} tiết, vượt định mức {teachers[g].max_lessons}")
+        extra = problem.overtime.get(g, 0)
+        if g in teachers and n > teachers[g].max_lessons + extra:
+            errors.append(f"{g} dạy {n} tiết, vượt định mức {teachers[g].max_lessons}"
+                          + (f" + {extra} tiết bù" if extra else ""))
     for g, need in problem.manager_load.items():
         if load.get(g, 0) != need:
             errors.append(f"{g} dạy {load.get(g, 0)} tiết, yêu cầu đúng {need} tiết")
@@ -81,12 +83,21 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             if les.subject != config.SPECIALIST_ROLES[t.role]:
                 errors.append(f"{at}: {t.title} chỉ được dạy {config.SPECIALIST_ROLES[t.role]}")
 
-    # GVCN nhận đúng phần đã phân; phần còn lại không bị chia cho quá nhiều GV.
+    # GVCN dạy đủ phần đã phân; phần dạy thêm chỉ là tiết bù hợp lệ (chế độ bù giờ).
+    homeroom = {t.class_name: t.title for t in teachers.values() if t.class_name}
     for cls, take in problem.homeroom_take.items():
         got = Counter(les.subject for les in lessons
                       if les.class_name == cls and teachers[les.teacher].class_name == cls)
-        if dict(got) != {s: n for s, n in take.items() if n > 0}:
+        want = Counter({s: n for s, n in take.items() if n > 0})
+        extra = got - want
+        if want - got:
             errors.append(f"Lớp {cls}: GVCN dạy {dict(got)}, phân công là {take}")
+        elif extra:
+            allowed = problem.overtime.get(homeroom[cls], 0)
+            banned = sorted(s for s in extra if s in specialist_subjects())
+            if sum(extra.values()) > allowed or banned:
+                errors.append(f"Lớp {cls}: GVCN dạy bù {dict(extra)} không hợp lệ (tối đa {allowed} tiết, "
+                              f"không bù môn chuyên biệt)")
 
     # HĐTN: 2 slot cố định + phần còn lại trong các ngày linh hoạt.
     for cls in problem.classes:

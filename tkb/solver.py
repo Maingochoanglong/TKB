@@ -55,6 +55,13 @@ class Solution:
         load = self.teacher_load()
         return [t for t in self.problem.teachers.values() if t.supplementary and load[t.title] > 0]
 
+    def overtime(self) -> dict[str, int]:
+        """GV -> số tiết dạy bù (vượt định mức)."""
+        load = self.teacher_load()
+        teachers = self.problem.teachers
+        return {g: load[g] - teachers[g].max_lessons for g in self.problem.overtime
+                if load[g] > teachers[g].max_lessons}
+
 
 # --------------------------------------------------------------------------
 # Tiện ích khung giờ
@@ -133,6 +140,7 @@ class _Allocation:
                  fixed: dict[tuple[int, str], int] | None = None):
         self.m = m
         self.problem = problem
+        self.w = w
         self.a: dict[tuple[int, str], cp_model.LinearExprT] = {}
         self.used: dict[tuple[int, str], cp_model.LinearExprT] = {}
         self.teachers_of: dict[int, list[str]] = {}
@@ -170,7 +178,7 @@ class _Allocation:
         self.load: dict[str, cp_model.IntVar] = {}
         self.hired: dict[str, cp_model.IntVar] = {}
         for title, t in problem.teachers.items():
-            load = m.NewIntVar(0, t.max_lessons, f"load_{title}")
+            load = m.NewIntVar(0, t.max_lessons + problem.overtime.get(title, 0), f"load_{title}")
             m.Add(load == sum(load_terms[title]))
             self.load[title] = load
             if title in problem.manager_load:
@@ -183,6 +191,7 @@ class _Allocation:
                 main.append(w.supplement_lesson * load + w.supplement_teacher * h)
                 if t.role in config.SPECIALIST_ROLES:
                     main.append(w.specialist_supplement * h)
+        self.overtime = self._overtime(main, secondary)
         # Phá đối xứng giữa các GV bổ sung cùng chức vụ: số thứ tự nhỏ dạy nhiều hơn.
         for titles in problem.supplement_roles.values():
             for a, b in zip(titles, titles[1:]):
@@ -216,6 +225,33 @@ class _Allocation:
         self.secondary = secondary
         self.objective = main + secondary
 
+    def _overtime(self, main: list, secondary: list) -> dict[str, cp_model.IntVar]:
+        """Chế độ bù giờ: số tiết bù = tải vượt định mức; GVCN bù trước bộ môn."""
+        problem, m, w = self.problem, self.m, self.w
+        result: dict[str, cp_model.IntVar] = {}
+        for title, extra in problem.overtime.items():
+            t = problem.teachers[title]
+            ot = m.NewIntVar(0, extra, f"ot_{title}")
+            m.Add(ot >= self.load[title] - t.max_lessons)
+            result[title] = ot
+            main.append((w.overtime_homeroom if t.class_name else w.overtime_general) * ot)
+            if extra > 1:
+                second = m.NewIntVar(0, extra - 1, f"ot2_{title}")
+                m.Add(second >= ot - 1)
+                secondary.append(w.overtime_second * second)
+            if t.maternity:
+                secondary.append(w.overtime_maternity * ot)
+        # GVCN bù môn ưu tiên của lớp trước, sau đó theo thứ tự bù của GVCN.
+        order = {s: 0 for s in config.HOMEROOM_PRIORITY}
+        order.update({s: i + 1 for i, s in enumerate(config.HOMEROOM_FILL_ORDER)})
+        for (cid, g), a in self.a.items():
+            c = problem.courses[cid]
+            if not c.homeroom and problem.teachers[g].class_name and not isinstance(a, int):
+                rank = order.get(c.subject, len(config.HOMEROOM_FILL_ORDER) + 1)
+                if rank:
+                    secondary.append(w.overtime_subject_order * rank * a)
+        return result
+
     def _slot_capacity(self) -> None:
         """GV không dạy 2 lớp cùng lúc: các tiết có miền slot nằm trong D chiếm tối đa |D| slot.
 
@@ -247,6 +283,7 @@ class Assignment:
     counts: dict[str, int]  # chức vụ -> số GV bổ sung cần
     supplement_lessons: int
     optimal: bool
+    overtime: dict[str, int] = field(default_factory=dict)  # GV -> số tiết dạy bù
 
 
 def assign(problem: Problem, settings: config.Settings) -> Assignment:
@@ -279,9 +316,10 @@ def assign(problem: Problem, settings: config.Settings) -> Assignment:
     lessons = {key: int(solver.Value(v)) for key, v in alloc.a.items()}
     counts = {role: sum(1 for t in titles if solver.Value(alloc.hired[t]))
               for role, titles in problem.supplement_roles.items()}
+    overtime = {g: int(solver.Value(v)) for g, v in alloc.overtime.items() if solver.Value(v)}
     return Assignment(lessons={k: v for k, v in lessons.items() if v > 0}, counts=counts,
                       supplement_lessons=int(solver.Value(alloc.supplement_lessons())),
-                      optimal=optimal)
+                      optimal=optimal, overtime=overtime)
 
 
 # --------------------------------------------------------------------------
@@ -464,30 +502,41 @@ def timetable(problem: Problem, settings: config.Settings,
 def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None,
           settings: config.Settings, log=print) -> Solution:
     """Toàn bộ quy trình: phân công → xếp giờ với phân công cố định → (dự phòng) mô hình tích hợp."""
-    base = build_problem(staff, curriculum)
+    if settings.mode not in config.MODES:
+        raise SolveError(f"Chế độ không hợp lệ: {settings.mode!r} (chọn một trong {', '.join(config.MODES)})")
+    overtime_max = settings.overtime_max if settings.mode == config.MODE_OVERTIME else 0
+    if overtime_max < 0:
+        raise SolveError(f"Số tiết bù tối đa phải >= 0 (đang là {overtime_max})")
+    base = build_problem(staff, curriculum, overtime_max=overtime_max)
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
-    log("Bước 1/2: phân công giáo viên...")
+    mode = (f" (chế độ bù giờ, tối đa +{overtime_max} tiết/người, thai sản "
+            f"+{min(overtime_max, config.MATERNITY_OVERTIME_MAX)})" if overtime_max else "")
+    log(f"Bước 1/2: phân công giáo viên{mode}...")
     plan = assign(base, settings)
+    if overtime_max:
+        homeroom = sum(n for g, n in plan.overtime.items() if base.teachers[g].class_name)
+        log(f"  Dạy bù: {sum(plan.overtime.values())} tiết (GVCN {homeroom}, "
+            f"bộ môn {sum(plan.overtime.values()) - homeroom})")
     need = {r: c for r, c in plan.counts.items() if c}
     log(f"  Cần bổ sung: {need or 'không'}; {plan.supplement_lessons} tiết cho GV bổ sung"
         f"{' (tối ưu)' if plan.optimal else ' (chưa chứng minh tối ưu)'}")
 
-    problem = build_problem(staff, curriculum, plan.counts)
+    problem = build_problem(staff, curriculum, plan.counts, overtime_max=overtime_max)
     fixed = {k: v for k, v in plan.lessons.items() if k[1] in problem.teachers}
     mode = "chế độ tái lập" if settings.reproducible else "giới hạn giây thực"
     log(f"Bước 2/2: xếp giờ (~{settings.time_limit:.0f}s, {mode})...")
     solution = timetable(problem, settings, fixed=fixed)
     if solution is not None:
-        solution.notes.append("Số tiết thiếu và số GV bổ sung là nhỏ nhất (đã chứng minh tối ưu)"
-                              if plan.optimal else
-                              "Số tiết thiếu/số GV bổ sung chưa được chứng minh là nhỏ nhất")
+        what = "Số tiết thiếu, số GV bổ sung" + (" và số tiết dạy bù" if overtime_max else "")
+        solution.notes.append(f"{what}: nhỏ nhất (đã chứng minh tối ưu)" if plan.optimal else
+                              f"{what}: chưa được chứng minh là nhỏ nhất")
         return solution
 
     for slack in (1, 3):
         log(f"  Không xếp được với phân công cố định; thử mô hình tích hợp (dự phòng {slack} GV/chức vụ)...")
         planned = {role: plan.counts.get(role, 0) + slack for role in base.supplement_roles}
-        problem = build_problem(staff, curriculum, planned)
+        problem = build_problem(staff, curriculum, planned, overtime_max=overtime_max)
         solution = timetable(problem, settings, hint=plan.lessons)
         if solution is not None:
             solution.notes.append(f"Mô hình tích hợp (dự phòng {slack} GV bổ sung/chức vụ)")

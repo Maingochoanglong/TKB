@@ -74,3 +74,18 @@ def test_updated_staff_file_is_reusable(tmp_path):
     sol2 = solve(again, None, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
     assert sol2.used_supplements() == []
     assert check(sol2.problem, sol2.lessons) == []
+
+
+def test_overtime_columns(tmp_path):
+    settings = config.Settings(time_limit=20, workers=4, mode=config.MODE_OVERTIME, overtime_max=4)
+    sol = solve(small_staff(general=False), None, settings, log=lambda *_: None)
+    out = tmp_path / "TKB.xlsx"
+    write_timetable(sol, out, check(sol.problem, sol.lessons), [])
+    wb = openpyxl.load_workbook(out)
+    staff = list(wb["Danh sách nhân sự"].iter_rows(min_row=2, values_only=True))
+    assert staff[0] == ("Tên", "Chức vụ", "Số tiết", "Số tiết thực dạy", "Số tiết bù", "Ghi chú")
+    assert staff[1][:5] == ("CN A", "chủ nhiệm 3/1", 19, 23, 4)
+    stats = [v for row in wb["Thống kê"].iter_rows(values_only=True) for v in row if v is not None]
+    assert "2. DẠY BÙ (vượt định mức)" in stats
+    assert any(isinstance(v, str) and v.startswith("Bù giờ") for v in stats)
+    assert any(isinstance(v, str) and "TNXH ×2" in v for v in stats)

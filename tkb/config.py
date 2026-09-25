@@ -142,6 +142,18 @@ SUPPLEMENT_NAME = "chưa có"
 FALLBACK_SUPPLEMENT_LOAD = 23
 
 # --------------------------------------------------------------------------
+# Chế độ xử lý khi thiếu người
+# --------------------------------------------------------------------------
+MODE_HIRE = "tuyen_them"  # thêm GV bổ sung "chưa có" vào danh sách nhân sự
+MODE_OVERTIME = "bu_gio"  # GVCN/bộ môn dạy bù vượt định mức; chỉ tuyển khi bù vẫn không đủ
+MODES = (MODE_HIRE, MODE_OVERTIME)
+# Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt; GVCN bù
+# trước, bộ môn chỉ bù khi GVCN đã bù hết mức.
+OVERTIME_ROLES: set[str] = {ROLE_HOMEROOM, ROLE_GENERAL}
+OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức được duyệt)
+MATERNITY_OVERTIME_MAX = 1  # luật cứng: người hưởng thai sản bù tối đa 1 tiết
+
+# --------------------------------------------------------------------------
 # Luật bảo vệ học sinh
 # --------------------------------------------------------------------------
 # Môn nặng: hạn chế xếp vào các tiết này (mục tiêu mềm, trọng số Weights.heavy_late).
@@ -172,11 +184,20 @@ class Weights:
     general_on_specialist: int = 1  # mỗi tiết bộ môn dạy thay môn chuyên biệt
     load_balance: int = 50  # mỗi tiết dư lớn nhất giữa các GV cùng chức vụ
     supplement_order: int = 1  # dồn tiết cho GV bổ sung số thứ tự nhỏ trước
+    # Chế độ bù giờ (thứ tự ưu tiên: ít tiết bù của bộ môn > ít tiết bù của GVCN > tránh bù cho
+    # người thai sản > chia đều > GVCN bù đúng thứ tự môn > hạn chế chia môn).
+    overtime_general: int = 200_000  # mỗi tiết bộ môn dạy bù (đắt hơn GVCN để GVCN bù trước)
+    overtime_homeroom: int = 100_000  # mỗi tiết GVCN dạy bù
+    overtime_maternity: int = 80_000  # mỗi tiết bù của người hưởng thai sản
+    overtime_second: int = 50_000  # mỗi tiết bù từ tiết thứ 2 của một người (ai cũng +1 rồi mới +2)
+    overtime_subject_order: int = 3_000  # × hạng môn: môn ưu tiên (0) rồi HOMEROOM_FILL_ORDER (1, 2...)
 
 
 @dataclass
 class Settings:
     student_rules: bool = True
+    mode: str = MODE_HIRE
+    overtime_max: int = OVERTIME_MAX  # chỉ dùng ở chế độ bù giờ
     time_limit: float = 240.0
     # Chạy lại cùng dữ liệu luôn ra cùng một TKB (xem solver._configure).
     reproducible: bool = True
