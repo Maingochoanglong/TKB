@@ -80,19 +80,23 @@ def day_targets(total: int, slots: list[tuple[int, int]]) -> dict[int, int]:
     return target
 
 
-def allowed_slots(course: Course, problem: Problem, student_rules: bool) -> list[tuple[int, int]]:
+def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
     if course.fixed_slots:
         missing = [s for s in course.fixed_slots if s not in problem.slots]
         if missing:
             raise SolveError(f"Slot cố định {missing} của {course.subject} không có trong khung giờ")
         return list(course.fixed_slots)
+    # Slot đã cố định cho môn khác của lớp (HĐTN) thì không xếp môn này.
+    taken = {s for c in problem.class_courses(course.class_name) if c.id != course.id for s in c.fixed_slots}
     result = []
     for s in problem.slots:
+        if s in taken:
+            continue
         if course.allowed_days is not None and s[0] not in course.allowed_days:
             continue
         if course.subject == config.HDTN and s in config.HDTN_FIXED_SLOTS:
             continue
-        if student_rules and course.subject in config.HEAVY_SUBJECTS and s[1] in config.HEAVY_FORBIDDEN_PERIODS:
+        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS:
             continue
         result.append(s)
     if len(result) < course.lessons:
@@ -206,9 +210,29 @@ class _Allocation:
             for t in members:
                 m.Add(worst >= t.max_lessons - self.load[t.title])
             secondary.append(w.load_balance * worst)
+        if fixed is None:
+            self._slot_capacity()
         self.main = main
         self.secondary = secondary
         self.objective = main + secondary
+
+    def _slot_capacity(self) -> None:
+        """GV không dạy 2 lớp cùng lúc: các tiết có miền slot nằm trong D chiếm tối đa |D| slot.
+
+        Giúp bước phân công biết trước GV nào không đủ slot trống (vd tiết 1 đã dành cho GVCN).
+        """
+        problem = self.problem
+        dom = {c.id: frozenset(allowed_slots(c, problem)) for c in problem.courses}
+        by_teacher: dict[str, list[int]] = {}
+        for cid, g in self.a:
+            by_teacher.setdefault(g, []).append(cid)
+        for g, cids in by_teacher.items():
+            groups = {dom[cid] for cid in cids}
+            groups.add(frozenset().union(*groups))
+            for d in groups:
+                terms = [self.a[cid, g] for cid in cids if dom[cid] <= d]
+                if any(not isinstance(t, int) for t in terms):
+                    self.m.Add(sum(terms) <= len(d))
 
     def supplement_lessons(self):
         return sum(self.load[t] for t in self.hired)
@@ -275,7 +299,7 @@ def timetable(problem: Problem, settings: config.Settings,
     x: dict[tuple[int, tuple[int, int]], cp_model.IntVar] = {}
     dom: dict[int, list[tuple[int, int]]] = {}
     for c in problem.courses:
-        dom[c.id] = allowed_slots(c, problem, settings.student_rules)
+        dom[c.id] = allowed_slots(c, problem)
         vs = []
         for s in dom[c.id]:
             v = m.NewBoolVar(f"x_{c.id}_{s[0]}_{s[1]}")
@@ -319,25 +343,15 @@ def timetable(problem: Problem, settings: config.Settings,
         if len(terms) > 1:
             m.Add(sum(terms) <= 1)
 
-    # Luật bảo vệ học sinh.
+    # Luật bảo vệ học sinh: số tiết tối đa của một số môn trong mỗi buổi.
     if settings.student_rules:
-        limits = config.SESSION_SUBJECT_LIMITS
         for cls in problem.classes:
             courses = problem.class_courses(cls)
-            heavy = [c for c in courses if c.subject in config.HEAVY_SUBJECTS]
             for d, sessions in config.DAY_SESSIONS.items():
                 for session in sessions:
-                    periods = session.periods
-                    cap = config.MAX_CONSECUTIVE_HEAVY.get(session.name)
-                    if cap is not None and len(periods) > cap:
-                        for i in range(len(periods) - cap):
-                            window = periods[i:i + cap + 1]
-                            vs = [x[c.id, (d, p)] for c in heavy for p in window if (c.id, (d, p)) in x]
-                            if len(vs) > cap:
-                                m.Add(sum(vs) <= cap)
-                    for group, limit in limits:
+                    for group, limit in config.SESSION_SUBJECT_LIMITS:
                         vs = [x[c.id, (d, p)] for c in courses if c.subject in group
-                              for p in periods if (c.id, (d, p)) in x]
+                              for p in session.periods if (c.id, (d, p)) in x]
                         if len(vs) > limit:
                             m.Add(sum(vs) <= limit)
 

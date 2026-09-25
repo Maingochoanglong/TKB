@@ -131,6 +131,8 @@ HOMEROOM_PRIORITY: list[str] = [TV, TOAN, HDTN, KH, LSDL, DD]
 HOMEROOM_CUT_ORDER: list[str] = [TV, TOAN, KH, LSDL]
 # Thiếu định mức: nhận thêm theo thứ tự này (không bao giờ nhận môn của GV chuyên biệt).
 HOMEROOM_FILL_ORDER: list[str] = [TV_TC, TOAN_TC, TNXH, KNS, CONG_NGHE]
+# Các tiết luôn do GVCN của lớp dạy, ở mọi ngày (tiết 1-4 là buổi sáng, 5-7 là buổi chiều).
+HOMEROOM_PERIODS: set[int] = {1}
 
 # --------------------------------------------------------------------------
 # GV bổ sung khi thiếu người
@@ -140,12 +142,8 @@ SUPPLEMENT_NAME = "chưa có"
 FALLBACK_SUPPLEMENT_LOAD = 23
 
 # --------------------------------------------------------------------------
-# Luật bảo vệ học sinh (V15)
+# Luật bảo vệ học sinh
 # --------------------------------------------------------------------------
-HEAVY_SUBJECTS: set[str] = {TOAN, TOAN_TC, TV, TV_TC, TIENG_ANH, KH, TIN_HOC}
-HEAVY_FORBIDDEN_PERIODS: set[int] = {7}
-# Số tiết nặng liên tiếp tối đa trong một buổi.
-MAX_CONSECUTIVE_HEAVY: dict[str, int] = {"Sáng": 3, "Chiều": 2}
 # Nhóm môn -> số tiết tối đa mỗi buổi (môn tăng cường được đếm riêng, không gộp vào môn gốc).
 SESSION_SUBJECT_LIMITS: list[tuple[frozenset[str], int]] = [
     (frozenset({TV}), 2),

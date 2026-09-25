@@ -42,7 +42,7 @@ CHAY_TAI_LAP_DUOC = True
 # (vẫn đúng luật) — giữ cố định nếu muốn các lần chạy/các máy cho cùng kết quả.
 SO_LUONG = 8
 
-# Bật luật bảo vệ học sinh (không môn nặng tiết 7, tối đa 2 tiết TV/Toán mỗi buổi...).
+# Bật luật bảo vệ học sinh (tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi).
 LUAT_HOC_SINH = True
 
 # ==========================================================================

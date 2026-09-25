@@ -2,7 +2,7 @@ import pytest
 
 from tkb import config
 from tkb.allocation import build_problem, split_homeroom
-from tkb.staff import InputError
+from tkb.staff import InputError, build_teacher
 
 C = config
 
@@ -73,3 +73,11 @@ def test_supplement_numbering(real_staff):
     assert p.supplement_roles["tin học"] == ["tin học 2"]
     t = p.teachers["bộ môn 6"]
     assert t.name == config.SUPPLEMENT_NAME and t.supplementary and t.max_lessons == 23
+
+
+def test_homeroom_needs_enough_lessons_for_locked_periods(monkeypatch):
+    # GVCN 8 tiết không đủ nếu khoá tiết 1 và tiết 2 mỗi ngày (10 tiết).
+    monkeypatch.setattr(config, "HOMEROOM_PERIODS", {1, 2})
+    staff = [build_teacher("CN", "chủ nhiệm 3/1", 8, row=2), build_teacher("BM", "bộ môn 1", 23, row=3)]
+    with pytest.raises(InputError, match="tiết bắt buộc của GVCN"):
+        build_problem(staff)

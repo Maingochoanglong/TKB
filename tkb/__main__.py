@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--workers", type=int, default=8, help="Số luồng CP-SAT (mặc định 8)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-student-rules", action="store_true",
-                    help="Tắt luật bảo vệ học sinh (môn nặng tiết 7, giới hạn TV/Toán mỗi buổi...)")
+                    help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi)")
     args = ap.parse_args(argv)
 
     settings = config.Settings(student_rules=not args.no_student_rules,

@@ -143,6 +143,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
     homeroom_take: dict[str, dict[str, int]] = {}
     pool: list[tuple[str, int, str, int]] = []
     fixed_hdtn = tuple(config.HDTN_FIXED_SLOTS)
+    homeroom_slots = [s for s in slots if s[1] in config.HOMEROOM_PERIODS]
 
     for cls in classes:
         grade = int(cls.split("/")[0])
@@ -150,6 +151,10 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
         cn = homeroom[cls]
         take = split_homeroom(cls, req, cn.max_lessons, reserved_by_grade.get(grade, set()))
         homeroom_take[cls] = take
+        if sum(take.values()) < len(homeroom_slots):
+            raise InputError(f"Lớp {cls}: GVCN chỉ dạy {sum(take.values())} tiết, không đủ "
+                             f"{len(homeroom_slots)} tiết bắt buộc của GVCN "
+                             f"(tiết {', '.join(map(str, sorted(config.HOMEROOM_PERIODS)))} mỗi ngày)")
         for subject, n in take.items():
             if subject == config.HDTN:
                 n_fixed = min(n, len(fixed_hdtn))

@@ -93,6 +93,7 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 
 **Giáo viên chủ nhiệm**
 - Chỉ dạy lớp mình, nhận trước các môn Tiếng Việt, Toán, HĐTN, Khoa học, Lịch sử - Địa lý, Đạo đức.
+- **Tiết 1 buổi sáng của mọi ngày luôn do GVCN của lớp dạy** (đổi ở `HOMEROOM_PERIODS`). Giáo viên khác không được xếp vào các tiết này.
 - **Vượt định mức:** cắt theo thứ tự Tiếng Việt → Toán → Khoa học → Lịch sử - Địa lý. Chỉ cắt môn có hơn 1 tiết, và GVCN luôn giữ lại ít nhất 1 tiết của môn bị cắt.
 - **Thiếu định mức:** nhận thêm theo thứ tự TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ. Không bao giờ nhận môn của giáo viên chuyên biệt.
 
@@ -108,10 +109,9 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 - Chương trình ưu tiên (1) ít tiết thiếu nhất, rồi (2) ít người bổ sung nhất.
 - Tiết được dồn cho người bổ sung đầu trước; người cuối có thể dạy chưa đủ định mức, ví dụ 23 + 23 + 6.
 
-**Luật bảo vệ học sinh** (đặc tả V15)
-- Không xếp môn nặng vào tiết 7.
-- Buổi sáng không quá 3 tiết nặng liên tiếp; buổi chiều không quá 2.
+**Luật bảo vệ học sinh**
 - Mỗi buổi tối đa 2 tiết Tiếng Việt và 2 tiết Toán (tiết tăng cường được đếm riêng).
+- Không còn luật môn nặng (tiết 7, số tiết nặng liên tiếp); thay bằng luật tiết 1 của GVCN ở trên.
 
 **Mục tiêu mềm**
 - Cân bằng số tiết mỗi ngày của giáo viên.
@@ -121,7 +121,7 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 
 ## Cách giải
 
-1. **Phân công** (chưa xếp giờ): CP-SAT tìm số tiết mỗi giáo viên dạy cho từng lớp-môn. Mục tiêu đầu tiên là ít tiết thiếu nhất, rồi ít người bổ sung nhất; sau đó mới đến hạn chế chia môn và cân bằng tải. Kết quả này là cận dưới của bài toán.
+1. **Phân công** (chưa xếp giờ): CP-SAT tìm số tiết mỗi giáo viên dạy cho từng lớp-môn, không vượt định mức và số tiết trống giáo viên đó có thể xếp. Mục tiêu đầu tiên là ít tiết thiếu nhất, rồi ít người bổ sung nhất; sau đó mới đến hạn chế chia môn và cân bằng tải. Kết quả này là cận dưới của bài toán.
 2. **Xếp giờ** với phân công cố định. Nếu xếp được thì nghiệm đạt đúng cận dưới ở bước 1.
 3. **Dự phòng:** nếu bước 2 không xếp được, chương trình giải mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ) với thêm giáo viên bổ sung dự phòng.
 

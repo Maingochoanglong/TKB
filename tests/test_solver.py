@@ -6,6 +6,7 @@ from tkb import config
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.solver import assign, distance_to_session_end, solve
+from tkb.staff import build_teacher
 
 from .conftest import small_staff
 
@@ -53,14 +54,30 @@ def test_checker_detects_violations(small_solution):
     errors = check(sol.problem, bad)
     assert any("không phải GVCN" in e for e in errors)
     assert any("cùng lúc" in e or "GVCN dạy" in e for e in errors)
-    # Môn nặng ở tiết 7.
-    j = next(k for k, l in enumerate(lessons) if l.period == 7)
-    k = next(k for k, l in enumerate(lessons) if l.class_name == lessons[j].class_name
-             and l.subject == config.TOAN and l.period != 7)
-    swapped = list(lessons)
-    swapped[j] = dataclasses.replace(lessons[j], period=lessons[k].period, day=lessons[k].day)
-    swapped[k] = dataclasses.replace(lessons[k], period=7, day=lessons[j].day)
-    assert any("môn nặng" in e for e in check(sol.problem, swapped))
+    # Tiết 1 giao cho GV khác GVCN.
+    j = next(k for k, l in enumerate(lessons) if l.class_name == "3/1" and l.day == 1 and l.period == 1)
+    moved = lessons[:j] + [dataclasses.replace(lessons[j], teacher="bộ môn 1")] + lessons[j + 1:]
+    assert any("tiết của GVCN" in e for e in check(sol.problem, moved))
+
+
+def test_homeroom_teaches_first_period(small_solution):
+    first = [l for l in small_solution.lessons if l.period in config.HOMEROOM_PERIODS]
+    assert len(first) == 2 * len(config.DAYS)
+    for les in first:
+        assert les.teacher == f"chủ nhiệm {les.class_name}"
+
+
+def test_slot_capacity_limits_assignment():
+    # 7 lớp x 4 tiết Tiếng Anh = 28 tiết, nhưng GV tiếng anh chỉ có 26 slot ngoài tiết của GVCN/HĐTN.
+    rows = [(f"CN {i}", f"chủ nhiệm 3/{i}", 19) for i in range(1, 8)]
+    rows += [("TA", "tiếng anh 1", 30), ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23),
+             ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23), ("BM1", "bộ môn 1", 23),
+             ("BM2", "bộ môn 2", 23)]
+    staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    plan = assign(build_problem(staff), FAST)
+    assert plan.optimal
+    assert {r: n for r, n in plan.counts.items() if n} == {"tiếng anh": 1}
+    assert plan.supplement_lessons == 28 - 26
 
 
 def test_real_data_assignment_is_optimal(real_staff):
