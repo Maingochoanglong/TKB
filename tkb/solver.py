@@ -321,8 +321,7 @@ def timetable(problem: Problem, settings: config.Settings,
 
     # Luật bảo vệ học sinh.
     if settings.student_rules:
-        limits = config.SESSION_SUBJECT_LIMITS_MERGED if settings.merge_enhanced_limits \
-            else config.SESSION_SUBJECT_LIMITS
+        limits = config.SESSION_SUBJECT_LIMITS
         for cls in problem.classes:
             courses = problem.class_courses(cls)
             heavy = [c for c in courses if c.subject in config.HEAVY_SUBJECTS]

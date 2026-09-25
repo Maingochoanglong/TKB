@@ -50,7 +50,6 @@ Tuỳ chọn:
 | `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
 | `--no-student-rules` | Tắt luật bảo vệ học sinh (dùng để tìm nguyên nhân khi không xếp được) |
-| `--merge-enhanced` | Tính TV/Toán tăng cường chung với TV/Toán trong giới hạn 2 tiết/buổi |
 
 Chạy test: `python -m pytest -q`
 
@@ -113,7 +112,7 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 **Luật bảo vệ học sinh** (đặc tả V15)
 - Không xếp môn nặng vào tiết 7.
 - Buổi sáng không quá 3 tiết nặng liên tiếp; buổi chiều không quá 2.
-- Mỗi buổi tối đa 2 tiết Tiếng Việt và 2 tiết Toán.
+- Mỗi buổi tối đa 2 tiết Tiếng Việt và 2 tiết Toán (tiết tăng cường được đếm riêng).
 
 **Mục tiêu mềm**
 - Cân bằng số tiết mỗi ngày của giáo viên.

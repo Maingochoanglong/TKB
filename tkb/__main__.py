@@ -27,12 +27,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-student-rules", action="store_true",
                     help="Tắt luật bảo vệ học sinh (môn nặng tiết 7, giới hạn TV/Toán mỗi buổi...)")
-    ap.add_argument("--merge-enhanced", action="store_true",
-                    help="Tính TV/Toán tăng cường chung với TV/Toán trong giới hạn 2 tiết/buổi")
     args = ap.parse_args(argv)
 
     settings = config.Settings(student_rules=not args.no_student_rules,
-                               merge_enhanced_limits=args.merge_enhanced,
                                time_limit=args.time_limit, workers=args.workers, seed=args.seed,
                                reproducible=not args.non_reproducible)
     try:
@@ -44,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"LỖI: {exc}", file=sys.stderr)
         return 1
 
-    errors = check(solution.problem, solution.lessons, settings.student_rules, settings.merge_enhanced_limits)
+    errors = check(solution.problem, solution.lessons, settings.student_rules)
     output = Path(args.output)
     staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
     write_timetable(solution, output, errors, solution.problem.warnings)
