@@ -1,7 +1,7 @@
-"""Toàn bộ tham số nghiệp vụ của hệ thống xếp TKB.
+"""Các luật nghiệp vụ của hệ thống xếp TKB mà file vào không có.
 
-Mọi giá trị có thể thay đổi theo trường/năm học đều nằm ở đây, solver không
-hard-code số lớp, số tiết hay quyền dạy.
+Dữ liệu của trường (danh sách môn, số tiết từng khối, giáo viên, chức vụ, lớp, định mức) chỉ lấy từ
+file vào, không ghi ở đây. Solver không hard-code số lớp, số tiết hay quyền dạy.
 """
 from __future__ import annotations
 
@@ -10,6 +10,10 @@ from dataclasses import dataclass, field
 # --------------------------------------------------------------------------
 # Môn học
 # --------------------------------------------------------------------------
+# Danh sách môn và số tiết từng khối lấy từ sheet CHƯƠNG TRÌNH HỌC của file vào. Các tên dưới đây chỉ
+# dùng để gắn luật cho môn; so khớp với tên trong file không phân biệt hoa thường, dấu câu và chữ "và"
+# (vd "Lịch Sử và Địa Lý" khớp "Lịch sử - Địa lý"). Môn trong file không có ở đây vẫn được xếp bình
+# thường, chỉ không có luật riêng.
 TV = "Tiếng Việt"
 TOAN = "Toán"
 HDTN = "Hoạt động trải nghiệm"
@@ -23,40 +27,8 @@ TOAN_TC = "Toán tăng cường"
 TV_TC = "Tiếng Việt tăng cường"
 TIENG_ANH = "Tiếng Anh"
 TIN_HOC = "Tin học"
-THE_DUC = "Thể dục"
-AM_NHAC = "Âm nhạc"
-MY_THUAT = "Mỹ thuật"
 
-SUBJECTS: list[str] = [TV, TOAN, HDTN, KH, LSDL, DD, TNXH, KNS, CONG_NGHE, TOAN_TC, TV_TC,
-                       TIENG_ANH, TIN_HOC, THE_DUC, AM_NHAC, MY_THUAT]
-
-# Chương trình mặc định (số tiết/tuần theo khối) - đúng số liệu doanh nghiệp.
-# Có thể thay bằng file Input_Chuong_Trinh_Hoc qua tham số --program.
-DEFAULT_CURRICULUM: dict[int, dict[str, int]] = {
-    1: {TV: 14, TOAN: 5, HDTN: 3, TIENG_ANH: 2, TNXH: 2, KH: 0, LSDL: 0, THE_DUC: 2,
-        AM_NHAC: 1, MY_THUAT: 1, DD: 1, TIN_HOC: 0, CONG_NGHE: 0, TOAN_TC: 0, TV_TC: 0, KNS: 1},
-    2: {TV: 10, TOAN: 5, HDTN: 3, TIENG_ANH: 2, TNXH: 2, KH: 0, LSDL: 0, THE_DUC: 2,
-        AM_NHAC: 1, MY_THUAT: 1, DD: 1, TIN_HOC: 0, CONG_NGHE: 0, TOAN_TC: 2, TV_TC: 2, KNS: 1},
-    3: {TV: 7, TOAN: 5, HDTN: 3, TIENG_ANH: 4, TNXH: 2, KH: 0, LSDL: 0, THE_DUC: 2,
-        AM_NHAC: 1, MY_THUAT: 1, DD: 1, TIN_HOC: 1, CONG_NGHE: 1, TOAN_TC: 2, TV_TC: 1, KNS: 1},
-    4: {TV: 7, TOAN: 5, HDTN: 3, TIENG_ANH: 4, TNXH: 0, KH: 2, LSDL: 2, THE_DUC: 2,
-        AM_NHAC: 1, MY_THUAT: 1, DD: 1, TIN_HOC: 1, CONG_NGHE: 1, TOAN_TC: 1, TV_TC: 0, KNS: 1},
-    5: {TV: 7, TOAN: 5, HDTN: 3, TIENG_ANH: 4, TNXH: 0, KH: 2, LSDL: 2, THE_DUC: 2,
-        AM_NHAC: 1, MY_THUAT: 1, DD: 1, TIN_HOC: 1, CONG_NGHE: 1, TOAN_TC: 1, TV_TC: 0, KNS: 1},
-}
-
-# Thứ tự môn cố định khi dựng bài toán: thứ tự dòng trong file chương trình học không làm đổi TKB.
-SUBJECT_ORDER: list[str] = list(DEFAULT_CURRICULUM[1])
-
-# Cách viết khác của tên môn trong file chương trình học (so khớp không phân biệt hoa thường).
-SUBJECT_ALIASES: dict[str, str] = {
-    "hđtn": HDTN,
-    "tnxh": TNXH, "tự nhiên và xã hội": TNXH,
-    "lịch sử và địa lý": LSDL, "lịch sử – địa lý": LSDL, "lịch sử-địa lý": LSDL, "ls-đl": LSDL,
-    "tv tăng cường": TV_TC,
-}
-
-# Tên môn hiển thị trong ô TKB (giống template); môn không có ở đây giữ nguyên tên.
+# Tên môn hiển thị trong ô TKB (viết tắt); môn không có ở đây giữ nguyên tên.
 DISPLAY_NAMES: dict[str, str] = {
     HDTN: "HĐTN",
     TNXH: "TNXH",
@@ -102,34 +74,21 @@ HDTN_FLEX_DAYS: list[int] = [1, 2, 3]  # Thứ 3 - Thứ 5
 ROLE_HOMEROOM = "chủ nhiệm"
 ROLE_GENERAL = "bộ môn"
 ROLE_MANAGER = "quản lý"
+# Chức vụ khác ba chức vụ trên là GV chuyên biệt: tên chức vụ trùng tên một môn trong sheet
+# CHƯƠNG TRÌNH HỌC (vd "Tiếng Anh", "Thể Dục") và chỉ dạy môn đó.
 
-# Chức vụ chuyên biệt -> môn duy nhất được dạy (tên chức vụ trùng tên môn).
-SPECIALIST_ROLES: dict[str, str] = {
-    "tiếng anh": TIENG_ANH,
-    "tin học": TIN_HOC,
-    "thể dục": THE_DUC,
-    "âm nhạc": AM_NHAC,
-    "mỹ thuật": MY_THUAT,
-}
+# Cách ghi ba chức vụ trên trong các file xuất ra (GV chuyên biệt ghi đúng chữ trong file vào).
+ROLE_LABELS: dict[str, str] = {ROLE_HOMEROOM: "Chủ Nhiệm", ROLE_GENERAL: "Bộ Môn", ROLE_MANAGER: "Quản Lý"}
 
-# Cách viết khác của tên chức vụ trong file nhân sự.
-ROLE_ALIASES: dict[str, str] = {"t. anh": "tiếng anh", "t.anh": "tiếng anh"}
-
-# File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu,
-# thiếu sheet chương trình học thì dùng DEFAULT_CURRICULUM.
+# File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"
 PROGRAM_SHEET = "CHƯƠNG TRÌNH HỌC"
-
-# Tên chức vụ trong file mẫu nhân sự (thứ tự trong danh sách thả xuống).
-ROLE_LABELS: dict[str, str] = {
-    ROLE_HOMEROOM: "Chủ Nhiệm", "thể dục": "Thể Dục", "tiếng anh": "Tiếng Anh", "mỹ thuật": "Mỹ Thuật",
-    ROLE_GENERAL: "Bộ Môn", "âm nhạc": "Âm Nhạc", "tin học": "Tin Học", ROLE_MANAGER: "Quản Lý",
-}
 
 # Môn chỉ GVCN của lớp được dạy.
 HOMEROOM_ONLY_SUBJECTS: set[str] = {HDTN}
 
-# GV bộ môn dạy được mọi môn trừ các môn sau.
+# GV bộ môn dạy được mọi môn trừ các môn sau. Môn bị cấm mà trường chưa có GV chuyên biệt thì chương
+# trình tự thêm chức vụ trùng tên môn để tuyển (vd "tin học 1").
 GENERAL_FORBIDDEN_SUBJECTS: set[str] = {TIENG_ANH, TIN_HOC, HDTN}
 
 
@@ -162,9 +121,9 @@ HOMEROOM_PERIODS: set[int] = {1}
 # --------------------------------------------------------------------------
 # GV bổ sung khi thiếu người
 # --------------------------------------------------------------------------
+# Định mức của GV bổ sung = Số tiết lớn nhất của GV cùng chức vụ (không thai sản) trong file vào;
+# chức vụ chưa có ai thì lấy Số tiết lớn nhất của các GV không chủ nhiệm, không quản lý.
 SUPPLEMENT_NAME = "chưa có"
-# Chỉ dùng khi chức vụ chưa có GV nào (không "ts") để suy ra định mức.
-FALLBACK_SUPPLEMENT_LOAD = 23
 
 # --------------------------------------------------------------------------
 # Chế độ xử lý khi thiếu người
@@ -188,6 +147,14 @@ SESSION_SUBJECT_LIMITS: list[tuple[frozenset[str], int]] = [
     (frozenset({TV}), 2),
     (frozenset({TOAN}), 2),
 ]
+
+
+def rule_subjects() -> list[str]:
+    """Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào)."""
+    names = [HDTN, *HOMEROOM_PRIORITY, *HOMEROOM_CUT_ORDER, *HOMEROOM_FILL_ORDER, *HOMEROOM_ONLY_SUBJECTS,
+             *GENERAL_FORBIDDEN_SUBJECTS, *(r.subject for r in MANAGER_RULES), *HEAVY_SUBJECTS,
+             *(s for group, _ in SESSION_SUBJECT_LIMITS for s in group), *DISPLAY_NAMES]
+    return sorted(set(names))
 
 
 # --------------------------------------------------------------------------

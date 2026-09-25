@@ -12,8 +12,9 @@ from pathlib import Path
 # CẤU HÌNH — SỬA Ở ĐÂY
 # ==========================================================================
 
-# File vào duy nhất: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế độ) và sheet
-# "CHƯƠNG TRÌNH HỌC" (Môn học, Khối 1..5). Thiếu sheet chương trình học thì dùng chương trình mặc định.
+# File vào duy nhất: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế Độ) và sheet
+# "CHƯƠNG TRÌNH HỌC" (Môn học, Khối 1..5). Danh sách môn, số tiết, giáo viên đều lấy từ file này;
+# các file ra dùng lại style (phông, cỡ chữ, viền, chiều cao dòng) của file này.
 FILE_VAO = "data/Input_TKB_V8.xlsx"
 
 # Thư mục ghi kết quả (tự tạo nếu chưa có).

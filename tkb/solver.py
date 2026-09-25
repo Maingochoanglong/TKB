@@ -189,7 +189,7 @@ class _Allocation:
                 m.Add(load >= h)
                 self.hired[title] = h
                 main.append(w.supplement_lesson * load + w.supplement_teacher * h)
-                if t.role in config.SPECIALIST_ROLES:
+                if t.role in problem.specialists:
                     main.append(w.specialist_supplement * h)
         self.overtime = self._overtime(main, secondary)
         # Phá đối xứng giữa các GV bổ sung cùng chức vụ: số thứ tự nhỏ dạy nhiều hơn.
@@ -201,10 +201,10 @@ class _Allocation:
             for i, t in enumerate(titles):
                 secondary.append(w.supplement_order * i * self.load[t])
 
-        specialist = set(config.SPECIALIST_ROLES.values())
+        specialist = problem.specialist_subjects()
         for (cid, g), a in self.a.items():
             c = problem.courses[cid]
-            if c.subject in specialist and problem.teachers[g].role not in config.SPECIALIST_ROLES:
+            if c.subject in specialist and problem.teachers[g].role not in problem.specialists:
                 secondary.append(w.general_on_specialist * a)
 
         # Cân bằng phần định mức chưa dùng giữa các GV cùng chức vụ.
@@ -497,7 +497,7 @@ def timetable(problem: Problem, settings: config.Settings,
                     wall_time=wall, stage="phân công cố định" if fixed is not None else "mô hình tích hợp")
 
 
-def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None,
+def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
           settings: config.Settings, log=print) -> Solution:
     """Toàn bộ quy trình: phân công → xếp giờ với phân công cố định → (dự phòng) mô hình tích hợp."""
     if settings.mode not in config.MODES:

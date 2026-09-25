@@ -28,8 +28,10 @@
 | 11 | Thai sản | Chữ `ts` sau chức vụ | Cột **Thai sản** (`Có`/trống); vẫn đọc được chữ `ts`. Người thai sản **không bao giờ dạy bù** |
 | 12 | Tải ngày | Buffer/overload động | [Mềm] mục tiêu tải ngày theo tỷ lệ số tiết của ngày |
 | 13 | Tái lập | – | Cùng dữ liệu, cùng phiên bản OR-Tools và cùng số luồng thì luôn ra cùng một TKB |
-| 14 | Nội dung ô TKB | Chức vụ (môn) | Môn, xuống dòng **tên giáo viên**. Người cần tuyển và tên trùng thì kèm chức vụ |
-| 15 | File vào | Hai file: nhân sự (Tên, Chức vụ kèm số thứ tự, Số tiết) và chương trình học | **Một file duy nhất (mẫu V8):** sheet NHÂN SỰ (STT, Họ và Tên, Chức Vụ không số thứ tự, Lớp khối/số thứ tự, Số Tiết/Tuần, Chế độ) và sheet CHƯƠNG TRÌNH HỌC |
+| 14 | Nội dung ô TKB | Chức vụ (môn) | Môn, xuống dòng **tên giáo viên**. Tên trống hoặc người cần tuyển thì ghi **Mã GV** (`Bộ Môn 6`); tên trùng thì kèm Mã GV |
+| 15 | File vào | Hai file: nhân sự (Tên, Chức vụ kèm số thứ tự, Số tiết) và chương trình học | **Một file duy nhất (mẫu V8):** sheet NHÂN SỰ (Họ và Tên, Chức Vụ không số thứ tự, Lớp khối/số thứ tự, Số Tiết/Tuần, Chế Độ) và sheet CHƯƠNG TRÌNH HỌC (bắt buộc) |
+| 16 | Dữ liệu trong code | Chương trình học, danh sách môn, danh sách chức vụ chuyên biệt, định mức 23 nằm trong code | **Không còn trong code.** Những gì suy ra được từ file vào thì lấy từ file vào (mục 2.4) |
+| 17 | Định dạng file ra | Cố định trong code | **Chép style của file vào** (phông, cỡ chữ, viền, căn lề, chiều cao dòng 25), được thêm cột (mục 11) |
 
 ---
 
@@ -44,7 +46,8 @@
 |---|---|
 | GVCN | Giáo viên chủ nhiệm, chức vụ `chủ nhiệm k/n` (lớp k/n) |
 | Bộ môn (GVBM) | Chức vụ `bộ môn n`, dạy được nhiều môn (mục 4) |
-| GV chuyên biệt | Chức vụ `tiếng anh n`, `tin học n`, `thể dục n`, `âm nhạc n`, `mỹ thuật n`; chỉ dạy đúng môn trùng tên |
+| GV chuyên biệt | Chức vụ **trùng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (ví dụ `Tiếng Anh`, `Thể Dục`, `Tin Học`); chỉ dạy đúng môn đó |
+| Mã GV | Chức vụ kèm số thứ tự hoặc lớp, ví dụ `Chủ Nhiệm 1/1`, `Tiếng Anh 2`, `Bộ Môn 6`. Dùng để nhận ra giáo viên khi cột tên để trống |
 | Quản lý | Chức vụ `quản lý n` |
 | Thai sản (ts) | Giáo viên đang hưởng chế độ thai sản. Số tiết ghi mức đã giảm. Ở danh sách nhân sự và thống kê, chức vụ có thêm `ts` |
 | Số tiết (định mức) | Số tiết **tối đa** giáo viên dạy mỗi tuần |
@@ -64,7 +67,7 @@
 | Sheet | Bắt buộc | Nội dung |
 |---|---|---|
 | `NHÂN SỰ` | Có | Danh sách nhân sự (mục 2.1.1). Nếu không có sheet tên này thì đọc sheet đầu tiên |
-| `CHƯƠNG TRÌNH HỌC` | Không | Chương trình học (mục 2.3). Không có thì dùng chương trình mặc định |
+| `CHƯƠNG TRÌNH HỌC` | Có | Chương trình học (mục 2.3). Thiếu sheet này thì báo lỗi (trừ khi chỉ định `--program`) |
 
 Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề nằm trong 20 dòng đầu.
 
@@ -72,12 +75,12 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 
 | Cột | Bắt buộc | Quy tắc |
 |---|---|---|
-| STT | Không | Chỉ để đọc, chương trình không dùng |
-| Họ và Tên | Có | Họ tên, tự do (để trống thì TKB ghi chức vụ thay tên) |
-| Chức Vụ | Có | Một trong: **Chủ Nhiệm, Thể Dục, Tiếng Anh, Mỹ Thuật, Bộ Môn, Âm Nhạc, Tin Học, Quản Lý**. **Không ghi số thứ tự**. Viết tắt `T. Anh` được hiểu là Tiếng Anh |
+| Họ và Tên | Có (cột) | Họ tên, tự do. **Có thể để trống** (bảo mật): TKB ghi Mã GV thay tên |
+| Chức Vụ | Có | `Chủ Nhiệm`, `Bộ Môn`, `Quản Lý`, hoặc **đúng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên biệt). **Không ghi số thứ tự**. So khớp không phân biệt hoa thường, dấu câu, khoảng trắng thừa |
 | Lớp | Với Chủ Nhiệm | Dạng **khối/số thứ tự** (`1/1`). Chỉ Chủ Nhiệm được ghi Lớp |
 | Số Tiết/Tuần | Có | Số nguyên ≥ 0. Người thai sản ghi mức đã giảm |
-| Chế độ | Không | `Có` (hoặc `Thai sản`) nếu đang hưởng chế độ thai sản; để trống nếu không |
+| Chế Độ | Không | `Có` (hoặc `Thai sản`) nếu đang hưởng chế độ thai sản; để trống nếu không |
+| STT, cột khác | Không | Không dùng |
 
 - **Tự đánh số thứ tự:** mỗi chức vụ (trừ Chủ Nhiệm) được đánh số 1, 2, 3… theo thứ tự dòng trong file, ví dụ Bộ Môn thứ hai là `bộ môn 2`. Chủ Nhiệm được nhận diện theo Lớp (`chủ nhiệm 1/1`). Người thai sản có thêm `ts` (`bộ môn 5 ts`).
 - **File cũ vẫn đọc được** (một sheet nhân sự, chương trình học lấy mặc định hoặc `--program`):
@@ -86,20 +89,20 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
   - V5: 3 cột, thai sản ghi bằng chữ `ts` sau chức vụ (`bộ môn 5 ts`).
 
 **Chương trình từ chối file và liệt kê tất cả lỗi một lần, kèm số dòng, khi:**
-- Chức vụ không thuộc danh sách trên, hoặc sai dạng (mẫu cũ).
+- Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý và không trùng tên môn nào trong chương trình học, hoặc sai dạng (mẫu cũ).
 - Chủ Nhiệm thiếu Lớp, Lớp sai dạng khối/số thứ tự, hoặc chức vụ khác lại ghi Lớp.
 - Lớp bị Excel đổi thành ngày tháng (khi gõ tay `1/1` vào ô không định dạng chữ).
 - Số tiết trống, không phải số, âm hoặc không nguyên.
-- Cột Chế độ ghi giá trị khác `Có`/`Thai sản`/`Không`/trống.
+- Cột Chế Độ ghi giá trị khác `Có`/`Thai sản`/`Không`/trống.
 - Một lớp có hai Chủ Nhiệm, hoặc trùng chức vụ kèm số (mẫu cũ).
 - Không có Chủ Nhiệm nào.
 
 Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối bị hụt, ví dụ có 1/3, 1/5 mà không có 1/4.
 
-**File mẫu V8** (tạo bằng `python -m tkb.template`):
-- Sheet NHÂN SỰ: Chức Vụ, Lớp (`1/1 … 5/10`), Chế độ chọn từ danh sách thả xuống (sheet ẩn `Danh mục`); cột Lớp định dạng chữ; Số Tiết/Tuần chỉ nhận số nguyên 0–40; tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp; STT là công thức `=ROW()-1`.
-- Sheet CHƯƠNG TRÌNH HỌC: điền sẵn chương trình (mặc định hoặc lấy từ file cũ), mỗi ô chỉ nhận số nguyên 0–40, dòng Tổng bằng công thức.
-- Chuyển file cũ sang file mẫu: `python -m tkb.template <mới.xlsx> --tu <cũ.xlsx>`.
+**File mẫu V8** (tạo bằng `python -m tkb.template`), style giống file của nhà trường (Times New Roman 14, tiêu đề in đậm không tô nền, viền mảnh, căn giữa, dòng cao 25):
+- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Chế Độ`. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, các chức vụ chuyên biệt của file cũ, Quản Lý; vẫn gõ được tên môn khác). Lớp định dạng chữ và phải có dạng khối/số. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Chế Độ chọn `Có`. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
+- Sheet CHƯƠNG TRÌNH HỌC: `Môn học | Khối 1 …`. File mẫu trống không có môn nào; chuyển từ file cũ thì chép chương trình của file cũ.
+- Chuyển file cũ sang file mẫu: `python -m tkb.template <mới.xlsx> --tu <cũ.xlsx> [--program <chương trình.xlsx>]`.
 
 ### 2.2. Danh sách lớp
 
@@ -107,7 +110,9 @@ Lấy từ các dòng `chủ nhiệm k/n`, vì mỗi lớp luôn có đúng mộ
 
 ### 2.3. Chương trình học
 
-Lấy từ sheet `CHƯƠNG TRÌNH HỌC` của file vào. Không có sheet này thì dùng chương trình mặc định trong `tkb/config.py` (`DEFAULT_CURRICULUM`). Dòng lệnh có thể chỉ định file chương trình riêng bằng `--program`.
+Lấy từ sheet `CHƯƠNG TRÌNH HỌC` của file vào (**bắt buộc**; code không chứa chương trình học nào). Dòng lệnh có thể chỉ định file chương trình riêng bằng `--program`.
+
+Ví dụ (dữ liệu mẫu `data/Input_TKB_V8.xlsx`):
 
 | Môn | Khối 1 | Khối 2 | Khối 3 | Khối 4 | Khối 5 |
 |---|---:|---:|---:|---:|---:|
@@ -132,12 +137,27 @@ Lấy từ sheet `CHƯƠNG TRÌNH HỌC` của file vào. Không có sheet này 
 **Sheet chương trình học:**
 - Có cột `Môn học` và các cột `Khối k`; cột STT (nếu có) không dùng. Ô trống được tính là 0. Dòng `Tổng` được bỏ qua.
 - Số tiết phải là số nguyên ≥ 0.
-- Tên môn không phân biệt hoa thường. Các cách viết `Tự Nhiên và Xã Hội`, `Lịch Sử và Địa Lý`, `HĐTN`, `TNXH`, `TV tăng cường` được hiểu đúng (`SUBJECT_ALIASES`). **Tên môn lạ thì báo lỗi**, không tự tạo môn mới.
-- Một môn không được lặp lại.
+- **Danh sách môn và tên môn lấy nguyên từ file.** Môn mới (ví dụ `Múa`) chỉ cần thêm dòng; môn đó được xếp bình thường, không có luật riêng. TKB và thống kê in đúng tên môn trong file (riêng HĐTN, TNXH, TV tăng cường được viết tắt trong ô TKB).
+- Môn nào trùng tên một môn có luật trong `tkb/config.py` (mục 2.4) thì nhận luật đó. So khớp **không phân biệt hoa thường, dấu câu, khoảng trắng thừa và chữ "và"**: `Lịch Sử và Địa Lý` khớp `Lịch sử - Địa lý`, `Tự Nhiên và Xã Hội` khớp `Tự nhiên xã hội`.
+- **Cảnh báo** khi luật trong config nhắc một môn mà file không có (thường do gõ khác tên).
+- Một môn không được lặp lại (kể cả viết khác nhau nhưng cùng khóa so khớp).
 
 **Kiểm tra tổng số tiết của mỗi khối:**
 - Lớn hơn 32 → lỗi.
 - Nhỏ hơn 32 → cảnh báo: lớp sẽ có tiết trống.
+
+### 2.4. Cái gì nằm trong file vào, cái gì nằm trong code
+
+**Nguyên tắc:** những gì suy ra được từ file vào thì không ghi trong code.
+
+| Lấy từ file vào | Nằm trong `tkb/config.py` (file vào không có) |
+|---|---|
+| Danh sách môn, tên môn, số tiết từng khối | Khung giờ (mục 3) |
+| Giáo viên, chức vụ, lớp chủ nhiệm, định mức, thai sản | HĐTN: 2 slot cố định, ngày của tiết thứ ba (mục 5.6) |
+| Danh sách lớp (từ các dòng Chủ Nhiệm) | Tiết 1 do GVCN dạy (mục 5.5) |
+| GV chuyên biệt: chức vụ trùng tên môn | Môn ưu tiên, thứ tự cắt / nhận thêm của GVCN (mục 5) |
+| Định mức người cần tuyển: Số tiết lớn nhất của GV cùng chức vụ | Bộ Môn không dạy Tiếng Anh, Tin học, HĐTN; Quản Lý dạy KNS khối 4 (mục 4) |
+| Style các file ra: phông, cỡ chữ, viền, căn lề, chiều cao dòng | Luật bù giờ, môn nặng, tối đa 2 tiết TV/Toán mỗi buổi, trọng số (mục 6–8) |
 
 ---
 
@@ -161,10 +181,11 @@ Lấy từ sheet `CHƯƠNG TRÌNH HỌC` của file vào. Không có sheet này 
 |---|---|---|
 | Chủ nhiệm | Chỉ **lớp mình**: phần được phân (mục 5), cộng tiết bù (mục 7.2) | Lớp khác |
 | Bộ môn | Mọi môn | Tiếng Anh, Tin học, HĐTN |
-| Tiếng anh / Tin học / Thể dục / Âm nhạc / Mỹ thuật | Chỉ môn trùng tên chức vụ | Môn khác |
+| GV chuyên biệt (chức vụ trùng tên một môn: Tiếng Anh, Tin Học, Thể Dục…) | Chỉ môn trùng tên chức vụ | Môn khác |
 | Quản lý | Chỉ **Kỹ năng sống khối 4** | Môn/khối khác |
 
 - **[Cứng]** HĐTN chỉ do GVCN của lớp dạy.
+- Môn bộ môn không được dạy (Tiếng Anh, Tin học) mà trường chưa có GV chuyên biệt: chương trình tự thêm chức vụ trùng tên môn để tuyển (ví dụ `Tin Học 1`).
 - **[Cứng]** Quản lý dạy **đúng** bằng Số tiết của mình. Nếu số tiết phù hợp ít hơn thì dạy hết số đó và có cảnh báo. Chương trình tự chọn lớp; có thể cố định lớp trong `MANAGER_RULES`. Mỗi lớp chỉ có 1 tiết KNS, nên quản lý 4 tiết sẽ dạy ở 4 lớp khối 4.
 - **[Mềm]** Thể dục, Âm nhạc, Mỹ thuật ưu tiên do GV chuyên biệt dạy. Bộ môn chỉ dạy thay phần vượt năng lực của GV chuyên biệt.
 - **[Mềm]** Hạn chế chia một lớp–môn cho nhiều giáo viên.
@@ -241,7 +262,7 @@ Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy d�
 - Phần không ai dạy được giao cho **người bổ sung**:
   - Tên `chưa có`.
   - Chức vụ `<chức vụ> n+1, n+2…`, với n là số thứ tự lớn nhất hiện có của chức vụ đó.
-- **Định mức tuyển** của người bổ sung = Số tiết lớn nhất của các giáo viên cùng chức vụ, không tính người thai sản. Nếu chức vụ đó chưa có ai thì lấy 23 (`FALLBACK_SUPPLEMENT_LOAD`).
+- **Định mức tuyển** của người bổ sung = Số tiết lớn nhất của các giáo viên cùng chức vụ trong file vào, không tính người thai sản. Nếu chức vụ đó chưa có ai thì lấy Số tiết lớn nhất của các giáo viên không chủ nhiệm, không quản lý.
 - Người bổ sung là một người thật sẽ tuyển: không dạy 2 lớp cùng lúc, và không dạy quá định mức tuyển.
 - Thứ tự ưu tiên:
   1. Ít tiết giao cho người bổ sung nhất (dùng hết người hiện có trước).
@@ -354,14 +375,20 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
   - Cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
   - Giữa hai lớp có 2 dòng trống.
 - Mỗi ô ghi **môn** và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Chiều Thứ 6 ghi `Nghỉ`.
-  - Người cần tuyển ghi tên kèm chức vụ: `chưa có (bộ môn 6)`.
-  - Hai giáo viên trùng tên thì kèm chức vụ, ví dụ `Lan (bộ môn 1)`. Tên để trống thì ghi chức vụ.
-  - Cột ngày tự nới theo dòng dài nhất, từ 24 đến 30 (đơn vị cột Excel). Tên dài hơn thì xuống dòng và hàng tự cao thêm.
-- Tên viết tắt: `HĐTN`, `TNXH`, `TV tăng cường`.
-- Định dạng: font Times New Roman cỡ 14, dòng tiêu đề nền xám nhạt, viền mảnh. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
+  - Tên để trống hoặc người cần tuyển: ghi **Mã GV**, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 6`.
+  - Hai giáo viên trùng tên thì kèm Mã GV, ví dụ `Lan (Bộ Môn 1)`.
+  - Cột ngày tự nới theo dòng dài nhất, tối đa 30 (đơn vị cột Excel). Tên dài hơn thì xuống dòng và hàng tự cao thêm.
+- Tên môn in như trong file vào; viết tắt: `HĐTN`, `TNXH`, `TV tăng cường`.
+- Khi in: khổ ngang, co vừa chiều rộng 1 trang.
+
+**Style của mọi file ra** (`TKB.xlsx`, `Thong_Ke.xlsx`, file vào cập nhật): chép từ sheet NHÂN SỰ của file vào, không cố định trong code:
+- Ô tiêu đề (dòng tiêu đề, cột Chức Vụ): phông, cỡ chữ, in đậm, viền, căn lề, nền.
+- Ô dữ liệu (dòng đầu tiên, cột Chức Vụ): phông, cỡ chữ, viền, căn lề.
+- Chiều cao dòng: của dòng dữ liệu đầu tiên, làm tròn (24,95 → **25**); file vào không đặt thì 25.
+- Bảng ghi tiêu đề cột ở dòng 1 như file vào. Riêng hàng tiết trong TKB cao đủ 2 dòng chữ (môn và giáo viên), theo cỡ chữ của file vào.
 
 **Sheet `Danh sách nhân sự`:**
-- Cột: Tên, Chức vụ, Số tiết, Số tiết thực dạy, Ghi chú. Chế độ bù giờ có thêm cột **Số tiết bù**.
+- Cột như sheet NHÂN SỰ của file vào: Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế Độ. Thêm **Mã GV**, **Số Tiết Thực Dạy**, **Số Tiết Bù** (chế độ bù giờ) và Ghi Chú.
 - Thứ tự: giáo viên theo thứ tự file gốc, sau đó đến người bổ sung.
 
 **Sheet `Thống kê`:**
@@ -374,19 +401,20 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
 
 ### 11.2. File vào cập nhật `<tên file vào>_cap_nhat.xlsx`
 
-- Là bản chép của file vào (đủ các sheet), sheet NHÂN SỰ có thêm các dòng người bổ sung `chưa có` ở cuối với **định mức tuyển đầy đủ** (Chức Vụ ghi không kèm số, ví dụ `Bộ Môn`; STT điền tiếp).
+- Là bản chép của file vào (đủ các sheet), sheet NHÂN SỰ có thêm các dòng người bổ sung `chưa có` ở cuối với **định mức tuyển đầy đủ** (Chức Vụ ghi không kèm số, ví dụ `Bộ Môn`; STT điền tiếp nếu có). Dòng mới **chép style của dòng trên**.
+- Bên phải thêm các cột **Mã GV**, **Số Tiết Thực Dạy** và (chế độ bù giờ) **Số Tiết Bù**, cùng style với file. Chạy lại trên file này thì các cột được ghi đè, không thêm mới.
 - Giữ nguyên danh sách thả xuống của file mẫu.
-- Dùng làm đầu vào cho lần chạy sau được. File gốc không bị sửa.
+- Dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc). File gốc không bị sửa.
 
 ### 11.3. File thống kê giáo viên `Thong_Ke.xlsx`
 
-Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến người cần tuyển. Người cần tuyển có tên **`tuyển thêm`**. Mọi bảng đều có bộ lọc và cố định dòng tiêu đề.
+Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến người cần tuyển. Người cần tuyển có tên **`tuyển thêm`**. Mọi bảng có tiêu đề cột ở dòng 1 (cố định khi cuộn), style theo file vào.
 
 | Sheet | Cột | Ghi chú |
 |---|---|---|
-| **Thống kê giáo viên** | STT, Tên giáo viên, Chức vụ, Số tiết quy định, Số tiết bù, Số tiết thực dạy, Số tiết còn dư | Có dòng **Tổng**. Số tiết quy định của người cần tuyển là định mức tuyển đầy đủ (ví dụ 23). Số tiết bù chỉ khác 0 ở chế độ bù giờ |
-| **Phân công** | STT, Tên giáo viên, Chức vụ, Lớp, Môn, Số tiết | Bảng phân công chuyên môn; mỗi dòng là một (giáo viên, lớp, môn) |
-| **Theo ngày** | STT, Tên giáo viên, Chức vụ, Thứ 2 … Thứ 6, Tổng | Có dòng **Tổng** |
+| **Thống kê giáo viên** | STT, Họ và Tên, Chức Vụ, Mã GV, Số tiết quy định, Số tiết bù, Số tiết thực dạy, Số tiết còn dư | Có dòng **Tổng**. Số tiết quy định của người cần tuyển là định mức tuyển đầy đủ (ví dụ 23). Số tiết bù chỉ khác 0 ở chế độ bù giờ |
+| **Phân công** | STT, Họ và Tên, Mã GV, Lớp, Môn, Số tiết | Bảng phân công chuyên môn; mỗi dòng là một (giáo viên, lớp, môn) |
+| **Theo ngày** | STT, Họ và Tên, Mã GV, Thứ 2 … Thứ 6, Tổng | Có dòng **Tổng** |
 | **Theo chức vụ** | STT, Chức vụ, Số người, Số tiết quy định, Số tiết thực dạy, Số tiết bù, Số tiết còn dư, Số người tuyển thêm, Số tiết tuyển thêm | Có dòng **Tổng** |
 
 ### 11.4. Màn hình và mã thoát
@@ -420,14 +448,14 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 
 | Tham số | Nội dung |
 |---|---|
-| `DEFAULT_CURRICULUM` | Chương trình học mặc định (mục 2.3) |
 | `DAYS`, `DAY_SESSIONS` | Khung thời gian (mục 3) |
 | `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS` | HĐTN (mục 5.6) |
-| `SPECIALIST_ROLES`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES` | Quyền dạy (mục 4) |
+| `GENERAL_FORBIDDEN_SUBJECTS`, `HOMEROOM_ONLY_SUBJECTS`, `MANAGER_RULES` | Quyền dạy (mục 4); GV chuyên biệt suy ra từ tên chức vụ, không cấu hình |
+| `TV`, `TOAN`, `HDTN`…, `DISPLAY_NAMES` | Tên các môn có luật (so khớp với file vào, mục 2.3) và tên viết tắt |
 | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | Phân GVCN (mục 5) |
 | `HOMEROOM_PERIODS` | Tiết luôn do GVCN dạy (mục 5.5) |
 | `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `SESSION_SUBJECT_LIMITS` | Luật học sinh (mục 6) |
-| `SUPPLEMENT_NAME`, `FALLBACK_SUPPLEMENT_LOAD` | Người bổ sung (mục 7.1) |
+| `SUPPLEMENT_NAME` | Tên người bổ sung (mục 7.1) |
 | `OVERTIME_ROLES`, `OVERTIME_MAX` | Bù giờ (mục 7.2) |
 | `Weights` | Trọng số mục tiêu (mục 8) |
 
@@ -470,5 +498,5 @@ Cả hai chế độ đều đã **chứng minh tối ưu** ở bước phân c�
 4. **Bước xếp giờ** chỉ bảo đảm TKB hợp lệ và tốt trong thời gian cho phép (trạng thái FEASIBLE). Mục tiêu mềm không được chứng minh là tốt nhất.
 5. **Người bổ sung** được ghi theo định mức tuyển đầy đủ, dù có thể dạy ít hơn (ví dụ `bộ môn 8` ghi 23, thực dạy 6).
 6. **"Kỹ năng số"** trong yêu cầu ban đầu được hiểu là **Kỹ năng sống**, vì chương trình không có môn Kỹ năng số.
-7. **Danh sách thả xuống** của cột Lớp hỗ trợ tối đa 10 lớp mỗi khối. Muốn mở rộng thì sửa `CLASSES_PER_GRADE` trong `tkb/template.py` rồi tạo lại file mẫu.
-8. **Số thứ tự tự đánh theo thứ tự dòng:** đổi thứ tự các dòng cùng chức vụ thì số thứ tự (và nhãn như `bộ môn 2`) đổi theo; TKB vẫn ghi tên giáo viên nên không ảnh hưởng người đọc.
+7. **Số thứ tự tự đánh theo thứ tự dòng:** đổi thứ tự các dòng cùng chức vụ thì Mã GV (ví dụ `Bộ Môn 2`) đổi theo. Khi cột tên để trống, hãy dùng cột Mã GV trong file cập nhật để biết ai là ai.
+8. **Tên môn phải khớp luật:** môn viết khác hẳn tên trong config (ví dụ `TV` thay cho `Tiếng Việt`) sẽ không nhận luật của môn đó; chương trình cảnh báo khi luật nhắc môn không có trong file.

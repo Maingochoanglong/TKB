@@ -13,9 +13,9 @@ SCRIPT = """
 import json, sys
 from tkb import config
 from tkb.solver import solve
-from tests.conftest import small_staff
+from tests.conftest import CURRICULUM, small_staff
 settings = config.Settings(time_limit=5, workers=4, mode=sys.argv[1], overtime_max=2)
-sol = solve(small_staff(general=False), None, settings, log=lambda *_: None)
+sol = solve(small_staff(general=False), CURRICULUM, settings, log=lambda *_: None)
 print(json.dumps(sorted((l.class_name, l.day, l.period, l.subject, l.teacher) for l in sol.lessons)))
 """
 

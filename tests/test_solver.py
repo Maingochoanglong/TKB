@@ -8,7 +8,7 @@ from tkb.checker import check
 from tkb.solver import assign, distance_to_session_end, solve
 from tkb.staff import build_teacher
 
-from .conftest import small_staff
+from .conftest import CURRICULUM, small_staff
 
 FAST = config.Settings(time_limit=20, workers=4)
 OVERTIME = dataclasses.replace(FAST, mode=config.MODE_OVERTIME)
@@ -16,7 +16,7 @@ OVERTIME = dataclasses.replace(FAST, mode=config.MODE_OVERTIME)
 
 @pytest.fixture(scope="module")
 def small_solution():
-    return solve(small_staff(), None, FAST, log=lambda *_: None)
+    return solve(small_staff(), CURRICULUM, FAST, log=lambda *_: None)
 
 
 def test_small_school_solves_and_passes_checker(small_solution):
@@ -37,7 +37,7 @@ def test_hdtn_fixed_and_flex(small_solution):
 
 
 def test_missing_general_teacher_becomes_supplement():
-    sol = solve(small_staff(general=False), None, FAST, log=lambda *_: None)
+    sol = solve(small_staff(general=False), CURRICULUM, FAST, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
     extra = sol.used_supplements()
     assert [t.title for t in extra] == ["bộ môn 1"]
@@ -81,14 +81,14 @@ def test_slot_capacity_limits_assignment():
              ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23), ("BM1", "bộ môn 1", 23),
              ("BM2", "bộ môn 2", 23)]
     staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
-    plan = assign(build_problem(staff), FAST)
+    plan = assign(build_problem(staff, CURRICULUM), FAST)
     assert plan.optimal
     assert {r: n for r, n in plan.counts.items() if n} == {"tiếng anh": 1}
     assert plan.supplement_lessons == 28 - 26
 
 
 def test_real_data_assignment_is_optimal(real_staff):
-    plan = assign(build_problem(real_staff), config.Settings(time_limit=80, workers=4))
+    plan = assign(build_problem(real_staff, CURRICULUM), config.Settings(time_limit=80, workers=4))
     assert plan.optimal
     assert plan.supplement_lessons == 52
     assert {r: n for r, n in plan.counts.items() if n} == {config.ROLE_GENERAL: 3}
@@ -96,7 +96,7 @@ def test_real_data_assignment_is_optimal(real_staff):
 
 def test_reproducible_mode_gives_identical_timetables():
     settings = config.Settings(time_limit=10, workers=4, reproducible=True)
-    runs = [solve(small_staff(general=False), None, settings, log=lambda *_: None) for _ in range(2)]
+    runs = [solve(small_staff(general=False), CURRICULUM, settings, log=lambda *_: None) for _ in range(2)]
     key = [sorted((l.class_name, l.day, l.period, l.subject, l.teacher) for l in r.lessons) for r in runs]
     assert key[0] == key[1]
 
@@ -104,7 +104,7 @@ def test_reproducible_mode_gives_identical_timetables():
 @pytest.fixture(scope="module")
 def overtime_solution():
     settings = dataclasses.replace(OVERTIME, overtime_max=4)
-    return solve(small_staff(general=False), None, settings, log=lambda *_: None)
+    return solve(small_staff(general=False), CURRICULUM, settings, log=lambda *_: None)
 
 
 def test_overtime_mode_covers_shortage_without_hiring(overtime_solution):
@@ -116,7 +116,7 @@ def test_overtime_mode_covers_shortage_without_hiring(overtime_solution):
 
 
 def test_overtime_mode_hires_only_the_remainder():
-    sol = solve(small_staff(general=False), None, OVERTIME, log=lambda *_: None)
+    sol = solve(small_staff(general=False), CURRICULUM, OVERTIME, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
     assert sol.overtime() == {"chủ nhiệm 3/1": 2, "chủ nhiệm 3/2": 2}
     assert [t.title for t in sol.used_supplements()] == ["bộ môn 1"]
@@ -128,7 +128,7 @@ def test_overtime_skips_maternity_and_homeroom_first():
             ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23),
             ("BM", "bộ môn 1", 4)]
     staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
-    sol = solve(staff, None, OVERTIME, log=lambda *_: None)
+    sol = solve(staff, CURRICULUM, OVERTIME, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
     assert sol.used_supplements() == []
     # Thiếu 8 - 4 = 4 tiết: GVCN 3/1 bù trước, GVCN thai sản không bù, bộ môn bù phần còn lại.
@@ -146,7 +146,7 @@ def test_checker_flags_invalid_overtime(overtime_solution):
 
 
 def test_real_data_overtime_assignment(real_staff):
-    problem = build_problem(real_staff, overtime_max=2)
+    problem = build_problem(real_staff, CURRICULUM, overtime_max=2)
     plan = assign(problem, config.Settings(time_limit=80, workers=4))
     assert plan.supplement_lessons == 0
     assert sum(plan.overtime.values()) == 52
