@@ -37,7 +37,8 @@ def test_template_has_dropdowns(tmp_path, real_staff):
     assert dvs["D2:D300"].formula1 == '"Thai sản"' and dvs["E2:E300"].type == "whole"
     lists = wb["Danh mục"]
     assert [c.value for c in lists["A"] if c.value] == role_choices()
-    assert role_choices()[:7] == ["Chủ Nhiệm", "Thể Dục", "Tiếng Anh", "Mỹ Thuật", "Bộ Môn", "Âm Nhạc", "Tin Học"]
+    assert role_choices() == ["Chủ Nhiệm", "Thể Dục", "Tiếng Anh", "Mỹ Thuật", "Bộ Môn", "Âm Nhạc", "Tin Học",
+                              "Quản Lý"]
     assert [c.value for c in lists["B"] if c.value] == class_choices() and "5/10" in class_choices()
     assert ws["C2"].number_format == "@"  # Lớp là chữ để Excel không đổi thành ngày tháng
     assert len(ws.conditional_formatting) >= 1
