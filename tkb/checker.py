@@ -99,6 +99,24 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                 errors.append(f"Lớp {cls}: GVCN dạy bù {dict(extra)} không hợp lệ (tối đa {allowed} tiết, "
                               f"không bù môn chuyên biệt)")
 
+    # Bù giờ: GVCN được ưu tiên bù lớp mình. Bộ môn đang dạy bù mà còn dạy ở lớp X một môn GVCN lớp X
+    # được dạy, trong khi GVCN lớp X chưa bù hết mức, thì chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ
+    # dạy lớp mình nên giờ đó rảnh) và bớt tiết bù của bộ môn: phân công chưa đúng thứ tự ưu tiên.
+    over = {g: n - teachers[g].max_lessons for g, n in load.items()
+            if g in problem.overtime and n > teachers[g].max_lessons}
+    reported = set()
+    for les in lessons:
+        g = les.teacher
+        if g not in over or teachers[g].class_name:
+            continue
+        cn = homeroom.get(les.class_name)
+        spare = problem.overtime.get(cn, 0) - over.get(cn, 0) if cn else 0
+        key = (g, les.class_name, les.subject)
+        if spare > 0 and cn in problem.courses[les.course_id].teachers and key not in reported:
+            reported.add(key)
+            errors.append(f"{g} dạy bù {over[g]} tiết trong khi {cn} còn được bù {spare} tiết: nên để "
+                          f"GVCN dạy {les.subject} lớp {les.class_name}")
+
     # HĐTN: 2 slot cố định + phần còn lại trong các ngày linh hoạt.
     for cls in problem.classes:
         hdtn = [(les.day, les.period) for les in lessons if les.class_name == cls and les.subject == config.HDTN]
@@ -126,4 +144,10 @@ def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
                     if n > limit:
                         errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: "
                                       f"{n} tiết {'/'.join(sorted(group))} (tối đa {limit})")
+                # Môn có từ 2 tiết trong buổi phải học liền nhau.
+                for subject in dict.fromkeys(s for s in subjects if s):
+                    at = [p for p, s in zip(session.periods, subjects) if s == subject]
+                    if len(at) > 1 and at[-1] - at[0] + 1 != len(at):
+                        errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: môn {subject} không học "
+                                      f"liền (tiết {', '.join(map(str, at))})")
     return errors

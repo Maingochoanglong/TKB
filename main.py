@@ -30,7 +30,8 @@ CHE_DO = "bu_gio"
 # Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (người hưởng thai sản cũng được bù).
 SO_TIET_BU_TOI_DA = 2
 
-# Áp dụng luật bảo vệ học sinh (tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi).
+# Áp dụng luật bảo vệ học sinh: tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi; môn có từ 2 tiết
+# trong một buổi thì các tiết phải liền nhau (không xếp so le kiểu TV, Toán, TV).
 LUAT_HOC_SINH = True
 
 # Thời gian dành cho bước xếp giờ, đơn vị xấp xỉ giây (240 ≈ 3,5 phút trên máy thử).

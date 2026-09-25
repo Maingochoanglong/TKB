@@ -388,10 +388,14 @@ def timetable(problem: Problem, settings: config.Settings,
         if len(terms) > 1:
             m.Add(sum(terms) <= 1)
 
-    # Luật bảo vệ học sinh: số tiết tối đa của một số môn trong mỗi buổi.
+    # Luật bảo vệ học sinh: số tiết tối đa của một số môn trong mỗi buổi; môn có từ 2 tiết trong
+    # một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn").
     if settings.student_rules:
         for cls in problem.classes:
             courses = problem.class_courses(cls)
+            by_subject: dict[str, list[Course]] = {}
+            for c in courses:
+                by_subject.setdefault(c.subject, []).append(c)
             for d, sessions in config.DAY_SESSIONS.items():
                 for session in sessions:
                     for group, limit in config.SESSION_SUBJECT_LIMITS:
@@ -399,6 +403,17 @@ def timetable(problem: Problem, settings: config.Settings,
                               for p in session.periods if (c.id, (d, p)) in x]
                         if len(vs) > limit:
                             m.Add(sum(vs) <= limit)
+                    for subject, cs in by_subject.items():
+                        if sum(c.lessons for c in cs) < 2:
+                            continue
+                        y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in session.periods}
+                        ps = session.periods
+                        for i in range(len(ps)):
+                            for k in range(i + 2, len(ps)):
+                                if not y[ps[i]] or not y[ps[k]]:
+                                    continue
+                                for j in range(i + 1, k):
+                                    m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) - sum(y[ps[j]]) <= 1)
 
     # HĐTN linh hoạt: càng gần cuối buổi càng tốt.
     for c in problem.courses:

@@ -173,12 +173,13 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 - Chỉ GVCN và bộ môn được dạy bù (vượt Số tiết định mức), mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần.
 - **Người hưởng thai sản cũng được bù** như mọi người, cùng mức tối đa.
 - GVCN chỉ bù ở lớp mình, không bù môn của giáo viên chuyên biệt. Thứ tự môn: môn ưu tiên của GVCN (lấy lại tiết đã bị cắt) → TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ.
-- GVCN bù trước; bộ môn chỉ bù khi GVCN đã bù hết mức.
+- GVCN bù trước; bộ môn chỉ bù khi GVCN đã bù hết mức. Bộ kiểm tra báo lỗi nếu bộ môn dạy bù ở một lớp mà GVCN lớp đó còn được bù và dạy được môn đó.
 - Chia đều: mọi người bù +1 rồi mới có người bù +2.
 - Nếu bù hết mức vẫn thiếu thì phần còn lại mới thêm GV "chưa có" như chế độ tuyển thêm.
 
-**Luật bảo vệ học sinh**
+**Luật bảo vệ học sinh** (bật/tắt bằng `LUAT_HOC_SINH`)
 - Mỗi buổi tối đa 2 tiết Tiếng Việt và 2 tiết Toán (tiết tăng cường được đếm riêng).
+- **Môn có từ 2 tiết trong một buổi thì các tiết phải liền nhau**, không xếp so le. Ví dụ buổi sáng `TV, Toán, TV, Tiếng Anh` là sai, phải là `Toán, TV, TV, Tiếng Anh`. Áp dụng cho mọi môn, trong từng buổi (tiết 4 sáng và tiết 1 chiều không tính là liền).
 - Môn nặng ở tiết 7 không bị cấm nữa, chỉ hạn chế bằng mục tiêu mềm (xem dưới). Không giới hạn số tiết nặng liên tiếp.
 
 **Mục tiêu mềm**

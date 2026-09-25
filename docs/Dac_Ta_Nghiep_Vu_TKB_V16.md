@@ -34,6 +34,7 @@
 | 16 | Dữ liệu trong code | Chương trình học, danh sách môn, danh sách chức vụ chuyên biệt, định mức 23 nằm trong code | **Không còn trong code.** Những gì suy ra được từ file vào thì lấy từ file vào (mục 2.4) |
 | 17 | Định dạng file ra | Cố định trong code | **Chép style của file vào** (phông, cỡ chữ, viền, căn lề, chiều cao dòng 25), được thêm cột (mục 11) |
 | 18 | Tuỳ chọn chạy (`main.py`) | Thời gian cố định | `THU_MUC_OUT` để trống thì ghi vào thư mục dự án; `THOI_GIAN_TOI_DA` để trống thì **không giới hạn** (Ctrl+C dừng sớm). Mặc định: bù giờ, áp dụng luật học sinh, 240 giây, tái lập (mục 12.1) |
+| 19 | Môn học liền trong buổi | – | **[Cứng]** Môn có từ 2 tiết trong một buổi phải học liền nhau (mục 6) |
 
 ---
 
@@ -244,8 +245,13 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 | Luật | Loại | Nội dung |
 |---|---|---|
 | Giới hạn TV/Toán | **[Cứng]** | Mỗi buổi tối đa **2 tiết Tiếng Việt** và **2 tiết Toán**. Tiết tăng cường được đếm riêng. Tắt được bằng `LUAT_HOC_SINH = False` |
+| Môn học liền trong buổi | **[Cứng]** | Môn nào có từ 2 tiết trong cùng một buổi thì các tiết đó phải **liền nhau**. Áp dụng cho mọi môn, không phân biệt giáo viên; môn tăng cường là môn riêng. Chỉ xét trong từng buổi (tiết 4 sáng và tiết 5 không tính là liền). Tắt cùng `LUAT_HOC_SINH = False` |
 | Môn nặng ở tiết 7 | **[Mềm]** | Mỗi tiết môn nặng ở tiết 7 bị phạt 200 (`heavy_late`) |
 | Tiết nặng liên tiếp | Bỏ | Không còn giới hạn |
+
+Ví dụ luật học liền, buổi sáng tiết 1–4:
+- Sai: `Tiếng Việt, Toán, Tiếng Việt, Tiếng Anh` (Tiếng Việt ở tiết 1 và 3, bị Toán chen giữa).
+- Đúng: `Toán, Tiếng Việt, Tiếng Việt, Tiếng Anh` hoặc `Tiếng Việt, Tiếng Việt, Toán, Tiếng Anh`.
 
 **Môn nặng** (`HEAVY_SUBJECTS`): Toán, Toán tăng cường, Tiếng Việt, Tiếng Việt tăng cường, Tiếng Anh, Khoa học, Tin học.
 
@@ -278,6 +284,7 @@ Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy d�
 - **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (mặc định 2).
 - Người hưởng thai sản **cũng được bù** như mọi người, cùng mức tối đa `SO_TIET_BU_TOI_DA`.
 - **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt.
+- **[Cứng]** GVCN được **ưu tiên bù lớp mình**: không được để bộ môn dạy bù ở lớp X một môn mà GVCN lớp X dạy được, trong khi GVCN lớp X chưa bù hết mức. Chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ dạy lớp mình nên giờ đó rảnh), nên đây là lỗi phân công và bộ kiểm tra báo lỗi.
 - **Thứ tự môn GVCN bù:**
   1. Môn ưu tiên (lấy lại tiết đã bị cắt ở mục 5.2).
   2. TV tăng cường.
@@ -364,8 +371,9 @@ Chương trình giải hai lần:
 4. Quyền dạy đúng mục 4.
 5. Tiết 1 buổi sáng do đúng GVCN của lớp dạy.
 6. GVCN dạy đủ phần được phân. Phần dạy thêm chỉ là tiết bù hợp lệ: đúng lớp mình, không phải môn chuyên biệt, không quá mức bù.
-7. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
-8. Mỗi buổi tối đa 2 tiết TV và 2 tiết Toán (nếu bật luật học sinh).
+7. GVCN được ưu tiên bù lớp mình: bộ môn không dạy bù ở lớp mà GVCN còn được bù và dạy được môn đó.
+8. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
+9. Nếu bật luật học sinh: mỗi buổi tối đa 2 tiết TV và 2 tiết Toán; môn có từ 2 tiết trong buổi học liền nhau.
 
 Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) và in ra màn hình.
 

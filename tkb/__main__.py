@@ -35,7 +35,8 @@ def main(argv: list[str] | None = None) -> int:
                     help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người, kể cả người hưởng thai sản "
                          f"(mặc định {config.OVERTIME_MAX})")
     ap.add_argument("--no-student-rules", action="store_true",
-                    help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi)")
+                    help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi; môn có từ 2 tiết "
+                         "trong buổi phải học liền nhau)")
     args = ap.parse_args(argv)
 
     if args.max_overtime < 0:
