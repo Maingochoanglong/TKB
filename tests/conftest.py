@@ -6,7 +6,8 @@ from tkb.staff import build_teacher, read_staff
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 STAFF_FILE = DATA / "Input_Danh_Sach_Nhan_Su_V5.xlsx"  # định dạng cũ: "ts" sau chức vụ
-STAFF_FILE_V6 = DATA / "Input_Danh_Sach_Nhan_Su_V6.xlsx"  # file mẫu: cột Thai sản
+STAFF_FILE_V6 = DATA / "Input_Danh_Sach_Nhan_Su_V6.xlsx"  # mẫu cũ: cột Thai sản
+STAFF_FILE_V7 = DATA / "Input_Danh_Sach_Nhan_Su_V7.xlsx"  # mẫu hiện tại: Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần
 PROGRAM_FILE = DATA / "Input_Chuong_Trinh_Hoc_V5.xlsx"
 
 

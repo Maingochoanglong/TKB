@@ -1,9 +1,12 @@
-"""File mẫu danh sách nhân sự: 4 cột Tên / Chức vụ / Số tiết / Thai sản, chức vụ chọn từ danh sách.
+"""File mẫu danh sách nhân sự V7: Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần.
+
+- Chức Vụ chọn từ danh sách, không ghi số thứ tự (chương trình tự đánh số theo thứ tự dòng).
+- Lớp (khối/số thứ tự, vd 1/1) chỉ ghi cho Chủ Nhiệm.
+- Chế độ ghi "Thai sản" nếu đang hưởng chế độ thai sản, để trống nếu không.
 
 Chạy:
     python -m tkb.template <file mới.xlsx>                  tạo file mẫu trống
-    python -m tkb.template <file mới.xlsx> --tu <file cũ>   chuyển file cũ (chữ "ts" sau chức vụ)
-                                                            sang file mẫu, giữ nguyên dữ liệu
+    python -m tkb.template <file mới.xlsx> --tu <file cũ>   chuyển file nhân sự cũ sang file mẫu
 """
 from __future__ import annotations
 
@@ -13,39 +16,43 @@ from pathlib import Path
 
 import openpyxl
 from openpyxl.comments import Comment
-from openpyxl.formatting.rule import Rule
+from openpyxl.formatting.rule import FormulaRule, Rule
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from . import config
-from .staff import InputError, Teacher, canonical_title, read_staff
+from .staff import MATERNITY_LABEL, InputError, Teacher, read_staff
 
 SHEET = "Nhân sự"
 LIST_SHEET = "Danh mục"
-HEADERS = ["Tên", "Chức vụ", "Số tiết", "Thai sản"]
-YES = "Có"
+HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Chế độ", "Số Tiết/Tuần"]
 LAST_ROW = 300  # số dòng có sẵn danh sách thả xuống
-CLASSES_PER_GRADE = 10  # chủ nhiệm 1/1 ... 1/10
-MAX_INDEX = 20  # bộ môn 1 ... bộ môn 20
+CLASSES_PER_GRADE = 10  # lớp 1/1 ... 1/10
 MAX_LESSONS = 40
 FONT = "Times New Roman"
 HEADER_FILL = PatternFill("solid", fgColor="F0F0F0")
+ERROR_STYLE = DifferentialStyle(fill=PatternFill(bgColor="FFC7CE"), font=Font(color="9C0006"))
 
 NOTES = {
-    "Chức vụ": "Chọn từ danh sách thả xuống, không gõ tay.",
-    "Số tiết": "Số tiết tối đa mỗi tuần (người hưởng thai sản ghi mức đã giảm).",
-    "Thai sản": "Ghi \"Có\" nếu đang hưởng chế độ thai sản; để trống nếu không.",
+    "Chức Vụ": "Chọn từ danh sách thả xuống. Không ghi số thứ tự: chương trình tự đánh số theo thứ tự dòng.",
+    "Lớp": "Chỉ ghi cho Chủ Nhiệm, dạng khối/số thứ tự, vd 1/1. Chọn từ danh sách thả xuống.",
+    "Chế độ": f"Ghi \"{MATERNITY_LABEL}\" nếu đang hưởng chế độ thai sản; để trống nếu không.",
+    "Số Tiết/Tuần": "Số tiết tối đa mỗi tuần (người hưởng thai sản ghi mức đã giảm).",
 }
 
 
-def title_choices() -> list[str]:
-    """Mọi chức vụ hợp lệ cho danh sách thả xuống."""
-    titles = [f"{config.ROLE_HOMEROOM} {g}/{n}" for g in sorted(config.DEFAULT_CURRICULUM)
-              for n in range(1, CLASSES_PER_GRADE + 1)]
-    for role in [config.ROLE_GENERAL, *config.SPECIALIST_ROLES, config.ROLE_MANAGER]:
-        titles += [f"{role} {i}" for i in range(1, MAX_INDEX + 1)]
-    return titles
+def role_choices() -> list[str]:
+    return list(config.ROLE_LABELS.values())
+
+
+def class_choices() -> list[str]:
+    return [f"{g}/{n}" for g in sorted(config.DEFAULT_CURRICULUM) for n in range(1, CLASSES_PER_GRADE + 1)]
+
+
+def template_row(t: Teacher) -> list:
+    return [t.name, config.ROLE_LABELS.get(t.role, t.role), t.class_name,
+            MATERNITY_LABEL if t.maternity else None, t.max_lessons]
 
 
 def write_staff_template(path: str | Path, teachers: list[Teacher] = ()) -> None:
@@ -60,37 +67,47 @@ def write_staff_template(path: str | Path, teachers: list[Teacher] = ()) -> None
         if cell.value in NOTES:
             cell.comment = Comment(NOTES[cell.value], "TKB")
     for t in teachers:
-        ws.append([t.name, canonical_title(t.role, t.index, t.class_name, False), t.max_lessons,
-                   YES if t.maternity else None])
-    for row in ws.iter_rows(min_row=2):
-        for cell in row:
-            cell.font = Font(name=FONT, size=12)
-    for col, width in zip("ABCD", (34, 22, 10, 10)):
+        ws.append(template_row(t))
+    for r in range(2, LAST_ROW + 1):
+        ws.cell(r, 3).number_format = "@"  # Lớp là chữ, để Excel không đổi "1/1" thành ngày tháng
+        for c in range(1, len(HEADERS) + 1):
+            ws.cell(r, c).font = Font(name=FONT, size=12)
+    for col, width in zip("ABCDE", (34, 16, 10, 12, 14)):
         ws.column_dimensions[col].width = width
     ws.freeze_panes = "A2"
 
     lists = wb.create_sheet(LIST_SHEET)
-    choices = title_choices()
-    for i, title in enumerate(choices, start=1):
-        lists.cell(i, 1, title)
+    for col, values in enumerate((role_choices(), class_choices()), start=1):
+        for i, value in enumerate(values, start=1):
+            lists.cell(i, col, value).number_format = "@"
     lists.sheet_state = "hidden"
 
-    rows = f"2:{LAST_ROW}"
-    title_dv = DataValidation(type="list", formula1=f"'{LIST_SHEET}'!$A$1:$A${len(choices)}", allow_blank=True,
-                              showErrorMessage=True, errorTitle="Chức vụ không hợp lệ",
-                              error="Hãy chọn chức vụ từ danh sách thả xuống.")
-    lessons_dv = DataValidation(type="whole", operator="between", formula1="0", formula2=str(MAX_LESSONS),
-                                allow_blank=True, showErrorMessage=True, errorTitle="Số tiết không hợp lệ",
-                                error=f"Số tiết là số nguyên từ 0 đến {MAX_LESSONS}.")
-    ts_dv = DataValidation(type="list", formula1=f'"{YES}"', allow_blank=True, showErrorMessage=True,
-                           errorTitle="Thai sản", error=f"Ghi \"{YES}\" hoặc để trống.")
-    for dv, col in ((title_dv, "B"), (lessons_dv, "C"), (ts_dv, "D")):
+    def dv_list(source: str, title: str, error: str) -> DataValidation:
+        return DataValidation(type="list", formula1=source, allow_blank=True, showErrorMessage=True,
+                              errorTitle=title, error=error)
+
+    validations = {
+        "B": dv_list(f"'{LIST_SHEET}'!$A$1:$A${len(role_choices())}", "Chức Vụ không hợp lệ",
+                     "Hãy chọn chức vụ từ danh sách thả xuống."),
+        "C": dv_list(f"'{LIST_SHEET}'!$B$1:$B${len(class_choices())}", "Lớp không hợp lệ",
+                     "Lớp ghi dạng khối/số thứ tự, hãy chọn từ danh sách thả xuống."),
+        "D": dv_list(f'"{MATERNITY_LABEL}"', "Chế độ", f"Ghi \"{MATERNITY_LABEL}\" hoặc để trống."),
+        "E": DataValidation(type="whole", operator="between", formula1="0", formula2=str(MAX_LESSONS),
+                            allow_blank=True, showErrorMessage=True, errorTitle="Số tiết không hợp lệ",
+                            error=f"Số tiết/tuần là số nguyên từ 0 đến {MAX_LESSONS}."),
+    }
+    for col, dv in validations.items():
         ws.add_data_validation(dv)
-        dv.add(f"{col}{rows.replace(':', f':{col}')}")
-    # Tô đỏ chức vụ bị trùng.
-    ws.conditional_formatting.add(f"B2:B{LAST_ROW}", Rule(
-        type="duplicateValues", dxf=DifferentialStyle(fill=PatternFill(bgColor="FFC7CE"),
-                                                      font=Font(color="9C0006"))))
+        dv.add(f"{col}2:{col}{LAST_ROW}")
+
+    # Tô đỏ: lớp có hai chủ nhiệm, Chủ Nhiệm thiếu Lớp, chức vụ khác lại ghi Lớp.
+    homeroom = config.ROLE_LABELS[config.ROLE_HOMEROOM]
+    cells = f"C2:C{LAST_ROW}"
+    ws.conditional_formatting.add(cells, Rule(type="duplicateValues", dxf=ERROR_STYLE))
+    ws.conditional_formatting.add(cells, FormulaRule(formula=[f'AND($B2="{homeroom}",$C2="")'],
+                                                     fill=ERROR_STYLE.fill))
+    ws.conditional_formatting.add(cells, FormulaRule(formula=[f'AND($C2<>"",$B2<>"{homeroom}")'],
+                                                     fill=ERROR_STYLE.fill))
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 

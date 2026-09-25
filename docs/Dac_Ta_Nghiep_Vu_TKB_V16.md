@@ -29,6 +29,7 @@
 | 12 | Tải ngày | Buffer/overload động | [Mềm] mục tiêu tải ngày theo tỷ lệ số tiết của ngày |
 | 13 | Tái lập | – | Cùng dữ liệu, cùng phiên bản OR-Tools và cùng số luồng thì luôn ra cùng một TKB |
 | 14 | Nội dung ô TKB | Chức vụ (môn) | Môn, xuống dòng **tên giáo viên**. Người cần tuyển và tên trùng thì kèm chức vụ |
+| 15 | File nhân sự | Tên, Chức vụ kèm số thứ tự, Số tiết | **Mẫu V7:** Họ và Tên, Chức Vụ (không số thứ tự, tự đánh số), Lớp (khối/số thứ tự), Chế độ, Số Tiết/Tuần |
 
 ---
 
@@ -58,34 +59,38 @@
 
 ### 2.1. File danh sách nhân sự (bắt buộc)
 
-Chương trình đọc sheet **đầu tiên**. Dòng tiêu đề nằm trong 20 dòng đầu và phải có các cột `Tên`, `Chức vụ`, `Số tiết`. Cột `Thai sản` không bắt buộc. Tên cột không phân biệt hoa thường.
+Chương trình đọc sheet **đầu tiên**. Dòng tiêu đề nằm trong 20 dòng đầu. Tên cột không phân biệt hoa thường.
+
+**Mẫu V7** (hiện hành, `data/Input_Danh_Sach_Nhan_Su_V7.xlsx`):
 
 | Cột | Bắt buộc | Quy tắc |
 |---|---|---|
-| Tên | Có | Họ tên, tự do |
-| Chức vụ | Có | `<chức vụ> <số thứ tự>`, ví dụ `chủ nhiệm 1/1`, `bộ môn 4`, `tiếng anh 2`, `quản lý 1` |
-| Số tiết | Có | Số nguyên ≥ 0. Người thai sản ghi mức đã giảm |
-| Thai sản | Không | `Có` (hoặc `x`) nếu đang hưởng chế độ; để trống hoặc `Không` nếu không |
+| Họ và Tên | Có | Họ tên, tự do |
+| Chức Vụ | Có | Một trong: **Chủ Nhiệm, Thể Dục, Tiếng Anh, Mỹ Thuật, Bộ Môn, Âm Nhạc, Tin Học, Quản Lý**. **Không ghi số thứ tự** |
+| Lớp | Với Chủ Nhiệm | Dạng **khối/số thứ tự** (`1/1`). Chỉ Chủ Nhiệm được ghi Lớp |
+| Chế độ | Không | `Thai sản` nếu đang hưởng chế độ thai sản; để trống nếu không |
+| Số Tiết/Tuần | Có | Số nguyên ≥ 0. Người thai sản ghi mức đã giảm |
 
-**Chức vụ hợp lệ:** `chủ nhiệm`, `bộ môn`, `tiếng anh`, `tin học`, `thể dục`, `âm nhạc`, `mỹ thuật`, `quản lý`.
-- Chủ nhiệm ghi lớp dạng `khối/stt` (`chủ nhiệm 3/2`).
-- Chức vụ khác ghi số thứ tự (`bộ môn 5`).
-- File cũ ghi thai sản bằng chữ `ts` sau chức vụ (`bộ môn 5 ts`) vẫn đọc được.
+- **Tự đánh số thứ tự:** mỗi chức vụ (trừ Chủ Nhiệm) được đánh số 1, 2, 3… theo thứ tự dòng trong file, ví dụ Bộ Môn thứ hai là `bộ môn 2`. Chủ Nhiệm được nhận diện theo Lớp (`chủ nhiệm 1/1`). Người thai sản có thêm `ts` (`bộ môn 5 ts`).
+- **Mẫu cũ vẫn đọc được:**
+  - V6: `Tên | Chức vụ | Số tiết | Thai sản`, chức vụ ghi kèm số (`bộ môn 5`, `chủ nhiệm 1/1`), Thai sản ghi `Có`.
+  - V5: 3 cột, thai sản ghi bằng chữ `ts` sau chức vụ (`bộ môn 5 ts`).
 
 **Chương trình từ chối file và báo rõ dòng lỗi khi:**
-- Chức vụ sai dạng hoặc không thuộc danh sách trên.
-- Chủ nhiệm không ghi lớp `khối/stt`, hoặc chức vụ khác lại ghi `khối/stt`.
+- Chức vụ không thuộc danh sách trên, hoặc sai dạng (mẫu cũ).
+- Chủ Nhiệm thiếu Lớp, Lớp sai dạng khối/số thứ tự, hoặc chức vụ khác lại ghi Lớp.
+- Lớp bị Excel đổi thành ngày tháng (khi gõ tay `1/1` vào ô không định dạng chữ).
 - Số tiết trống, không phải số, âm hoặc không nguyên.
-- Cột Thai sản ghi giá trị khác `Có`/`x`/`Không`/trống.
+- Cột Chế độ ghi giá trị khác `Thai sản`/trống (mẫu V6 chấp nhận `Có`/`x`/`Không`).
 - Trùng chức vụ (kể cả `bộ môn 2` và `bộ môn 2 ts`).
 - Một lớp có hai GVCN.
 - Không có GVCN nào.
 
-**File mẫu** (`data/Input_Danh_Sach_Nhan_Su_V6.xlsx`, tạo bằng `python -m tkb.template`):
-- Chức vụ chọn từ danh sách thả xuống: `chủ nhiệm 1/1 … 5/10` và các chức vụ khác từ 1 đến 20. Danh sách nằm ở sheet ẩn `Danh mục`.
-- Số tiết chỉ nhận số nguyên từ 0 đến 40.
-- Thai sản chỉ nhận `Có`.
-- Chức vụ bị trùng được tô đỏ.
+**File mẫu V7** (tạo bằng `python -m tkb.template`):
+- Chức Vụ, Lớp (`1/1 … 5/10`), Chế độ chọn từ danh sách thả xuống; danh sách nằm ở sheet ẩn `Danh mục`.
+- Cột Lớp định dạng chữ (Text) để Excel không đổi `1/1` thành ngày tháng.
+- Số Tiết/Tuần chỉ nhận số nguyên từ 0 đến 40.
+- Tô đỏ: Lớp bị trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác lại ghi Lớp.
 - Chuyển file cũ sang file mẫu: `python -m tkb.template <mới.xlsx> --tu <cũ.xlsx>`.
 
 ### 2.2. Danh sách lớp
@@ -393,7 +398,7 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 | Hằng số | Ý nghĩa | Mặc định |
 |---|---|---|
 | `THU_MUC_IN`, `THU_MUC_OUT` | Thư mục vào/ra (tương đối theo `main.py`) | `data`, `out` |
-| `FILE_NHAN_SU` | File nhân sự | `Input_Danh_Sach_Nhan_Su_V6.xlsx` |
+| `FILE_NHAN_SU` | File nhân sự | `Input_Danh_Sach_Nhan_Su_V7.xlsx` |
 | `FILE_CHUONG_TRINH` | File chương trình học; `None` = dùng mặc định | `None` |
 | `FILE_TKB` | Tên file TKB | `TKB.xlsx` |
 | `FILE_THONG_KE` | Tên file thống kê giáo viên | `Thong_Ke.xlsx` |
@@ -423,7 +428,7 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 
 ## 13. Kết quả tham chiếu với dữ liệu hiện tại
 
-**Nhân sự** (`Input_Danh_Sach_Nhan_Su_V6.xlsx`): 45 người, gồm:
+**Nhân sự** (`Input_Danh_Sach_Nhan_Su_V7.xlsx`): 45 người, gồm:
 - 29 GVCN, ứng với 29 lớp: khối 1–4 mỗi khối 6 lớp, khối 5 có 5 lớp.
 - 5 bộ môn, 4 tiếng anh, 3 thể dục, 1 âm nhạc, 1 mỹ thuật, 1 tin học, 1 quản lý.
 - 2 người thai sản: chủ nhiệm 5/5 (16 tiết) và bộ môn 5 (19 tiết).
@@ -458,4 +463,5 @@ Cả hai chế độ đều đã **chứng minh tối ưu** ở bước phân c�
 4. **Bước xếp giờ** chỉ bảo đảm TKB hợp lệ và tốt trong thời gian cho phép (trạng thái FEASIBLE). Mục tiêu mềm không được chứng minh là tốt nhất.
 5. **Người bổ sung** được ghi theo định mức tuyển đầy đủ, dù có thể dạy ít hơn (ví dụ `bộ môn 8` ghi 23, thực dạy 6).
 6. **"Kỹ năng số"** trong yêu cầu ban đầu được hiểu là **Kỹ năng sống**, vì chương trình không có môn Kỹ năng số.
-7. **Danh sách thả xuống** của file mẫu hỗ trợ tối đa 10 lớp mỗi khối và số thứ tự 1–20 cho mỗi chức vụ khác. Muốn mở rộng thì tạo lại file mẫu (`CLASSES_PER_GRADE`, `MAX_INDEX` trong `tkb/template.py`).
+7. **Danh sách thả xuống** của cột Lớp hỗ trợ tối đa 10 lớp mỗi khối. Muốn mở rộng thì sửa `CLASSES_PER_GRADE` trong `tkb/template.py` rồi tạo lại file mẫu.
+8. **Số thứ tự tự đánh theo thứ tự dòng:** đổi thứ tự các dòng cùng chức vụ thì số thứ tự (và nhãn như `bộ môn 2`) đổi theo; TKB vẫn ghi tên giáo viên nên không ảnh hưởng người đọc.
