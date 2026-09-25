@@ -24,10 +24,8 @@ pip install -r requirements.txt
 
 | Hằng số | Ý nghĩa | Mặc định |
 |---|---|---|
-| `THU_MUC_IN` | Thư mục chứa file đầu vào | `data` |
+| `FILE_VAO` | **File vào duy nhất** (sheet `NHÂN SỰ` và `CHƯƠNG TRÌNH HỌC`) | `data/Input_TKB_V8.xlsx` |
 | `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có | `out` |
-| `FILE_NHAN_SU` | Tên file danh sách nhân sự trong `THU_MUC_IN` | `Input_Danh_Sach_Nhan_Su_V7.xlsx` |
-| `FILE_CHUONG_TRINH` | Tên file chương trình học trong `THU_MUC_IN`; `None` = dùng chương trình mặc định | `None` |
 | `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
 | `FILE_THONG_KE` | Tên file thống kê giáo viên xuất ra | `Thong_Ke.xlsx` |
 | `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn | `240` (≈ 3,5 phút) |
@@ -39,14 +37,14 @@ pip install -r requirements.txt
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
    - **Chạy lại ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file đầu vào, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, phiên bản OR-Tools (đã ghim trong `requirements.txt`). Máy nhanh hay chậm không ảnh hưởng kết quả, chỉ ảnh hưởng thời gian chạy.
-   - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\in"` hoặc `"C:/Users/ten/TKB/in"`.
+   - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\input.xlsx"` hoặc `"C:/Users/ten/TKB/input.xlsx"`.
 2. Bấm **Run ▶** (VS Code, PyCharm...) hoặc chạy `python main.py`.
-3. Kết quả nằm trong `THU_MUC_OUT`: file `TKB.xlsx` và `<tên file nhân sự>_cap_nhat.xlsx`.
+3. Kết quả nằm trong `THU_MUC_OUT`: `TKB.xlsx`, `Thong_Ke.xlsx` và `<tên file vào>_cap_nhat.xlsx`.
 
 ### Cách 2 — dòng lệnh
 
 ```bash
-python -m tkb data/Input_Danh_Sach_Nhan_Su_V7.xlsx -o out/TKB.xlsx
+python -m tkb data/Input_TKB_V8.xlsx -o out/TKB.xlsx
 ```
 
 Tuỳ chọn:
@@ -56,7 +54,7 @@ Tuỳ chọn:
 | `-o, --output` | File TKB xuất ra (mặc định `out/TKB.xlsx`) |
 | `--staff-out` | File nhân sự cập nhật (mặc định `<thư mục output>/<tên input>_cap_nhat.xlsx`) |
 | `--stats-out` | File thống kê giáo viên (mặc định `<thư mục output>/Thong_Ke.xlsx`) |
-| `--program` | File chương trình học (cột `Môn học`, `Khối 1..5`); mặc định dùng chương trình trong `tkb/config.py` |
+| `--program` | File chương trình học riêng; mặc định đọc sheet `CHƯƠNG TRÌNH HỌC` của file vào, không có thì dùng chương trình trong `tkb/config.py` |
 | `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
 | `--mode` | `tuyen_them` (mặc định) hoặc `bu_gio` |
@@ -67,27 +65,36 @@ Chạy test: `python -m pytest -q`
 
 ## Đầu vào
 
-File Excel **mẫu V7**, 1 sheet, 5 cột, ví dụ `data/Input_Danh_Sach_Nhan_Su_V7.xlsx`:
+**Một file Excel duy nhất** (mẫu V8, ví dụ `data/Input_TKB_V8.xlsx`) gồm 2 sheet. Chương trình tìm sheet theo tên, không phân biệt hoa thường.
 
-| Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần |
-|---|---|---|---|---|
-| Nguyễn Văn A | Chủ Nhiệm | 1/1 | | 19 |
-| Trần Thị B | Chủ Nhiệm | 5/5 | Thai sản | 16 |
-| Lê Văn C | Bộ Môn | | Thai sản | 19 |
-| Phạm D | Tiếng Anh | | | 23 |
+**Sheet `NHÂN SỰ`:**
 
-- **Chức Vụ** chọn từ danh sách thả xuống: Chủ Nhiệm, Thể Dục, Tiếng Anh, Mỹ Thuật, Bộ Môn, Âm Nhạc, Tin Học, Quản Lý. **Không ghi số thứ tự**: chương trình tự đánh số theo thứ tự dòng (Bộ Môn thứ nhất là `bộ môn 1`, thứ hai là `bộ môn 2`…).
+| STT | Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Chế độ |
+|---|---|---|---|---|---|
+| 1 | Nguyễn Văn A | Chủ Nhiệm | 1/1 | 19 | |
+| 2 | Trần Thị B | Chủ Nhiệm | 5/5 | 16 | Có |
+| 3 | Lê Văn C | Bộ Môn | | 19 | Có |
+| 4 | Phạm D | Tiếng Anh | | 23 | |
+
+- **Chức Vụ** chọn từ danh sách thả xuống: Chủ Nhiệm, Thể Dục, Tiếng Anh, Mỹ Thuật, Bộ Môn, Âm Nhạc, Tin Học, Quản Lý (viết tắt `T. Anh` cũng được hiểu là Tiếng Anh). **Không ghi số thứ tự**: chương trình tự đánh số theo thứ tự dòng (Bộ Môn thứ nhất là `bộ môn 1`, thứ hai là `bộ môn 2`…).
 - **Lớp** chỉ ghi cho Chủ Nhiệm, dạng **khối/số thứ tự** (`1/1`, `5/5`), chọn từ danh sách thả xuống. Cột này định dạng chữ (Text) để Excel không đổi `1/1` thành ngày tháng. Lớp trùng, Chủ Nhiệm thiếu Lớp, hoặc chức vụ khác lại ghi Lớp đều bị tô đỏ.
-- **Chế độ**: ghi `Thai sản` nếu đang hưởng chế độ thai sản, để trống nếu không. Ở sheet Danh sách nhân sự và Thống kê, chức vụ của người này có thêm `ts`, ví dụ `chủ nhiệm 5/5 ts`.
 - **Số Tiết/Tuần** là mức tối đa mỗi tuần (số nguyên 0–40). Người hưởng thai sản ghi mức đã giảm.
-- Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN.
-- File mẫu cũ vẫn đọc được: V6 (`Tên | Chức vụ | Số tiết | Thai sản`, chức vụ ghi kèm số như `bộ môn 5`) và V5 (3 cột, ghi `ts` sau chức vụ).
+- **Chế độ**: ghi `Có` (hoặc `Thai sản`) nếu đang hưởng chế độ thai sản, để trống nếu không. Ở sheet Danh sách nhân sự và Thống kê, chức vụ của người này có thêm `ts`, ví dụ `chủ nhiệm 5/5 ts`.
+- Cột STT chỉ để đọc cho dễ, chương trình không dùng.
+- Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN. Nếu dãy lớp của một khối bị hụt (ví dụ có 1/3, 1/5 mà không có 1/4) thì chương trình cảnh báo.
+- Khi file có lỗi, chương trình **liệt kê tất cả lỗi một lần** kèm số dòng (ví dụ `Lớp 1/1 có hai Chủ Nhiệm (dòng 11 và 26)`).
+
+**Sheet `CHƯƠNG TRÌNH HỌC`:** STT | Môn học | Khối 1 … Khối 5 (số tiết/tuần), có thể có dòng `Tổng`.
+- Tên môn không phân biệt hoa thường; cách viết như `Tự Nhiên và Xã Hội`, `Lịch Sử và Địa Lý`, `HĐTN` được hiểu đúng. Tên môn lạ thì báo lỗi.
+- Không có sheet này thì dùng chương trình mặc định trong `tkb/config.py`.
+
+File cũ vẫn đọc được: file nhân sự 1 sheet mẫu V7/V6 (chức vụ ghi kèm số như `bộ môn 5`) và V5 (3 cột, ghi `ts` sau chức vụ).
 
 Tạo file mẫu mới, hoặc chuyển file cũ sang file mẫu:
 
 ```bash
-python -m tkb.template data/Mau_Nhan_Su.xlsx                                    # file mẫu V7 trống
-python -m tkb.template data/Nhan_Su_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V5.xlsx   # chép dữ liệu file cũ
+python -m tkb.template data/Mau_Input.xlsx                                      # file vào mẫu V8 (chương trình học mặc định)
+python -m tkb.template data/Input_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V5.xlsx     # chép dữ liệu file cũ
 ```
 
 ## Đầu ra
@@ -106,7 +113,7 @@ python -m tkb.template data/Nhan_Su_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V
      - Tổng hợp theo nhóm chức vụ: định mức, đã dạy, dư, thiếu.
      - Tải từng giáo viên theo từng ngày.
      - Kết quả kiểm tra luật bắt buộc.
-2. **`<tên input>_cap_nhat.xlsx`**: file nhân sự gốc, có thêm các dòng `chưa có` ở cuối, Số tiết = định mức tuyển (vd 23). File này dùng làm đầu vào cho lần chạy sau được. File gốc không bị sửa.
+2. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ cả 2 sheet), sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối, Số tiết = định mức tuyển (vd 23). File này dùng làm đầu vào cho lần chạy sau được. File gốc không bị sửa.
 3. **`Thong_Ke.xlsx`**: file thống kê riêng. Người cần tuyển có tên `tuyển thêm`. Các bảng đều có bộ lọc.
    - **Thống kê giáo viên**: Tên | Chức vụ | Số tiết quy định | Số tiết bù | Số tiết thực dạy | Số tiết còn dư, cuối bảng có dòng Tổng.
    - **Phân công**: giáo viên dạy môn gì, lớp nào, bao nhiêu tiết (bảng phân công chuyên môn).
@@ -179,8 +186,8 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `main.py` | File chạy nhanh: sửa hằng số thư mục vào/ra rồi bấm Run |
 | `tkb/config.py` | Toàn bộ tham số nghiệp vụ: chương trình, khung giờ, quyền dạy, thứ tự cắt/bù, trọng số |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |
-| `tkb/template.py` | Tạo file mẫu nhân sự V7 (danh sách thả xuống), chuyển file cũ sang file mẫu |
-| `tkb/program.py` | Đọc file chương trình học (tuỳ chọn) |
+| `tkb/template.py` | Tạo file vào mẫu V8 (NHÂN SỰ + CHƯƠNG TRÌNH HỌC, danh sách thả xuống), chuyển file cũ sang file mẫu |
+| `tkb/program.py` | Đọc sheet chương trình học |
 | `tkb/allocation.py` | Phân phần GVCN, sinh lớp-môn và danh sách giáo viên được dạy, sinh giáo viên bổ sung |
 | `tkb/solver.py` | Mô hình CP-SAT |
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |

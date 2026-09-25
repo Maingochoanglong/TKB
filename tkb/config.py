@@ -45,6 +45,17 @@ DEFAULT_CURRICULUM: dict[int, dict[str, int]] = {
         AM_NHAC: 1, MY_THUAT: 1, DD: 1, TIN_HOC: 1, CONG_NGHE: 1, TOAN_TC: 1, TV_TC: 0, KNS: 1},
 }
 
+# Thứ tự môn cố định khi dựng bài toán: thứ tự dòng trong file chương trình học không làm đổi TKB.
+SUBJECT_ORDER: list[str] = list(DEFAULT_CURRICULUM[1])
+
+# Cách viết khác của tên môn trong file chương trình học (so khớp không phân biệt hoa thường).
+SUBJECT_ALIASES: dict[str, str] = {
+    "hđtn": HDTN,
+    "tnxh": TNXH, "tự nhiên và xã hội": TNXH,
+    "lịch sử và địa lý": LSDL, "lịch sử – địa lý": LSDL, "lịch sử-địa lý": LSDL, "ls-đl": LSDL,
+    "tv tăng cường": TV_TC,
+}
+
 # Tên môn hiển thị trong ô TKB (giống template); môn không có ở đây giữ nguyên tên.
 DISPLAY_NAMES: dict[str, str] = {
     HDTN: "HĐTN",
@@ -100,6 +111,14 @@ SPECIALIST_ROLES: dict[str, str] = {
     "âm nhạc": AM_NHAC,
     "mỹ thuật": MY_THUAT,
 }
+
+# Cách viết khác của tên chức vụ trong file nhân sự.
+ROLE_ALIASES: dict[str, str] = {"t. anh": "tiếng anh", "t.anh": "tiếng anh"}
+
+# File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu,
+# thiếu sheet chương trình học thì dùng DEFAULT_CURRICULUM.
+STAFF_SHEET = "NHÂN SỰ"
+PROGRAM_SHEET = "CHƯƠNG TRÌNH HỌC"
 
 # Tên chức vụ trong file mẫu nhân sự (thứ tự trong danh sách thả xuống).
 ROLE_LABELS: dict[str, str] = {

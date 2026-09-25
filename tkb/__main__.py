@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import config
 from .checker import check
-from .program import read_program
+from .program import has_program_sheet, read_program
 from .solver import SolveError, solve
 from .staff import InputError, read_staff
 from .writer import write_statistics, write_timetable, write_updated_staff
@@ -16,11 +16,12 @@ from .writer import write_statistics, write_timetable, write_updated_staff
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tkb", description="Xếp thời khóa biểu tự động")
-    ap.add_argument("staff", help="File Excel danh sách nhân sự (cột Tên, Chức vụ, Số tiết)")
+    ap.add_argument("staff", help="File vào: sheet NHÂN SỰ và (nếu có) sheet CHƯƠNG TRÌNH HỌC")
     ap.add_argument("-o", "--output", default="out/TKB.xlsx", help="File TKB xuất ra (mặc định out/TKB.xlsx)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
     ap.add_argument("--stats-out", help="File thống kê giáo viên (mặc định <thư mục output>/Thong_Ke.xlsx)")
-    ap.add_argument("--program", help="File chương trình học (mặc định dùng chương trình trong tkb/config.py)")
+    ap.add_argument("--program", help="File chương trình học riêng (mặc định: sheet CHƯƠNG TRÌNH HỌC của file vào, "
+                                      "không có thì dùng chương trình trong tkb/config.py)")
     ap.add_argument("--time-limit", type=float, default=240,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240)")
     ap.add_argument("--non-reproducible", action="store_true",
@@ -45,8 +46,11 @@ def main(argv: list[str] | None = None) -> int:
                                reproducible=not args.non_reproducible)
     try:
         staff = read_staff(args.staff)
-        curriculum = read_program(args.program) if args.program else None
-        print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp.")
+        program = args.program or (args.staff if has_program_sheet(args.staff) else None)
+        curriculum = read_program(program) if program else None
+        source = ("mặc định (tkb/config.py)" if not program else
+                  f"sheet {config.PROGRAM_SHEET} của file vào" if program == args.staff else program)
+        print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp; chương trình học: {source}.")
         solution = solve(staff, curriculum, settings)
     except (InputError, SolveError) as exc:
         print(f"LỖI: {exc}", file=sys.stderr)

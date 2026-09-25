@@ -1,7 +1,7 @@
 """Xếp thời khóa biểu: chỉ cần sửa các hằng số bên dưới rồi bấm nút Run (▶) để chạy.
 
 Đường dẫn tương đối được tính từ thư mục chứa file main.py này.
-Trên Windows nên viết đường dẫn dạng r"C:\\Users\\ten\\TKB\\in" hoặc "C:/Users/ten/TKB/in".
+Trên Windows nên viết đường dẫn dạng r"C:\\Users\\ten\\TKB\\input.xlsx" hoặc "C:/Users/ten/TKB/input.xlsx".
 """
 from __future__ import annotations
 
@@ -12,18 +12,12 @@ from pathlib import Path
 # CẤU HÌNH — SỬA Ở ĐÂY
 # ==========================================================================
 
-# Thư mục chứa file đầu vào.
-THU_MUC_IN = "data"
+# File vào duy nhất: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế độ) và sheet
+# "CHƯƠNG TRÌNH HỌC" (Môn học, Khối 1..5). Thiếu sheet chương trình học thì dùng chương trình mặc định.
+FILE_VAO = "data/Input_TKB_V8.xlsx"
 
 # Thư mục ghi kết quả (tự tạo nếu chưa có).
 THU_MUC_OUT = "out"
-
-# Tên file danh sách nhân sự (cột Họ và Tên, Chức Vụ, Lớp, Chế độ, Số Tiết/Tuần) nằm trong THU_MUC_IN.
-FILE_NHAN_SU = "Input_Danh_Sach_Nhan_Su_V7.xlsx"
-
-# Tên file chương trình học trong THU_MUC_IN (cột Môn học, Khối 1..5).
-# Để None thì dùng chương trình mặc định trong tkb/config.py.
-FILE_CHUONG_TRINH = None
 
 # Tên file TKB xuất ra trong THU_MUC_OUT.
 FILE_TKB = "TKB.xlsx"
@@ -70,8 +64,7 @@ def _resolve(path: str | Path) -> Path:
     return p if p.is_absolute() else BASE_DIR / p
 
 
-def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_OUT,
-        file_nhan_su: str = FILE_NHAN_SU, file_chuong_trinh: str | None = FILE_CHUONG_TRINH,
+def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path = THU_MUC_OUT,
         file_tkb: str = FILE_TKB, thoi_gian_toi_da: float = THOI_GIAN_TOI_DA,
         luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC,
         so_luong: int = SO_LUONG, che_do: str = CHE_DO, so_tiet_bu_toi_da: int = SO_TIET_BU_TOI_DA,
@@ -84,16 +77,16 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
         print(f"LỖI: thiếu thư viện ({exc.name}). Cài bằng lệnh:  pip install -r requirements.txt")
         return 1
 
-    in_dir = _resolve(thu_muc_in)
+    source = _resolve(file_vao)
     out_dir = _resolve(thu_muc_out)
-    staff = in_dir / file_nhan_su
-    if not staff.is_file():
-        found = sorted(p.name for p in in_dir.glob("*.xlsx")) if in_dir.is_dir() else []
-        print(f"LỖI: không tìm thấy file nhân sự: {staff}")
-        if not in_dir.is_dir():
-            print(f"  Thư mục THU_MUC_IN không tồn tại: {in_dir}")
+    if not source.is_file():
+        folder = source.parent
+        found = sorted(p.name for p in folder.glob("*.xlsx")) if folder.is_dir() else []
+        print(f"LỖI: không tìm thấy file vào: {source}")
+        if not folder.is_dir():
+            print(f"  Thư mục không tồn tại: {folder}")
         elif found:
-            print("  Các file .xlsx có trong THU_MUC_IN: " + ", ".join(found))
+            print(f"  Các file .xlsx có trong {folder}: " + ", ".join(found))
         return 1
 
     if not isinstance(so_luong, int) or so_luong < 1:
@@ -107,21 +100,15 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
         print(f"LỖI: SO_TIET_BU_TOI_DA phải là số nguyên >= 0 (đang là {so_tiet_bu_toi_da!r})")
         return 1
 
-    argv = [str(staff), "-o", str(out_dir / file_tkb), "--time-limit", str(thoi_gian_toi_da),
+    argv = [str(source), "-o", str(out_dir / file_tkb), "--time-limit", str(thoi_gian_toi_da),
             "--workers", str(so_luong), "--mode", che_do, "--max-overtime", str(so_tiet_bu_toi_da),
             "--stats-out", str(out_dir / file_thong_ke)]
-    if file_chuong_trinh:
-        program = in_dir / file_chuong_trinh
-        if not program.is_file():
-            print(f"LỖI: không tìm thấy file chương trình học: {program}")
-            return 1
-        argv += ["--program", str(program)]
     if not luat_hoc_sinh:
         argv.append("--no-student-rules")
     if not chay_tai_lap_duoc:
         argv.append("--non-reproducible")
 
-    print(f"Thư mục vào: {in_dir}")
+    print(f"File vào   : {source}")
     print(f"Thư mục ra : {out_dir}")
     print(f"Số luồng   : {so_luong}")
     print(f"Chế độ     : {che_do}" + (f" (bù tối đa {so_tiet_bu_toi_da} tiết/người)"

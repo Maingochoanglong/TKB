@@ -96,3 +96,16 @@ def test_overtime_allowances_and_eligibility(real_staff):
     hire = build_problem(real_staff)
     assert hire.overtime == {} and not hire.overtime_mode()
     assert all(not hire.teachers[g].class_name for c in hire.courses if not c.homeroom for g in c.teachers)
+
+
+def test_class_gaps_are_warned():
+    staff = [build_teacher("A", "chủ nhiệm 1/1", 19), build_teacher("B", "chủ nhiệm 1/3", 19),
+             build_teacher("C", "bộ môn 1", 23)]
+    warnings = build_problem(staff).warnings
+    assert any("Khối 1 không có lớp 1/2" in w for w in warnings)
+
+
+def test_curriculum_row_order_does_not_change_problem(real_staff):
+    shuffled = {g: dict(reversed(list(req.items()))) for g, req in C.DEFAULT_CURRICULUM.items()}
+    key = lambda p: [(c.class_name, c.subject, c.lessons, tuple(c.teachers)) for c in p.courses]
+    assert key(build_problem(real_staff, shuffled)) == key(build_problem(real_staff))

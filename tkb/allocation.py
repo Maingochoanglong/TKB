@@ -131,7 +131,10 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
     overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn (trừ người hưởng thai sản) được dạy vượt
     định mức tối đa ngần ấy tiết; GVCN bù các môn không thuộc GV chuyên biệt của lớp mình.
     """
-    curriculum = curriculum or config.DEFAULT_CURRICULUM
+    # Sắp môn theo thứ tự cố định: đổi thứ tự dòng trong file chương trình học không làm đổi TKB.
+    order = {s: i for i, s in enumerate(config.SUBJECT_ORDER)}
+    curriculum = {g: dict(sorted(req.items(), key=lambda kv: (order.get(kv[0], len(order)), kv[0])))
+                  for g, req in (curriculum or config.DEFAULT_CURRICULUM).items()}
     slots = all_slots()
     warnings: list[str] = []
     classes = classes_from_staff(staff)
@@ -139,6 +142,10 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
     managers = [t for t in staff if t.role == config.ROLE_MANAGER]
 
     for g in sorted({int(c.split("/")[0]) for c in classes}):
+        numbers = {int(c.split("/")[1]) for c in classes if int(c.split("/")[0]) == g}
+        missing = [f"{g}/{n}" for n in range(1, max(numbers)) if n not in numbers]
+        if missing:
+            warnings.append(f"Khối {g} không có lớp {', '.join(missing)} (không có Chủ Nhiệm nào ghi lớp này)")
         if g not in curriculum:
             raise InputError(f"Không có chương trình học cho Khối {g}")
         total = sum(curriculum[g].values())

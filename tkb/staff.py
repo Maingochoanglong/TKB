@@ -96,6 +96,16 @@ def parse_class(value) -> str:
     return f"{int(m.group(1))}/{int(m.group(2))}"
 
 
+def find_sheet(wb, name: str):
+    """Sheet có tên `name` (không phân biệt hoa thường), hoặc None."""
+    return next((ws for ws in wb.worksheets if normalize(ws.title) == normalize(name)), None)
+
+
+def staff_sheet(wb):
+    """Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có, không thì sheet đầu tiên."""
+    return find_sheet(wb, config.STAFF_SHEET) or wb.worksheets[0]
+
+
 def _blank(value) -> bool:
     return value is None or str(value).strip() == ""
 
@@ -104,7 +114,7 @@ def _find_columns(ws) -> tuple[int, dict[str, int]]:
     """Dòng tiêu đề và vị trí các cột. Bắt buộc: tên, chức vụ, số tiết; không bắt buộc: lớp, chế độ."""
     wanted = {"tên": "name", "họ và tên": "name", "họ tên": "name", "chức vụ": "title",
               "số tiết": "lessons", "số tiết/tuần": "lessons", "số tiết / tuần": "lessons",
-              "thai sản": "maternity", "chế độ": "maternity", "lớp": "class"}
+              "thai sản": "maternity", "chế độ": "maternity", "lớp": "class", "stt": "stt"}
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
         found = {}
         for cell in row:
@@ -170,45 +180,48 @@ def make_teacher(name, role: str, index: int | None, class_name: str | None, mat
 
 
 def validate(teachers: list[Teacher]) -> None:
-    seen: dict[str, Teacher] = {}
+    """Báo mọi lỗi trùng lặp cùng lúc (mỗi lỗi một dòng)."""
+    errors: list[str] = []
     homeroom: dict[str, Teacher] = {}
     keys: dict[tuple[str, int], Teacher] = {}
     for t in teachers:
-        if t.title in seen:
-            raise InputError(f"Trùng chức vụ '{t.title}' (dòng {seen[t.title].row} và {t.row})")
-        seen[t.title] = t
         if t.class_name:
             if t.class_name in homeroom:
-                raise InputError(f"Lớp {t.class_name} có hai GV chủ nhiệm: "
-                                 f"'{homeroom[t.class_name].title}' và '{t.title}'")
-            homeroom[t.class_name] = t
+                errors.append(f"Lớp {t.class_name} có hai Chủ Nhiệm (dòng {homeroom[t.class_name].row} "
+                              f"và {t.row})")
+            else:
+                homeroom[t.class_name] = t
         else:
             key = (t.role, t.index)
             if key in keys:
-                raise InputError(f"Trùng chức vụ '{t.role} {t.index}' (dòng {keys[key].row} và {t.row})")
-            keys[key] = t
+                errors.append(f"Trùng chức vụ '{t.role} {t.index}' (dòng {keys[key].row} và {t.row})")
+            else:
+                keys[key] = t
     if not homeroom:
-        raise InputError("Không có GV chủ nhiệm nào nên không xác định được danh sách lớp")
+        errors.append("Không có Chủ Nhiệm nào nên không xác định được danh sách lớp")
+    if errors:
+        raise InputError("\n".join(errors))
 
 
 def read_staff(path: str | Path) -> list[Teacher]:
     wb = openpyxl.load_workbook(path, data_only=True)
-    ws = wb.worksheets[0]
+    ws = staff_sheet(wb)
     header_row, cols = _find_columns(ws)
 
     def cell(r: int, key: str):
         return ws.cell(r, cols[key]).value if key in cols else None
 
     rows: list[list] = []  # [dòng, tên, chức vụ, stt, lớp, thai sản, số tiết]
+    errors: list[str] = []
     for r in range(header_row + 1, ws.max_row + 1):
         name, title, lessons, cls = cell(r, "name"), cell(r, "title"), cell(r, "lessons"), cell(r, "class")
         if _blank(title):
-            if all(_blank(v) for v in (name, lessons, cls)):
-                continue
-            raise InputError(f"Dòng {r}: thiếu chức vụ")
+            if not all(_blank(v) for v in (name, lessons, cls)):
+                errors.append(f"Dòng {r}: thiếu chức vụ")
+            continue
         try:
             maternity = to_maternity(cell(r, "maternity"))
-            role = normalize(title)
+            role = config.ROLE_ALIASES.get(normalize(title), normalize(title))
             if role in known_roles():  # mẫu V7: chỉ ghi tên chức vụ, số thứ tự tự đánh
                 index = class_name = None
                 if role == config.ROLE_HOMEROOM:
@@ -224,7 +237,7 @@ def read_staff(path: str | Path) -> list[Teacher]:
                     raise InputError(f"chức vụ {title!r} không khớp cột Lớp {cls!r}")
             rows.append([r, name, role, index, class_name, maternity, lessons])
         except InputError as exc:
-            raise InputError(f"Dòng {r}: {exc}") from None
+            errors.append(f"Dòng {r}: {exc}")
 
     # Đánh số thứ tự cho các dòng chỉ ghi tên chức vụ, theo thứ tự dòng, bỏ qua số đã dùng.
     used: dict[str, set[int]] = defaultdict(set)
@@ -244,8 +257,14 @@ def read_staff(path: str | Path) -> list[Teacher]:
         try:
             teachers.append(make_teacher(name, role, index, class_name, maternity, lessons, row=r))
         except InputError as exc:
-            raise InputError(f"Dòng {r}: {exc}") from None
-    validate(teachers)
+            errors.append(f"Dòng {r}: {exc}")
+    try:
+        validate(teachers)
+    except InputError as exc:
+        errors.append(str(exc))
+    errors = [line for err in errors for line in err.split("\n")]
+    if errors:
+        raise InputError(f"File nhân sự có {len(errors)} lỗi:\n  " + "\n  ".join(errors))
     return teachers
 
 

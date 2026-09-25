@@ -111,3 +111,32 @@ def test_v7_class_turned_into_date(tmp_path):
                        header=V7)
     with pytest.raises(InputError, match="ngày tháng"):
         read_staff(path)
+
+
+def test_program_sheet_aliases_and_total_row(tmp_path):
+    wb = openpyxl.Workbook()
+    wb.active.title = "NHÂN SỰ"
+    ws = wb.create_sheet("CHƯƠNG TRÌNH HỌC")
+    ws.append(["SST", "Môn học", "Khối 1"])
+    ws.append([1, "Tự Nhiên và Xã Hội", 2])
+    ws.append([2, "Lịch Sử và Địa Lý", 0])
+    ws.append([3, "Hoạt Động Trải Nghiệm", 3])
+    ws.append([None, "Tổng", "=SUM(C2:C4)"])
+    wb.save(tmp_path / "in.xlsx")
+    assert read_program(tmp_path / "in.xlsx") == {1: {config.TNXH: 2, config.LSDL: 0, config.HDTN: 3}}
+    ws.append([4, "Toán Nâng Cao", 1])
+    wb.save(tmp_path / "in.xlsx")
+    with pytest.raises(InputError, match="không xác định"):
+        read_program(tmp_path / "in.xlsx")
+
+
+def test_role_alias_and_all_errors_at_once(tmp_path):
+    path = _staff_file(tmp_path / "ns.xlsx", [
+        ("A", "Chủ Nhiệm", "1/1", None, 19), ("B", "T. Anh ", None, None, 23),
+        ("C", "Chủ Nhiệm", "1/1", None, 19), ("D", "Chủ Nhiệm", "2/1", None, 19),
+        ("E", "Chủ Nhiệm", "2/1", None, 19), ("F", "Hiệu Trưởng", None, None, 4)], header=V7)
+    with pytest.raises(InputError) as exc:
+        read_staff(path)
+    message = str(exc.value)
+    assert "3 lỗi" in message and "Lớp 1/1 có hai Chủ Nhiệm" in message and "Lớp 2/1" in message
+    assert "Hiệu Trưởng" in message and "T. Anh" not in message  # "T. Anh" được hiểu là Tiếng Anh

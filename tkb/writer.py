@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 
 from . import config
 from .solver import Solution
-from .staff import Teacher, _find_columns, class_sort_key
+from .staff import Teacher, _find_columns, class_sort_key, staff_sheet
 
 THIN = Side(style="thin", color="000000")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
@@ -432,13 +432,17 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     đánh số tiếp theo (bộ môn 6, 7...). Mẫu cũ ghi đủ chức vụ, vd "bộ môn 6".
     """
     wb = openpyxl.load_workbook(source)
-    ws = wb.worksheets[0]
+    ws = staff_sheet(wb)
     _, cols = _find_columns(ws)
     last = max((r for r in range(1, ws.max_row + 1)
                 if ws.cell(r, cols["title"]).value not in (None, "")), default=1)
     v7 = "class" in cols
     for i, t in enumerate(solution.used_supplements(), start=1):
         r = last + i
+        if "stt" in cols:  # STT: chép công thức (vd =ROW()-1) hoặc tăng số của dòng trên
+            above = ws.cell(r - 1, cols["stt"]).value
+            ws.cell(r, cols["stt"], above if isinstance(above, str) and above.startswith("=")
+                    else above + 1 if isinstance(above, int) else None)
         ws.cell(r, cols["name"], t.name)
         ws.cell(r, cols["title"], config.ROLE_LABELS.get(t.role, t.role) if v7 else t.title)
         ws.cell(r, cols["lessons"], t.max_lessons)
