@@ -1,3 +1,4 @@
-ortools>=9.15
+# Ghim đúng phiên bản OR-Tools: khác phiên bản thì TKB ra khác (xem CHAY_TAI_LAP_DUOC trong main.py).
+ortools==9.15.6755
 openpyxl>=3.1
 pytest>=8

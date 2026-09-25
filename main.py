@@ -33,7 +33,9 @@ FILE_TKB = "TKB.xlsx"
 # nhưng kết quả không đổi.
 THOI_GIAN_TOI_DA = 240
 
-# True: cùng dữ liệu thì lần chạy nào cũng ra đúng một TKB.
+# True: chạy lại bao nhiêu lần cũng ra đúng một TKB (ở cả chế độ tuyen_them lẫn bu_gio), miễn là
+#       giữ nguyên file đầu vào, CHE_DO, SO_TIET_BU_TOI_DA, THOI_GIAN_TOI_DA, SO_LUONG và phiên bản
+#       OR-Tools (đã ghim trong requirements.txt).
 # False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
 CHAY_TAI_LAP_DUOC = True
 

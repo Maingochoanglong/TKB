@@ -30,13 +30,14 @@ pip install -r requirements.txt
 | `FILE_CHUONG_TRINH` | Tên file chương trình học trong `THU_MUC_IN`; `None` = dùng chương trình mặc định | `None` |
 | `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
 | `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn | `240` (≈ 3,5 phút) |
-| `CHAY_TAI_LAP_DUOC` | `True`: cùng dữ liệu thì lần nào chạy cũng ra đúng một TKB; `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
+| `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần cũng ra đúng một TKB, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 | `CHE_DO` | Khi thiếu người: `"tuyen_them"` (thêm GV "chưa có") hoặc `"bu_gio"` (GVCN/bộ môn dạy bù) | `"bu_gio"` |
 | `SO_TIET_BU_TOI_DA` | Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (người hưởng thai sản không bù) | `2` |
 | `LUAT_HOC_SINH` | Bật luật bảo vệ học sinh | `True` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
+   - **Chạy lại ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file đầu vào, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, phiên bản OR-Tools (đã ghim trong `requirements.txt`). Máy nhanh hay chậm không ảnh hưởng kết quả, chỉ ảnh hưởng thời gian chạy.
    - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\in"` hoặc `"C:/Users/ten/TKB/in"`.
 2. Bấm **Run ▶** (VS Code, PyCharm...) hoặc chạy `python main.py`.
 3. Kết quả nằm trong `THU_MUC_OUT`: file `TKB.xlsx` và `<tên file nhân sự>_cap_nhat.xlsx`.

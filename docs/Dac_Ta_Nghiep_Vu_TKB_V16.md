@@ -303,8 +303,13 @@ Chương trình giải hai lần:
 
 **Thời gian và tái lập:**
 - `THOI_GIAN_TOI_DA` (mặc định 240) là lượng tính toán dành cho bước xếp giờ, tính xấp xỉ bằng giây.
-- Khi `CHAY_TAI_LAP_DUOC = True`, cùng dữ liệu + cùng phiên bản OR-Tools + cùng `SO_LUONG` luôn ra **cùng một TKB**.
-- Đổi `SO_LUONG` thì TKB ra khác, nhưng vẫn đúng luật.
+- **[Cứng] Tái lập:** khi `CHAY_TAI_LAP_DUOC = True`, chạy lại bao nhiêu lần cũng ra **đúng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
+  - file nhân sự (và file chương trình học nếu có);
+  - `CHE_DO`, `SO_TIET_BU_TOI_DA`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, `LUAT_HOC_SINH`;
+  - phiên bản OR-Tools (ghim trong `requirements.txt`).
+- Máy nhanh hay chậm, máy đang bận hay rảnh không ảnh hưởng kết quả, vì bộ giải dừng theo **lượng tính toán**, không theo giây thực.
+- Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
+- `tests/test_reproducible.py` kiểm tra điều này ở cả hai chế độ: chạy trong hai tiến trình Python riêng, thứ tự băm khác nhau, và so sánh kết quả.
 
 ---
 
