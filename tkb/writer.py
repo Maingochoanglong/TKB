@@ -12,7 +12,7 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 
 from . import config
-from .solver import Solution
+from .solver import Solution, ortools_version
 from .staff import MATERNITY_LABEL, Teacher, _find_columns, class_sort_key, normalize, staff_sheet
 from .style import CellStyle, Style
 
@@ -217,7 +217,8 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str],
         ("Chế độ", mode_label(problem)),
         ("Kiểm tra luật bắt buộc", "ĐẠT" if not errors else f"KHÔNG ĐẠT ({len(errors)} lỗi)"),
         ("Trạng thái solver", f"{solution.status} ({solution.stage})"),
-        ("Thời gian xếp giờ (giây)", round(solution.wall_time, 1)),
+        ("Mã kết quả", solution.fingerprint()),
+        ("Phiên bản OR-Tools", ortools_version()),
         ("Số lớp", len(problem.classes)),
         ("Tổng số tiết/tuần", len(solution.lessons)),
         ("Tổng số tiết thiếu (giao cho GV tuyển thêm)", sum(load[t.title] for t in solution.used_supplements())),

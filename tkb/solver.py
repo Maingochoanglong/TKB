@@ -9,6 +9,8 @@ Quy trình:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import time
 from dataclasses import dataclass, field
@@ -22,6 +24,11 @@ from .staff import Teacher
 
 class SolveError(RuntimeError):
     pass
+
+
+def ortools_version() -> str:
+    import ortools
+    return ortools.__version__
 
 
 @dataclass
@@ -54,6 +61,12 @@ class Solution:
     def used_supplements(self) -> list[Teacher]:
         load = self.teacher_load()
         return [t for t in self.problem.teachers.values() if t.supplementary and load[t.title] > 0]
+
+    def fingerprint(self) -> str:
+        """Mã kết quả: băm toàn bộ TKB (lớp, ngày, tiết, môn, GV). Hai lần chạy cùng mã là cùng TKB."""
+        rows = sorted((l.class_name, l.day, l.period, l.subject, l.teacher) for l in self.lessons)
+        digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False).encode("utf-8")).hexdigest().upper()
+        return "-".join(digest[i:i + 4] for i in range(0, 12, 4))
 
     def overtime(self) -> dict[str, int]:
         """GV -> số tiết dạy bù (vượt định mức)."""
@@ -116,8 +129,9 @@ def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: fl
     """Đặt tham số CP-SAT. seconds = None: không giới hạn, chạy đến khi chứng minh tối ưu.
 
     Chế độ tái lập (settings.reproducible): các luồng chạy xen kẽ theo thứ tự cố định và dừng theo
-    "thời gian tất định" (đếm khối lượng tính toán, không phụ thuộc máy nhanh/chậm), nên cùng dữ
-    liệu + cùng phiên bản OR-Tools + cùng số luồng thì lần nào cũng ra đúng một kết quả.
+    "thời gian tất định" (đếm khối lượng tính toán, không phụ thuộc máy nhanh/chậm, số nhân CPU hay máy
+    đang bận), nên cùng dữ liệu + cùng phiên bản OR-Tools + cùng số luồng thì máy nào cũng ra đúng một
+    kết quả. Không đặt giới hạn giây thực: máy chậm chỉ chạy lâu hơn chứ không dừng sớm ra kết quả khác.
     Bấm Ctrl+C khi đang giải thì bộ giải dừng và giữ nghiệm tốt nhất đã tìm được.
     """
     p = solver.parameters
@@ -129,7 +143,6 @@ def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: fl
         return
     if settings.reproducible:
         p.max_deterministic_time = seconds * settings.deterministic_per_second
-        p.max_time_in_seconds = seconds * settings.safety_factor  # chỉ để chặn treo
     else:
         p.max_time_in_seconds = seconds
 
@@ -267,7 +280,8 @@ class _Allocation:
         for g, cids in by_teacher.items():
             groups = {dom[cid] for cid in cids}
             groups.add(frozenset().union(*groups))
-            for d in groups:
+            # Thứ tự cố định (không theo thứ tự lặp của set, có thể khác giữa các phiên bản Python).
+            for d in sorted(groups, key=lambda s: (len(s), sorted(s))):
                 terms = [self.a[cid, g] for cid in cids if dom[cid] <= d]
                 if any(not isinstance(t, int) for t in terms):
                     self.m.Add(sum(terms) <= len(d))
@@ -388,10 +402,14 @@ def timetable(problem: Problem, settings: config.Settings,
         if len(terms) > 1:
             m.Add(sum(terms) <= 1)
 
-    # Luật bảo vệ học sinh: số tiết tối đa của một số môn trong mỗi buổi.
+    # Luật bảo vệ học sinh: số tiết tối đa của một số môn trong mỗi buổi; môn có từ 2 tiết trong
+    # một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn").
     if settings.student_rules:
         for cls in problem.classes:
             courses = problem.class_courses(cls)
+            by_subject: dict[str, list[Course]] = {}
+            for c in courses:
+                by_subject.setdefault(c.subject, []).append(c)
             for d, sessions in config.DAY_SESSIONS.items():
                 for session in sessions:
                     for group, limit in config.SESSION_SUBJECT_LIMITS:
@@ -399,6 +417,17 @@ def timetable(problem: Problem, settings: config.Settings,
                               for p in session.periods if (c.id, (d, p)) in x]
                         if len(vs) > limit:
                             m.Add(sum(vs) <= limit)
+                    for subject, cs in by_subject.items():
+                        if sum(c.lessons for c in cs) < 2:
+                            continue
+                        y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in session.periods}
+                        ps = session.periods
+                        for i in range(len(ps)):
+                            for k in range(i + 2, len(ps)):
+                                if not y[ps[i]] or not y[ps[k]]:
+                                    continue
+                                for j in range(i + 1, k):
+                                    m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) - sum(y[ps[j]]) <= 1)
 
     # HĐTN linh hoạt: càng gần cuối buổi càng tốt.
     for c in problem.courses:

@@ -1,4 +1,5 @@
 import dataclasses
+from collections import Counter
 
 import pytest
 
@@ -153,3 +154,67 @@ def test_real_data_overtime_assignment(real_staff):
     # Chỉ GVCN bù (kể cả GVCN thai sản), không ai quá 2 tiết.
     assert all(problem.teachers[g].class_name for g in plan.overtime)
     assert max(plan.overtime.values()) == 2
+
+
+def split_subjects(lessons):
+    """Các buổi có một môn học từ 2 tiết mà không liền nhau: (lớp, ngày, môn, các tiết)."""
+    at: dict = {}
+    for l in lessons:
+        session = next(s.name for s in config.DAY_SESSIONS[l.day] if l.period in s.periods)
+        at.setdefault((l.class_name, l.day, session, l.subject), []).append(l.period)
+    return [(k, sorted(ps)) for k, ps in at.items() if max(ps) - min(ps) + 1 != len(ps)]
+
+
+def test_same_subject_lessons_are_contiguous(small_solution, overtime_solution):
+    for sol in (small_solution, overtime_solution):
+        assert split_subjects(sol.lessons) == []
+        # Có buổi học 2 tiết cùng môn (TV, Toán…), và chúng liền nhau.
+        pairs = Counter((l.class_name, l.day, l.period < 5, l.subject) for l in sol.lessons)
+        assert any(n >= 2 for n in pairs.values())
+
+
+def test_checker_detects_split_subject(small_solution):
+    lessons = list(small_solution.lessons)
+    grid = {(l.class_name, l.day, l.period): i for i, l in enumerate(lessons)}
+    # Tìm môn học 2 tiết liền (p, p+1) rồi tráo một tiết với tiết kề bên cùng buổi để tạo mẫu so le.
+    found = None
+    for (cls, d, p), i in grid.items():
+        j = grid.get((cls, d, p + 1))
+        if j is None or lessons[i].subject != lessons[j].subject:
+            continue
+        periods = next(s.periods for s in config.DAY_SESSIONS[d] if p in s.periods)
+        if p + 1 not in periods:
+            continue
+        for other, moved, keep in ((p + 2, j, p), (p - 1, i, p + 1)):
+            k = grid.get((cls, d, other))
+            if other in periods and k is not None and lessons[k].subject != lessons[i].subject:
+                found = (moved, k, sorted([keep, other]))
+                break
+        if found:
+            break
+    assert found, "TKB phải có ít nhất một môn học 2 tiết liền"
+    moved, k, periods = found
+    subject = lessons[moved].subject
+    a, b = lessons[moved], lessons[k]
+    lessons[moved] = dataclasses.replace(a, period=b.period)
+    lessons[k] = dataclasses.replace(b, period=a.period)
+    errors = check(small_solution.problem, lessons)
+    assert any(f"môn {subject} không học liền (tiết {periods[0]}, {periods[1]})" in e for e in errors)
+    assert not any("không học liền" in e for e in check(small_solution.problem, lessons, student_rules=False))
+
+
+def test_checker_requires_homeroom_to_cover_own_class_first():
+    rows = [("CN A", "chủ nhiệm 3/1", 19), ("CN B", "chủ nhiệm 3/2", 19), ("TA", "tiếng anh 1", 23),
+            ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23),
+            ("BM", "bộ môn 1", 4)]
+    staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    sol = solve(staff, CURRICULUM, OVERTIME, log=lambda *_: None)
+    assert check(sol.problem, sol.lessons) == []
+    assert sol.overtime() == {"chủ nhiệm 3/1": 2, "chủ nhiệm 3/2": 2}
+    # Chuyển một tiết bù của GVCN 3/1 sang bộ môn: bộ môn phải bù trong khi GVCN 3/1 còn quyền bù.
+    lessons = list(sol.lessons)
+    i = next(k for k, l in enumerate(lessons)
+             if l.teacher == "chủ nhiệm 3/1" and not sol.problem.courses[l.course_id].homeroom)
+    lessons[i] = dataclasses.replace(lessons[i], teacher="bộ môn 1")
+    errors = check(sol.problem, lessons)
+    assert any("bộ môn 1 dạy bù 1 tiết trong khi chủ nhiệm 3/1 còn được bù 1 tiết" in e for e in errors)

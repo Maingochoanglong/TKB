@@ -9,7 +9,7 @@ from pathlib import Path
 from . import config
 from .checker import check
 from .program import load_curriculum
-from .solver import SolveError, solve
+from .solver import SolveError, ortools_version, solve
 from .staff import InputError, read_staff
 from .style import Style
 from .writer import write_statistics, write_timetable, write_updated_staff
@@ -35,7 +35,8 @@ def main(argv: list[str] | None = None) -> int:
                     help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người, kể cả người hưởng thai sản "
                          f"(mặc định {config.OVERTIME_MAX})")
     ap.add_argument("--no-student-rules", action="store_true",
-                    help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi)")
+                    help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi; môn có từ 2 tiết "
+                         "trong buổi phải học liền nhau)")
     args = ap.parse_args(argv)
 
     if args.max_overtime < 0:
@@ -46,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
                                mode=args.mode, overtime_max=args.max_overtime,
                                time_limit=args.time_limit or None, workers=args.workers, seed=args.seed,
                                reproducible=not args.non_reproducible)
+    if settings.reproducible and ortools_version() != config.ORTOOLS_VERSION:
+        print(f"CẢNH BÁO: đang dùng OR-Tools {ortools_version()}, khác bản {config.ORTOOLS_VERSION} đã ghim; kết quả "
+              f"có thể khác máy khác. Cài đúng bản bằng:  pip install -r requirements.txt", file=sys.stderr)
     try:
         curriculum, source = load_curriculum(args.staff, args.program)
         staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
@@ -69,6 +73,8 @@ def main(argv: list[str] | None = None) -> int:
     load = solution.teacher_load()
     extra = solution.used_supplements()
     print(f"Kết quả: {solution.status}, kiểm tra luật bắt buộc: {'ĐẠT' if not errors else 'KHÔNG ĐẠT'}")
+    print(f"Mã kết quả: {solution.fingerprint()} (cùng file vào, cùng cấu hình thì máy nào cũng ra cùng mã; "
+          f"xếp giờ mất {solution.wall_time:.0f} giây)")
     if extra:
         print(f"Cần bổ sung {len(extra)} GV cho {sum(load[t.title] for t in extra)} tiết thiếu:")
         for t in extra:

@@ -28,12 +28,13 @@
 | 10 | Tối đa 2 tiết TV, 2 tiết Toán mỗi buổi | [Cứng] | **Giữ nguyên** [Cứng]. Tiết tăng cường được đếm riêng |
 | 11 | Thai sản | Chữ `ts` sau chức vụ | Cột **Chế Độ** (`Có`/trống); vẫn đọc được chữ `ts`. Người thai sản **được dạy bù** như mọi người (cùng mức tối đa) |
 | 12 | Tải ngày | Buffer/overload động | [Mềm] mục tiêu tải ngày theo tỷ lệ số tiết của ngày |
-| 13 | Tái lập | – | Cùng dữ liệu, cùng phiên bản OR-Tools và cùng số luồng thì luôn ra cùng một TKB |
+| 13 | Tái lập | – | Cùng file vào, cùng hằng số `main.py` và cùng phiên bản OR-Tools thì **máy nào cũng** ra cùng một TKB; kiểm bằng **Mã kết quả** (mục 9) |
 | 14 | Nội dung ô TKB | Chức vụ (môn) | Môn, xuống dòng **tên giáo viên**. Tên trống hoặc người cần tuyển thì ghi **Mã GV** (`Bộ Môn 6`); tên trùng thì kèm Mã GV |
 | 15 | File vào | Hai file: nhân sự (Tên, Chức vụ kèm số thứ tự, Số tiết) và chương trình học | **Một file duy nhất (mẫu V8):** sheet NHÂN SỰ (Họ và Tên, Chức Vụ không số thứ tự, Lớp khối/số thứ tự, Số Tiết/Tuần, Chế Độ) và sheet CHƯƠNG TRÌNH HỌC (bắt buộc) |
 | 16 | Dữ liệu trong code | Chương trình học, danh sách môn, danh sách chức vụ chuyên biệt, định mức 23 nằm trong code | **Không còn trong code.** Những gì suy ra được từ file vào thì lấy từ file vào (mục 2.4) |
 | 17 | Định dạng file ra | Cố định trong code | **Chép style của file vào** (phông, cỡ chữ, viền, căn lề, chiều cao dòng 25), được thêm cột (mục 11) |
 | 18 | Tuỳ chọn chạy (`main.py`) | Thời gian cố định | `THU_MUC_OUT` để trống thì ghi vào thư mục dự án; `THOI_GIAN_TOI_DA` để trống thì **không giới hạn** (Ctrl+C dừng sớm). Mặc định: bù giờ, áp dụng luật học sinh, 240 giây, tái lập (mục 12.1) |
+| 19 | Môn học liền trong buổi | – | **[Cứng]** Môn có từ 2 tiết trong một buổi phải học liền nhau (mục 6) |
 
 ---
 
@@ -244,8 +245,13 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 | Luật | Loại | Nội dung |
 |---|---|---|
 | Giới hạn TV/Toán | **[Cứng]** | Mỗi buổi tối đa **2 tiết Tiếng Việt** và **2 tiết Toán**. Tiết tăng cường được đếm riêng. Tắt được bằng `LUAT_HOC_SINH = False` |
+| Môn học liền trong buổi | **[Cứng]** | Môn nào có từ 2 tiết trong cùng một buổi thì các tiết đó phải **liền nhau**. Áp dụng cho mọi môn, không phân biệt giáo viên; môn tăng cường là môn riêng. Chỉ xét trong từng buổi (tiết 4 sáng và tiết 5 không tính là liền). Tắt cùng `LUAT_HOC_SINH = False` |
 | Môn nặng ở tiết 7 | **[Mềm]** | Mỗi tiết môn nặng ở tiết 7 bị phạt 200 (`heavy_late`) |
 | Tiết nặng liên tiếp | Bỏ | Không còn giới hạn |
+
+Ví dụ luật học liền, buổi sáng tiết 1–4:
+- Sai: `Tiếng Việt, Toán, Tiếng Việt, Tiếng Anh` (Tiếng Việt ở tiết 1 và 3, bị Toán chen giữa).
+- Đúng: `Toán, Tiếng Việt, Tiếng Việt, Tiếng Anh` hoặc `Tiếng Việt, Tiếng Việt, Toán, Tiếng Anh`.
 
 **Môn nặng** (`HEAVY_SUBJECTS`): Toán, Toán tăng cường, Tiếng Việt, Tiếng Việt tăng cường, Tiếng Anh, Khoa học, Tin học.
 
@@ -278,6 +284,7 @@ Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy d�
 - **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (mặc định 2).
 - Người hưởng thai sản **cũng được bù** như mọi người, cùng mức tối đa `SO_TIET_BU_TOI_DA`.
 - **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt.
+- **[Cứng]** GVCN được **ưu tiên bù lớp mình**: không được để bộ môn dạy bù ở lớp X một môn mà GVCN lớp X dạy được, trong khi GVCN lớp X chưa bù hết mức. Chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ dạy lớp mình nên giờ đó rảnh), nên đây là lỗi phân công và bộ kiểm tra báo lỗi.
 - **Thứ tự môn GVCN bù:**
   1. Môn ưu tiên (lấy lại tiết đã bị cắt ở mục 5.2).
   2. TV tăng cường.
@@ -344,13 +351,22 @@ Chương trình giải hai lần:
   - Bước phân công: nhóm chính (tiết thiếu, người tuyển, tiết bù) giải đến khi **chứng minh tối ưu** (vài giây). Nhóm phụ (chia đều, thứ tự môn…) gần như không bao giờ chứng minh được nên vẫn giới hạn (`Settings.unlimited_polish_time`, 30).
   - Bước xếp giờ: chạy đến khi chứng minh TKB tốt nhất. Với trường cỡ 29 lớp, việc này gần như không kết thúc.
   - Bấm **Ctrl+C** thì bộ giải dừng, giữ TKB tốt nhất đã tìm được, kiểm tra luật và ghi đủ các file ra như bình thường. Kết quả khi dừng bằng tay phụ thuộc thời điểm dừng nên không tái lập.
-- **[Cứng] Tái lập:** khi `CHAY_TAI_LAP_DUOC = True` và có giới hạn thời gian, chạy lại bao nhiêu lần cũng ra **đúng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
+- **[Cứng] Tái lập giữa các lần chạy và giữa các máy:** khi `CHAY_TAI_LAP_DUOC = True` và có giới hạn thời gian, chạy lại bao nhiêu lần, ở máy nào cũng ra **đúng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
   - file vào (và file chương trình học riêng nếu có);
-  - `CHE_DO`, `SO_TIET_BU_TOI_DA`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, `LUAT_HOC_SINH`;
-  - phiên bản OR-Tools (ghim trong `requirements.txt`).
-- Máy nhanh hay chậm, máy đang bận hay rảnh không ảnh hưởng kết quả, vì bộ giải dừng theo **lượng tính toán**, không theo giây thực.
+  - các hằng số trong `main.py`: `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `CHAY_TAI_LAP_DUOC`, `SO_LUONG`;
+  - phiên bản thư viện đã ghim trong `requirements.txt` (OR-Tools 9.15.6755, openpyxl 3.1.5). Nếu OR-Tools khác bản đã ghim, chương trình in cảnh báo.
+- **Không ảnh hưởng kết quả:**
+  - Máy nhanh hay chậm, số nhân CPU, máy đang bận hay rảnh: bộ giải dừng theo **lượng tính toán**, không theo giây thực. Chế độ tái lập **không có giới hạn giây thực**, nên máy chậm chỉ chạy lâu hơn chứ không dừng sớm.
+  - Phiên bản Python (đã thử 3.10, 3.11, 3.12, 3.13), thư mục chạy, thứ tự băm của Python.
+  - Thứ tự dựng mô hình cố định, không phụ thuộc thứ tự lặp của `set`.
+- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Thống kê. Hai máy cùng mã là cùng TKB. Với dữ liệu mẫu `data/Input_TKB_V8.xlsx` và các hằng số mặc định của `main.py`, mã là **`FCE8-77C0-5CDA`**. Đã kiểm trên Python 3.11 và 3.13, chạy từ các thư mục khác nhau, lúc máy đang quá tải. Sheet Thống kê không còn ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
+- **Giới hạn đã biết:** đã kiểm chứng trên Linux x86-64. OR-Tools không cam kết kết quả giống hệt giữa các hệ điều hành hoặc loại CPU khác nhau (Windows, macOS, chip ARM như Apple M1), vì bản dựng khác trình biên dịch và phép tính số thực. Cách kiểm tra một máy: chạy `main.py` với cấu hình mặc định và dữ liệu mẫu, so mã kết quả với mã tham chiếu ở README. Nếu khác, hãy xếp TKB chính thức trên một máy cố định (hoặc cùng loại máy và hệ điều hành).
 - Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
-- `tests/test_reproducible.py` kiểm tra điều này ở cả hai chế độ: chạy trong hai tiến trình Python riêng, thứ tự băm khác nhau, và so sánh kết quả.
+- `tests/test_reproducible.py` kiểm tra:
+  - chạy trong hai tiến trình Python riêng, thứ tự băm khác nhau, và so sánh kết quả;
+  - mã kết quả tham chiếu của trường nhỏ ở cả hai chế độ (chạy test này trên máy khác để kiểm máy đó);
+  - OR-Tools đúng bản đã ghim;
+  - không có giới hạn giây thực.
 
 ---
 
@@ -364,8 +380,9 @@ Chương trình giải hai lần:
 4. Quyền dạy đúng mục 4.
 5. Tiết 1 buổi sáng do đúng GVCN của lớp dạy.
 6. GVCN dạy đủ phần được phân. Phần dạy thêm chỉ là tiết bù hợp lệ: đúng lớp mình, không phải môn chuyên biệt, không quá mức bù.
-7. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
-8. Mỗi buổi tối đa 2 tiết TV và 2 tiết Toán (nếu bật luật học sinh).
+7. GVCN được ưu tiên bù lớp mình: bộ môn không dạy bù ở lớp mà GVCN còn được bù và dạy được môn đó.
+8. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
+9. Nếu bật luật học sinh: mỗi buổi tối đa 2 tiết TV và 2 tiết Toán; môn có từ 2 tiết trong buổi học liền nhau.
 
 Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) và in ra màn hình.
 
@@ -398,7 +415,7 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
 - Thứ tự: giáo viên theo thứ tự file gốc, sau đó đến người bổ sung.
 
 **Sheet `Thống kê`:**
-- **Thông tin chung:** chế độ, kết quả kiểm tra luật, trạng thái bộ giải, thời gian, số lớp, tổng tiết, tổng tiết thiếu, số người bổ sung, tổng tiết dạy bù, ghi chú và cảnh báo.
+- **Thông tin chung:** chế độ, kết quả kiểm tra luật, trạng thái bộ giải, **mã kết quả**, phiên bản OR-Tools, số lớp, tổng tiết, tổng tiết thiếu, số người bổ sung, tổng tiết dạy bù, ghi chú và cảnh báo.
 - **Chức vụ thiếu và số tiết thiếu:** người bổ sung và chi tiết lớp, môn.
 - **Dạy bù** (chế độ bù giờ): ai bù, bao nhiêu tiết, GVCN bù môn gì.
 - **Theo nhóm chức vụ:** số người, tổng định mức, đã dạy, dư, dạy bù, tiết thiếu, số người bổ sung.
