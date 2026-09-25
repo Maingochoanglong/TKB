@@ -185,6 +185,10 @@ class Weights:
     overtime_subject_order: int = 3_000  # × hạng môn: môn ưu tiên (0) rồi HOMEROOM_FILL_ORDER (1, 2...)
 
 
+# Phiên bản OR-Tools đã ghim trong requirements.txt. Máy khác phiên bản thì TKB có thể khác.
+ORTOOLS_VERSION = "9.15.6755"
+
+
 @dataclass
 class Settings:
     student_rules: bool = True
@@ -195,7 +199,6 @@ class Settings:
     # Chạy lại cùng dữ liệu luôn ra cùng một TKB (xem solver._configure).
     reproducible: bool = True
     deterministic_per_second: float = 1.0  # quy đổi time_limit sang thời gian tất định
-    safety_factor: float = 20.0  # giới hạn giây thực = time_limit × hệ số này (chỉ để chặn treo)
     workers: int = 8
     seed: int = 0
     weights: Weights = field(default_factory=Weights)

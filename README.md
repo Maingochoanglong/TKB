@@ -35,7 +35,7 @@ pip install -r requirements.txt
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
-   - **Chạy lại ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file vào, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, phiên bản OR-Tools (đã ghim trong `requirements.txt`). Máy nhanh hay chậm không ảnh hưởng kết quả, chỉ ảnh hưởng thời gian chạy.
+   - **Chạy lại, hoặc chạy ở máy khác, ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file vào, các hằng số trong `main.py`, phiên bản thư viện (cài bằng `pip install -r requirements.txt`). Xem mục [Chạy trên máy khác](#chạy-trên-máy-khác).
    - **Không giới hạn thời gian** (`THOI_GIAN_TOI_DA` để trống hoặc `0`): bước phân công vẫn chứng minh tối ưu số tiết thiếu/bù trong vài giây; bước xếp giờ chạy đến khi chứng minh TKB tốt nhất, với trường cỡ 29 lớp gần như không tự dừng. Bấm **Ctrl+C** để dừng, chương trình vẫn kiểm tra luật và ghi đủ các file ra. Dừng bằng tay thì mỗi lần có thể ra TKB khác nhau.
    - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\input.xlsx"` hoặc `"C:/Users/ten/TKB/input.xlsx"`.
 2. Bấm **Run ▶** (VS Code, PyCharm...) hoặc chạy `python main.py`.
@@ -62,6 +62,21 @@ Tuỳ chọn:
 | `--no-student-rules` | Tắt luật bảo vệ học sinh (dùng để tìm nguyên nhân khi không xếp được) |
 
 Chạy test: `python -m pytest -q`
+
+## Chạy trên máy khác
+
+Cùng file vào và cùng các hằng số trong `main.py` thì **máy nào cũng ra cùng một TKB** (khi `CHAY_TAI_LAP_DUOC = True` và `THOI_GIAN_TOI_DA` có giá trị), với điều kiện:
+
+1. Cài đúng phiên bản thư viện: `pip install -r requirements.txt` (OR-Tools 9.15.6755, openpyxl 3.1.5). Nếu OR-Tools khác bản này, chương trình in cảnh báo.
+2. Không sửa code trong `tkb/`.
+
+**Không ảnh hưởng kết quả:** máy nhanh hay chậm, số nhân CPU, máy đang bận, phiên bản Python (đã thử 3.10–3.13), thư mục đặt dự án. Bộ giải dừng theo lượng tính toán chứ không theo giây thực, nên máy chậm chỉ chạy lâu hơn.
+
+**Mã kết quả:** mỗi lần chạy in ra màn hình và ghi ở sheet Thống kê một mã, ví dụ `Mã kết quả: 6523-7A90-932C`. Mã này là mã băm của toàn bộ TKB. Hai máy cùng mã là cùng TKB, khỏi phải so từng ô.
+
+**Kiểm tra một máy mới** (mất khoảng 20 giây): `python -m pytest tests/test_reproducible.py`. Test so mã kết quả của một trường nhỏ với mã tham chiếu. Qua là máy đó ra đúng kết quả như máy gốc.
+
+**Giới hạn:** đã kiểm chứng trên Linux x86-64. OR-Tools không cam kết kết quả giống hệt giữa các hệ điều hành hoặc loại CPU khác nhau (Windows, macOS, chip ARM như Apple M1). Nếu test trên báo khác mã ở một máy, hãy xếp TKB chính thức trên một máy cố định, hoặc trên các máy cùng hệ điều hành và loại CPU.
 
 ## Đầu vào
 
