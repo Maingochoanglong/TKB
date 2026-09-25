@@ -18,7 +18,7 @@ class InputError(ValueError):
 @dataclass
 class Teacher:
     name: str
-    title: str  # chức vụ chuẩn hóa, dùng làm mã và nhãn trong TKB, vd "bộ môn 5 ts"
+    title: str  # chức vụ chuẩn hóa, dùng làm mã giáo viên, vd "bộ môn 5 ts"
     role: str  # "chủ nhiệm", "bộ môn", "quản lý", hoặc một chức vụ chuyên biệt
     index: int | None  # số thứ tự trong chức vụ (không áp dụng cho chủ nhiệm)
     class_name: str | None  # lớp chủ nhiệm, vd "1/1"

@@ -1,6 +1,7 @@
 """Xuất TKB ra Excel: sheet Khối, Danh sách nhân sự, Thống kê và file nhân sự cập nhật."""
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -24,15 +25,44 @@ BOLD = Font(name=FONT_NAME, size=FONT_SIZE, bold=True)
 TITLE_FONT = Font(name=FONT_NAME, size=FONT_SIZE + 2, bold=True)
 HEADER_FONT = BOLD
 HEADER_FILL = PatternFill("solid", fgColor="F0F0F0")
-LESSON_ROW_HEIGHT = 42  # đủ 2 dòng (môn + chức vụ) ở cỡ chữ 14
+LESSON_ROW_HEIGHT = 42  # tối thiểu 2 dòng (môn + tên giáo viên) ở cỡ chữ 14
+LINE_HEIGHT = 21  # chiều cao mỗi dòng chữ cỡ 14
 HEADER_ROW_HEIGHT = 24
-COLUMN_WIDTHS = {"class": 11, "session": 11, "period": 8, "day": 24}
+COLUMN_WIDTHS = {"class": 11, "session": 11, "period": 8, "day": 24}  # "day": độ rộng tối thiểu
+MAX_DAY_WIDTH = 30  # tên dài hơn thì xuống dòng
 
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
 
 
 def subject_label(subject: str) -> str:
     return config.DISPLAY_NAMES.get(subject, subject)
+
+
+def teacher_labels(teachers: dict[str, Teacher]) -> dict[str, str]:
+    """Chức vụ -> tên hiển thị dưới tên môn trong TKB.
+
+    Ghi tên giáo viên; người bổ sung ("chưa có"), tên trùng nhau hoặc để trống thì kèm/ghi chức vụ.
+    """
+    counts = Counter(t.name.strip() for t in teachers.values())
+    labels = {}
+    for title, t in teachers.items():
+        name = t.name.strip()
+        if not name:
+            labels[title] = title
+        elif t.supplementary or counts[name] > 1:
+            labels[title] = f"{name} ({title})"
+        else:
+            labels[title] = name
+    return labels
+
+
+def _text_width(text: str) -> float:
+    """Độ rộng ước lượng (đơn vị cột Excel) của một dòng chữ Times New Roman cỡ 14."""
+    return len(text) * 1.2 + 2
+
+
+def _lines(text: str, width: float) -> int:
+    return max(1, math.ceil(_text_width(text) / width))
 
 
 def session_rows() -> list[tuple[config.Session, int, int]]:
@@ -69,13 +99,17 @@ def _grade_sheets(wb, solution: Solution) -> None:
     day_periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
     first_day_col = 4
     problem = solution.problem
+    names = teacher_labels(problem.teachers)
     for grade in sorted({int(c.split("/")[0]) for c in problem.classes}):
         ws = wb.create_sheet(f"Khối {grade}")
+        texts = [t for les in solution.lessons if int(les.class_name.split("/")[0]) == grade
+                 for t in (subject_label(les.subject), names[les.teacher])]
+        day_width = min(MAX_DAY_WIDTH, max([COLUMN_WIDTHS["day"], *map(_text_width, texts)]))
         ws.column_dimensions["A"].width = COLUMN_WIDTHS["class"]
         ws.column_dimensions["B"].width = COLUMN_WIDTHS["session"]
         ws.column_dimensions["C"].width = COLUMN_WIDTHS["period"]
         for i in range(len(days)):
-            ws.column_dimensions[get_column_letter(first_day_col + i)].width = COLUMN_WIDTHS["day"]
+            ws.column_dimensions[get_column_letter(first_day_col + i)].width = day_width
         # In: khổ ngang, co vừa 1 trang theo chiều rộng.
         ws.page_setup.orientation = "landscape"
         ws.page_setup.fitToWidth = 1
@@ -97,7 +131,7 @@ def _grade_sheets(wb, solution: Solution) -> None:
                 r += n
             for j, (_, period, number) in enumerate(rows):
                 r = first + j
-                ws.row_dimensions[r].height = LESSON_ROW_HEIGHT
+                lines = 2
                 _style(ws.cell(r, 3, number))
                 for i, d in enumerate(days):
                     cell = ws.cell(r, first_day_col + i)
@@ -107,7 +141,10 @@ def _grade_sheets(wb, solution: Solution) -> None:
                         continue
                     les = grid.get((cls, d, period))
                     if les is not None:
-                        cell.value = f"{subject_label(les.subject)}\n{les.teacher}"
+                        subject, name = subject_label(les.subject), names[les.teacher]
+                        cell.value = f"{subject}\n{name}"
+                        lines = max(lines, _lines(subject, day_width) + _lines(name, day_width))
+                ws.row_dimensions[r].height = max(LESSON_ROW_HEIGHT, LINE_HEIGHT * lines)
             top = first + len(rows) + BLOCK_GAP
 
 

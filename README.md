@@ -75,7 +75,7 @@ File Excel 1 sheet, 4 cột, ví dụ `data/Input_Danh_Sach_Nhan_Su_V6.xlsx`:
 
 - **Chức vụ** chọn từ danh sách thả xuống: tên chức vụ + số thứ tự, ví dụ `chủ nhiệm 1/1`, `bộ môn 4`, `tiếng anh 2`, `quản lý 1`. Chức vụ bị trùng tự tô đỏ.
 - **Số tiết** là mức tối đa mỗi tuần (số nguyên 0–40). Người hưởng thai sản ghi mức đã giảm.
-- **Thai sản**: ghi `Có` nếu đang hưởng chế độ thai sản, để trống nếu không. Trong TKB người này hiện là `... ts`, ví dụ `chủ nhiệm 5/5 ts`.
+- **Thai sản**: ghi `Có` nếu đang hưởng chế độ thai sản, để trống nếu không. Ở sheet Danh sách nhân sự và Thống kê, chức vụ của người này có thêm `ts`, ví dụ `chủ nhiệm 5/5 ts`.
 - Danh sách lớp lấy từ các dòng `chủ nhiệm khối/stt`, vì mỗi lớp luôn có một GVCN.
 - File cũ 3 cột (ghi chữ `ts` sau chức vụ, ví dụ `bộ môn 5 ts`) vẫn đọc được.
 
@@ -92,7 +92,8 @@ python -m tkb.template data/Nhan_Su_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V
    - Sheet **Khối 1…5**: định dạng theo `data/Output_Template_TKB_V5_Formatted.xlsx`.
      - Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
      - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
-     - Mỗi ô ghi môn và chức vụ trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `chủ nhiệm 1/1`. Chiều Thứ 6 ghi `Nghỉ`.
+     - Mỗi ô ghi môn và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Người cần tuyển ghi `chưa có (bộ môn 6)`; hai người trùng tên thì kèm chức vụ để phân biệt. Chiều Thứ 6 ghi `Nghỉ`.
+     - Cột ngày tự nới theo tên dài nhất (24–30); tên dài hơn thì xuống dòng và hàng tự cao thêm.
      - Font Times New Roman cỡ 14 (phóng to so với template cỡ 10 cho dễ đọc; đổi ở `FONT_SIZE` trong `tkb/writer.py`), dòng tiêu đề nền xám nhạt, viền mảnh. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
    - Sheet **Danh sách nhân sự**: danh sách đã cập nhật, kèm số tiết thực dạy (chế độ bù giờ có thêm cột **Số tiết bù**). Người bổ sung có tên `chưa có`, Số tiết ghi theo **định mức tuyển đầy đủ** của chức vụ (bộ môn: 23), dù thực dạy có thể ít hơn.
    - Sheet **Thống kê**:

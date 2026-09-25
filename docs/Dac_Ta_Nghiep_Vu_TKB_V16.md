@@ -28,6 +28,7 @@
 | 11 | Thai sản | Chữ `ts` sau chức vụ | Cột **Thai sản** (`Có`/trống); vẫn đọc được chữ `ts`. Người thai sản **không bao giờ dạy bù** |
 | 12 | Tải ngày | Buffer/overload động | [Mềm] mục tiêu tải ngày theo tỷ lệ số tiết của ngày |
 | 13 | Tái lập | – | Cùng dữ liệu, cùng phiên bản OR-Tools và cùng số luồng thì luôn ra cùng một TKB |
+| 14 | Nội dung ô TKB | Chức vụ (môn) | Môn, xuống dòng **tên giáo viên**. Người cần tuyển và tên trùng thì kèm chức vụ |
 
 ---
 
@@ -44,7 +45,7 @@
 | Bộ môn (GVBM) | Chức vụ `bộ môn n`, dạy được nhiều môn (mục 4) |
 | GV chuyên biệt | Chức vụ `tiếng anh n`, `tin học n`, `thể dục n`, `âm nhạc n`, `mỹ thuật n`; chỉ dạy đúng môn trùng tên |
 | Quản lý | Chức vụ `quản lý n` |
-| Thai sản (ts) | Giáo viên đang hưởng chế độ thai sản. Số tiết ghi mức đã giảm. Trong TKB hiện là `… ts` |
+| Thai sản (ts) | Giáo viên đang hưởng chế độ thai sản. Số tiết ghi mức đã giảm. Ở danh sách nhân sự và thống kê, chức vụ có thêm `ts` |
 | Số tiết (định mức) | Số tiết **tối đa** giáo viên dạy mỗi tuần |
 | Tiết bù | Tiết dạy **vượt** định mức, chỉ có ở chế độ bù giờ |
 | Người bổ sung | Người cần tuyển, tên `chưa có`, chức vụ `<chức vụ> n+1, n+2…` |
@@ -339,7 +340,10 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
   - Cột LỚP gộp 7 hàng (`LỚP 1/1`).
   - Cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
   - Giữa hai lớp có 2 dòng trống.
-- Mỗi ô ghi **môn** và **chức vụ** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `chủ nhiệm 1/1`. Chiều Thứ 6 ghi `Nghỉ`.
+- Mỗi ô ghi **môn** và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Chiều Thứ 6 ghi `Nghỉ`.
+  - Người cần tuyển ghi tên kèm chức vụ: `chưa có (bộ môn 6)`.
+  - Hai giáo viên trùng tên thì kèm chức vụ, ví dụ `Lan (bộ môn 1)`. Tên để trống thì ghi chức vụ.
+  - Cột ngày tự nới theo dòng dài nhất, từ 24 đến 30 (đơn vị cột Excel). Tên dài hơn thì xuống dòng và hàng tự cao thêm.
 - Tên viết tắt: `HĐTN`, `TNXH`, `TV tăng cường`.
 - Định dạng: font Times New Roman cỡ 14, dòng tiêu đề nền xám nhạt, viền mảnh. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
 
