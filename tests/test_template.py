@@ -1,64 +1,103 @@
 import openpyxl
 
 from tkb import config
+from tkb.program import read_program
 from tkb.solver import solve
 from tkb.staff import read_staff
-from tkb.template import class_choices, main as template_main, role_choices, write_staff_template
+from tkb.template import main as template_main, role_choices, write_staff_template
 from tkb.writer import write_updated_staff
 
-from .conftest import STAFF_FILE, STAFF_FILE_V6, STAFF_FILE_V7, small_staff
+from .conftest import CURRICULUM, INPUT_FILE, PROGRAM_FILE, STAFF_FILE, small_staff
+
+HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Chế Độ")
 
 
 def _key(teachers):
     return [(t.name, t.title, t.max_lessons, t.maternity) for t in teachers]
 
 
-def test_v7_file_matches_v5(real_staff):
-    assert _key(read_staff(STAFF_FILE_V7)) == _key(real_staff)
-    rows = list(openpyxl.load_workbook(STAFF_FILE_V7).worksheets[0].iter_rows(values_only=True))
-    assert rows[0] == ("Họ và Tên", "Chức Vụ", "Lớp", "Chế độ", "Số Tiết/Tuần")
-    assert rows[1] == ("Giáo viên CN 1", "Chủ Nhiệm", "1/1", None, 19)
-    assert ("Giáo viên BM 5 (Thai sản)", "Bộ Môn", None, "Thai sản", 19) in rows
+def _rows(ws):
+    return [r for r in ws.iter_rows(values_only=True) if any(v is not None for v in r)]
 
 
-def test_old_formats_still_read(real_staff):
-    assert _key(read_staff(STAFF_FILE_V6)) == _key(real_staff)
+def test_input_file_matches_v5(real_staff):
+    assert _key(read_staff(INPUT_FILE)) == _key(real_staff)
+    assert read_program(INPUT_FILE) == CURRICULUM
+    wb = openpyxl.load_workbook(INPUT_FILE)
+    rows = _rows(wb["NHÂN SỰ"])
+    assert rows[0] == HEADER
+    assert rows[1] == ("Giáo viên CN 1", "Chủ Nhiệm", "1/1", 19, None)
+    assert ("Giáo viên BM 5 (Thai sản)", "Bộ Môn", None, 19, "Có") in rows
 
 
-def test_template_has_dropdowns(tmp_path, real_staff):
+def test_template_style_and_dropdowns(tmp_path, real_staff):
     path = tmp_path / "mau.xlsx"
-    write_staff_template(path, real_staff)
+    write_staff_template(path, real_staff, CURRICULUM)
     wb = openpyxl.load_workbook(path)
-    assert wb.sheetnames == ["Nhân sự", "Danh mục"] and wb["Danh mục"].sheet_state == "hidden"
-    ws = wb["Nhân sự"]
+    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "Danh mục"]
+    assert wb["Danh mục"].sheet_state == "hidden"
+    ws = wb["NHÂN SỰ"]
+    # Style như file của nhà trường: Times New Roman 14, tiêu đề đậm không tô nền, viền mảnh, dòng cao 25.
+    assert ws["A1"].font.name == "Times New Roman" and ws["A1"].font.sz == 14 and ws["A1"].font.b
+    assert ws["A1"].fill.fill_type is None
+    assert ws["B2"].font.sz == 14 and not ws["B2"].font.b and ws["B2"].border.left.style == "thin"
+    assert ws["B2"].alignment.horizontal == "center" and ws.row_dimensions[2].height == 25
     dvs = {str(dv.sqref): dv for dv in ws.data_validations.dataValidation}
-    assert dvs["B2:B300"].type == "list" and dvs["B2:B300"].formula1.startswith("'Danh mục'!$A")
-    assert dvs["C2:C300"].type == "list" and dvs["C2:C300"].formula1.startswith("'Danh mục'!$B")
-    assert dvs["D2:D300"].formula1 == '"Thai sản"' and dvs["E2:E300"].type == "whole"
-    lists = wb["Danh mục"]
-    assert [c.value for c in lists["A"] if c.value] == role_choices()
-    assert role_choices() == ["Chủ Nhiệm", "Thể Dục", "Tiếng Anh", "Mỹ Thuật", "Bộ Môn", "Âm Nhạc", "Tin Học",
-                              "Quản Lý"]
-    assert [c.value for c in lists["B"] if c.value] == class_choices() and "5/10" in class_choices()
+    assert dvs["B2:B300"].type == "list" and not dvs["B2:B300"].showErrorMessage  # chỉ gợi ý
+    assert dvs["C2:C300"].type == "custom" and dvs["D2:D300"].type == "whole"
+    assert dvs["E2:E300"].formula1 == '"Có"'
+    program = _rows(wb["CHƯƠNG TRÌNH HỌC"])
+    assert program[0] == ("Môn học", "Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5")
+    assert len(program) == 17
+    assert [c.value for c in wb["Danh mục"]["A"] if c.value] == role_choices(real_staff)
+    assert role_choices(real_staff) == ["Chủ Nhiệm", "Bộ Môn", "Tiếng Anh", "Thể Dục", "Âm Nhạc", "Mỹ Thuật",
+                                        "Tin Học", "Quản Lý"]
     assert ws["C2"].number_format == "@"  # Lớp là chữ để Excel không đổi thành ngày tháng
     assert len(ws.conditional_formatting) >= 1
     assert _key(read_staff(path)) == _key(real_staff)
+    assert read_program(path) == CURRICULUM
 
 
-def test_updated_staff_keeps_template(tmp_path):
+def test_blank_template_has_only_headers(tmp_path):
+    path = tmp_path / "trong.xlsx"
+    write_staff_template(path)
+    wb = openpyxl.load_workbook(path)
+    assert _rows(wb["NHÂN SỰ"]) == [HEADER]
+    assert _rows(wb["CHƯƠNG TRÌNH HỌC"]) == [("Môn học", "Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5")]
+    assert [c.value for c in wb["Danh mục"]["A"]] == ["Chủ Nhiệm", "Bộ Môn", "Quản Lý"]
+
+
+def test_updated_staff_keeps_template_and_style(tmp_path):
     src = tmp_path / "ns.xlsx"
-    write_staff_template(src, small_staff(general=False))
-    sol = solve(read_staff(src), None, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
+    write_staff_template(src, small_staff(general=False), CURRICULUM)
+    sol = solve(read_staff(src), CURRICULUM, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
     dst = tmp_path / "ns_cap_nhat.xlsx"
     write_updated_staff(sol, src, dst)
-    ws = openpyxl.load_workbook(dst).worksheets[0]
+    wb = openpyxl.load_workbook(dst)
+    ws = wb["NHÂN SỰ"]
     assert len(ws.data_validations.dataValidation) == 4  # vẫn còn danh sách thả xuống
-    rows = [r for r in ws.iter_rows(values_only=True) if any(v is not None for v in r)]
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, None, 23)
-    assert read_staff(dst)[-1].title == "bộ môn 1"  # tự đánh số khi đọc lại
+    rows = _rows(ws)
+    assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy")
+    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, None, "Chủ Nhiệm 3/1", 19)
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, None, "Bộ Môn 1", 8)
+    # Dòng mới và cột mới cùng style với file vào.
+    last = len(rows)
+    for cell in (ws.cell(last, 2), ws.cell(last, 6), ws.cell(1, 7)):
+        assert cell.font.name == "Times New Roman" and cell.font.sz == 14 and cell.border.left.style == "thin"
+    assert ws.cell(1, 7).font.b and ws.row_dimensions[last].height == 25
+    assert _rows(wb["CHƯƠNG TRÌNH HỌC"])[1:] == _rows(openpyxl.load_workbook(src)["CHƯƠNG TRÌNH HỌC"])[1:]
+    again = read_staff(dst)
+    assert again[-1].title == "bộ môn 1"  # tự đánh số khi đọc lại
+    # Chạy lại trên file cập nhật: không tuyển thêm nữa, các cột kết quả được ghi đè chứ không thêm mới.
+    sol2 = solve(again, CURRICULUM, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
+    assert sol2.used_supplements() == []
+    write_updated_staff(sol2, dst, tmp_path / "lan2.xlsx")
+    rows2 = _rows(openpyxl.load_workbook(tmp_path / "lan2.xlsx")["NHÂN SỰ"])
+    assert rows2[0] == rows[0] and len(rows2) == len(rows)
 
 
 def test_cli_converts_old_file(tmp_path, real_staff):
     out = tmp_path / "moi.xlsx"
-    assert template_main([str(out), "--tu", str(STAFF_FILE)]) == 0
+    assert template_main([str(out), "--tu", str(STAFF_FILE), "--program", str(PROGRAM_FILE)]) == 0
     assert _key(read_staff(out)) == _key(real_staff)
+    assert read_program(out) == CURRICULUM

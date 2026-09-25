@@ -112,18 +112,22 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
     return result
 
 
-def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: float) -> None:
-    """Đặt tham số CP-SAT.
+def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: float | None) -> None:
+    """Đặt tham số CP-SAT. seconds = None: không giới hạn, chạy đến khi chứng minh tối ưu.
 
     Chế độ tái lập (settings.reproducible): các luồng chạy xen kẽ theo thứ tự cố định và dừng theo
     "thời gian tất định" (đếm khối lượng tính toán, không phụ thuộc máy nhanh/chậm), nên cùng dữ
     liệu + cùng phiên bản OR-Tools + cùng số luồng thì lần nào cũng ra đúng một kết quả.
+    Bấm Ctrl+C khi đang giải thì bộ giải dừng và giữ nghiệm tốt nhất đã tìm được.
     """
     p = solver.parameters
     p.num_workers = settings.workers
     p.random_seed = settings.seed
     if settings.reproducible:
         p.interleave_search = True
+    if seconds is None:
+        return
+    if settings.reproducible:
         p.max_deterministic_time = seconds * settings.deterministic_per_second
         p.max_time_in_seconds = seconds * settings.safety_factor  # chỉ để chặn treo
     else:
@@ -189,7 +193,7 @@ class _Allocation:
                 m.Add(load >= h)
                 self.hired[title] = h
                 main.append(w.supplement_lesson * load + w.supplement_teacher * h)
-                if t.role in config.SPECIALIST_ROLES:
+                if t.role in problem.specialists:
                     main.append(w.specialist_supplement * h)
         self.overtime = self._overtime(main, secondary)
         # Phá đối xứng giữa các GV bổ sung cùng chức vụ: số thứ tự nhỏ dạy nhiều hơn.
@@ -201,10 +205,10 @@ class _Allocation:
             for i, t in enumerate(titles):
                 secondary.append(w.supplement_order * i * self.load[t])
 
-        specialist = set(config.SPECIALIST_ROLES.values())
+        specialist = problem.specialist_subjects()
         for (cid, g), a in self.a.items():
             c = problem.courses[cid]
-            if c.subject in specialist and problem.teachers[g].role not in config.SPECIALIST_ROLES:
+            if c.subject in specialist and problem.teachers[g].role not in problem.specialists:
                 secondary.append(w.general_on_specialist * a)
 
         # Cân bằng phần định mức chưa dùng giữa các GV cùng chức vụ.
@@ -289,7 +293,10 @@ def assign(problem: Problem, settings: config.Settings) -> Assignment:
     m = cp_model.CpModel()
     alloc = _Allocation(m, problem, settings.weights)
     solver = cp_model.CpSolver()
-    _configure(solver, settings, max(10.0, settings.time_limit / 8))
+    # Không giới hạn thời gian: nhóm chính (tiết thiếu, tiết bù) giải đến khi chứng minh tối ưu (vài giây);
+    # nhóm phụ (chia đều, thứ tự môn) gần như không bao giờ chứng minh được nên vẫn giới hạn.
+    budget = max(10.0, settings.time_limit / 8) if settings.time_limit is not None else None
+    _configure(solver, settings, budget)
 
     main = sum(alloc.main)
     m.Minimize(main)
@@ -307,6 +314,8 @@ def assign(problem: Problem, settings: config.Settings) -> Assignment:
     m.ClearHints()
     for v in all_vars:
         m.AddHint(v, first[v.Index()])
+    if budget is None:
+        _configure(solver, settings, settings.unlimited_polish_time)
     status = solver.Solve(m)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise SolveError("Lỗi nội bộ khi tối ưu phân công bước 2")
@@ -497,7 +506,7 @@ def timetable(problem: Problem, settings: config.Settings,
                     wall_time=wall, stage="phân công cố định" if fixed is not None else "mô hình tích hợp")
 
 
-def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None,
+def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
           settings: config.Settings, log=print) -> Solution:
     """Toàn bộ quy trình: phân công → xếp giờ với phân công cố định → (dự phòng) mô hình tích hợp."""
     if settings.mode not in config.MODES:
@@ -508,7 +517,7 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None,
     base = build_problem(staff, curriculum, overtime_max=overtime_max)
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
-    mode = (f" (chế độ bù giờ, tối đa +{overtime_max} tiết/người, thai sản không bù)"
+    mode = (f" (chế độ bù giờ, tối đa +{overtime_max} tiết/người)"
             if overtime_max else "")
     log(f"Bước 1/2: phân công giáo viên{mode}...")
     plan = assign(base, settings)
@@ -523,7 +532,9 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None,
     problem = build_problem(staff, curriculum, plan.counts, overtime_max=overtime_max)
     fixed = {k: v for k, v in plan.lessons.items() if k[1] in problem.teachers}
     mode = "chế độ tái lập" if settings.reproducible else "giới hạn giây thực"
-    log(f"Bước 2/2: xếp giờ (~{settings.time_limit:.0f}s, {mode})...")
+    budget = ("không giới hạn thời gian, bấm Ctrl+C để dừng sớm" if settings.time_limit is None
+              else f"~{settings.time_limit:.0f}s")
+    log(f"Bước 2/2: xếp giờ ({budget}, {mode})...")
     solution = timetable(problem, settings, fixed=fixed)
     if solution is not None:
         what = "Số tiết thiếu, số GV bổ sung" + (" và số tiết dạy bù" if overtime_max else "")

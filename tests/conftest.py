@@ -2,13 +2,15 @@ from pathlib import Path
 
 import pytest
 
+from tkb.program import read_program
 from tkb.staff import build_teacher, read_staff
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 STAFF_FILE = DATA / "Input_Danh_Sach_Nhan_Su_V5.xlsx"  # định dạng cũ: "ts" sau chức vụ
-STAFF_FILE_V6 = DATA / "Input_Danh_Sach_Nhan_Su_V6.xlsx"  # mẫu cũ: cột Thai sản
-STAFF_FILE_V7 = DATA / "Input_Danh_Sach_Nhan_Su_V7.xlsx"  # mẫu hiện tại: Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần
+INPUT_FILE = DATA / "Input_TKB_V8.xlsx"  # file vào hiện tại: sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC
 PROGRAM_FILE = DATA / "Input_Chuong_Trinh_Hoc_V5.xlsx"
+# Chương trình học dùng trong test: đọc từ file, không có trong code.
+CURRICULUM = read_program(PROGRAM_FILE)
 
 
 @pytest.fixture(scope="session")

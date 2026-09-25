@@ -1,4 +1,4 @@
-"""Chạy: python -m tkb <file nhân sự.xlsx> [-o TKB.xlsx] [--program chương trình.xlsx] ..."""
+"""Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] [--program chương trình.xlsx] ..."""
 from __future__ import annotations
 
 import argparse
@@ -8,21 +8,22 @@ from pathlib import Path
 
 from . import config
 from .checker import check
-from .program import read_program
+from .program import load_curriculum
 from .solver import SolveError, solve
 from .staff import InputError, read_staff
+from .style import Style
 from .writer import write_statistics, write_timetable, write_updated_staff
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tkb", description="Xếp thời khóa biểu tự động")
-    ap.add_argument("staff", help="File Excel danh sách nhân sự (cột Tên, Chức vụ, Số tiết)")
+    ap.add_argument("staff", help="File vào: sheet NHÂN SỰ và sheet CHƯƠNG TRÌNH HỌC")
     ap.add_argument("-o", "--output", default="out/TKB.xlsx", help="File TKB xuất ra (mặc định out/TKB.xlsx)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
     ap.add_argument("--stats-out", help="File thống kê giáo viên (mặc định <thư mục output>/Thong_Ke.xlsx)")
-    ap.add_argument("--program", help="File chương trình học (mặc định dùng chương trình trong tkb/config.py)")
+    ap.add_argument("--program", help="File chương trình học riêng (mặc định: sheet CHƯƠNG TRÌNH HỌC của file vào)")
     ap.add_argument("--time-limit", type=float, default=240,
-                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240)")
+                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; 0 = không giới hạn)")
     ap.add_argument("--non-reproducible", action="store_true",
                     help="Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau")
     ap.add_argument("--workers", type=int, default=8, help="Số luồng CP-SAT (mặc định 8)")
@@ -31,22 +32,26 @@ def main(argv: list[str] | None = None) -> int:
                     help="Khi thiếu người: tuyen_them = thêm GV \"chưa có\"; bu_gio = GVCN/bộ môn dạy bù "
                          "(mặc định tuyen_them)")
     ap.add_argument("--max-overtime", type=int, default=config.OVERTIME_MAX,
-                    help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định {config.OVERTIME_MAX}; "
-                         f"người hưởng thai sản không bù)")
+                    help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người, kể cả người hưởng thai sản "
+                         f"(mặc định {config.OVERTIME_MAX})")
     ap.add_argument("--no-student-rules", action="store_true",
                     help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi)")
     args = ap.parse_args(argv)
 
     if args.max_overtime < 0:
         ap.error("--max-overtime phải >= 0")
+    if args.time_limit < 0:
+        ap.error("--time-limit phải >= 0 (0 = không giới hạn)")
     settings = config.Settings(student_rules=not args.no_student_rules,
                                mode=args.mode, overtime_max=args.max_overtime,
-                               time_limit=args.time_limit, workers=args.workers, seed=args.seed,
+                               time_limit=args.time_limit or None, workers=args.workers, seed=args.seed,
                                reproducible=not args.non_reproducible)
     try:
-        staff = read_staff(args.staff)
-        curriculum = read_program(args.program) if args.program else None
-        print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp.")
+        curriculum, source = load_curriculum(args.staff, args.program)
+        staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
+        n_subjects = len({s for req in curriculum.values() for s in req})
+        print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp; "
+              f"chương trình học ({n_subjects} môn): {source}.")
         solution = solve(staff, curriculum, settings)
     except (InputError, SolveError) as exc:
         print(f"LỖI: {exc}", file=sys.stderr)
@@ -55,10 +60,11 @@ def main(argv: list[str] | None = None) -> int:
     errors = check(solution.problem, solution.lessons, settings.student_rules)
     output = Path(args.output)
     staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
-    write_timetable(solution, output, errors, solution.problem.warnings)
+    style = Style.from_file(args.staff)  # các file ra dùng style của file vào
+    write_timetable(solution, output, errors, solution.problem.warnings, style)
     write_updated_staff(solution, args.staff, staff_out)
     stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
-    write_statistics(solution, stats_out)
+    write_statistics(solution, stats_out, style)
 
     load = solution.teacher_load()
     extra = solution.used_supplements()

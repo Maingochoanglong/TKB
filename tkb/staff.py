@@ -1,7 +1,10 @@
 """Đọc và kiểm tra file Excel danh sách nhân sự.
 
-Mẫu V7: Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần (chức vụ không ghi số, chương trình tự đánh
+Mẫu V8: Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Chế Độ (chức vụ không ghi số, chương trình tự đánh
 số theo thứ tự dòng). Vẫn đọc được mẫu cũ: Tên | Chức vụ ("bộ môn 5 ts") | Số tiết [| Thai sản].
+
+Chức vụ hợp lệ: Chủ Nhiệm, Bộ Môn, Quản Lý, hoặc tên một môn trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên
+biệt của môn đó). Danh sách môn lấy từ file vào nên không có danh sách chức vụ cố định trong code.
 """
 from __future__ import annotations
 
@@ -32,10 +35,16 @@ class Teacher:
     max_lessons: int
     supplementary: bool = False
     row: int | None = None  # dòng trong file Excel gốc
+    label: str = ""  # chức vụ như ghi trong file, vd "Tiếng Anh"; trống = dùng `role`
 
     @property
     def grade(self) -> int | None:
         return int(self.class_name.split("/")[0]) if self.class_name else None
+
+    @property
+    def code(self) -> str:
+        """Mã GV hiển thị trong các file ra, vd "Bộ Môn 5", "Chủ Nhiệm 1/1"."""
+        return f"{self.label or self.role} {self.class_name or self.index}"
 
 
 def normalize(text: str) -> str:
@@ -43,30 +52,44 @@ def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+def clean_name(text) -> str:
+    """Chữ trong file, bỏ khoảng trắng thừa (giữ hoa thường)."""
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", str(text)).strip())
+
+
+def subject_key(name) -> str:
+    """Khóa so khớp tên môn/chức vụ: không phân biệt hoa thường, dấu câu và chữ "và"."""
+    words = re.sub(r"[^\w\s]", " ", normalize(name)).split()
+    return " ".join(w for w in words if w != "và")
+
+
+SPECIAL_ROLES = (config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER)
+
+
+def role_errors(teachers: list[Teacher], subjects) -> list[str]:
+    """Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý và không trùng tên môn nào của chương trình học."""
+    keys = {subject_key(s) for s in subjects}
+    bad: dict[str, list[str]] = {}
+    for t in teachers:
+        if t.role not in SPECIAL_ROLES and subject_key(t.role) not in keys:
+            bad.setdefault(t.label or t.role, []).append(str(t.row) if t.row else "?")
+    valid = ", ".join(config.ROLE_LABELS[r] for r in SPECIAL_ROLES)
+    return [f"Dòng {', '.join(rows)}: chức vụ '{label}' không xác định (hợp lệ: {valid} hoặc đúng tên một môn "
+            f"trong sheet {config.PROGRAM_SHEET})" for label, rows in bad.items()]
+
+
 _TITLE_RE = re.compile(r"^(?P<role>\D+?)\s+(?P<idx>\d+(?:\s*/\s*\d+)?)(?:\s+(?P<ts>ts))?$")
 
 
-def known_roles() -> set[str]:
-    return {config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER, *config.SPECIALIST_ROLES}
-
-
-def role_names() -> str:
-    return ", ".join(config.ROLE_LABELS.get(r, r) for r in config.ROLE_LABELS)
-
-
 def parse_title(raw: str) -> tuple[str, int | None, str | None, bool]:
-    """Tách chức vụ thành (role, index, lớp chủ nhiệm, thai sản)."""
+    """Tách chức vụ kiểu cũ ("bộ môn 5 ts", "chủ nhiệm 1/1") thành (role, index, lớp chủ nhiệm, thai sản)."""
     text = normalize(raw)
-    if not re.search(r"\d", text):
-        raise InputError(f"Chức vụ không xác định: {raw!r} (hợp lệ: {role_names()})")
     m = _TITLE_RE.match(text)
     if not m:
         raise InputError(f"Chức vụ không đúng dạng '<chức vụ> <số thứ tự>[ ts]': {raw!r}")
     role = m.group("role").strip()
     idx = re.sub(r"\s+", "", m.group("idx"))
     maternity = m.group("ts") is not None
-    if role not in known_roles():
-        raise InputError(f"Chức vụ không xác định: {raw!r} (hợp lệ: {', '.join(sorted(known_roles()))})")
     if role == config.ROLE_HOMEROOM:
         if "/" not in idx:
             raise InputError(f"Chủ nhiệm phải ghi lớp dạng khối/stt, vd 'chủ nhiệm 1/1': {raw!r}")
@@ -96,6 +119,16 @@ def parse_class(value) -> str:
     return f"{int(m.group(1))}/{int(m.group(2))}"
 
 
+def find_sheet(wb, name: str):
+    """Sheet có tên `name` (không phân biệt hoa thường), hoặc None."""
+    return next((ws for ws in wb.worksheets if normalize(ws.title) == normalize(name)), None)
+
+
+def staff_sheet(wb):
+    """Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có, không thì sheet đầu tiên."""
+    return find_sheet(wb, config.STAFF_SHEET) or wb.worksheets[0]
+
+
 def _blank(value) -> bool:
     return value is None or str(value).strip() == ""
 
@@ -104,7 +137,7 @@ def _find_columns(ws) -> tuple[int, dict[str, int]]:
     """Dòng tiêu đề và vị trí các cột. Bắt buộc: tên, chức vụ, số tiết; không bắt buộc: lớp, chế độ."""
     wanted = {"tên": "name", "họ và tên": "name", "họ tên": "name", "chức vụ": "title",
               "số tiết": "lessons", "số tiết/tuần": "lessons", "số tiết / tuần": "lessons",
-              "thai sản": "maternity", "chế độ": "maternity", "lớp": "class"}
+              "thai sản": "maternity", "chế độ": "maternity", "lớp": "class", "stt": "stt"}
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
         found = {}
         for cell in row:
@@ -130,13 +163,13 @@ def _to_lessons(value, title: str) -> int:
     return int(number)
 
 
-MATERNITY_LABEL = "Thai sản"  # giá trị cột Chế độ
+MATERNITY_LABEL = "Có"  # giá trị cột Chế Độ của người hưởng chế độ thai sản
 _YES = {"thai sản", "thai san", "ts", "có", "co", "x"}
 _NO = {"", "không", "khong", "bình thường", "binh thuong"}
 
 
 def to_maternity(value) -> bool:
-    """Cột Chế độ (mẫu V7) hoặc Thai sản (mẫu V6): "Thai sản"/"Có" là đang hưởng chế độ thai sản."""
+    """Cột Chế Độ (hoặc Thai sản ở mẫu cũ): "Có"/"Thai sản" là đang hưởng chế độ thai sản."""
     if value is None:
         return False
     text = normalize(value)
@@ -144,7 +177,7 @@ def to_maternity(value) -> bool:
         return True
     if text in _NO:
         return False
-    raise InputError(f"cột Chế độ chỉ ghi '{MATERNITY_LABEL}' hoặc để trống, đang ghi {value!r}")
+    raise InputError(f"cột Chế Độ chỉ ghi '{MATERNITY_LABEL}' (thai sản) hoặc để trống, đang ghi {value!r}")
 
 
 def build_teacher(name: str, raw_title: str, lessons, row: int | None = None,
@@ -155,7 +188,7 @@ def build_teacher(name: str, raw_title: str, lessons, row: int | None = None,
 
 
 def make_teacher(name, role: str, index: int | None, class_name: str | None, maternity: bool, lessons,
-                 row: int | None = None) -> Teacher:
+                 row: int | None = None, label: str = "") -> Teacher:
     title = canonical_title(role, index, class_name, maternity)
     return Teacher(
         name=str(name).strip() if name is not None else "",
@@ -166,50 +199,56 @@ def make_teacher(name, role: str, index: int | None, class_name: str | None, mat
         maternity=maternity,
         max_lessons=_to_lessons(lessons, title),
         row=row,
+        label=label,
     )
 
 
 def validate(teachers: list[Teacher]) -> None:
-    seen: dict[str, Teacher] = {}
+    """Báo mọi lỗi trùng lặp cùng lúc (mỗi lỗi một dòng)."""
+    errors: list[str] = []
     homeroom: dict[str, Teacher] = {}
     keys: dict[tuple[str, int], Teacher] = {}
     for t in teachers:
-        if t.title in seen:
-            raise InputError(f"Trùng chức vụ '{t.title}' (dòng {seen[t.title].row} và {t.row})")
-        seen[t.title] = t
         if t.class_name:
             if t.class_name in homeroom:
-                raise InputError(f"Lớp {t.class_name} có hai GV chủ nhiệm: "
-                                 f"'{homeroom[t.class_name].title}' và '{t.title}'")
-            homeroom[t.class_name] = t
+                errors.append(f"Lớp {t.class_name} có hai Chủ Nhiệm (dòng {homeroom[t.class_name].row} "
+                              f"và {t.row})")
+            else:
+                homeroom[t.class_name] = t
         else:
             key = (t.role, t.index)
             if key in keys:
-                raise InputError(f"Trùng chức vụ '{t.role} {t.index}' (dòng {keys[key].row} và {t.row})")
-            keys[key] = t
+                errors.append(f"Trùng chức vụ '{t.role} {t.index}' (dòng {keys[key].row} và {t.row})")
+            else:
+                keys[key] = t
     if not homeroom:
-        raise InputError("Không có GV chủ nhiệm nào nên không xác định được danh sách lớp")
+        errors.append("Không có Chủ Nhiệm nào nên không xác định được danh sách lớp")
+    if errors:
+        raise InputError("\n".join(errors))
 
 
-def read_staff(path: str | Path) -> list[Teacher]:
+def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
+    """Đọc sheet nhân sự; `subjects`: các môn của chương trình học để kiểm tra chức vụ (None = không kiểm)."""
     wb = openpyxl.load_workbook(path, data_only=True)
-    ws = wb.worksheets[0]
+    ws = staff_sheet(wb)
     header_row, cols = _find_columns(ws)
 
     def cell(r: int, key: str):
         return ws.cell(r, cols[key]).value if key in cols else None
 
-    rows: list[list] = []  # [dòng, tên, chức vụ, stt, lớp, thai sản, số tiết]
+    rows: list[list] = []  # [dòng, tên, chức vụ, stt, lớp, thai sản, số tiết, chữ chức vụ trong file]
+    errors: list[str] = []
     for r in range(header_row + 1, ws.max_row + 1):
         name, title, lessons, cls = cell(r, "name"), cell(r, "title"), cell(r, "lessons"), cell(r, "class")
         if _blank(title):
-            if all(_blank(v) for v in (name, lessons, cls)):
-                continue
-            raise InputError(f"Dòng {r}: thiếu chức vụ")
+            if not all(_blank(v) for v in (name, lessons, cls)):
+                errors.append(f"Dòng {r}: thiếu chức vụ")
+            continue
         try:
             maternity = to_maternity(cell(r, "maternity"))
-            role = normalize(title)
-            if role in known_roles():  # mẫu V7: chỉ ghi tên chức vụ, số thứ tự tự đánh
+            label = ""
+            if not re.search(r"\d", str(title)):  # mẫu V8: chỉ ghi tên chức vụ, số thứ tự tự đánh
+                role, label = normalize(title), clean_name(title)
                 index = class_name = None
                 if role == config.ROLE_HOMEROOM:
                     if _blank(cls):
@@ -222,9 +261,9 @@ def read_staff(path: str | Path) -> list[Teacher]:
                 maternity = maternity or ts
                 if not _blank(cls) and parse_class(cls) != class_name:
                     raise InputError(f"chức vụ {title!r} không khớp cột Lớp {cls!r}")
-            rows.append([r, name, role, index, class_name, maternity, lessons])
+            rows.append([r, name, role, index, class_name, maternity, lessons, label])
         except InputError as exc:
-            raise InputError(f"Dòng {r}: {exc}") from None
+            errors.append(f"Dòng {r}: {exc}")
 
     # Đánh số thứ tự cho các dòng chỉ ghi tên chức vụ, theo thứ tự dòng, bỏ qua số đã dùng.
     used: dict[str, set[int]] = defaultdict(set)
@@ -240,12 +279,20 @@ def read_staff(path: str | Path) -> list[Teacher]:
             row[3] = n
 
     teachers: list[Teacher] = []
-    for r, name, role, index, class_name, maternity, lessons in rows:
+    for r, name, role, index, class_name, maternity, lessons, label in rows:
         try:
-            teachers.append(make_teacher(name, role, index, class_name, maternity, lessons, row=r))
+            teachers.append(make_teacher(name, role, index, class_name, maternity, lessons, row=r, label=label))
         except InputError as exc:
-            raise InputError(f"Dòng {r}: {exc}") from None
-    validate(teachers)
+            errors.append(f"Dòng {r}: {exc}")
+    try:
+        validate(teachers)
+    except InputError as exc:
+        errors.append(str(exc))
+    if subjects is not None:
+        errors += role_errors(teachers, subjects)
+    errors = [line for err in errors for line in err.split("\n")]
+    if errors:
+        raise InputError(f"File nhân sự có {len(errors)} lỗi:\n  " + "\n  ".join(errors))
     return teachers
 
 

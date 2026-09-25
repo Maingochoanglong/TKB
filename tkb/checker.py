@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from . import config
-from .allocation import Problem, all_slots, manager_allowed, specialist_subjects
+from .allocation import Problem, all_slots, manager_allowed
 from .solver import Lesson
 
 
@@ -79,9 +79,9 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
         elif t.role == config.ROLE_MANAGER:
             if not any(manager_allowed(r, les.class_name, grade, les.subject) for r in config.MANAGER_RULES):
                 errors.append(f"{at}: {t.title} không được dạy {les.subject}")
-        elif t.role in config.SPECIALIST_ROLES:
-            if les.subject != config.SPECIALIST_ROLES[t.role]:
-                errors.append(f"{at}: {t.title} chỉ được dạy {config.SPECIALIST_ROLES[t.role]}")
+        elif t.role in problem.specialists:
+            if les.subject != problem.specialists[t.role]:
+                errors.append(f"{at}: {t.title} chỉ được dạy {problem.specialists[t.role]}")
 
     # GVCN dạy đủ phần đã phân; phần dạy thêm chỉ là tiết bù hợp lệ (chế độ bù giờ).
     homeroom = {t.class_name: t.title for t in teachers.values() if t.class_name}
@@ -94,7 +94,7 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             errors.append(f"Lớp {cls}: GVCN dạy {dict(got)}, phân công là {take}")
         elif extra:
             allowed = problem.overtime.get(homeroom[cls], 0)
-            banned = sorted(s for s in extra if s in specialist_subjects())
+            banned = sorted(s for s in extra if s in problem.specialist_subjects())
             if sum(extra.values()) > allowed or banned:
                 errors.append(f"Lớp {cls}: GVCN dạy bù {dict(extra)} không hợp lệ (tối đa {allowed} tiết, "
                               f"không bù môn chuyên biệt)")
