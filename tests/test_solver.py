@@ -68,3 +68,10 @@ def test_real_data_assignment_is_optimal(real_staff):
     assert plan.optimal
     assert plan.supplement_lessons == 52
     assert {r: n for r, n in plan.counts.items() if n} == {config.ROLE_GENERAL: 3}
+
+
+def test_reproducible_mode_gives_identical_timetables():
+    settings = config.Settings(time_limit=10, workers=4, reproducible=True)
+    runs = [solve(small_staff(general=False), None, settings, log=lambda *_: None) for _ in range(2)]
+    key = [sorted((l.class_name, l.day, l.period, l.subject, l.teacher) for l in r.lessons) for r in runs]
+    assert key[0] == key[1]

@@ -36,3 +36,23 @@ def test_run_reports_missing_file(tmp_path, capsys):
 def test_relative_paths_resolve_from_script_dir():
     assert main._resolve("data") == main.BASE_DIR / "data"
     assert (main.BASE_DIR / main.THU_MUC_IN / main.FILE_NHAN_SU).is_file()
+
+
+def test_run_rejects_bad_thread_count(tmp_path, capsys):
+    in_dir = tmp_path / "in"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx")
+    assert main.run(in_dir, tmp_path / "out", "nhan_su.xlsx", None, "TKB.xlsx", so_luong=0) == 1
+    assert "SO_LUONG" in capsys.readouterr().out
+
+
+def test_run_passes_thread_count(tmp_path, monkeypatch):
+    in_dir = tmp_path / "in"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx")
+    seen = {}
+    import tkb.__main__ as cli
+    monkeypatch.setattr(cli, "main", lambda argv: seen.setdefault("argv", argv) and 0)
+    main.run(in_dir, tmp_path / "out", "nhan_su.xlsx", None, "TKB.xlsx", so_luong=4)
+    argv = seen["argv"]
+    assert argv[argv.index("--workers") + 1] == "4"

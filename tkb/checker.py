@@ -8,8 +8,7 @@ from .allocation import Problem, all_slots, manager_allowed
 from .solver import Lesson
 
 
-def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True,
-          merge_enhanced_limits: bool = False) -> list[str]:
+def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -> list[str]:
     errors: list[str] = []
     slots = set(all_slots())
     teachers = problem.teachers
@@ -98,13 +97,13 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True,
                 errors.append(f"Lớp {cls}: HĐTN linh hoạt ở {where(*s)} ngoài các ngày cho phép")
 
     if student_rules:
-        errors.extend(_check_student_rules(problem, lessons, merge_enhanced_limits))
+        errors.extend(_check_student_rules(problem, lessons))
     return errors
 
 
-def _check_student_rules(problem: Problem, lessons: list[Lesson], merged: bool) -> list[str]:
+def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
     errors = []
-    limits = config.SESSION_SUBJECT_LIMITS_MERGED if merged else config.SESSION_SUBJECT_LIMITS
+    limits = config.SESSION_SUBJECT_LIMITS
     grid: dict[tuple[str, int, int], str] = {(l.class_name, l.day, l.period): l.subject for l in lessons}
     for les in lessons:
         if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_FORBIDDEN_PERIODS:

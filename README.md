@@ -23,9 +23,10 @@ pip install -r requirements.txt
 | `FILE_NHAN_SU` | Tên file danh sách nhân sự trong `THU_MUC_IN` | `Input_Danh_Sach_Nhan_Su_V5.xlsx` |
 | `FILE_CHUONG_TRINH` | Tên file chương trình học trong `THU_MUC_IN`; `None` = dùng chương trình mặc định | `None` |
 | `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
-| `THOI_GIAN_TOI_DA` | Giới hạn thời gian xếp giờ (giây) | `120` |
+| `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn | `240` (≈ 3,5 phút) |
+| `CHAY_TAI_LAP_DUOC` | `True`: cùng dữ liệu thì lần nào chạy cũng ra đúng một TKB; `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
+| `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 | `LUAT_HOC_SINH` | Bật luật bảo vệ học sinh | `True` |
-| `CHO_NHAN_ENTER_KHI_XONG` | Chờ nhấn Enter trước khi đóng, dùng khi mở bằng cách nhấp đúp file | `False` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
    - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\in"` hoặc `"C:/Users/ten/TKB/in"`.
@@ -45,9 +46,9 @@ Tuỳ chọn:
 | `-o, --output` | File TKB xuất ra (mặc định `out/TKB.xlsx`) |
 | `--staff-out` | File nhân sự cập nhật (mặc định `<thư mục output>/<tên input>_cap_nhat.xlsx`) |
 | `--program` | File chương trình học (cột `Môn học`, `Khối 1..5`); mặc định dùng chương trình trong `tkb/config.py` |
-| `--time-limit` | Giới hạn thời gian bước xếp giờ, giây (mặc định 120) |
+| `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240) |
+| `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
 | `--no-student-rules` | Tắt luật bảo vệ học sinh (dùng để tìm nguyên nhân khi không xếp được) |
-| `--merge-enhanced` | Tính TV/Toán tăng cường chung với TV/Toán trong giới hạn 2 tiết/buổi |
 
 Chạy test: `python -m pytest -q`
 
@@ -110,7 +111,7 @@ Mọi quy tắc đều cấu hình được trong `tkb/config.py`.
 **Luật bảo vệ học sinh** (đặc tả V15)
 - Không xếp môn nặng vào tiết 7.
 - Buổi sáng không quá 3 tiết nặng liên tiếp; buổi chiều không quá 2.
-- Mỗi buổi tối đa 2 tiết Tiếng Việt và 2 tiết Toán.
+- Mỗi buổi tối đa 2 tiết Tiếng Việt và 2 tiết Toán (tiết tăng cường được đếm riêng).
 
 **Mục tiêu mềm**
 - Cân bằng số tiết mỗi ngày của giáo viên.

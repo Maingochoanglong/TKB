@@ -19,18 +19,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("-o", "--output", default="out/TKB.xlsx", help="File TKB xuất ra (mặc định out/TKB.xlsx)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
     ap.add_argument("--program", help="File chương trình học (mặc định dùng chương trình trong tkb/config.py)")
-    ap.add_argument("--time-limit", type=float, default=120, help="Giới hạn thời gian xếp giờ, giây (mặc định 120)")
+    ap.add_argument("--time-limit", type=float, default=240,
+                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240)")
+    ap.add_argument("--non-reproducible", action="store_true",
+                    help="Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau")
     ap.add_argument("--workers", type=int, default=8, help="Số luồng CP-SAT (mặc định 8)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-student-rules", action="store_true",
                     help="Tắt luật bảo vệ học sinh (môn nặng tiết 7, giới hạn TV/Toán mỗi buổi...)")
-    ap.add_argument("--merge-enhanced", action="store_true",
-                    help="Tính TV/Toán tăng cường chung với TV/Toán trong giới hạn 2 tiết/buổi")
     args = ap.parse_args(argv)
 
     settings = config.Settings(student_rules=not args.no_student_rules,
-                               merge_enhanced_limits=args.merge_enhanced,
-                               time_limit=args.time_limit, workers=args.workers, seed=args.seed)
+                               time_limit=args.time_limit, workers=args.workers, seed=args.seed,
+                               reproducible=not args.non_reproducible)
     try:
         staff = read_staff(args.staff)
         curriculum = read_program(args.program) if args.program else None
@@ -40,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"LỖI: {exc}", file=sys.stderr)
         return 1
 
-    errors = check(solution.problem, solution.lessons, settings.student_rules, settings.merge_enhanced_limits)
+    errors = check(solution.problem, solution.lessons, settings.student_rules)
     output = Path(args.output)
     staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
     write_timetable(solution, output, errors, solution.problem.warnings)

@@ -146,15 +146,10 @@ HEAVY_SUBJECTS: set[str] = {TOAN, TOAN_TC, TV, TV_TC, TIENG_ANH, KH, TIN_HOC}
 HEAVY_FORBIDDEN_PERIODS: set[int] = {7}
 # Số tiết nặng liên tiếp tối đa trong một buổi.
 MAX_CONSECUTIVE_HEAVY: dict[str, int] = {"Sáng": 3, "Chiều": 2}
-# Nhóm môn -> số tiết tối đa mỗi buổi.
+# Nhóm môn -> số tiết tối đa mỗi buổi (môn tăng cường được đếm riêng, không gộp vào môn gốc).
 SESSION_SUBJECT_LIMITS: list[tuple[frozenset[str], int]] = [
     (frozenset({TV}), 2),
     (frozenset({TOAN}), 2),
-]
-# Gộp môn tăng cường vào giới hạn mỗi buổi của môn gốc.
-SESSION_SUBJECT_LIMITS_MERGED: list[tuple[frozenset[str], int]] = [
-    (frozenset({TV, TV_TC}), 2),
-    (frozenset({TOAN, TOAN_TC}), 2),
 ]
 
 
@@ -180,8 +175,11 @@ class Weights:
 @dataclass
 class Settings:
     student_rules: bool = True
-    merge_enhanced_limits: bool = False
-    time_limit: float = 120.0
+    time_limit: float = 240.0
+    # Chạy lại cùng dữ liệu luôn ra cùng một TKB (xem solver._configure).
+    reproducible: bool = True
+    deterministic_per_second: float = 1.0  # quy đổi time_limit sang thời gian tất định
+    safety_factor: float = 20.0  # giới hạn giây thực = time_limit × hệ số này (chỉ để chặn treo)
     workers: int = 8
     seed: int = 0
     weights: Weights = field(default_factory=Weights)
