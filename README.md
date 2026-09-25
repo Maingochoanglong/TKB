@@ -8,6 +8,8 @@ bằng OR-Tools CP-SAT. Khi trường thiếu người, có hai chế độ:
 - **Bù giờ** (`bu_gio`): GVCN và bộ môn dạy bù vượt định mức, mỗi người tối đa 2 tiết/tuần
   (người hưởng thai sản không bù). Chỉ khi bù vẫn không đủ mới thêm người "chưa có".
 
+Đặc tả nghiệp vụ chi tiết: [`docs/Dac_Ta_Nghiep_Vu_TKB_V16.md`](docs/Dac_Ta_Nghiep_Vu_TKB_V16.md).
+
 ## Cài đặt và chạy
 
 Cài thư viện (một lần):
