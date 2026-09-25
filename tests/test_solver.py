@@ -123,16 +123,16 @@ def test_overtime_mode_hires_only_the_remainder():
     assert sol.teacher_load()["bộ môn 1"] == 4
 
 
-def test_overtime_maternity_cap_and_homeroom_first():
+def test_overtime_skips_maternity_and_homeroom_first():
     rows = [("CN A", "chủ nhiệm 3/1", 19), ("CN B", "chủ nhiệm 3/2 ts", 19), ("TA", "tiếng anh 1", 23),
             ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23),
-            ("BM", "bộ môn 1", 3)]
+            ("BM", "bộ môn 1", 4)]
     staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
     sol = solve(staff, None, OVERTIME, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
     assert sol.used_supplements() == []
-    # Thiếu 8 - 3 = 5 tiết: GVCN bù trước (thai sản tối đa 1), bộ môn bù phần còn lại.
-    assert sol.overtime() == {"chủ nhiệm 3/1": 2, "chủ nhiệm 3/2 ts": 1, "bộ môn 1": 2}
+    # Thiếu 8 - 4 = 4 tiết: GVCN 3/1 bù trước, GVCN thai sản không bù, bộ môn bù phần còn lại.
+    assert sol.overtime() == {"chủ nhiệm 3/1": 2, "bộ môn 1": 2}
 
 
 def test_checker_flags_invalid_overtime(overtime_solution):

@@ -49,7 +49,7 @@ SO_LUONG = 8
 CHE_DO = "bu_gio"
 
 # Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần.
-# Người hưởng thai sản luôn bù tối đa 1 tiết (luật cứng).
+# Người hưởng thai sản không bao giờ phải bù.
 SO_TIET_BU_TOI_DA = 2
 
 # Bật luật bảo vệ học sinh (tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi).

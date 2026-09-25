@@ -140,9 +140,8 @@ def staff_rows(solution: Solution) -> list[Teacher]:
 def mode_label(problem) -> str:
     if not problem.overtime_mode():
         return "Tuyển thêm (thiếu người thì thêm GV \"chưa có\")"
-    ts = min(problem.overtime_max, config.MATERNITY_OVERTIME_MAX)
     return (f"Bù giờ (GVCN, bộ môn bù tối đa {problem.overtime_max} tiết/người, "
-            f"người hưởng thai sản tối đa {ts} tiết)")
+            f"người hưởng thai sản không bù)")
 
 
 def overtime_details(solution: Solution) -> dict[str, str]:

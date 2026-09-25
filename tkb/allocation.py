@@ -117,10 +117,10 @@ def make_supplements(role: str, count: int, teachers: list[Teacher]) -> list[Tea
 
 
 def overtime_allowance(t: Teacher, overtime_max: int) -> int:
-    """Số tiết bù tối đa của một GV ở chế độ bù giờ."""
-    if overtime_max <= 0 or t.supplementary or t.role not in config.OVERTIME_ROLES:
+    """Số tiết bù tối đa của một GV ở chế độ bù giờ (người hưởng thai sản không bù)."""
+    if overtime_max <= 0 or t.supplementary or t.maternity or t.role not in config.OVERTIME_ROLES:
         return 0
-    return min(overtime_max, config.MATERNITY_OVERTIME_MAX) if t.maternity else overtime_max
+    return overtime_max
 
 
 def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None = None,
@@ -128,9 +128,8 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | 
     """Dựng bài toán.
 
     supplement_counts: số GV bổ sung dự kiến cho từng chức vụ; None = đủ lớn để luôn có nghiệm.
-    overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn được dạy vượt định mức tối đa ngần ấy tiết
-    (người hưởng thai sản tối đa MATERNITY_OVERTIME_MAX); GVCN bù các môn không thuộc GV chuyên
-    biệt của lớp mình.
+    overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn (trừ người hưởng thai sản) được dạy vượt
+    định mức tối đa ngần ấy tiết; GVCN bù các môn không thuộc GV chuyên biệt của lớp mình.
     """
     curriculum = curriculum or config.DEFAULT_CURRICULUM
     slots = all_slots()

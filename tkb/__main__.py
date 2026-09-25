@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
                          "(mặc định tuyen_them)")
     ap.add_argument("--max-overtime", type=int, default=config.OVERTIME_MAX,
                     help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định {config.OVERTIME_MAX}; "
-                         f"người hưởng thai sản tối đa {config.MATERNITY_OVERTIME_MAX})")
+                         f"người hưởng thai sản không bù)")
     ap.add_argument("--no-student-rules", action="store_true",
                     help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi)")
     args = ap.parse_args(argv)

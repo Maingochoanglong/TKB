@@ -86,7 +86,7 @@ def test_homeroom_needs_enough_lessons_for_locked_periods(monkeypatch):
 def test_overtime_allowances_and_eligibility(real_staff):
     p = build_problem(real_staff, overtime_max=2)
     assert p.overtime["chủ nhiệm 1/1"] == 2 and p.overtime["bộ môn 1"] == 2
-    assert p.overtime["chủ nhiệm 5/5 ts"] == 1 and p.overtime["bộ môn 5 ts"] == 1  # thai sản tối đa 1
+    assert "chủ nhiệm 5/5 ts" not in p.overtime and "bộ môn 5 ts" not in p.overtime  # thai sản không bù
     assert all(p.teachers[g].role in C.OVERTIME_ROLES for g in p.overtime)
     pool = {(c.class_name, c.subject): c for c in p.courses if not c.homeroom}
     assert "chủ nhiệm 1/1" in pool["1/1", C.TV].teachers

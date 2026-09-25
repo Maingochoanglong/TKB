@@ -239,8 +239,6 @@ class _Allocation:
                 second = m.NewIntVar(0, extra - 1, f"ot2_{title}")
                 m.Add(second >= ot - 1)
                 secondary.append(w.overtime_second * second)
-            if t.maternity:
-                secondary.append(w.overtime_maternity * ot)
         # GVCN bù môn ưu tiên của lớp trước, sau đó theo thứ tự bù của GVCN.
         order = {s: 0 for s in config.HOMEROOM_PRIORITY}
         order.update({s: i + 1 for i, s in enumerate(config.HOMEROOM_FILL_ORDER)})
@@ -510,8 +508,8 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]] | None,
     base = build_problem(staff, curriculum, overtime_max=overtime_max)
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
-    mode = (f" (chế độ bù giờ, tối đa +{overtime_max} tiết/người, thai sản "
-            f"+{min(overtime_max, config.MATERNITY_OVERTIME_MAX)})" if overtime_max else "")
+    mode = (f" (chế độ bù giờ, tối đa +{overtime_max} tiết/người, thai sản không bù)"
+            if overtime_max else "")
     log(f"Bước 1/2: phân công giáo viên{mode}...")
     plan = assign(base, settings)
     if overtime_max:
