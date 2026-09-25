@@ -508,7 +508,7 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     base = build_problem(staff, curriculum, overtime_max=overtime_max)
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
-    mode = (f" (chế độ bù giờ, tối đa +{overtime_max} tiết/người, thai sản không bù)"
+    mode = (f" (chế độ bù giờ, tối đa +{overtime_max} tiết/người)"
             if overtime_max else "")
     log(f"Bước 1/2: phân công giáo viên{mode}...")
     plan = assign(base, settings)

@@ -6,7 +6,7 @@ thời khóa biểu tuần cho toàn trường bằng OR-Tools CP-SAT. Khi trư�
 - **Tuyển thêm** (`tuyen_them`): thêm giáo viên mới vào danh sách nhân sự với tên "chưa có"
   (ví dụ `chưa có | bộ môn 6 | 23`) thay vì bỏ trống tiết.
 - **Bù giờ** (`bu_gio`): GVCN và bộ môn dạy bù vượt định mức, mỗi người tối đa 2 tiết/tuần
-  (người hưởng thai sản không bù). Chỉ khi bù vẫn không đủ mới thêm người "chưa có".
+  (kể cả người hưởng thai sản). Chỉ khi bù vẫn không đủ mới thêm người "chưa có".
 
 Đặc tả nghiệp vụ chi tiết: [`docs/Dac_Ta_Nghiep_Vu_TKB_V16.md`](docs/Dac_Ta_Nghiep_Vu_TKB_V16.md).
 
@@ -32,7 +32,7 @@ pip install -r requirements.txt
 | `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần cũng ra đúng một TKB, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 | `CHE_DO` | Khi thiếu người: `"tuyen_them"` (thêm GV "chưa có") hoặc `"bu_gio"` (GVCN/bộ môn dạy bù) | `"bu_gio"` |
-| `SO_TIET_BU_TOI_DA` | Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (người hưởng thai sản không bù) | `2` |
+| `SO_TIET_BU_TOI_DA` | Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (kể cả người hưởng thai sản) | `2` |
 | `LUAT_HOC_SINH` | Bật luật bảo vệ học sinh | `True` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
@@ -171,7 +171,7 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 
 **Chế độ bù giờ** (`CHE_DO = "bu_gio"`)
 - Chỉ GVCN và bộ môn được dạy bù (vượt Số tiết định mức), mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần.
-- **Người hưởng thai sản (`ts`) không bao giờ phải bù** (luật cứng).
+- **Người hưởng thai sản cũng được bù** như mọi người, cùng mức tối đa.
 - GVCN chỉ bù ở lớp mình, không bù môn của giáo viên chuyên biệt. Thứ tự môn: môn ưu tiên của GVCN (lấy lại tiết đã bị cắt) → TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ.
 - GVCN bù trước; bộ môn chỉ bù khi GVCN đã bù hết mức.
 - Chia đều: mọi người bù +1 rồi mới có người bù +2.

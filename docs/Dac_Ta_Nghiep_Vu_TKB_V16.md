@@ -25,7 +25,7 @@
 | 8 | Môn nặng ở tiết 7 | [Cứng] cấm | **[Mềm]** hạn chế |
 | 9 | Tiết nặng liên tiếp | [Cứng] giới hạn | **Bỏ** |
 | 10 | Tối đa 2 tiết TV, 2 tiết Toán mỗi buổi | [Cứng] | **Giữ nguyên** [Cứng]. Tiết tăng cường được đếm riêng |
-| 11 | Thai sản | Chữ `ts` sau chức vụ | Cột **Thai sản** (`Có`/trống); vẫn đọc được chữ `ts`. Người thai sản **không bao giờ dạy bù** |
+| 11 | Thai sản | Chữ `ts` sau chức vụ | Cột **Chế Độ** (`Có`/trống); vẫn đọc được chữ `ts`. Người thai sản **được dạy bù** như mọi người (cùng mức tối đa) |
 | 12 | Tải ngày | Buffer/overload động | [Mềm] mục tiêu tải ngày theo tỷ lệ số tiết của ngày |
 | 13 | Tái lập | – | Cùng dữ liệu, cùng phiên bản OR-Tools và cùng số luồng thì luôn ra cùng một TKB |
 | 14 | Nội dung ô TKB | Chức vụ (môn) | Môn, xuống dòng **tên giáo viên**. Tên trống hoặc người cần tuyển thì ghi **Mã GV** (`Bộ Môn 6`); tên trùng thì kèm Mã GV |
@@ -274,7 +274,7 @@ Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy d�
 ### 7.2. Chế độ bù giờ (`bu_gio`)
 
 - **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (mặc định 2).
-- **[Cứng]** Người hưởng thai sản **không bao giờ** dạy bù.
+- Người hưởng thai sản **cũng được bù** như mọi người, cùng mức tối đa `SO_TIET_BU_TOI_DA`.
 - **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt.
 - **Thứ tự môn GVCN bù:**
   1. Môn ưu tiên (lấy lại tiết đã bị cắt ở mục 5.2).

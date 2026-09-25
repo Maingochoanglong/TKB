@@ -32,8 +32,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="Khi thiếu người: tuyen_them = thêm GV \"chưa có\"; bu_gio = GVCN/bộ môn dạy bù "
                          "(mặc định tuyen_them)")
     ap.add_argument("--max-overtime", type=int, default=config.OVERTIME_MAX,
-                    help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định {config.OVERTIME_MAX}; "
-                         f"người hưởng thai sản không bù)")
+                    help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người, kể cả người hưởng thai sản "
+                         f"(mặc định {config.OVERTIME_MAX})")
     ap.add_argument("--no-student-rules", action="store_true",
                     help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi)")
     args = ap.parse_args(argv)

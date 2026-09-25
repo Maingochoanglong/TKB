@@ -132,7 +132,7 @@ MODE_HIRE = "tuyen_them"  # thêm GV bổ sung "chưa có" vào danh sách nhân
 MODE_OVERTIME = "bu_gio"  # GVCN/bộ môn dạy bù vượt định mức; chỉ tuyển khi bù vẫn không đủ
 MODES = (MODE_HIRE, MODE_OVERTIME)
 # Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt; GVCN bù
-# trước, bộ môn chỉ bù khi GVCN đã bù hết mức. Người hưởng thai sản ("ts") không bao giờ bù.
+# trước, bộ môn chỉ bù khi GVCN đã bù hết mức. Người hưởng thai sản cũng được bù như mọi người.
 OVERTIME_ROLES: set[str] = {ROLE_HOMEROOM, ROLE_GENERAL}
 OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức được duyệt)
 

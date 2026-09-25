@@ -161,8 +161,8 @@ def make_supplements(role: str, count: int, teachers: list[Teacher], label: str 
 
 
 def overtime_allowance(t: Teacher, overtime_max: int) -> int:
-    """Số tiết bù tối đa của một GV ở chế độ bù giờ (người hưởng thai sản không bù)."""
-    if overtime_max <= 0 or t.supplementary or t.maternity or t.role not in config.OVERTIME_ROLES:
+    """Số tiết bù tối đa của một GV ở chế độ bù giờ (người hưởng thai sản cũng được bù)."""
+    if overtime_max <= 0 or t.supplementary or t.role not in config.OVERTIME_ROLES:
         return 0
     return overtime_max
 
@@ -173,7 +173,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
 
     curriculum: chương trình học đọc từ file vào ({khối: {môn: số tiết}}).
     supplement_counts: số GV bổ sung dự kiến cho từng chức vụ; None = đủ lớn để luôn có nghiệm.
-    overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn (trừ người hưởng thai sản) được dạy vượt
+    overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn (kể cả người hưởng thai sản) được dạy vượt
     định mức tối đa ngần ấy tiết; GVCN bù các môn không thuộc GV chuyên biệt của lớp mình.
     """
     # Môn có luật trong config được gọi theo tên trong config; tên như trong file giữ lại để in ra.

@@ -138,8 +138,7 @@ def role_label(solution: Solution, role: str) -> str:
 def mode_label(problem) -> str:
     if not problem.overtime_mode():
         return "Tuyển thêm (thiếu người thì thêm GV \"chưa có\")"
-    return (f"Bù giờ (GVCN, bộ môn bù tối đa {problem.overtime_max} tiết/người, "
-            f"người hưởng thai sản không bù)")
+    return f"Bù giờ (GVCN, bộ môn bù tối đa {problem.overtime_max} tiết/người)"
 
 
 def overtime_details(solution: Solution) -> dict[str, str]:
