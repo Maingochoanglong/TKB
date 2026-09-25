@@ -101,6 +101,12 @@ SPECIALIST_ROLES: dict[str, str] = {
     "mỹ thuật": MY_THUAT,
 }
 
+# Tên chức vụ trong file mẫu nhân sự (thứ tự trong danh sách thả xuống).
+ROLE_LABELS: dict[str, str] = {
+    ROLE_HOMEROOM: "Chủ Nhiệm", "thể dục": "Thể Dục", "tiếng anh": "Tiếng Anh", "mỹ thuật": "Mỹ Thuật",
+    ROLE_GENERAL: "Bộ Môn", "âm nhạc": "Âm Nhạc", "tin học": "Tin Học", ROLE_MANAGER: "Quản Lý",
+}
+
 # Môn chỉ GVCN của lớp được dạy.
 HOMEROOM_ONLY_SUBJECTS: set[str] = {HDTN}
 

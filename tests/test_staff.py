@@ -76,3 +76,38 @@ def test_maternity_column_rejects_other_values(tmp_path):
     path = _staff_file(tmp_path / "ns.xlsx", [("A", "chủ nhiệm 1/1", 16, "đang nghỉ")])
     with pytest.raises(InputError, match="Thai sản"):
         read_staff(path)
+
+
+V7 = ("Họ và Tên", "Chức Vụ", "Lớp", "Chế độ", "Số Tiết/Tuần")
+
+
+def test_v7_columns_and_auto_numbering(tmp_path):
+    path = _staff_file(tmp_path / "ns.xlsx", [
+        ("A", "Chủ Nhiệm", "1/1", None, 19), ("B", "Bộ Môn", None, None, 23),
+        ("C", "Tiếng Anh", None, None, 23), ("D", "bộ môn", None, "Thai sản", 19),
+        ("E", "Chủ Nhiệm", " 1 / 2 ", "Thai sản", 16), ("F", "Bộ Môn", None, None, 23)], header=V7)
+    got = [(t.name, t.title, t.max_lessons, t.maternity) for t in read_staff(path)]
+    assert got == [("A", "chủ nhiệm 1/1", 19, False), ("B", "bộ môn 1", 23, False),
+                   ("C", "tiếng anh 1", 23, False), ("D", "bộ môn 2 ts", 19, True),
+                   ("E", "chủ nhiệm 1/2 ts", 16, True), ("F", "bộ môn 3", 23, False)]
+
+
+@pytest.mark.parametrize("row, message", [
+    (("A", "Chủ Nhiệm", None, None, 19), "phải ghi Lớp"),
+    (("A", "Bộ Môn", "1/1", None, 23), "chỉ Chủ Nhiệm mới ghi Lớp"),
+    (("A", "Chủ Nhiệm", "1-1", None, 19), "khối/số thứ tự"),
+    (("A", "Hiệu Trưởng", None, None, 4), "không xác định"),
+    (("A", "Chủ Nhiệm", "1/1", "nghỉ ốm", 19), "Chế độ"),
+])
+def test_v7_errors(tmp_path, row, message):
+    path = _staff_file(tmp_path / "ns.xlsx", [row], header=V7)
+    with pytest.raises(InputError, match=message):
+        read_staff(path)
+
+
+def test_v7_class_turned_into_date(tmp_path):
+    import datetime
+    path = _staff_file(tmp_path / "ns.xlsx", [("A", "Chủ Nhiệm", datetime.datetime(2026, 1, 1), None, 19)],
+                       header=V7)
+    with pytest.raises(InputError, match="ngày tháng"):
+        read_staff(path)

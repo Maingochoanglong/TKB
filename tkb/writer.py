@@ -426,16 +426,21 @@ def write_statistics(solution: Solution, path: str | Path) -> None:
 
 
 def write_updated_staff(solution: Solution, source: str | Path, path: str | Path) -> None:
-    """Chép file nhân sự gốc và thêm các GV bổ sung ("chưa có") vào cuối danh sách."""
+    """Chép file nhân sự gốc và thêm các GV bổ sung ("chưa có") vào cuối danh sách.
+
+    Mẫu V7 (có cột Lớp) ghi chức vụ không kèm số thứ tự, vd "Bộ Môn": khi đọc lại, chương trình tự
+    đánh số tiếp theo (bộ môn 6, 7...). Mẫu cũ ghi đủ chức vụ, vd "bộ môn 6".
+    """
     wb = openpyxl.load_workbook(source)
     ws = wb.worksheets[0]
     _, cols = _find_columns(ws)
     last = max((r for r in range(1, ws.max_row + 1)
                 if ws.cell(r, cols["title"]).value not in (None, "")), default=1)
+    v7 = "class" in cols
     for i, t in enumerate(solution.used_supplements(), start=1):
         r = last + i
         ws.cell(r, cols["name"], t.name)
-        ws.cell(r, cols["title"], t.title)
+        ws.cell(r, cols["title"], config.ROLE_LABELS.get(t.role, t.role) if v7 else t.title)
         ws.cell(r, cols["lessons"], t.max_lessons)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

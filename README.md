@@ -26,7 +26,7 @@ pip install -r requirements.txt
 |---|---|---|
 | `THU_MUC_IN` | Thư mục chứa file đầu vào | `data` |
 | `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có | `out` |
-| `FILE_NHAN_SU` | Tên file danh sách nhân sự trong `THU_MUC_IN` | `Input_Danh_Sach_Nhan_Su_V6.xlsx` |
+| `FILE_NHAN_SU` | Tên file danh sách nhân sự trong `THU_MUC_IN` | `Input_Danh_Sach_Nhan_Su_V7.xlsx` |
 | `FILE_CHUONG_TRINH` | Tên file chương trình học trong `THU_MUC_IN`; `None` = dùng chương trình mặc định | `None` |
 | `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
 | `FILE_THONG_KE` | Tên file thống kê giáo viên xuất ra | `Thong_Ke.xlsx` |
@@ -46,7 +46,7 @@ pip install -r requirements.txt
 ### Cách 2 — dòng lệnh
 
 ```bash
-python -m tkb data/Input_Danh_Sach_Nhan_Su_V6.xlsx -o out/TKB.xlsx
+python -m tkb data/Input_Danh_Sach_Nhan_Su_V7.xlsx -o out/TKB.xlsx
 ```
 
 Tuỳ chọn:
@@ -67,24 +67,26 @@ Chạy test: `python -m pytest -q`
 
 ## Đầu vào
 
-File Excel 1 sheet, 4 cột, ví dụ `data/Input_Danh_Sach_Nhan_Su_V6.xlsx`:
+File Excel **mẫu V7**, 1 sheet, 5 cột, ví dụ `data/Input_Danh_Sach_Nhan_Su_V7.xlsx`:
 
-| Tên | Chức vụ | Số tiết | Thai sản |
-|---|---|---|---|
-| Nguyễn Văn A | chủ nhiệm 1/1 | 19 | |
-| Trần Thị B | chủ nhiệm 5/5 | 16 | Có |
-| Lê Văn C | bộ môn 5 | 19 | Có |
+| Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần |
+|---|---|---|---|---|
+| Nguyễn Văn A | Chủ Nhiệm | 1/1 | | 19 |
+| Trần Thị B | Chủ Nhiệm | 5/5 | Thai sản | 16 |
+| Lê Văn C | Bộ Môn | | Thai sản | 19 |
+| Phạm D | Tiếng Anh | | | 23 |
 
-- **Chức vụ** chọn từ danh sách thả xuống: tên chức vụ + số thứ tự, ví dụ `chủ nhiệm 1/1`, `bộ môn 4`, `tiếng anh 2`, `quản lý 1`. Chức vụ bị trùng tự tô đỏ.
-- **Số tiết** là mức tối đa mỗi tuần (số nguyên 0–40). Người hưởng thai sản ghi mức đã giảm.
-- **Thai sản**: ghi `Có` nếu đang hưởng chế độ thai sản, để trống nếu không. Ở sheet Danh sách nhân sự và Thống kê, chức vụ của người này có thêm `ts`, ví dụ `chủ nhiệm 5/5 ts`.
-- Danh sách lớp lấy từ các dòng `chủ nhiệm khối/stt`, vì mỗi lớp luôn có một GVCN.
-- File cũ 3 cột (ghi chữ `ts` sau chức vụ, ví dụ `bộ môn 5 ts`) vẫn đọc được.
+- **Chức Vụ** chọn từ danh sách thả xuống: Chủ Nhiệm, Thể Dục, Tiếng Anh, Mỹ Thuật, Bộ Môn, Âm Nhạc, Tin Học, Quản Lý. **Không ghi số thứ tự**: chương trình tự đánh số theo thứ tự dòng (Bộ Môn thứ nhất là `bộ môn 1`, thứ hai là `bộ môn 2`…).
+- **Lớp** chỉ ghi cho Chủ Nhiệm, dạng **khối/số thứ tự** (`1/1`, `5/5`), chọn từ danh sách thả xuống. Cột này định dạng chữ (Text) để Excel không đổi `1/1` thành ngày tháng. Lớp trùng, Chủ Nhiệm thiếu Lớp, hoặc chức vụ khác lại ghi Lớp đều bị tô đỏ.
+- **Chế độ**: ghi `Thai sản` nếu đang hưởng chế độ thai sản, để trống nếu không. Ở sheet Danh sách nhân sự và Thống kê, chức vụ của người này có thêm `ts`, ví dụ `chủ nhiệm 5/5 ts`.
+- **Số Tiết/Tuần** là mức tối đa mỗi tuần (số nguyên 0–40). Người hưởng thai sản ghi mức đã giảm.
+- Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN.
+- File mẫu cũ vẫn đọc được: V6 (`Tên | Chức vụ | Số tiết | Thai sản`, chức vụ ghi kèm số như `bộ môn 5`) và V5 (3 cột, ghi `ts` sau chức vụ).
 
 Tạo file mẫu mới, hoặc chuyển file cũ sang file mẫu:
 
 ```bash
-python -m tkb.template data/Mau_Nhan_Su.xlsx                                    # file mẫu trống
+python -m tkb.template data/Mau_Nhan_Su.xlsx                                    # file mẫu V7 trống
 python -m tkb.template data/Nhan_Su_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V5.xlsx   # chép dữ liệu file cũ
 ```
 
@@ -177,7 +179,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `main.py` | File chạy nhanh: sửa hằng số thư mục vào/ra rồi bấm Run |
 | `tkb/config.py` | Toàn bộ tham số nghiệp vụ: chương trình, khung giờ, quyền dạy, thứ tự cắt/bù, trọng số |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |
-| `tkb/template.py` | Tạo file mẫu nhân sự (danh sách thả xuống), chuyển file cũ sang file mẫu |
+| `tkb/template.py` | Tạo file mẫu nhân sự V7 (danh sách thả xuống), chuyển file cũ sang file mẫu |
 | `tkb/program.py` | Đọc file chương trình học (tuỳ chọn) |
 | `tkb/allocation.py` | Phân phần GVCN, sinh lớp-môn và danh sách giáo viên được dạy, sinh giáo viên bổ sung |
 | `tkb/solver.py` | Mô hình CP-SAT |
