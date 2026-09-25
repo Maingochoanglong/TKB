@@ -74,7 +74,9 @@ Cùng file vào và cùng các hằng số trong `main.py` thì **máy nào cũn
 
 **Mã kết quả:** mỗi lần chạy in ra màn hình và ghi ở sheet Thống kê một mã, ví dụ `Mã kết quả: 6523-7A90-932C`. Mã này là mã băm của toàn bộ TKB. Hai máy cùng mã là cùng TKB, khỏi phải so từng ô.
 
-**Kiểm tra một máy mới** (mất khoảng 20 giây): `python -m pytest tests/test_reproducible.py`. Test so mã kết quả của một trường nhỏ với mã tham chiếu. Qua là máy đó ra đúng kết quả như máy gốc.
+**Kiểm tra một máy mới:**
+- Nhanh (khoảng 20 giây): `python -m pytest tests/test_reproducible.py`. Test so mã kết quả của một trường nhỏ với mã tham chiếu. Qua là máy đó ra đúng kết quả như máy gốc.
+- Đầy đủ (vài phút): chạy `python main.py` với các hằng số mặc định và dữ liệu mẫu `data/Input_TKB_V8.xlsx`. Mã kết quả phải là **`FCE8-77C0-5CDA`**.
 
 **Giới hạn:** đã kiểm chứng trên Linux x86-64. OR-Tools không cam kết kết quả giống hệt giữa các hệ điều hành hoặc loại CPU khác nhau (Windows, macOS, chip ARM như Apple M1). Nếu test trên báo khác mã ở một máy, hãy xếp TKB chính thức trên một máy cố định, hoặc trên các máy cùng hệ điều hành và loại CPU.
 

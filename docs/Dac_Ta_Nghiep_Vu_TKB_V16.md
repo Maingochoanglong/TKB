@@ -359,7 +359,7 @@ Chương trình giải hai lần:
   - Máy nhanh hay chậm, số nhân CPU, máy đang bận hay rảnh: bộ giải dừng theo **lượng tính toán**, không theo giây thực. Chế độ tái lập **không có giới hạn giây thực**, nên máy chậm chỉ chạy lâu hơn chứ không dừng sớm.
   - Phiên bản Python (đã thử 3.10, 3.11, 3.12, 3.13), thư mục chạy, thứ tự băm của Python.
   - Thứ tự dựng mô hình cố định, không phụ thuộc thứ tự lặp của `set`.
-- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Thống kê. Hai máy cùng mã là cùng TKB. Sheet Thống kê không còn ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
+- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Thống kê. Hai máy cùng mã là cùng TKB. Với dữ liệu mẫu `data/Input_TKB_V8.xlsx` và các hằng số mặc định của `main.py`, mã là **`FCE8-77C0-5CDA`**. Đã kiểm trên Python 3.11 và 3.13, chạy từ các thư mục khác nhau, lúc máy đang quá tải. Sheet Thống kê không còn ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
 - **Giới hạn đã biết:** đã kiểm chứng trên Linux x86-64. OR-Tools không cam kết kết quả giống hệt giữa các hệ điều hành hoặc loại CPU khác nhau (Windows, macOS, chip ARM như Apple M1), vì bản dựng khác trình biên dịch và phép tính số thực. Cách kiểm tra một máy: chạy `main.py` với cấu hình mặc định và dữ liệu mẫu, so mã kết quả với mã tham chiếu ở README. Nếu khác, hãy xếp TKB chính thức trên một máy cố định (hoặc cùng loại máy và hệ điều hành).
 - Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
 - `tests/test_reproducible.py` kiểm tra:
