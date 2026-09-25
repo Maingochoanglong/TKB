@@ -105,7 +105,11 @@ python -m tkb.template data/Nhan_Su_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V
      - Tải từng giáo viên theo từng ngày.
      - Kết quả kiểm tra luật bắt buộc.
 2. **`<tên input>_cap_nhat.xlsx`**: file nhân sự gốc, có thêm các dòng `chưa có` ở cuối, Số tiết = định mức tuyển (vd 23). File này dùng làm đầu vào cho lần chạy sau được. File gốc không bị sửa.
-3. **`Thong_Ke.xlsx`**: bảng thống kê riêng, mỗi giáo viên một dòng: STT | Tên giáo viên | Chức vụ | Số tiết quy định | Số tiết bù, cuối bảng có dòng Tổng. Người cần tuyển có tên `tuyển thêm`.
+3. **`Thong_Ke.xlsx`**: file thống kê riêng. Người cần tuyển có tên `tuyển thêm`. Các bảng đều có bộ lọc.
+   - **Thống kê giáo viên**: Tên | Chức vụ | Số tiết quy định | Số tiết bù | Số tiết thực dạy | Số tiết còn dư, cuối bảng có dòng Tổng.
+   - **Phân công**: giáo viên dạy môn gì, lớp nào, bao nhiêu tiết (bảng phân công chuyên môn).
+   - **Theo ngày**: số tiết từng ngày Thứ 2 → Thứ 6 của mỗi giáo viên.
+   - **Theo chức vụ**: số người, tiết quy định, thực dạy, bù, còn dư, số người và số tiết tuyển thêm của từng chức vụ.
 
 ## Quy tắc nghiệp vụ
 

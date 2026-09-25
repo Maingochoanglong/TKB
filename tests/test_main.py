@@ -25,7 +25,7 @@ def test_run_writes_outputs(tmp_path):
     rows = list(openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx").active.iter_rows(values_only=True))
     assert rows[-1] == ("chưa có", "bộ môn 1", 23)
     stats = list(openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").active.iter_rows(values_only=True))
-    assert stats[-2][1:] == ("tuyển thêm", "bộ môn 1", 23, 0)
+    assert stats[-2][1:5] == ("tuyển thêm", "bộ môn 1", 23, 0)
 
 
 def test_run_reports_missing_file(tmp_path, capsys):

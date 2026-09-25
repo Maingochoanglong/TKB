@@ -335,30 +335,92 @@ def write_timetable(solution: Solution, path: str | Path, errors: list[str], war
 HIRE_LABEL = "tuyển thêm"  # tên của người cần tuyển trong file thống kê
 
 
+def _stats_name(t: Teacher) -> str:
+    return HIRE_LABEL if t.supplementary else t.name
+
+
 def statistics_rows(solution: Solution) -> list[list]:
-    """Tên | Chức vụ | Số tiết quy định | Số tiết bù; người cần tuyển có tên "tuyển thêm"."""
+    """Tên | Chức vụ | Số tiết quy định | Số tiết bù | Số tiết thực dạy | Số tiết còn dư."""
+    load = solution.teacher_load()
     overtime = solution.overtime()
+    return [[_stats_name(t), t.title, t.max_lessons, overtime.get(t.title, 0), load[t.title],
+             max(0, t.max_lessons - load[t.title])] for t in staff_rows(solution)]
+
+
+def assignment_rows(solution: Solution) -> list[list]:
+    """Phân công chuyên môn: Tên | Chức vụ | Lớp | Môn | Số tiết (theo thứ tự danh sách nhân sự)."""
+    count = Counter((les.teacher, les.class_name, les.subject) for les in solution.lessons)
+    subject_order = {s: i for i, s in enumerate(config.SUBJECTS)}
     rows = []
     for t in staff_rows(solution):
-        name = HIRE_LABEL if t.supplementary else t.name
-        rows.append([name, t.title, t.max_lessons, overtime.get(t.title, 0)])
+        items = sorted(((c, s, n) for (g, c, s), n in count.items() if g == t.title),
+                       key=lambda x: (class_sort_key(x[0]), subject_order.get(x[1], len(subject_order))))
+        rows += [[_stats_name(t), t.title, c, subject_label(s), n] for c, s, n in items]
     return rows
 
 
+def daily_rows(solution: Solution) -> list[list]:
+    """Tên | Chức vụ | số tiết từng ngày | Tổng."""
+    per_day = daily_loads(solution)
+    days = sorted(config.DAY_SESSIONS)
+    return [[_stats_name(t), t.title, *[per_day[t.title][d] for d in days], sum(per_day[t.title].values())]
+            for t in staff_rows(solution)]
+
+
+def role_rows(solution: Solution) -> list[list]:
+    """Chức vụ | Số người | Quy định | Thực dạy | Bù | Còn dư | Số người tuyển thêm | Số tiết tuyển thêm."""
+    load = solution.teacher_load()
+    overtime = solution.overtime()
+    teachers = staff_rows(solution)
+    rows = []
+    for role in [config.ROLE_HOMEROOM, config.ROLE_GENERAL, *config.SPECIALIST_ROLES, config.ROLE_MANAGER]:
+        real = [t for t in teachers if t.role == role and not t.supplementary]
+        hired = [t for t in teachers if t.role == role and t.supplementary]
+        if not real and not hired:
+            continue
+        rows.append([role, len(real), sum(t.max_lessons for t in real), sum(load[t.title] for t in real),
+                     sum(overtime.get(t.title, 0) for t in real),
+                     sum(max(0, t.max_lessons - load[t.title]) for t in real),
+                     len(hired), sum(load[t.title] for t in hired)])
+    return rows
+
+
+def _stats_sheet_table(ws, title: str, header: list[str], rows: list[list], widths: tuple[int, ...],
+                       total_from: int | None = None) -> None:
+    """Bảng có tiêu đề, lọc, cố định dòng tiêu đề; total_from: cộng các cột từ vị trí này vào dòng Tổng."""
+    data = [[i, *r] for i, r in enumerate(rows, start=1)]
+    if total_from is not None:
+        data.append([None, "Tổng", *[None] * (total_from - 2),
+                     *[sum(r[c] for r in data) for c in range(total_from, len(header))]])
+    last = _write_table(ws, 1, title, header, data) - 2
+    if total_from is not None:
+        for cell in ws[last]:
+            cell.font = BOLD
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(header))}{last - (total_from is not None)}"
+    for i, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+    ws.freeze_panes = "A3"
+
+
 def write_statistics(solution: Solution, path: str | Path) -> None:
-    """File Excel riêng thống kê số tiết quy định và số tiết bù của từng giáo viên."""
+    """File Excel thống kê giáo viên: số tiết, phân công, tải theo ngày, tổng hợp theo chức vụ."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Thống kê giáo viên"
-    rows = [[i, *r] for i, r in enumerate(statistics_rows(solution), start=1)]
-    total = [None, "Tổng", None, sum(r[3] for r in rows), sum(r[4] for r in rows)]
-    last = _write_table(ws, 1, "THỐNG KÊ SỐ TIẾT GIÁO VIÊN",
-                        ["STT", "Tên giáo viên", "Chức vụ", "Số tiết quy định", "Số tiết bù"], rows + [total]) - 2
-    for cell in ws[last]:
-        cell.font = BOLD
-    for col, width in zip("ABCDE", (7, 38, 24, 20, 14)):
-        ws.column_dimensions[col].width = width
-    ws.freeze_panes = "A3"
+    _stats_sheet_table(ws, "THỐNG KÊ SỐ TIẾT GIÁO VIÊN",
+                       ["STT", "Tên giáo viên", "Chức vụ", "Số tiết quy định", "Số tiết bù", "Số tiết thực dạy",
+                        "Số tiết còn dư"], statistics_rows(solution), (7, 38, 24, 20, 14, 20, 18), total_from=3)
+    _stats_sheet_table(wb.create_sheet("Phân công"), "PHÂN CÔNG CHUYÊN MÔN",
+                       ["STT", "Tên giáo viên", "Chức vụ", "Lớp", "Môn", "Số tiết"],
+                       assignment_rows(solution), (7, 38, 24, 10, 22, 12))
+    days = [config.DAYS[d] for d in sorted(config.DAY_SESSIONS)]
+    _stats_sheet_table(wb.create_sheet("Theo ngày"), "SỐ TIẾT TỪNG NGÀY CỦA GIÁO VIÊN",
+                       ["STT", "Tên giáo viên", "Chức vụ", *days, "Tổng"], daily_rows(solution),
+                       (7, 38, 24, *[12] * len(days), 10), total_from=3)
+    _stats_sheet_table(wb.create_sheet("Theo chức vụ"), "TỔNG HỢP THEO CHỨC VỤ",
+                       ["STT", "Chức vụ", "Số người", "Số tiết quy định", "Số tiết thực dạy", "Số tiết bù",
+                        "Số tiết còn dư", "Số người tuyển thêm", "Số tiết tuyển thêm"],
+                       role_rows(solution), (7, 16, 12, 20, 20, 14, 18, 22, 22), total_from=2)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 

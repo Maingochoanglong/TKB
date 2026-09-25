@@ -367,14 +367,14 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
 
 ### 11.3. File thống kê giáo viên `Thong_Ke.xlsx`
 
-Một sheet, mỗi giáo viên một dòng, theo thứ tự file nhân sự rồi đến người cần tuyển:
+Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến người cần tuyển. Người cần tuyển có tên **`tuyển thêm`**. Mọi bảng đều có bộ lọc và cố định dòng tiêu đề.
 
-| STT | Tên giáo viên | Chức vụ | Số tiết quy định | Số tiết bù |
-|---|---|---|---|---|
-
-- Người cần tuyển có tên **`tuyển thêm`**. Số tiết quy định là định mức tuyển đầy đủ (ví dụ 23).
-- Số tiết bù là số tiết dạy vượt định mức (chế độ bù giờ); các trường hợp khác ghi 0.
-- Cuối bảng có dòng **Tổng**.
+| Sheet | Cột | Ghi chú |
+|---|---|---|
+| **Thống kê giáo viên** | STT, Tên giáo viên, Chức vụ, Số tiết quy định, Số tiết bù, Số tiết thực dạy, Số tiết còn dư | Có dòng **Tổng**. Số tiết quy định của người cần tuyển là định mức tuyển đầy đủ (ví dụ 23). Số tiết bù chỉ khác 0 ở chế độ bù giờ |
+| **Phân công** | STT, Tên giáo viên, Chức vụ, Lớp, Môn, Số tiết | Bảng phân công chuyên môn; mỗi dòng là một (giáo viên, lớp, môn) |
+| **Theo ngày** | STT, Tên giáo viên, Chức vụ, Thứ 2 … Thứ 6, Tổng | Có dòng **Tổng** |
+| **Theo chức vụ** | STT, Chức vụ, Số người, Số tiết quy định, Số tiết thực dạy, Số tiết bù, Số tiết còn dư, Số người tuyển thêm, Số tiết tuyển thêm | Có dòng **Tổng** |
 
 ### 11.4. Màn hình và mã thoát
 

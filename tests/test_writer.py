@@ -114,11 +114,29 @@ def test_long_names_widen_columns_and_rows(tmp_path):
 def test_statistics_file(tmp_path):
     out = tmp_path / "Thong_Ke.xlsx"
     writer.write_statistics(_solve_small(general=False), out)
-    rows = list(openpyxl.load_workbook(out).active.iter_rows(min_row=2, values_only=True))
-    assert rows[0] == ("STT", "Tên giáo viên", "Chức vụ", "Số tiết quy định", "Số tiết bù")
-    assert rows[1] == (1, "CN A", "chủ nhiệm 3/1", 19, 0)
-    assert rows[-2] == (8, "tuyển thêm", "bộ môn 1", 23, 0)  # người cần tuyển
-    assert rows[-1] == (None, "Tổng", None, 19 * 2 + 23 * 6, 0)
+    wb = openpyxl.load_workbook(out)
+    assert wb.sheetnames == ["Thống kê giáo viên", "Phân công", "Theo ngày", "Theo chức vụ"]
+    rows = list(wb["Thống kê giáo viên"].iter_rows(min_row=2, values_only=True))
+    assert rows[0] == ("STT", "Tên giáo viên", "Chức vụ", "Số tiết quy định", "Số tiết bù", "Số tiết thực dạy",
+                       "Số tiết còn dư")
+    assert rows[1] == (1, "CN A", "chủ nhiệm 3/1", 19, 0, 19, 0)
+    assert rows[-2] == (8, "tuyển thêm", "bộ môn 1", 23, 0, 8, 15)  # người cần tuyển
+    assert rows[-1] == (None, "Tổng", None, 19 * 2 + 23 * 6, 0, 64, 19 * 2 + 23 * 6 - 64)
+
+    assign = list(wb["Phân công"].iter_rows(min_row=3, values_only=True))
+    assert any(r[1:] == ("CN A", "chủ nhiệm 3/1", "3/1", "HĐTN", 3) for r in assign)
+    assert sum(r[5] for r in assign) == 64
+    assert any(r[1:4] == ("tuyển thêm", "bộ môn 1", "3/2") for r in assign)
+
+    daily = list(wb["Theo ngày"].iter_rows(min_row=2, values_only=True))
+    assert daily[0][3:8] == ("Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6")
+    assert all(sum(r[3:8]) == r[8] for r in daily[1:])
+    assert daily[-1][8] == 64
+
+    roles = {r[1]: r[2:] for r in wb["Theo chức vụ"].iter_rows(min_row=3, values_only=True)}
+    assert roles["chủ nhiệm"] == (2, 38, 38, 0, 0, 0, 0)
+    assert roles["bộ môn"] == (0, 0, 0, 0, 0, 1, 8)
+    assert roles["Tổng"][5:] == (1, 8)
 
 
 def test_statistics_file_overtime(tmp_path):
@@ -126,7 +144,10 @@ def test_statistics_file_overtime(tmp_path):
     sol = solve(small_staff(general=False), None, settings, log=lambda *_: None)
     out = tmp_path / "Thong_Ke.xlsx"
     writer.write_statistics(sol, out)
-    rows = list(openpyxl.load_workbook(out).active.iter_rows(min_row=3, values_only=True))
-    assert rows[0] == (1, "CN A", "chủ nhiệm 3/1", 19, 4) and rows[1][4] == 4
+    wb = openpyxl.load_workbook(out)
+    rows = list(wb["Thống kê giáo viên"].iter_rows(min_row=3, values_only=True))
+    assert rows[0] == (1, "CN A", "chủ nhiệm 3/1", 19, 4, 23, 0) and rows[1][4] == 4
     assert all(r[1] != "tuyển thêm" for r in rows)
     assert rows[-1][1] == "Tổng" and rows[-1][4] == 8
+    roles = {r[1]: r[2:] for r in wb["Theo chức vụ"].iter_rows(min_row=3, values_only=True)}
+    assert roles["chủ nhiệm"][3] == 8  # cột Số tiết bù
