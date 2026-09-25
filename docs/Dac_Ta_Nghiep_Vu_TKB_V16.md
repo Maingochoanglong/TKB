@@ -433,16 +433,15 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 
 | Hằng số | Ý nghĩa | Mặc định |
 |---|---|---|
-| `FILE_VAO` | **File vào duy nhất** (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC), tương đối theo `main.py` | `data/Input_TKB_V8.xlsx` |
-| `THU_MUC_OUT` | Thư mục ra | `out` |
-| `FILE_TKB` | Tên file TKB | `TKB.xlsx` |
-| `FILE_THONG_KE` | Tên file thống kê giáo viên | `Thong_Ke.xlsx` |
-| `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ (≈ giây) | `240` |
-| `CHAY_TAI_LAP_DUOC` | Cùng dữ liệu luôn ra cùng một TKB | `True` |
-| `SO_LUONG` | Số luồng tìm kiếm song song | `8` |
-| `CHE_DO` | `tuyen_them` hoặc `bu_gio` | `bu_gio` |
+| `FILE_VAO` | **Địa chỉ file vào** (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC), tương đối theo `main.py`. Để trống thì báo lỗi | `data/Input_TKB_V8.xlsx` |
+| `THU_MUC_OUT` | Thư mục ra. **Để trống thì ghi vào thư mục dự án** (thư mục chứa `main.py`) | `out` |
+| `CHE_DO` | `bu_gio` hoặc `tuyen_them` | `bu_gio` |
 | `SO_TIET_BU_TOI_DA` | Mức bù tối đa mỗi người (chế độ bù giờ) | `2` |
-| `LUAT_HOC_SINH` | Bật luật tối đa 2 TV/2 Toán mỗi buổi | `True` |
+| `LUAT_HOC_SINH` | Áp dụng luật tối đa 2 TV/2 Toán mỗi buổi | `True` |
+| `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ (≈ giây). **Để trống hoặc 0 thì không giới hạn**: chạy đến khi chứng minh tối ưu; Ctrl+C dừng sớm và vẫn ghi TKB tốt nhất đã tìm được | `240` |
+| `CHAY_TAI_LAP_DUOC` | Cùng dữ liệu luôn ra cùng một kết quả | `True` |
+| `FILE_TKB`, `FILE_THONG_KE` | Tên file TKB, file thống kê giáo viên | `TKB.xlsx`, `Thong_Ke.xlsx` |
+| `SO_LUONG` | Số luồng tìm kiếm song song | `8` |
 
 ### 12.2. `tkb/config.py` (tham số nghiệp vụ)
 
@@ -483,7 +482,7 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 | Chế độ | Kết quả |
 |---|---|
 | Tuyển thêm | Thiếu **52** tiết. Tuyển `bộ môn 6`, `bộ môn 7`, `bộ môn 8` (định mức 23; thực dạy 23/23/6) |
-| Bù giờ (+2) | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN (24 người +2, 4 người +1). Người thai sản và bộ môn không bù |
+| Bù giờ (+2) | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN, kể cả GVCN thai sản 5/5 (29 người: 23 người +2, 6 người +1). Bộ môn không phải bù |
 | Cả hai | 145/145 ô tiết 1 buổi sáng là GVCN của lớp. Môn nặng ở tiết 7: 4 tiết (Tiếng Anh, mức tối thiểu) |
 
 Cả hai chế độ đều đã **chứng minh tối ưu** ở bước phân công: số tiết thiếu, số người tuyển và số tiết bù là nhỏ nhất.

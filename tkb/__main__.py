@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--stats-out", help="File thống kê giáo viên (mặc định <thư mục output>/Thong_Ke.xlsx)")
     ap.add_argument("--program", help="File chương trình học riêng (mặc định: sheet CHƯƠNG TRÌNH HỌC của file vào)")
     ap.add_argument("--time-limit", type=float, default=240,
-                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240)")
+                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; 0 = không giới hạn)")
     ap.add_argument("--non-reproducible", action="store_true",
                     help="Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau")
     ap.add_argument("--workers", type=int, default=8, help="Số luồng CP-SAT (mặc định 8)")
@@ -40,9 +40,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.max_overtime < 0:
         ap.error("--max-overtime phải >= 0")
+    if args.time_limit < 0:
+        ap.error("--time-limit phải >= 0 (0 = không giới hạn)")
     settings = config.Settings(student_rules=not args.no_student_rules,
                                mode=args.mode, overtime_max=args.max_overtime,
-                               time_limit=args.time_limit, workers=args.workers, seed=args.seed,
+                               time_limit=args.time_limit or None, workers=args.workers, seed=args.seed,
                                reproducible=not args.non_reproducible)
     try:
         curriculum, source = load_curriculum(args.staff, args.program)

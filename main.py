@@ -1,6 +1,6 @@
 """Xếp thời khóa biểu: chỉ cần sửa các hằng số bên dưới rồi bấm nút Run (▶) để chạy.
 
-Đường dẫn tương đối được tính từ thư mục chứa file main.py này.
+Đường dẫn tương đối được tính từ thư mục chứa file main.py này (thư mục dự án).
 Trên Windows nên viết đường dẫn dạng r"C:\\Users\\ten\\TKB\\input.xlsx" hoặc "C:/Users/ten/TKB/input.xlsx".
 """
 from __future__ import annotations
@@ -12,60 +12,69 @@ from pathlib import Path
 # CẤU HÌNH — SỬA Ở ĐÂY
 # ==========================================================================
 
-# File vào duy nhất: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế Độ) và sheet
+# Địa chỉ file vào: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế Độ) và sheet
 # "CHƯƠNG TRÌNH HỌC" (Môn học, Khối 1..5). Danh sách môn, số tiết, giáo viên đều lấy từ file này;
 # các file ra dùng lại style (phông, cỡ chữ, viền, chiều cao dòng) của file này.
 FILE_VAO = "data/Input_TKB_V8.xlsx"
 
-# Thư mục ghi kết quả (tự tạo nếu chưa có).
+# Thư mục ghi kết quả (tự tạo nếu chưa có). Để trống "" thì ghi ngay vào thư mục dự án
+# (thư mục chứa main.py).
 THU_MUC_OUT = "out"
 
-# Tên file TKB xuất ra trong THU_MUC_OUT.
-FILE_TKB = "TKB.xlsx"
+# Khi thiếu người:
+#   "bu_gio"    : GVCN và bộ môn dạy bù vượt định mức (GVCN bù trước, ngay ở lớp mình,
+#                 môn ưu tiên trước); chỉ khi bù vẫn không đủ mới thêm GV "chưa có".
+#   "tuyen_them": thêm GV mới tên "chưa có" vào danh sách nhân sự.
+CHE_DO = "bu_gio"
 
-# Tên file thống kê giáo viên (tên, chức vụ, số tiết quy định, số tiết bù) trong THU_MUC_OUT.
-FILE_THONG_KE = "Thong_Ke.xlsx"
+# Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (người hưởng thai sản cũng được bù).
+SO_TIET_BU_TOI_DA = 2
 
-# Lượng tính toán dành cho bước xếp giờ, đơn vị xấp xỉ giây (240 ≈ 3,5 phút trên máy thử).
-# Tăng lên nếu muốn TKB đẹp hơn. Khi CHAY_TAI_LAP_DUOC = True, máy chậm sẽ chạy lâu hơn
-# nhưng kết quả không đổi.
+# Áp dụng luật bảo vệ học sinh (tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi).
+LUAT_HOC_SINH = True
+
+# Thời gian dành cho bước xếp giờ, đơn vị xấp xỉ giây (240 ≈ 3,5 phút trên máy thử).
+# Để trống (None hoặc "") hoặc 0 thì không giới hạn: chạy bao lâu cũng được, đến khi bộ giải chứng
+# minh TKB tốt nhất (có thể rất lâu, hàng giờ); muốn dừng sớm thì bấm Ctrl+C, chương trình vẫn ghi
+# TKB tốt nhất đã tìm được.
 THOI_GIAN_TOI_DA = 240
 
-# True: chạy lại bao nhiêu lần cũng ra đúng một TKB (ở cả chế độ tuyen_them lẫn bu_gio), miễn là
-#       giữ nguyên file đầu vào, CHE_DO, SO_TIET_BU_TOI_DA, THOI_GIAN_TOI_DA, SO_LUONG và phiên bản
-#       OR-Tools (đã ghim trong requirements.txt).
+# True: chạy lại bao nhiêu lần cũng ra đúng một kết quả (ở cả chế độ bu_gio lẫn tuyen_them), miễn là
+#       giữ nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA, SO_LUONG và
+#       phiên bản OR-Tools (đã ghim trong requirements.txt). Máy nhanh hay chậm không ảnh hưởng kết quả.
 # False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
 CHAY_TAI_LAP_DUOC = True
+
+# --- Ít khi phải sửa ---
+
+# Tên file TKB và file thống kê giáo viên xuất ra trong THU_MUC_OUT.
+FILE_TKB = "TKB.xlsx"
+FILE_THONG_KE = "Thong_Ke.xlsx"
 
 # Số luồng tìm kiếm song song của bộ giải (mỗi luồng chạy một chiến lược khác nhau).
 # Nên để >= số nhân CPU; 8 chạy tốt trên máy 4 nhân. Đổi số này thì TKB ra sẽ khác
 # (vẫn đúng luật) — giữ cố định nếu muốn các lần chạy/các máy cho cùng kết quả.
 SO_LUONG = 8
 
-# Khi thiếu người:
-#   "tuyen_them": thêm GV mới tên "chưa có" vào danh sách nhân sự.
-#   "bu_gio"    : GVCN và bộ môn dạy bù vượt định mức (GVCN bù trước, ngay ở lớp mình,
-#                 môn ưu tiên trước); chỉ khi bù vẫn không đủ mới thêm GV "chưa có".
-CHE_DO = "bu_gio"
-
-# Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (người hưởng thai sản cũng được bù).
-SO_TIET_BU_TOI_DA = 2
-
-# Bật luật bảo vệ học sinh (tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi).
-LUAT_HOC_SINH = True
-
 # ==========================================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
 
-def _resolve(path: str | Path) -> Path:
-    p = Path(path).expanduser()
+def _blank(value) -> bool:
+    return value is None or str(value).strip() == ""
+
+
+def _resolve(path: str | Path | None) -> Path:
+    """Đường dẫn tương đối tính từ thư mục dự án; để trống = chính thư mục dự án."""
+    if _blank(path):
+        return BASE_DIR
+    p = Path(str(path).strip()).expanduser()
     return p if p.is_absolute() else BASE_DIR / p
 
 
-def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path = THU_MUC_OUT,
-        file_tkb: str = FILE_TKB, thoi_gian_toi_da: float = THOI_GIAN_TOI_DA,
+def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MUC_OUT,
+        file_tkb: str = FILE_TKB, thoi_gian_toi_da: float | None = THOI_GIAN_TOI_DA,
         luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC,
         so_luong: int = SO_LUONG, che_do: str = CHE_DO, so_tiet_bu_toi_da: int = SO_TIET_BU_TOI_DA,
         file_thong_ke: str = FILE_THONG_KE) -> int:
@@ -77,6 +86,9 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path = THU_MUC_OUT,
         print(f"LỖI: thiếu thư viện ({exc.name}). Cài bằng lệnh:  pip install -r requirements.txt")
         return 1
 
+    if _blank(file_vao):
+        print("LỖI: chưa điền FILE_VAO (địa chỉ file vào .xlsx)")
+        return 1
     source = _resolve(file_vao)
     out_dir = _resolve(thu_muc_out)
     if not source.is_file():
@@ -99,8 +111,13 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path = THU_MUC_OUT,
     if not isinstance(so_tiet_bu_toi_da, int) or so_tiet_bu_toi_da < 0:
         print(f"LỖI: SO_TIET_BU_TOI_DA phải là số nguyên >= 0 (đang là {so_tiet_bu_toi_da!r})")
         return 1
+    limit = 0 if _blank(thoi_gian_toi_da) else thoi_gian_toi_da  # 0 = không giới hạn
+    if isinstance(limit, bool) or not isinstance(limit, (int, float)) or limit < 0:
+        print(f"LỖI: THOI_GIAN_TOI_DA phải là số giây >= 0, hoặc để trống để không giới hạn "
+              f"(đang là {thoi_gian_toi_da!r})")
+        return 1
 
-    argv = [str(source), "-o", str(out_dir / file_tkb), "--time-limit", str(thoi_gian_toi_da),
+    argv = [str(source), "-o", str(out_dir / file_tkb), "--time-limit", str(limit),
             "--workers", str(so_luong), "--mode", che_do, "--max-overtime", str(so_tiet_bu_toi_da),
             "--stats-out", str(out_dir / file_thong_ke)]
     if not luat_hoc_sinh:
@@ -110,9 +127,12 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path = THU_MUC_OUT,
 
     print(f"File vào   : {source}")
     print(f"Thư mục ra : {out_dir}")
-    print(f"Số luồng   : {so_luong}")
     print(f"Chế độ     : {che_do}" + (f" (bù tối đa {so_tiet_bu_toi_da} tiết/người)"
                                      if che_do == config.MODE_OVERTIME else ""))
+    print(f"Luật HS    : {'có' if luat_hoc_sinh else 'không'} áp dụng")
+    print(f"Thời gian  : {'không giới hạn (Ctrl+C để dừng sớm)' if not limit else f'~{limit} giây'}"
+          f"{', kết quả tái lập' if chay_tai_lap_duoc else ''}")
+    print(f"Số luồng   : {so_luong}")
     return tkb_main(argv)
 
 

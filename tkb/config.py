@@ -188,7 +188,8 @@ class Settings:
     student_rules: bool = True
     mode: str = MODE_HIRE
     overtime_max: int = OVERTIME_MAX  # chỉ dùng ở chế độ bù giờ
-    time_limit: float = 240.0
+    time_limit: float | None = 240.0  # None: không giới hạn (chạy đến khi chứng minh tối ưu)
+    unlimited_polish_time: float = 30.0  # khi không giới hạn: lượng tính toán cho nhóm mục tiêu phụ của bước phân công
     # Chạy lại cùng dữ liệu luôn ra cùng một TKB (xem solver._configure).
     reproducible: bool = True
     deterministic_per_second: float = 1.0  # quy đổi time_limit sang thời gian tất định

@@ -112,18 +112,22 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
     return result
 
 
-def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: float) -> None:
-    """Đặt tham số CP-SAT.
+def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: float | None) -> None:
+    """Đặt tham số CP-SAT. seconds = None: không giới hạn, chạy đến khi chứng minh tối ưu.
 
     Chế độ tái lập (settings.reproducible): các luồng chạy xen kẽ theo thứ tự cố định và dừng theo
     "thời gian tất định" (đếm khối lượng tính toán, không phụ thuộc máy nhanh/chậm), nên cùng dữ
     liệu + cùng phiên bản OR-Tools + cùng số luồng thì lần nào cũng ra đúng một kết quả.
+    Bấm Ctrl+C khi đang giải thì bộ giải dừng và giữ nghiệm tốt nhất đã tìm được.
     """
     p = solver.parameters
     p.num_workers = settings.workers
     p.random_seed = settings.seed
     if settings.reproducible:
         p.interleave_search = True
+    if seconds is None:
+        return
+    if settings.reproducible:
         p.max_deterministic_time = seconds * settings.deterministic_per_second
         p.max_time_in_seconds = seconds * settings.safety_factor  # chỉ để chặn treo
     else:
@@ -289,7 +293,10 @@ def assign(problem: Problem, settings: config.Settings) -> Assignment:
     m = cp_model.CpModel()
     alloc = _Allocation(m, problem, settings.weights)
     solver = cp_model.CpSolver()
-    _configure(solver, settings, max(10.0, settings.time_limit / 8))
+    # Không giới hạn thời gian: nhóm chính (tiết thiếu, tiết bù) giải đến khi chứng minh tối ưu (vài giây);
+    # nhóm phụ (chia đều, thứ tự môn) gần như không bao giờ chứng minh được nên vẫn giới hạn.
+    budget = max(10.0, settings.time_limit / 8) if settings.time_limit is not None else None
+    _configure(solver, settings, budget)
 
     main = sum(alloc.main)
     m.Minimize(main)
@@ -307,6 +314,8 @@ def assign(problem: Problem, settings: config.Settings) -> Assignment:
     m.ClearHints()
     for v in all_vars:
         m.AddHint(v, first[v.Index()])
+    if budget is None:
+        _configure(solver, settings, settings.unlimited_polish_time)
     status = solver.Solve(m)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise SolveError("Lỗi nội bộ khi tối ưu phân công bước 2")
@@ -523,7 +532,9 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     problem = build_problem(staff, curriculum, plan.counts, overtime_max=overtime_max)
     fixed = {k: v for k, v in plan.lessons.items() if k[1] in problem.teachers}
     mode = "chế độ tái lập" if settings.reproducible else "giới hạn giây thực"
-    log(f"Bước 2/2: xếp giờ (~{settings.time_limit:.0f}s, {mode})...")
+    budget = ("không giới hạn thời gian, bấm Ctrl+C để dừng sớm" if settings.time_limit is None
+              else f"~{settings.time_limit:.0f}s")
+    log(f"Bước 2/2: xếp giờ ({budget}, {mode})...")
     solution = timetable(problem, settings, fixed=fixed)
     if solution is not None:
         what = "Số tiết thiếu, số GV bổ sung" + (" và số tiết dạy bù" if overtime_max else "")

@@ -24,16 +24,15 @@ pip install -r requirements.txt
 
 | Hằng số | Ý nghĩa | Mặc định |
 |---|---|---|
-| `FILE_VAO` | **File vào duy nhất** (sheet `NHÂN SỰ` và `CHƯƠNG TRÌNH HỌC`) | `data/Input_TKB_V8.xlsx` |
-| `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có | `out` |
-| `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
-| `FILE_THONG_KE` | Tên file thống kê giáo viên xuất ra | `Thong_Ke.xlsx` |
-| `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn | `240` (≈ 3,5 phút) |
-| `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần cũng ra đúng một TKB, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
-| `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
-| `CHE_DO` | Khi thiếu người: `"tuyen_them"` (thêm GV "chưa có") hoặc `"bu_gio"` (GVCN/bộ môn dạy bù) | `"bu_gio"` |
+| `FILE_VAO` | **Địa chỉ file vào** (sheet `NHÂN SỰ` và `CHƯƠNG TRÌNH HỌC`) | `data/Input_TKB_V8.xlsx` |
+| `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có. **Để trống `""` thì ghi vào thư mục dự án** (thư mục chứa `main.py`) | `out` |
+| `CHE_DO` | Khi thiếu người: `"bu_gio"` (GVCN/bộ môn dạy bù) hoặc `"tuyen_them"` (thêm GV "chưa có") | `"bu_gio"` |
 | `SO_TIET_BU_TOI_DA` | Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (kể cả người hưởng thai sản) | `2` |
-| `LUAT_HOC_SINH` | Bật luật bảo vệ học sinh | `True` |
+| `LUAT_HOC_SINH` | Áp dụng luật bảo vệ học sinh | `True` |
+| `THOI_GIAN_TOI_DA` | Thời gian cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn. **Để trống (`None`/`""`) hoặc `0` thì không giới hạn**: chạy đến khi bộ giải chứng minh TKB tốt nhất (có thể hàng giờ); bấm Ctrl+C để dừng sớm, TKB tốt nhất đã tìm được vẫn được ghi ra | `240` (≈ 3,5 phút) |
+| `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần cũng ra đúng một kết quả, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
+| `FILE_TKB`, `FILE_THONG_KE` | Tên file TKB và file thống kê giáo viên xuất ra | `TKB.xlsx`, `Thong_Ke.xlsx` |
+| `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
    - **Chạy lại ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file đầu vào, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `THOI_GIAN_TOI_DA`, `SO_LUONG`, phiên bản OR-Tools (đã ghim trong `requirements.txt`). Máy nhanh hay chậm không ảnh hưởng kết quả, chỉ ảnh hưởng thời gian chạy.
@@ -55,7 +54,7 @@ Tuỳ chọn:
 | `--staff-out` | File nhân sự cập nhật (mặc định `<thư mục output>/<tên input>_cap_nhat.xlsx`) |
 | `--stats-out` | File thống kê giáo viên (mặc định `<thư mục output>/Thong_Ke.xlsx`) |
 | `--program` | File chương trình học riêng; mặc định đọc sheet `CHƯƠNG TRÌNH HỌC` của file vào |
-| `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240) |
+| `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; `0` = không giới hạn) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
 | `--mode` | `tuyen_them` (mặc định) hoặc `bu_gio` |
 | `--max-overtime` | Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định 2) |

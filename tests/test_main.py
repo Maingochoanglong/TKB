@@ -107,3 +107,53 @@ def test_run_without_program_sheet_fails(tmp_path, capsys):
     wb.save(src)
     assert main.run(src, tmp_path / "out", "TKB.xlsx", thoi_gian_toi_da=5) == 1
     assert "thiếu sheet CHƯƠNG TRÌNH HỌC" in capsys.readouterr().err
+
+
+def _argv(monkeypatch, **kwargs):
+    """Tham số main.run truyền cho tkb (không giải thật)."""
+    seen = {}
+    import tkb.__main__ as cli
+    monkeypatch.setattr(cli, "main", lambda argv: seen.setdefault("argv", argv) and 0)
+    main.run(**kwargs)
+    return seen.get("argv")
+
+
+def test_defaults_are_overtime_student_rules_240s_reproducible():
+    assert main.CHE_DO == "bu_gio" and main.LUAT_HOC_SINH is True
+    assert main.THOI_GIAN_TOI_DA == 240 and main.CHAY_TAI_LAP_DUOC is True
+
+
+def test_blank_output_folder_means_project_folder(tmp_path, monkeypatch):
+    _write_staff(tmp_path / "in.xlsx")
+    for blank in ("", None, "  "):
+        argv = _argv(monkeypatch, file_vao=tmp_path / "in.xlsx", thu_muc_out=blank)
+        assert argv[argv.index("-o") + 1] == str(main.BASE_DIR / "TKB.xlsx")
+        assert argv[argv.index("--stats-out") + 1] == str(main.BASE_DIR / "Thong_Ke.xlsx")
+
+
+def test_blank_time_limit_means_unlimited(tmp_path, monkeypatch):
+    _write_staff(tmp_path / "in.xlsx")
+    for blank in (None, "", 0):
+        argv = _argv(monkeypatch, file_vao=tmp_path / "in.xlsx", thu_muc_out=tmp_path, thoi_gian_toi_da=blank)
+        assert argv[argv.index("--time-limit") + 1] == "0"  # 0 = không giới hạn
+    argv = _argv(monkeypatch, file_vao=tmp_path / "in.xlsx", thu_muc_out=tmp_path)
+    assert argv[argv.index("--time-limit") + 1] == "240" and "--non-reproducible" not in argv
+    assert "--no-student-rules" not in argv and argv[argv.index("--mode") + 1] == "bu_gio"
+
+
+def test_bad_time_limit_and_blank_input_are_rejected(tmp_path, capsys):
+    _write_staff(tmp_path / "in.xlsx")
+    assert main.run(tmp_path / "in.xlsx", tmp_path / "out", thoi_gian_toi_da=-5) == 1
+    assert "THOI_GIAN_TOI_DA" in capsys.readouterr().out
+    assert main.run("", tmp_path / "out") == 1
+    assert "chưa điền FILE_VAO" in capsys.readouterr().out
+
+
+def test_cli_time_limit_zero_is_unlimited():
+    from tkb.solver import _configure
+    from ortools.sat.python import cp_model
+    from tkb import config
+    solver = cp_model.CpSolver()
+    _configure(solver, config.Settings(time_limit=None), None)
+    p = solver.parameters
+    assert p.interleave_search and p.max_deterministic_time > 1e10 and p.max_time_in_seconds > 1e10
