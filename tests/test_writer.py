@@ -109,3 +109,24 @@ def test_long_names_widen_columns_and_rows(tmp_path):
     assert ws["D2"].value == "HĐTN\nNguyễn Thị Thanh Hương Giang Mai"
     assert ws.column_dimensions["D"].width == writer.MAX_DAY_WIDTH  # nới hết mức
     assert ws.row_dimensions[2].height > writer.LESSON_ROW_HEIGHT  # tên xuống dòng, hàng cao thêm
+
+
+def test_statistics_file(tmp_path):
+    out = tmp_path / "Thong_Ke.xlsx"
+    writer.write_statistics(_solve_small(general=False), out)
+    rows = list(openpyxl.load_workbook(out).active.iter_rows(min_row=2, values_only=True))
+    assert rows[0] == ("STT", "Tên giáo viên", "Chức vụ", "Số tiết quy định", "Số tiết bù")
+    assert rows[1] == (1, "CN A", "chủ nhiệm 3/1", 19, 0)
+    assert rows[-2] == (8, "tuyển thêm", "bộ môn 1", 23, 0)  # người cần tuyển
+    assert rows[-1] == (None, "Tổng", None, 19 * 2 + 23 * 6, 0)
+
+
+def test_statistics_file_overtime(tmp_path):
+    settings = config.Settings(time_limit=20, workers=4, mode=config.MODE_OVERTIME, overtime_max=4)
+    sol = solve(small_staff(general=False), None, settings, log=lambda *_: None)
+    out = tmp_path / "Thong_Ke.xlsx"
+    writer.write_statistics(sol, out)
+    rows = list(openpyxl.load_workbook(out).active.iter_rows(min_row=3, values_only=True))
+    assert rows[0] == (1, "CN A", "chủ nhiệm 3/1", 19, 4) and rows[1][4] == 4
+    assert all(r[1] != "tuyển thêm" for r in rows)
+    assert rows[-1][1] == "Tổng" and rows[-1][4] == 8

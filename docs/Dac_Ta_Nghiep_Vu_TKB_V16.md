@@ -365,7 +365,18 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
 - Giữ nguyên danh sách thả xuống của file mẫu.
 - Dùng làm đầu vào cho lần chạy sau được. File gốc không bị sửa.
 
-### 11.3. Màn hình và mã thoát
+### 11.3. File thống kê giáo viên `Thong_Ke.xlsx`
+
+Một sheet, mỗi giáo viên một dòng, theo thứ tự file nhân sự rồi đến người cần tuyển:
+
+| STT | Tên giáo viên | Chức vụ | Số tiết quy định | Số tiết bù |
+|---|---|---|---|---|
+
+- Người cần tuyển có tên **`tuyển thêm`**. Số tiết quy định là định mức tuyển đầy đủ (ví dụ 23).
+- Số tiết bù là số tiết dạy vượt định mức (chế độ bù giờ); các trường hợp khác ghi 0.
+- Cuối bảng có dòng **Tổng**.
+
+### 11.4. Màn hình và mã thoát
 
 - Màn hình in: các bước giải, người cần bổ sung, tiết dạy bù (tổng, theo GVCN/bộ môn, số người +2/+1), số tiết môn nặng ở tiết 7, lỗi kiểm tra.
 - Mã thoát:
@@ -385,6 +396,7 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
 | `FILE_NHAN_SU` | File nhân sự | `Input_Danh_Sach_Nhan_Su_V6.xlsx` |
 | `FILE_CHUONG_TRINH` | File chương trình học; `None` = dùng mặc định | `None` |
 | `FILE_TKB` | Tên file TKB | `TKB.xlsx` |
+| `FILE_THONG_KE` | Tên file thống kê giáo viên | `Thong_Ke.xlsx` |
 | `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ (≈ giây) | `240` |
 | `CHAY_TAI_LAP_DUOC` | Cùng dữ liệu luôn ra cùng một TKB | `True` |
 | `SO_LUONG` | Số luồng tìm kiếm song song | `8` |

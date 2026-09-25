@@ -29,6 +29,7 @@ pip install -r requirements.txt
 | `FILE_NHAN_SU` | Tên file danh sách nhân sự trong `THU_MUC_IN` | `Input_Danh_Sach_Nhan_Su_V6.xlsx` |
 | `FILE_CHUONG_TRINH` | Tên file chương trình học trong `THU_MUC_IN`; `None` = dùng chương trình mặc định | `None` |
 | `FILE_TKB` | Tên file TKB xuất ra | `TKB.xlsx` |
+| `FILE_THONG_KE` | Tên file thống kê giáo viên xuất ra | `Thong_Ke.xlsx` |
 | `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn | `240` (≈ 3,5 phút) |
 | `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần cũng ra đúng một TKB, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
@@ -54,6 +55,7 @@ Tuỳ chọn:
 |---|---|
 | `-o, --output` | File TKB xuất ra (mặc định `out/TKB.xlsx`) |
 | `--staff-out` | File nhân sự cập nhật (mặc định `<thư mục output>/<tên input>_cap_nhat.xlsx`) |
+| `--stats-out` | File thống kê giáo viên (mặc định `<thư mục output>/Thong_Ke.xlsx`) |
 | `--program` | File chương trình học (cột `Môn học`, `Khối 1..5`); mặc định dùng chương trình trong `tkb/config.py` |
 | `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
@@ -103,6 +105,7 @@ python -m tkb.template data/Nhan_Su_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V
      - Tải từng giáo viên theo từng ngày.
      - Kết quả kiểm tra luật bắt buộc.
 2. **`<tên input>_cap_nhat.xlsx`**: file nhân sự gốc, có thêm các dòng `chưa có` ở cuối, Số tiết = định mức tuyển (vd 23). File này dùng làm đầu vào cho lần chạy sau được. File gốc không bị sửa.
+3. **`Thong_Ke.xlsx`**: bảng thống kê riêng, mỗi giáo viên một dòng: STT | Tên giáo viên | Chức vụ | Số tiết quy định | Số tiết bù, cuối bảng có dòng Tổng. Người cần tuyển có tên `tuyển thêm`.
 
 ## Quy tắc nghiệp vụ
 

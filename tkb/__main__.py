@@ -11,7 +11,7 @@ from .checker import check
 from .program import read_program
 from .solver import SolveError, solve
 from .staff import InputError, read_staff
-from .writer import write_timetable, write_updated_staff
+from .writer import write_statistics, write_timetable, write_updated_staff
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,6 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("staff", help="File Excel danh sách nhân sự (cột Tên, Chức vụ, Số tiết)")
     ap.add_argument("-o", "--output", default="out/TKB.xlsx", help="File TKB xuất ra (mặc định out/TKB.xlsx)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
+    ap.add_argument("--stats-out", help="File thống kê giáo viên (mặc định <thư mục output>/Thong_Ke.xlsx)")
     ap.add_argument("--program", help="File chương trình học (mặc định dùng chương trình trong tkb/config.py)")
     ap.add_argument("--time-limit", type=float, default=240,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240)")
@@ -56,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
     write_timetable(solution, output, errors, solution.problem.warnings)
     write_updated_staff(solution, args.staff, staff_out)
+    stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
+    write_statistics(solution, stats_out)
 
     load = solution.teacher_load()
     extra = solution.used_supplements()
@@ -84,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  LỖI: {e}")
     print(f"Đã ghi: {output}")
     print(f"Đã ghi: {staff_out}")
+    print(f"Đã ghi: {stats_out}")
     return 0 if not errors else 2
 
 

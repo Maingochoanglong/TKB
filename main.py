@@ -28,6 +28,9 @@ FILE_CHUONG_TRINH = None
 # Tên file TKB xuất ra trong THU_MUC_OUT.
 FILE_TKB = "TKB.xlsx"
 
+# Tên file thống kê giáo viên (tên, chức vụ, số tiết quy định, số tiết bù) trong THU_MUC_OUT.
+FILE_THONG_KE = "Thong_Ke.xlsx"
+
 # Lượng tính toán dành cho bước xếp giờ, đơn vị xấp xỉ giây (240 ≈ 3,5 phút trên máy thử).
 # Tăng lên nếu muốn TKB đẹp hơn. Khi CHAY_TAI_LAP_DUOC = True, máy chậm sẽ chạy lâu hơn
 # nhưng kết quả không đổi.
@@ -71,7 +74,8 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
         file_nhan_su: str = FILE_NHAN_SU, file_chuong_trinh: str | None = FILE_CHUONG_TRINH,
         file_tkb: str = FILE_TKB, thoi_gian_toi_da: float = THOI_GIAN_TOI_DA,
         luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC,
-        so_luong: int = SO_LUONG, che_do: str = CHE_DO, so_tiet_bu_toi_da: int = SO_TIET_BU_TOI_DA) -> int:
+        so_luong: int = SO_LUONG, che_do: str = CHE_DO, so_tiet_bu_toi_da: int = SO_TIET_BU_TOI_DA,
+        file_thong_ke: str = FILE_THONG_KE) -> int:
     """Chạy xếp TKB; trả về 0 nếu thành công."""
     try:
         from tkb import config
@@ -104,7 +108,8 @@ def run(thu_muc_in: str | Path = THU_MUC_IN, thu_muc_out: str | Path = THU_MUC_O
         return 1
 
     argv = [str(staff), "-o", str(out_dir / file_tkb), "--time-limit", str(thoi_gian_toi_da),
-            "--workers", str(so_luong), "--mode", che_do, "--max-overtime", str(so_tiet_bu_toi_da)]
+            "--workers", str(so_luong), "--mode", che_do, "--max-overtime", str(so_tiet_bu_toi_da),
+            "--stats-out", str(out_dir / file_thong_ke)]
     if file_chuong_trinh:
         program = in_dir / file_chuong_trinh
         if not program.is_file():

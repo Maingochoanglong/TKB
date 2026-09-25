@@ -332,6 +332,37 @@ def write_timetable(solution: Solution, path: str | Path, errors: list[str], war
     wb.save(path)
 
 
+HIRE_LABEL = "tuyển thêm"  # tên của người cần tuyển trong file thống kê
+
+
+def statistics_rows(solution: Solution) -> list[list]:
+    """Tên | Chức vụ | Số tiết quy định | Số tiết bù; người cần tuyển có tên "tuyển thêm"."""
+    overtime = solution.overtime()
+    rows = []
+    for t in staff_rows(solution):
+        name = HIRE_LABEL if t.supplementary else t.name
+        rows.append([name, t.title, t.max_lessons, overtime.get(t.title, 0)])
+    return rows
+
+
+def write_statistics(solution: Solution, path: str | Path) -> None:
+    """File Excel riêng thống kê số tiết quy định và số tiết bù của từng giáo viên."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Thống kê giáo viên"
+    rows = [[i, *r] for i, r in enumerate(statistics_rows(solution), start=1)]
+    total = [None, "Tổng", None, sum(r[3] for r in rows), sum(r[4] for r in rows)]
+    last = _write_table(ws, 1, "THỐNG KÊ SỐ TIẾT GIÁO VIÊN",
+                        ["STT", "Tên giáo viên", "Chức vụ", "Số tiết quy định", "Số tiết bù"], rows + [total]) - 2
+    for cell in ws[last]:
+        cell.font = BOLD
+    for col, width in zip("ABCDE", (7, 38, 24, 20, 14)):
+        ws.column_dimensions[col].width = width
+    ws.freeze_panes = "A3"
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
+
+
 def write_updated_staff(solution: Solution, source: str | Path, path: str | Path) -> None:
     """Chép file nhân sự gốc và thêm các GV bổ sung ("chưa có") vào cuối danh sách."""
     wb = openpyxl.load_workbook(source)
