@@ -36,6 +36,7 @@
 | 18 | Tuỳ chọn chạy (`main.py`) | Thời gian cố định | `THU_MUC_OUT` để trống thì ghi vào thư mục dự án; `THOI_GIAN_TOI_DA` để trống thì **không giới hạn** (Ctrl+C dừng sớm). Mặc định: bù giờ, áp dụng luật học sinh, 240 giây, tái lập (mục 12.1) |
 | 19 | Môn học liền trong buổi | – | **[Cứng]** Môn có từ 2 tiết trong một buổi phải học liền nhau (mục 6) |
 | 20 | File ra | `TKB.xlsx` gồm TKB, danh sách nhân sự và thống kê | `TKB.xlsx` **chỉ có thời khóa biểu** (các sheet Khối). Tổng quan, danh sách nhân sự và các bảng thống kê chuyển sang `Thong_Ke.xlsx` (mục 11) |
+| 21 | Tái lập | Thỉnh thoảng chạy lại vẫn ra TKB khác | Tắt phần chia sẻ không tất định giữa các luồng của OR-Tools: chạy lại luôn ra cùng TKB trên các máy cùng hệ điều hành; Actions kiểm trên 4 máy Windows (mục 9) |
 
 ---
 
@@ -348,7 +349,7 @@ Chương trình giải hai lần:
   - Bước phân công: nhóm chính (tiết thiếu, người tuyển, tiết bù) giải đến khi **chứng minh tối ưu** (vài giây). Nhóm phụ (chia đều, thứ tự môn…) gần như không bao giờ chứng minh được nên vẫn giới hạn (`Settings.unlimited_polish_time`, 30).
   - Bước xếp giờ: chạy đến khi chứng minh TKB tốt nhất. Với trường cỡ 29 lớp, việc này gần như không kết thúc.
   - Bấm **Ctrl+C** thì bộ giải dừng, giữ TKB tốt nhất đã tìm được, kiểm tra luật và ghi đủ các file ra như bình thường. Kết quả khi dừng bằng tay phụ thuộc thời điểm dừng nên không tái lập.
-- **Tái lập giữa các lần chạy và giữa các máy** (mục tiêu; xem hạn chế bên dưới): khi `CHAY_TAI_LAP_DUOC = True` và có giới hạn thời gian, chạy lại ra **cùng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
+- **[Cứng] Tái lập giữa các lần chạy và giữa các máy cùng hệ điều hành:** khi `CHAY_TAI_LAP_DUOC = True` và có giới hạn thời gian, chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra **cùng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
   - file vào (và file chương trình học riêng nếu có);
   - các hằng số trong `main.py`: `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `CHAY_TAI_LAP_DUOC`, `SO_LUONG`;
   - phiên bản thư viện đã ghim trong `requirements.txt` (OR-Tools 9.15.6755, openpyxl 3.1.5). Nếu OR-Tools khác bản đã ghim, chương trình in cảnh báo.
@@ -356,9 +357,9 @@ Chương trình giải hai lần:
   - Máy nhanh hay chậm, số nhân CPU, máy đang bận hay rảnh: bộ giải dừng theo **lượng tính toán**, không theo giây thực. Chế độ tái lập **không có giới hạn giây thực**, nên máy chậm chỉ chạy lâu hơn chứ không dừng sớm.
   - Phiên bản Python (đã thử 3.10 đến 3.14), thư mục chạy, thứ tự băm của Python.
   - Thứ tự dựng mô hình cố định, không phụ thuộc thứ tự lặp của `set`.
-- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Tổng quan của `Thong_Ke.xlsx`. Cùng mã là cùng TKB. Với dữ liệu mẫu `data/Input_TKB_V8.xlsx` và các hằng số mặc định của `main.py`, trên Linux mã thường là **`F4E2-3F16-67D2`**. Sheet Tổng quan không ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
-- **Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù), vì bản dựng khác trình biên dịch và phép tính số thực. Trong cùng hệ điều hành thì ra cùng mã: Linux đã thử Python 3.10–3.14, nhiều cấu hình máy; hai máy ảo Windows của GitHub Actions (Python 3.12 và 3.14) ra cùng mã. Chưa thử macOS, chip ARM.
-- **Hạn chế đang điều tra:** chạy lặp dữ liệu mẫu trên cùng một máy Linux, đa số lần ra cùng mã nhưng thỉnh thoảng ra mã khác (6/8 lần ra `F4E2-3F16-67D2`; file thật của trường 2 lần chạy ra 2 mã), dù mô hình và tham số đưa vào bộ giải giống hệt từng byte. Mọi lần đều đạt đủ luật bắt buộc và cùng số tiết bù. Vì vậy chưa cam kết chạy lại **luôn** ra đúng TKB cũ: khi đã chốt TKB chính thức, hãy giữ lại file kết quả.
+- **Tham số bộ giải ở chế độ tái lập** (`_configure` trong `tkb/solver.py`): `interleave_search` (các luồng chạy xen kẽ theo thứ tự cố định), dừng theo `max_deterministic_time`, và **tắt chia sẻ giữa các luồng** (`share_binary_clauses`, kéo theo `share_glue_clauses`, và `share_level_zero_bounds`). Phần chia sẻ này của OR-Tools 9.15 không tất định: đo trên dữ liệu mẫu, cùng một mô hình giải 6 lần ra 3 TKB khác nhau, lệch từ khoảng 60–120 đơn vị tính toán trở đi. Tắt đi thì chạy lặp 8 lần (có lúc 2 tiến trình song song) ra 8 lần cùng mã, chất lượng không giảm.
+- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Tổng quan của `Thong_Ke.xlsx`. Cùng mã là cùng TKB. Với dữ liệu mẫu `data/Input_TKB_V8.xlsx` và các hằng số mặc định còn lại của `main.py`, mã trên Linux là **`890D-FD11-2733`**; mã trên Windows ghi ở README. Sheet Tổng quan không ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
+- **Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù), vì bản dựng khác trình biên dịch và phép tính số thực. `.github/workflows/windows.yml` kiểm mỗi lần đổi code: 4 máy ảo Windows (Windows Server 2022 và 2025, Python 3.12 và 3.14) chạy dữ liệu mẫu, mỗi máy 2 lần, mọi mã phải trùng nhau. Chưa thử macOS, chip ARM.
 - Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
 - `tests/test_reproducible.py` kiểm tra:
   - chạy trong hai tiến trình Python riêng, thứ tự băm khác nhau, và so sánh kết quả;
@@ -462,8 +463,8 @@ Mọi thứ về nhân sự và thống kê nằm ở file này (TKB.xlsx chỉ 
 
 | Hằng số | Ý nghĩa | Mặc định |
 |---|---|---|
-| `FILE_VAO` | **Địa chỉ file vào** (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC), tương đối theo `main.py`. Để trống thì báo lỗi | `data/Input_TKB_V8.xlsx` |
-| `THU_MUC_OUT` | Thư mục ra. **Để trống thì ghi vào thư mục dự án** (thư mục chứa `main.py`) | `out` |
+| `FILE_VAO` | **Địa chỉ file vào** (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC), tương đối theo `main.py`. Để trống thì báo lỗi. File mẫu tên giả: `data/Input_TKB_V8.xlsx` | `data/INPUT_V8.xlsx` (file của trường) |
+| `THU_MUC_OUT` | Thư mục ra. **Để trống thì ghi vào thư mục dự án** (thư mục chứa `main.py`); các file ra ở đó được `.gitignore` bỏ qua | `""` |
 | `CHE_DO` | `bu_gio` hoặc `tuyen_them` | `bu_gio` |
 | `SO_TIET_BU_TOI_DA` | Mức bù tối đa mỗi người (chế độ bù giờ) | `2` |
 | `LUAT_HOC_SINH` | Áp dụng luật tối đa 2 TV/2 Toán mỗi buổi | `True` |

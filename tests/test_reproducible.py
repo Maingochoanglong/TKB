@@ -68,3 +68,5 @@ def test_no_wall_clock_limit_in_reproducible_mode():
     p = solver.parameters
     # Chỉ dừng theo lượng tính toán: máy chậm/bận chạy lâu hơn chứ không ra kết quả khác.
     assert p.max_deterministic_time == 240 and p.max_time_in_seconds > 1e10 and p.interleave_search
+    # Phần chia sẻ giữa các luồng không tất định (cùng mô hình mà ra TKB khác): phải tắt.
+    assert not p.share_binary_clauses and not p.share_level_zero_bounds

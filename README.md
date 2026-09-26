@@ -24,22 +24,22 @@ pip install -r requirements.txt
 
 | Hằng số | Ý nghĩa | Mặc định |
 |---|---|---|
-| `FILE_VAO` | **Địa chỉ file vào** (sheet `NHÂN SỰ` và `CHƯƠNG TRÌNH HỌC`) | `data/Input_TKB_V8.xlsx` |
-| `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có. **Để trống `""` thì ghi vào thư mục dự án** (thư mục chứa `main.py`) | `out` |
+| `FILE_VAO` | **Địa chỉ file vào** (sheet `NHÂN SỰ` và `CHƯƠNG TRÌNH HỌC`). File mẫu tên giả để thử: `data/Input_TKB_V8.xlsx` | `data/INPUT_V8.xlsx` (file của trường) |
+| `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có. **Để trống `""` thì ghi vào thư mục dự án** (thư mục chứa `main.py`) | `""` |
 | `CHE_DO` | Khi thiếu người: `"bu_gio"` (GVCN/bộ môn dạy bù) hoặc `"tuyen_them"` (thêm GV "chưa có") | `"bu_gio"` |
 | `SO_TIET_BU_TOI_DA` | Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần | `2` |
 | `LUAT_HOC_SINH` | Áp dụng luật bảo vệ học sinh | `True` |
 | `THOI_GIAN_TOI_DA` | Thời gian cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn. **Để trống (`None`/`""`) hoặc `0` thì không giới hạn**: chạy đến khi bộ giải chứng minh TKB tốt nhất (có thể hàng giờ); bấm Ctrl+C để dừng sớm, TKB tốt nhất đã tìm được vẫn được ghi ra | `240` (≈ 3,5 phút) |
-| `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần cũng ra đúng một kết quả, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
+| `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
 | `FILE_TKB`, `FILE_THONG_KE` | Tên file TKB (chỉ thời khóa biểu) và file nhân sự + thống kê xuất ra | `TKB.xlsx`, `Thong_Ke.xlsx` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
-   - **Chạy lại, hoặc chạy ở máy khác, ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file vào, các hằng số trong `main.py`, phiên bản thư viện (cài bằng `pip install -r requirements.txt`). Xem mục [Chạy trên máy khác](#chạy-trên-máy-khác).
+   - **Chạy lại, hoặc chạy ở máy khác cùng hệ điều hành, ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file vào, các hằng số trong `main.py`, phiên bản thư viện (cài bằng `pip install -r requirements.txt`). Xem mục [Chạy trên máy khác](#chạy-trên-máy-khác).
    - **Không giới hạn thời gian** (`THOI_GIAN_TOI_DA` để trống hoặc `0`): bước phân công vẫn chứng minh tối ưu số tiết thiếu/bù trong vài giây; bước xếp giờ chạy đến khi chứng minh TKB tốt nhất, với trường cỡ 29 lớp gần như không tự dừng. Bấm **Ctrl+C** để dừng, chương trình vẫn kiểm tra luật và ghi đủ các file ra. Dừng bằng tay thì mỗi lần có thể ra TKB khác nhau.
    - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\input.xlsx"` hoặc `"C:/Users/ten/TKB/input.xlsx"`.
 2. Bấm **Run ▶** (VS Code, PyCharm...) hoặc chạy `python main.py`.
-3. Kết quả nằm trong `THU_MUC_OUT`: `TKB.xlsx`, `Thong_Ke.xlsx` và `<tên file vào>_cap_nhat.xlsx`.
+3. Kết quả nằm trong `THU_MUC_OUT`: `TKB.xlsx`, `Thong_Ke.xlsx` và `<tên file vào>_cap_nhat.xlsx`. Khi ghi ra thư mục dự án, ba file này đã được `.gitignore` bỏ qua để không lỡ đưa tên giáo viên lên git.
 
 ### Cách 2 — dòng lệnh
 
@@ -65,7 +65,7 @@ Chạy test: `python -m pytest -q`
 
 ## Chạy trên máy khác
 
-Chế độ tái lập (`CHAY_TAI_LAP_DUOC = True` và `THOI_GIAN_TOI_DA` có giá trị) nhằm để cùng file vào và cùng các hằng số trong `main.py` thì ra cùng một TKB, với điều kiện:
+Ở chế độ tái lập (`CHAY_TAI_LAP_DUOC = True` và `THOI_GIAN_TOI_DA` có giá trị), cùng file vào và cùng các hằng số trong `main.py` thì **chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra cùng một TKB**, với điều kiện:
 
 1. Cài đúng phiên bản thư viện: `pip install -r requirements.txt` (OR-Tools 9.15.6755, openpyxl 3.1.5). Nếu OR-Tools khác bản này, chương trình in cảnh báo.
 2. Không sửa code trong `tkb/`.
@@ -74,13 +74,17 @@ Chế độ tái lập (`CHAY_TAI_LAP_DUOC = True` và `THOI_GIAN_TOI_DA` có gi
 
 **Mã kết quả:** mỗi lần chạy in ra màn hình và ghi ở sheet Tổng quan của `Thong_Ke.xlsx` một mã, ví dụ `Mã kết quả: 6523-7A90-932C`. Mã này là mã băm của toàn bộ TKB. Hai máy cùng mã là cùng TKB, khỏi phải so từng ô.
 
-**Kiểm tra một máy mới:**
-- Nhanh (khoảng 20 giây): `python -m pytest tests/test_reproducible.py`. Test so mã kết quả của một trường nhỏ với mã tham chiếu. Qua là máy đó ra đúng kết quả như máy gốc.
-- Đầy đủ (vài phút): chạy `python main.py` với các hằng số mặc định và dữ liệu mẫu `data/Input_TKB_V8.xlsx`. Trên Linux, mã kết quả thường là **`F4E2-3F16-67D2`** (xem hạn chế bên dưới).
+**Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù), nên mỗi hệ điều hành có mã tham chiếu riêng. Chưa thử macOS và chip ARM (Apple M1).
 
-**Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù). Trong cùng một hệ điều hành thì ra cùng mã: Linux đã thử Python 3.10–3.14 và nhiều cấu hình máy; hai máy ảo Windows của GitHub Actions (Python 3.12 và 3.14) ra cùng mã với nhau. Chưa thử macOS và chip ARM (Apple M1).
+**Kiểm tra một máy mới** (dùng dữ liệu mẫu tên giả, không cần sửa `main.py`):
+- Nhanh (khoảng 20 giây): `python -m pytest tests/test_reproducible.py`. Test so mã kết quả của một trường nhỏ với mã tham chiếu của hệ điều hành đó. Qua là máy đó ra đúng kết quả như các máy khác.
+- Đầy đủ (vài phút): `python -c "import main; main.run('data/Input_TKB_V8.xlsx', 'out')"` (các hằng số khác giữ mặc định của `main.py`), rồi so mã kết quả với bảng:
 
-**Hạn chế đang điều tra:** chạy lặp 8 lần dữ liệu mẫu trên cùng một máy Linux, 6 lần ra `F4E2-3F16-67D2`, 2 lần ra mã khác, dù mô hình đưa vào bộ giải giống hệt nhau. File thật của trường cũng gặp (2 lần chạy ra 2 mã). Mọi lần đều đạt đủ luật bắt buộc, cùng số tiết bù. Vì vậy chưa thể cam kết chạy lại **luôn** ra đúng TKB cũ. Khi đã chốt TKB chính thức, hãy giữ lại file kết quả thay vì chạy lại để lấy lại TKB đó.
+| Hệ điều hành | Mã kết quả dữ liệu mẫu | Đã kiểm |
+|---|---|---|
+| Linux x86-64 | **`890D-FD11-2733`** | Python 3.11, chạy lặp nhiều lần, có lúc 2 tiến trình chạy song song |
+
+**Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
 
 ## Đầu vào
 

@@ -40,12 +40,11 @@ LUAT_HOC_SINH = True
 # TKB tốt nhất đã tìm được.
 THOI_GIAN_TOI_DA = 240
 
-# True: bộ giải dừng theo lượng tính toán (không theo giây thực) để chạy lại ra cùng kết quả, miễn là giữ
-#       nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA, SO_LUONG và phiên bản
-#       OR-Tools (cài bằng: pip install -r requirements.txt). Máy nhanh/chậm, số nhân CPU, phiên bản Python
-#       không ảnh hưởng; Windows và Linux ra TKB khác nhau. Thỉnh thoảng một lần chạy vẫn ra TKB khác (đang
-#       điều tra), nên hãy giữ file TKB đã chốt. Mỗi lần chạy in "Mã kết quả": cùng mã là cùng TKB (xem
-#       README, mục "Chạy trên máy khác").
+# True: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả (ở cả chế độ bu_gio lẫn
+#       tuyen_them), miễn là giữ nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA,
+#       SO_LUONG và phiên bản OR-Tools (cài bằng: pip install -r requirements.txt). Máy nhanh/chậm, số nhân
+#       CPU, máy bận/rảnh, phiên bản Python không ảnh hưởng; Windows và Linux ra TKB khác nhau. Mỗi lần chạy
+#       in "Mã kết quả": cùng mã là cùng TKB (xem README, mục "Chạy trên máy khác").
 # False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
 CHAY_TAI_LAP_DUOC = True
 

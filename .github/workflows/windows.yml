@@ -1,6 +1,7 @@
-# Kiểm chứng trên máy ảo Windows thật của GitHub: chạy toàn bộ test và main.py mặc định với dữ liệu mẫu,
-# in "Mã kết quả" để so giữa các máy Windows (OR-Tools bản Windows ra TKB khác bản Linux).
-# Chỉ dùng dữ liệu mẫu trong repo (tên giả); không đưa file có tên giáo viên thật lên đây.
+# Kiểm chứng trên máy ảo Windows thật của GitHub: mọi máy Windows (Windows Server 2022 và 2025, Python 3.12 và
+# 3.14, loại CPU tuỳ máy ảo) chạy cùng main.py với dữ liệu mẫu phải ra cùng "Mã kết quả", và mỗi máy chạy 2 lần
+# cũng phải ra cùng mã. OR-Tools bản Windows ra TKB khác bản Linux, nên chỉ so giữa các máy Windows với nhau.
+# Chỉ dùng dữ liệu mẫu tên giả (data/Input_TKB_V8.xlsx); không bao giờ chạy file có tên giáo viên thật ở đây.
 name: Kiểm chứng trên Windows
 
 on:
@@ -9,13 +10,18 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  SO_MAY: 4  # số máy trong ma trận bên dưới
+
 jobs:
   windows:
-    runs-on: windows-latest
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-2022, windows-2025]
         python: ["3.12", "3.14"]
     env:
       PYTHONUTF8: "1"
@@ -24,15 +30,53 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+      - name: Thông tin máy
+        shell: pwsh
+        run: |
+          $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+          $os = Get-CimInstance Win32_OperatingSystem
+          $py = python -c "import platform; print(platform.python_version())"
+          "$($os.Caption) $($os.Version) | Python $py | $($cpu.Name.Trim()) | $($cpu.NumberOfCores) nhân, $($cpu.NumberOfLogicalProcessors) luồng" | Tee-Object -FilePath may.txt
       - name: Cài thư viện
         run: python -m pip install -r requirements.txt
       - name: Chạy test
         run: python -m pytest -q -rs
-      - name: Chạy main.py mặc định với dữ liệu mẫu
+      - name: Chạy dữ liệu mẫu 2 lần với hằng số mặc định của main.py
         if: success() || failure()  # vẫn chạy để lấy mã kết quả khi có test trượt
-        run: python main.py
+        run: python .github/scripts/chay_mau.py "${{ matrix.os }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ket-qua-windows-python${{ matrix.python }}
-          path: out/
+          name: ket-qua-${{ matrix.os }}-python${{ matrix.python }}
+          path: |
+            out/
+            ma_ket_qua.txt
+
+  so-sanh:
+    name: So sánh mã kết quả giữa các máy Windows
+    needs: windows
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ket-qua-*
+      - name: So sánh
+        run: |
+          shopt -s nullglob
+          files=(ket-qua-*/ma_ket_qua.txt)
+          {
+            echo "| Máy | Thông tin | Mã kết quả |"
+            echo "|---|---|---|"
+            for f in "${files[@]}"; do sed 's/^/| /; s/$/ |/' "$f"; done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${#files[@]}" -ne "$SO_MAY" ]; then
+            echo "::error::Chỉ ${#files[@]}/$SO_MAY máy báo được mã kết quả"
+            exit 1
+          fi
+          codes=$(for f in "${files[@]}"; do awk -F' [|] ' '{print $NF}' "$f"; done | sort -u)
+          if [ "$(echo "$codes" | wc -l)" -ne 1 ]; then
+            echo "::error::Các máy Windows ra mã khác nhau: $(echo $codes)"
+            exit 1
+          fi
+          echo "Mọi máy Windows ra cùng mã: $codes" | tee -a "$GITHUB_STEP_SUMMARY"
