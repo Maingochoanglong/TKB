@@ -19,6 +19,7 @@ from .style import CellStyle, Style
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
+LABEL_PAD = 4  # cột BUỔI, TIẾT của TKB: rộng thêm so với chữ dài nhất cho dễ nhìn
 HIRE_LABEL = "tuyển thêm"  # tên của người cần tuyển trong file thống kê
 CODE_HEADER = "Mã GV"
 LOAD_HEADER = "Số Tiết Thực Dạy"
@@ -81,8 +82,8 @@ def _grade_sheets(wb, solution: Solution, style: Style) -> None:
         ws = wb.create_sheet(f"Khối {grade}")
         classes = sorted((c for c in problem.classes if int(c.split("/")[0]) == grade), key=class_sort_key)
         widths = [max(style.text_width(t) for t in [header[0], *(f"LỚP {c}" for c in classes)]),
-                  max(style.text_width(t) for t in [header[1], *(s.name.upper() for s, _ in rows)]),
-                  style.text_width(header[2])]
+                  max(style.text_width(t) for t in [header[1], *(s.name.upper() for s, _ in rows)]) + LABEL_PAD,
+                  style.text_width(header[2]) + LABEL_PAD]
         for i, width in enumerate(widths + [day_width] * len(days), start=1):
             ws.column_dimensions[get_column_letter(i)].width = round(width, 1)
         # In: khổ ngang, co vừa 1 trang theo chiều rộng.

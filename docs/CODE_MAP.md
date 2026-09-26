@@ -147,7 +147,7 @@ Hằng số: `LIST_SHEET`, `STAFF_HEADERS`, `STAFF_WIDTHS`, `LAST_ROW`, `BLANK_R
 - `main(argv)`
 
 ## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (số tiết từng môn của mỗi giáo viên); file vào
-Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `STATS_SHEET`, `TOTAL_HEADER`
+Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `STATS_SHEET`, `TOTAL_HEADER`
 - `teacher_labels(teachers)` — Chức vụ -> tên hiển thị dưới tên môn trong TKB.
 - `session_rows()` — Các hàng của bảng TKB: (buổi, tiết trong ngày). Cột TIẾT ghi tiết trong ngày: sáng 1–4, chiều 5–7.
 - `_merge(ws, style, r1, c1, r2, c2, value)`

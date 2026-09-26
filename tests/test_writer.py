@@ -52,6 +52,9 @@ def test_timetable_layout(tmp_path):
     assert ws.row_dimensions[2].height == 2 * STYLE.line_height  # môn + tên giáo viên
     assert ws["A5"].border.left.style == "thin"  # viền cả ô nằm trong vùng gộp
     assert ws.column_dimensions["D"].width >= STYLE.text_width("TV tăng cường")
+    # Cột BUỔI, TIẾT rộng hơn chữ dài nhất (CHIỀU, TIẾT) để dễ nhìn.
+    assert ws.column_dimensions["B"].width >= STYLE.text_width("CHIỀU") + writer.LABEL_PAD - 0.1
+    assert ws.column_dimensions["C"].width >= STYLE.text_width("TIẾT") + writer.LABEL_PAD - 0.1
 
 
 def _values(ws):
