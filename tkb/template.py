@@ -7,8 +7,7 @@
 - Sheet "CHƯƠNG TRÌNH HỌC": Môn học | Khối 1 ... Khối n (số tiết/tuần).
 
 Chạy:
-    python -m tkb.template <file mới.xlsx>                  tạo file mẫu trống
-    python -m tkb.template <file mới.xlsx> --tu <file cũ>   chuyển file cũ sang file mẫu
+    python -m tkb.template <file mới.xlsx>    tạo file mẫu trống
 """
 from __future__ import annotations
 
@@ -25,8 +24,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from . import config
-from .program import has_program_sheet, read_program
-from .staff import InputError, Teacher, read_staff
+from .staff import Teacher
 
 LIST_SHEET = "Danh mục"
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"]
@@ -59,7 +57,7 @@ def role_label(t: Teacher) -> str:
 
 
 def role_choices(teachers: list[Teacher] = ()) -> list[str]:
-    """Chủ Nhiệm, Bộ Môn, các chức vụ chuyên biệt có trong file cũ, Quản Lý (chỉ để gợi ý)."""
+    """Chủ Nhiệm, Bộ Môn, các chức vụ chuyên biệt có trong danh sách, Quản Lý (chỉ để gợi ý)."""
     labels = config.ROLE_LABELS
     specialists = [role_label(t) for t in teachers if t.role not in labels]
     return list(dict.fromkeys([labels[config.ROLE_HOMEROOM], labels[config.ROLE_GENERAL], *specialists,
@@ -159,20 +157,11 @@ def write_staff_template(path: str | Path, teachers: list[Teacher] = (),
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tkb.template",
-                                 description="Tạo file vào mẫu (nhân sự + chương trình học)")
+                                 description="Tạo file vào mẫu V8 trống (nhân sự + chương trình học)")
     ap.add_argument("output", help="File mẫu cần tạo (.xlsx)")
-    ap.add_argument("--tu", help="File cũ để chép dữ liệu sang (nhân sự, và chương trình học nếu có)")
-    ap.add_argument("--program", help="File chương trình học riêng để chép vào sheet CHƯƠNG TRÌNH HỌC")
     args = ap.parse_args(argv)
-    try:
-        teachers = read_staff(args.tu) if args.tu else []
-        program = args.program or (args.tu if args.tu and has_program_sheet(args.tu) else None)
-        curriculum = read_program(program) if program else None
-    except InputError as exc:
-        print(f"LỖI: {exc}", file=sys.stderr)
-        return 1
-    write_staff_template(args.output, teachers, curriculum)
-    print(f"Đã ghi: {args.output} ({len(teachers)} nhân sự)")
+    write_staff_template(args.output)
+    print(f"Đã ghi: {args.output}")
     return 0
 
 

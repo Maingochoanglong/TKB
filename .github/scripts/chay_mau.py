@@ -1,10 +1,10 @@
-"""Chạy xếp TKB với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã kết quả.
+"""Chạy xếp TKB file FILE_VAO với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã.
 
 Dùng trong workflow kiểm chứng: ghi một dòng "<máy> | <mã kết quả>" vào ma_ket_qua.txt để job so sánh gom mã
-của mọi máy lại. Mặc định chạy file mẫu tên giả, không theo FILE_VAO (file đó có thể có tên giáo viên thật).
+của mọi máy lại. FILE_VAO là file thật của trường (có tên giáo viên): workflow chỉ được tải lên ma_ket_qua.txt,
+không tải các file ra trong out/.
 
-Chạy: python .github/scripts/chay_mau.py <tên máy> [--theo-main] [--lan N]
-  --theo-main   chạy file FILE_VAO của main.py (file thật của trường) thay cho file mẫu
+Chạy: python .github/scripts/chay_mau.py <tên máy> [--lan N]
   --lan N       số lần chạy (mặc định 2)
 """
 from __future__ import annotations
@@ -20,9 +20,6 @@ import openpyxl  # noqa: E402
 
 import main  # noqa: E402
 
-SAMPLE = ROOT / "data" / "Input_TKB_V8.xlsx"
-
-
 def result_code(stats_file: Path) -> str:
     ws = openpyxl.load_workbook(stats_file)["Tổng quan"]
     return next(row[1] for row in ws.iter_rows(values_only=True) if row[0] == "Mã kết quả")
@@ -31,10 +28,9 @@ def result_code(stats_file: Path) -> str:
 def run(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("label", nargs="?", default="máy này")
-    ap.add_argument("--theo-main", action="store_true", help="chạy FILE_VAO của main.py thay cho file mẫu")
     ap.add_argument("--lan", type=int, default=2, help="số lần chạy")
     args = ap.parse_args(argv)
-    source = main._resolve(main.FILE_VAO) if args.theo_main else SAMPLE
+    source = main._resolve(main.FILE_VAO)
     info = ROOT / "may.txt"
     machine = info.read_text(encoding="utf-8-sig").strip() if info.is_file() else ""
     codes = []

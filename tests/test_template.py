@@ -7,7 +7,7 @@ from tkb.staff import read_staff
 from tkb.template import main as template_main, role_choices, write_staff_template
 from tkb.writer import write_updated_staff
 
-from .conftest import CURRICULUM, INPUT_FILE, small_staff
+from .conftest import CURRICULUM, small_staff
 
 HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần")
 
@@ -18,15 +18,6 @@ def _key(teachers):
 
 def _rows(ws):
     return [r for r in ws.iter_rows(values_only=True) if any(v is not None for v in r)]
-
-
-def test_sample_input_file(sample_staff):
-    assert len(sample_staff) == 45 and sum(n for req in CURRICULUM.values() for n in req.values()) == 5 * 32
-    wb = openpyxl.load_workbook(INPUT_FILE)
-    rows = _rows(wb["NHÂN SỰ"])
-    assert rows[0] == HEADER
-    assert rows[1] == ("Giáo viên CN 1", "Chủ Nhiệm", "1/1", 19)
-    assert ("Giáo viên BM 5", "Bộ Môn", None, 19) in rows
 
 
 def test_template_style_and_dropdowns(tmp_path, sample_staff):
@@ -95,26 +86,7 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     assert rows2[0] == rows[0] and len(rows2) == len(rows)
 
 
-def _old_files(tmp_path, teachers):
-    """File nhân sự kiểu cũ (V5/V6: chức vụ kèm số, vd "bộ môn 5") và file chương trình học riêng."""
-    staff = openpyxl.Workbook()
-    staff.active.append(["Tên", "Chức vụ", "Số tiết"])
-    for t in teachers:
-        staff.active.append([t.name, t.title, t.max_lessons])
-    program = openpyxl.Workbook()
-    grades = sorted(CURRICULUM)
-    program.active.append(["Môn học", *(f"Khối {g}" for g in grades)])
-    for subject in dict.fromkeys(s for g in grades for s in CURRICULUM[g]):
-        program.active.append([subject, *(CURRICULUM[g].get(subject, 0) for g in grades)])
-    paths = tmp_path / "nhan_su_cu.xlsx", tmp_path / "chuong_trinh.xlsx"
-    staff.save(paths[0])
-    program.save(paths[1])
-    return paths
-
-
-def test_cli_converts_old_file(tmp_path, sample_staff):
+def test_cli_writes_blank_template(tmp_path):
     out = tmp_path / "moi.xlsx"
-    staff_file, program_file = _old_files(tmp_path, sample_staff)
-    assert template_main([str(out), "--tu", str(staff_file), "--program", str(program_file)]) == 0
-    assert _key(read_staff(out)) == _key(sample_staff)
-    assert read_program(out) == CURRICULUM
+    assert template_main([str(out)]) == 0
+    assert _rows(openpyxl.load_workbook(out)["NHÂN SỰ"]) == [HEADER]

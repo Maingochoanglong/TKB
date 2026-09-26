@@ -3,12 +3,12 @@ import openpyxl
 from tkb import config
 from tkb.checker import check
 from tkb.solver import solve
-from tkb.staff import build_teacher, read_staff
+from tkb.staff import read_staff
 from tkb import writer
 from tkb.style import Style
 from tkb.writer import write_timetable, write_updated_staff
 
-from .conftest import CURRICULUM, INPUT_FILE, small_staff
+from .conftest import CURRICULUM, INPUT_FILE, small_staff, teacher
 
 STYLE = Style.from_file(INPUT_FILE)  # style của file vào: Times New Roman 14, viền mảnh, dòng cao 25
 STAFF_HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Mã GV", "Số Tiết Thực Dạy")
@@ -93,16 +93,16 @@ def test_updated_staff_file_is_reusable(tmp_path):
     src = tmp_path / "staff.xlsx"
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.append(["Tên", "Chức vụ", "Số tiết"])
+    ws.append(["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"])  # sheet nhân sự mẫu V8, không có style
     for t in small_staff(general=False):
-        ws.append([t.name, t.title, t.max_lessons])
+        ws.append([t.name, t.role.title(), t.class_name, t.max_lessons])
     wb.save(src)
     sol = solve(read_staff(src), CURRICULUM, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
     dst = tmp_path / "staff_cap_nhat.xlsx"
     write_updated_staff(sol, src, dst)
     rows = list(openpyxl.load_workbook(dst).active.iter_rows(values_only=True))
-    assert rows[0] == ("Tên", "Chức vụ", "Số tiết", "Mã GV", "Số Tiết Thực Dạy")
-    assert rows[-1] == ("chưa có", "bộ môn 1", 23, "Bộ Môn 1", 8)
+    assert rows[0] == ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Mã GV", "Số Tiết Thực Dạy")
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
     again = read_staff(dst)
     assert again[-1].name == "chưa có" and again[-1].title == "bộ môn 1"
     assert again[-1].max_lessons == 23
@@ -127,8 +127,8 @@ def test_overtime_columns(tmp_path):
 
 
 def test_teacher_labels():
-    teachers = {t.title: t for t in [build_teacher("Lan", "chủ nhiệm 1/1", 19), build_teacher("Lan", "bộ môn 1", 23),
-                                     build_teacher("", "bộ môn 2", 23), build_teacher("Hoa", "bộ môn 3", 23)]}
+    teachers = {t.title: t for t in [teacher("Lan", "chủ nhiệm 1/1", 19), teacher("Lan", "bộ môn 1", 23),
+                                     teacher("", "bộ môn 2", 23), teacher("Hoa", "bộ môn 3", 23)]}
     teachers["bộ môn 2"].label = "Bộ Môn"
     labels = writer.teacher_labels(teachers)
     assert labels == {"chủ nhiệm 1/1": "Lan (chủ nhiệm 1/1)", "bộ môn 1": "Lan (bộ môn 1)",

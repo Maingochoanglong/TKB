@@ -2,9 +2,9 @@ import pytest
 
 from tkb import config
 from tkb.allocation import build_problem, split_homeroom
-from tkb.staff import InputError, build_teacher, make_teacher
+from tkb.staff import InputError, make_teacher
 
-from .conftest import CURRICULUM
+from .conftest import CURRICULUM, teacher
 
 C = config
 
@@ -80,7 +80,7 @@ def test_supplement_numbering(sample_staff):
 def test_homeroom_needs_enough_lessons_for_locked_periods(monkeypatch):
     # GVCN 8 tiết không đủ nếu khoá tiết 1 và tiết 2 mỗi ngày (10 tiết).
     monkeypatch.setattr(config, "HOMEROOM_PERIODS", {1, 2})
-    staff = [build_teacher("CN", "chủ nhiệm 3/1", 8, row=2), build_teacher("BM", "bộ môn 1", 23, row=3)]
+    staff = [teacher("CN", "chủ nhiệm 3/1", 8, row=2), teacher("BM", "bộ môn 1", 23, row=3)]
     with pytest.raises(InputError, match="tiết bắt buộc của GVCN"):
         build_problem(staff, CURRICULUM)
 
@@ -101,8 +101,8 @@ def test_overtime_allowances_and_eligibility(sample_staff):
 
 
 def test_class_gaps_are_warned():
-    staff = [build_teacher("A", "chủ nhiệm 1/1", 19), build_teacher("B", "chủ nhiệm 1/3", 19),
-             build_teacher("C", "bộ môn 1", 23)]
+    staff = [teacher("A", "chủ nhiệm 1/1", 19), teacher("B", "chủ nhiệm 1/3", 19),
+             teacher("C", "bộ môn 1", 23)]
     warnings = build_problem(staff, CURRICULUM).warnings
     assert any("Khối 1 không có lớp 1/2" in w for w in warnings)
 

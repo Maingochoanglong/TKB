@@ -1,4 +1,4 @@
-"""Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] [--program chương trình.xlsx] ..."""
+"""Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] ..."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,7 @@ from pathlib import Path
 
 from . import config
 from .checker import check
-from .program import load_curriculum
+from .program import read_program
 from .solver import SolveError, ortools_version, solve
 from .staff import InputError, read_staff
 from .style import Style
@@ -30,7 +30,6 @@ def main(argv: list[str] | None = None) -> int:
                     help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
     ap.add_argument("--stats-out", help="File nhân sự và thống kê (mặc định <thư mục output>/Thong_Ke.xlsx)")
-    ap.add_argument("--program", help="File chương trình học riêng (mặc định: sheet CHƯƠNG TRÌNH HỌC của file vào)")
     ap.add_argument("--time-limit", type=float, default=240,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; 0 = không giới hạn)")
     ap.add_argument("--non-reproducible", action="store_true",
@@ -59,11 +58,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"CẢNH BÁO: đang dùng OR-Tools {ortools_version()}, khác bản {config.ORTOOLS_VERSION} đã ghim; kết quả "
               f"có thể khác máy khác. Cài đúng bản bằng:  pip install -r requirements.txt", file=sys.stderr)
     try:
-        curriculum, source = load_curriculum(args.staff, args.program)
+        curriculum = read_program(args.staff)
         staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
         n_subjects = len({s for req in curriculum.values() for s in req})
         print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp; "
-              f"chương trình học ({n_subjects} môn): {source}.")
+              f"chương trình học: {n_subjects} môn (sheet {config.PROGRAM_SHEET}).")
         solution = solve(staff, curriculum, settings)
     except (InputError, SolveError) as exc:
         print(f"LỖI: {exc}", file=sys.stderr)

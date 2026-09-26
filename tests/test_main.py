@@ -97,7 +97,7 @@ def test_run_single_input_file_with_program_sheet(tmp_path, capsys):
     _write_staff(src, general=False)  # có sheet NHÂN SỰ và CHƯƠNG TRÌNH HỌC
     code = main.run(src, tmp_path / "out", "TKB.xlsx", thoi_gian_toi_da=20, che_do="tuyen_them")
     assert code == 0
-    assert "chương trình học (16 môn): sheet CHƯƠNG TRÌNH HỌC của file vào" in capsys.readouterr().out
+    assert "chương trình học: 16 môn (sheet CHƯƠNG TRÌNH HỌC)" in capsys.readouterr().out
     wb = openpyxl.load_workbook(tmp_path / "out" / "input_cap_nhat.xlsx")
     assert wb.sheetnames[:2] == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC"]  # file cập nhật vẫn là file vào đầy đủ
 
@@ -105,8 +105,9 @@ def test_run_single_input_file_with_program_sheet(tmp_path, capsys):
 def test_run_without_program_sheet_fails(tmp_path, capsys):
     src = tmp_path / "nhan_su.xlsx"
     wb = openpyxl.Workbook()
-    wb.active.append(["Tên", "Chức vụ", "Số tiết"])
-    wb.active.append(["A", "chủ nhiệm 3/1", 19])
+    wb.active.title = "NHÂN SỰ"
+    wb.active.append(["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"])
+    wb.active.append(["A", "Chủ Nhiệm", "3/1", 19])
     wb.save(src)
     assert main.run(src, tmp_path / "out", "TKB.xlsx", thoi_gian_toi_da=5) == 1
     assert "thiếu sheet CHƯƠNG TRÌNH HỌC" in capsys.readouterr().err

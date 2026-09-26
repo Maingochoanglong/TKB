@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 | Hằng số | Ý nghĩa | Mặc định |
 |---|---|---|
-| `FILE_VAO` | **Địa chỉ file vào** (sheet `NHÂN SỰ` và `CHƯƠNG TRÌNH HỌC`). File mẫu tên giả để thử: `data/Input_TKB_V8.xlsx` | `data/INPUT_V8.xlsx` (file của trường) |
+| `FILE_VAO` | **Địa chỉ file vào** (mẫu V8: sheet `NHÂN SỰ` và `CHƯƠNG TRÌNH HỌC`) | `data/INPUT_V8.xlsx` (file của trường) |
 | `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có. **Để trống `""` thì ghi vào thư mục dự án** (thư mục chứa `main.py`) | `""` |
 | `CHE_DO` | Khi thiếu người: `"bu_gio"` (GVCN/bộ môn dạy bù) hoặc `"tuyen_them"` (thêm GV "chưa có") | `"bu_gio"` |
 | `SO_TIET_BU_TOI_DA` | Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần | `2` |
@@ -44,7 +44,7 @@ pip install -r requirements.txt
 ### Cách 2 — dòng lệnh
 
 ```bash
-python -m tkb data/Input_TKB_V8.xlsx -o out/TKB.xlsx
+python -m tkb data/INPUT_V8.xlsx -o out/TKB.xlsx
 ```
 
 Tuỳ chọn:
@@ -54,7 +54,6 @@ Tuỳ chọn:
 | `-o, --output` | File TKB xuất ra, chỉ gồm các sheet Khối (mặc định `out/TKB.xlsx`) |
 | `--staff-out` | File nhân sự cập nhật (mặc định `<thư mục output>/<tên input>_cap_nhat.xlsx`) |
 | `--stats-out` | File nhân sự và thống kê (mặc định `<thư mục output>/Thong_Ke.xlsx`) |
-| `--program` | File chương trình học riêng; mặc định đọc sheet `CHƯƠNG TRÌNH HỌC` của file vào |
 | `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; `0` = không giới hạn, Ctrl+C để dừng) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
 | `--mode` | `tuyen_them` (mặc định) hoặc `bu_gio` |
@@ -76,20 +75,20 @@ Chạy test: `python -m pytest -q`
 
 **Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù), nên mỗi hệ điều hành có mã tham chiếu riêng. Chưa thử macOS và chip ARM (Apple M1).
 
-**Kiểm tra một máy mới** (dùng dữ liệu mẫu tên giả, không cần sửa `main.py`):
+**Kiểm tra một máy mới** (không cần sửa `main.py`):
 - Nhanh (khoảng 20 giây): `python -m pytest tests/test_reproducible.py`. Test so mã kết quả của một trường nhỏ với mã tham chiếu của hệ điều hành đó. Qua là máy đó ra đúng kết quả như các máy khác.
-- Đầy đủ (vài phút): `python -c "import main; main.run('data/Input_TKB_V8.xlsx', 'out')"` (các hằng số khác giữ mặc định của `main.py`), rồi so mã kết quả với bảng:
+- Đầy đủ (vài phút): `python main.py` với các hằng số mặc định (file của trường `data/INPUT_V8.xlsx`), rồi so mã kết quả với bảng. Mã trong bảng ứng với file `data/INPUT_V8.xlsx` hiện tại; trường sửa file thì mã đổi theo.
 
-| Hệ điều hành | Mã kết quả dữ liệu mẫu | Đã kiểm |
+| Hệ điều hành | Mã kết quả `data/INPUT_V8.xlsx` | Đã kiểm |
 |---|---|---|
-| Windows x86-64 | **`CAAD-454D-9F0F`** | 4 máy ảo GitHub Actions, mỗi máy chạy 2 lần: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
-| Linux x86-64 | **`A77F-F330-8C78`** | Python 3.11, chạy lặp nhiều lần |
+| Windows x86-64 | **`D18E-8606-BCFA`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
+| Linux x86-64 | **`7148-3212-6BD1`** | Python 3.11, chạy lặp nhiều lần |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
 
 ## Đầu vào
 
-**Một file Excel duy nhất** (mẫu V8, ví dụ `data/Input_TKB_V8.xlsx`) gồm 2 sheet. Chương trình tìm sheet theo tên, không phân biệt hoa thường.
+**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet. Chương trình tìm sheet theo tên, không phân biệt hoa thường. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`.
 
 **Sheet `NHÂN SỰ`:**
 
@@ -108,7 +107,7 @@ Chạy test: `python -m pytest -q`
   - Chức vụ không khớp môn nào thì báo lỗi kèm số dòng.
 - **Lớp** chỉ ghi cho Chủ Nhiệm, dạng **khối/số thứ tự** (`1/1`, `5/5`). Nên định dạng cột là chữ (Text) để Excel không đổi `1/1` thành ngày tháng.
 - **Số Tiết/Tuần** là mức tối đa mỗi tuần của từng người (ai được giảm tiết thì ghi mức đã giảm).
-- Các cột khác (ví dụ cột `Chế Độ` của file cũ, cột ghi chú) được bỏ qua, ghi gì cũng được.
+- Các cột khác (ví dụ cột STT, cột ghi chú) được bỏ qua, ghi gì cũng được.
 - Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN. Nếu dãy lớp của một khối bị hụt (ví dụ có 1/3, 1/5 mà không có 1/4) thì chương trình cảnh báo.
 - Khi file có lỗi, chương trình **liệt kê tất cả lỗi một lần** kèm số dòng (ví dụ `Lớp 1/1 có hai Chủ Nhiệm (dòng 11 và 26)`).
 
@@ -117,13 +116,12 @@ Chạy test: `python -m pytest -q`
 - Môn nào trùng tên một môn có luật trong `tkb/config.py` thì nhận luật đó. So khớp không phân biệt hoa thường, dấu câu và chữ "và": `Lịch Sử và Địa Lý` khớp `Lịch sử - Địa lý`.
 - Nếu luật trong config nhắc một môn mà file không có (thường do gõ khác tên), chương trình cảnh báo.
 
-File cũ vẫn đọc được: sheet nhân sự mẫu V7/V6/V5 (chức vụ ghi kèm số như `bộ môn 5`). Khi đó chương trình học lấy từ `--program`. Chữ `ts` (thai sản) sau chức vụ của mẫu V5 không còn dùng: xoá đi rồi chạy.
+Chỉ đọc mẫu V8. File mẫu cũ (V5–V7: chức vụ ghi kèm số như `bộ môn 5`, chương trình học ở file riêng) không còn đọc được: tạo file mẫu trống rồi chép dữ liệu sang, bỏ số thứ tự ở cột Chức Vụ.
 
-Tạo file mẫu mới, hoặc chuyển file cũ sang file mẫu:
+Tạo file vào mẫu V8 trống:
 
 ```bash
-python -m tkb.template data/Mau_Input.xlsx                                      # file vào mẫu trống
-python -m tkb.template data/Input_Moi.xlsx --tu nhan_su_cu.xlsx --program chuong_trinh_hoc.xlsx
+python -m tkb.template data/Mau_Input.xlsx
 ```
 
 ## Cái gì nằm trong file vào, cái gì nằm trong code
@@ -140,7 +138,7 @@ python -m tkb.template data/Input_Moi.xlsx --tu nhan_su_cu.xlsx --program chuong
 ## Đầu ra
 
 1. **`TKB.xlsx`**: **chỉ có thời khóa biểu**, mỗi khối một sheet **Khối 1…5** (nhân sự và thống kê nằm ở `Thong_Ke.xlsx`).
-   - Mẫu: `data/Output_Template_TKB_V8.xlsx` (TKB của file mẫu tên giả). Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
+   - Mẫu: `data/Output_Template_TKB_V8.xlsx` (TKB của trường mẫu tên giả). Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
    - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày.
    - Mỗi ô ghi môn và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Tên để trống hoặc người cần tuyển thì ghi Mã GV (`Bộ Môn 6`); hai người trùng tên thì kèm Mã GV. Chiều Thứ 6 ghi `Nghỉ`.
    - Các cột ngày ở mọi sheet cùng độ rộng, nới theo dòng dài nhất của cả trường (tối đa 30); tên dài hơn thì xuống dòng và hàng tự cao thêm. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
@@ -232,7 +230,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `main.py` | File chạy nhanh: sửa hằng số (file vào, thư mục ra, chế độ, luật học sinh, thời gian, tái lập) rồi bấm Run |
 | `tkb/config.py` | Luật nghiệp vụ không có trong file vào: khung giờ, quyền dạy, thứ tự cắt/bù, luật học sinh, trọng số |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |
-| `tkb/template.py` | Tạo file vào mẫu V8 (NHÂN SỰ + CHƯƠNG TRÌNH HỌC), chuyển file cũ sang file mẫu |
+| `tkb/template.py` | Tạo file vào mẫu V8 trống (NHÂN SỰ + CHƯƠNG TRÌNH HỌC) |
 | `tkb/program.py` | Đọc sheet chương trình học, so khớp tên môn với luật trong config |
 | `tkb/style.py` | Chép style của file vào cho các file ra |
 | `tkb/allocation.py` | Phân phần GVCN, sinh lớp-môn và danh sách giáo viên được dạy, sinh giáo viên bổ sung |
@@ -240,6 +238,6 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |
 | `tkb/writer.py` | Xuất Excel |
 | `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |
-| `tools/mau_dau_ra.py` | Sinh lại các file mẫu đầu ra `data/Output_Template_TKB_V8.xlsx`, `data/Output_Template_Thong_Ke_V8.xlsx` từ file mẫu tên giả |
+| `tools/mau_dau_ra.py` | Sinh lại các file mẫu đầu ra `data/Output_Template_TKB_V8.xlsx`, `data/Output_Template_Thong_Ke_V8.xlsx` từ trường mẫu tên giả (`tests/du_lieu_mau.py`) |
 
 Hướng dẫn cho Claude Code (lệnh, kiến trúc, luật bảo mật, mã tham chiếu): [`CLAUDE.md`](CLAUDE.md).

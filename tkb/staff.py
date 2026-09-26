@@ -1,7 +1,7 @@
 """Đọc và kiểm tra file Excel danh sách nhân sự.
 
-Mẫu V8: Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần (chức vụ không ghi số, chương trình tự đánh số theo
-thứ tự dòng). Vẫn đọc được mẫu cũ: Tên | Chức vụ ("bộ môn 5") | Số tiết. Các cột khác bị bỏ qua.
+Chỉ đọc mẫu V8: Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần (chức vụ không ghi số, chương trình tự đánh số
+theo thứ tự dòng). Các cột khác bị bỏ qua.
 
 Chức vụ hợp lệ: Chủ Nhiệm, Bộ Môn, Quản Lý, hoặc tên một môn trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên
 biệt của môn đó). Danh sách môn lấy từ file vào nên không có danh sách chức vụ cố định trong code.
@@ -77,27 +77,6 @@ def role_errors(teachers: list[Teacher], subjects) -> list[str]:
             f"trong sheet {config.PROGRAM_SHEET})" for label, rows in bad.items()]
 
 
-_TITLE_RE = re.compile(r"^(?P<role>\D+?)\s+(?P<idx>\d+(?:\s*/\s*\d+)?)$")
-
-
-def parse_title(raw: str) -> tuple[str, int | None, str | None]:
-    """Tách chức vụ kiểu cũ ("bộ môn 5", "chủ nhiệm 1/1") thành (role, index, lớp chủ nhiệm)."""
-    text = normalize(raw)
-    m = _TITLE_RE.match(text)
-    if not m:
-        raise InputError(f"Chức vụ không đúng dạng '<chức vụ> <số thứ tự>': {raw!r}")
-    role = m.group("role").strip()
-    idx = re.sub(r"\s+", "", m.group("idx"))
-    if role == config.ROLE_HOMEROOM:
-        if "/" not in idx:
-            raise InputError(f"Chủ nhiệm phải ghi lớp dạng khối/stt, vd 'chủ nhiệm 1/1': {raw!r}")
-        grade, num = idx.split("/")
-        return role, None, f"{int(grade)}/{int(num)}"
-    if "/" in idx:
-        raise InputError(f"Chỉ chủ nhiệm mới ghi lớp khối/stt: {raw!r}")
-    return role, int(idx), None
-
-
 def canonical_title(role: str, index: int | None, class_name: str | None) -> str:
     return f"{role} {class_name}" if role == config.ROLE_HOMEROOM else f"{role} {index}"
 
@@ -131,9 +110,8 @@ def _blank(value) -> bool:
 
 
 def _find_columns(ws) -> tuple[int, dict[str, int]]:
-    """Dòng tiêu đề và vị trí các cột. Bắt buộc: tên, chức vụ, số tiết; không bắt buộc: lớp, stt."""
-    wanted = {"tên": "name", "họ và tên": "name", "họ tên": "name", "chức vụ": "title",
-              "số tiết": "lessons", "số tiết/tuần": "lessons", "số tiết / tuần": "lessons",
+    """Dòng tiêu đề và vị trí các cột (mẫu V8). Bắt buộc: Họ và Tên, Chức Vụ, Số Tiết/Tuần; không bắt buộc: Lớp, STT."""
+    wanted = {"họ và tên": "name", "chức vụ": "title", "số tiết/tuần": "lessons", "số tiết / tuần": "lessons",
               "lớp": "class", "stt": "stt"}
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
         found = {}
@@ -145,7 +123,7 @@ def _find_columns(ws) -> tuple[int, dict[str, int]]:
                 found[wanted[key]] = cell.column
         if {"name", "title", "lessons"} <= found.keys():
             return row[0].row, found
-    raise InputError("Không tìm thấy dòng tiêu đề có đủ các cột 'Tên', 'Chức vụ', 'Số tiết'")
+    raise InputError("Không tìm thấy dòng tiêu đề có đủ các cột 'Họ và Tên', 'Chức Vụ', 'Số Tiết/Tuần' (mẫu V8)")
 
 
 def _to_lessons(value, title: str) -> int:
@@ -158,12 +136,6 @@ def _to_lessons(value, title: str) -> int:
     if number != int(number) or number < 0:
         raise InputError(f"Số tiết của '{title}' phải là số nguyên không âm: {value!r}")
     return int(number)
-
-
-def build_teacher(name: str, raw_title: str, lessons, row: int | None = None) -> Teacher:
-    """Chức vụ kèm số thứ tự (mẫu cũ), vd "bộ môn 5", "chủ nhiệm 1/1"."""
-    role, index, class_name = parse_title(raw_title)
-    return make_teacher(name, role, index, class_name, lessons, row)
 
 
 def make_teacher(name, role: str, index: int | None, class_name: str | None, lessons,
@@ -223,36 +195,26 @@ def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
                 errors.append(f"Dòng {r}: thiếu chức vụ")
             continue
         try:
-            label = ""
-            if not re.search(r"\d", str(title)):  # mẫu V8: chỉ ghi tên chức vụ, số thứ tự tự đánh
-                role, label = normalize(title), clean_name(title)
-                index = class_name = None
-                if role == config.ROLE_HOMEROOM:
-                    if _blank(cls):
-                        raise InputError("Chủ Nhiệm phải ghi Lớp dạng khối/số thứ tự, vd '1/1'")
-                    class_name = parse_class(cls)
-                elif not _blank(cls):
-                    raise InputError(f"chỉ Chủ Nhiệm mới ghi Lớp (chức vụ đang là {title!r})")
-            else:
-                role, index, class_name = parse_title(title)
-                if not _blank(cls) and parse_class(cls) != class_name:
-                    raise InputError(f"chức vụ {title!r} không khớp cột Lớp {cls!r}")
+            if re.search(r"\d", str(title)):
+                raise InputError(f"Chức Vụ không ghi số thứ tự (chương trình tự đánh số theo thứ tự dòng): {title!r}")
+            role, label = normalize(title), clean_name(title)
+            index = class_name = None
+            if role == config.ROLE_HOMEROOM:
+                if _blank(cls):
+                    raise InputError("Chủ Nhiệm phải ghi Lớp dạng khối/số thứ tự, vd '1/1'")
+                class_name = parse_class(cls)
+            elif not _blank(cls):
+                raise InputError(f"chỉ Chủ Nhiệm mới ghi Lớp (chức vụ đang là {title!r})")
             rows.append([r, name, role, index, class_name, lessons, label])
         except InputError as exc:
             errors.append(f"Dòng {r}: {exc}")
 
-    # Đánh số thứ tự cho các dòng chỉ ghi tên chức vụ, theo thứ tự dòng, bỏ qua số đã dùng.
-    used: dict[str, set[int]] = defaultdict(set)
+    # Đánh số thứ tự trong từng chức vụ theo thứ tự dòng (Chủ Nhiệm dùng lớp thay cho số).
+    count: dict[str, int] = defaultdict(int)
     for row in rows:
-        if row[3] is not None:
-            used[row[2]].add(row[3])
-    for row in rows:
-        if row[2] != config.ROLE_HOMEROOM and row[3] is None:
-            n = 1
-            while n in used[row[2]]:
-                n += 1
-            used[row[2]].add(n)
-            row[3] = n
+        if row[2] != config.ROLE_HOMEROOM:
+            count[row[2]] += 1
+            row[3] = count[row[2]]
 
     teachers: list[Teacher] = []
     for r, name, role, index, class_name, lessons, label in rows:
