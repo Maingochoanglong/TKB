@@ -25,12 +25,11 @@ def test_run_writes_outputs(tmp_path):
     assert code == 0
     # TKB.xlsx chỉ có thời khóa biểu; nhân sự và thống kê nằm ở Thong_Ke.xlsx.
     assert openpyxl.load_workbook(out_dir / "TKB.xlsx").sheetnames == ["Khối 3"]
-    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == [
-        "Tổng quan", "Danh sách nhân sự", "Thống kê giáo viên", "Phân công", "Theo ngày", "Theo chức vụ"]
+    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê"]
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
     assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
-    stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê giáo viên")
-    assert stats[-2][1:5] == ("tuyển thêm", "Bộ Môn", "Bộ Môn 1", 23)
+    stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê")
+    assert stats[-2][:2] == ("tuyển thêm", "Bộ Môn 1") and stats[-2][-1] == 8
     # Các file ra dùng style của file vào.
     tkb = openpyxl.load_workbook(out_dir / "TKB.xlsx")["Khối 3"]
     assert tkb["D2"].font.name == "Times New Roman" and tkb["D2"].font.sz == 14
@@ -97,7 +96,7 @@ def test_run_single_input_file_with_program_sheet(tmp_path, capsys):
     _write_staff(src, general=False)  # có sheet NHÂN SỰ và CHƯƠNG TRÌNH HỌC
     code = main.run(src, tmp_path / "out", "TKB.xlsx", thoi_gian_toi_da=20, che_do="tuyen_them")
     assert code == 0
-    assert "chương trình học (16 môn): sheet CHƯƠNG TRÌNH HỌC của file vào" in capsys.readouterr().out
+    assert "chương trình học: 16 môn (sheet CHƯƠNG TRÌNH HỌC)" in capsys.readouterr().out
     wb = openpyxl.load_workbook(tmp_path / "out" / "input_cap_nhat.xlsx")
     assert wb.sheetnames[:2] == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC"]  # file cập nhật vẫn là file vào đầy đủ
 
@@ -105,8 +104,9 @@ def test_run_single_input_file_with_program_sheet(tmp_path, capsys):
 def test_run_without_program_sheet_fails(tmp_path, capsys):
     src = tmp_path / "nhan_su.xlsx"
     wb = openpyxl.Workbook()
-    wb.active.append(["Tên", "Chức vụ", "Số tiết"])
-    wb.active.append(["A", "chủ nhiệm 3/1", 19])
+    wb.active.title = "NHÂN SỰ"
+    wb.active.append(["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"])
+    wb.active.append(["A", "Chủ Nhiệm", "3/1", 19])
     wb.save(src)
     assert main.run(src, tmp_path / "out", "TKB.xlsx", thoi_gian_toi_da=5) == 1
     assert "thiếu sheet CHƯƠNG TRÌNH HỌC" in capsys.readouterr().err

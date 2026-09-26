@@ -38,7 +38,7 @@ jobs:
       - name: Cài thư viện
         run: python -m pip install -r requirements.txt
       - name: Chạy file thật với các hằng số mặc định của main.py
-        run: python .github/scripts/chay_mau.py "${{ matrix.os }}" --theo-main --lan 1
+        run: python .github/scripts/chay_mau.py "${{ matrix.os }}" --lan 1
       - uses: actions/upload-artifact@v4  # chỉ mã kết quả, không có tên giáo viên
         if: always()
         with:

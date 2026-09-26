@@ -4,15 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-SAT. Input: one Excel file with
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
-only), `Thong_Ke.xlsx` (overview, staff, statistics), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
+only), `Thong_Ke.xlsx` (one table: lessons per subject per teacher + total), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
 docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
+- Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
+  sheet `CHƯƠNG TRÌNH HỌC` required). `data/` holds the school's real file `INPUT_V8.xlsx` and the output templates
+  `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tests/du_lieu_mau.py`
+  (`CURRICULUM`, `sample_staff()`, `write_sample_input()`); `tests/conftest.py` writes it to a temp `INPUT_FILE`
+  and has `small_staff()` plus `teacher(name, "bộ môn 1", lessons)` for hand-made staff.
 - **Privacy:** `data/INPUT_V8.xlsx` is the school's real file (real teacher names). Never print, quote, commit or
   upload teacher names or output files made from it (root `TKB.xlsx`, `Thong_Ke.xlsx`, `*_cap_nhat.xlsx`, `out/`
-  are git-ignored). When analysing its output, read subject names only. CI uses the fake-name sample
-  `data/Input_TKB_V8.xlsx`; the only exception, `file_that_windows.yml`, uploads just the result-code line.
+  are git-ignored). When analysing its output, read subject names only. CI runs this file but uploads only the
+  result-code line, never `out/`.
 - Never hard-code school data (classes, subjects, lesson counts, teachers) in code: it all comes from the input
   file. `tkb/config.py` holds only rules the file does not contain.
 - Hard rules are the school's decisions: do not loosen or tighten one without asking.
@@ -20,13 +25,13 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 ## Commands
 ```bash
 pip install -r requirements.txt              # pinned ortools==9.15.6755, openpyxl==3.1.5 (other versions => other results)
-python -m pytest -q                          # full suite, ~1.5 min on Linux (slowest: test_real_data_* ~20 s)
+python -m pytest -q                          # full suite, ~1.5 min on Linux (slowest: test_sample_school_* ~20 s)
 python -m pytest tests/test_solver.py -k contiguous -q    # one test
 python -m pytest tests/test_reproducible.py  # ~20 s: this OS's reference result codes
 python tools/code_map.py [solver checker ...] # function index with file:line — use it instead of opening files
 python tools/code_map.py --write             # regenerate docs/CODE_MAP.md (tests/test_code_map.py fails if stale)
-python -c "import main; main.run('data/Input_TKB_V8.xlsx', 'out')"   # sample data, ~4 min, prints "Mã kết quả"
-python main.py                               # school's real file (FILE_VAO) -> project root; real names!
+python main.py                               # school's real file (FILE_VAO) -> project root; real names! ~4 min
+python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the fake school (~4 min)
 python -m tkb <input.xlsx> -o out/TKB.xlsx [--mode bu_gio] [--time-limit 30] [--no-student-rules]
 python -m tkb.template <new.xlsx>            # blank input template
 ```
@@ -34,7 +39,7 @@ No linter/formatter is configured. CLI default `--mode` is `tuyen_them`; `main.p
 
 ## Architecture
 `main.run()` validates the constants at the top of `main.py` and calls `tkb.__main__.main(argv)`:
-`program.load_curriculum` + `staff.read_staff` → `solver.solve` → `checker.check` → `writer.write_timetable`,
+`program.read_program` + `staff.read_staff` → `solver.solve` → `checker.check` → `writer.write_timetable`,
 `write_updated_staff`, `write_statistics` (all output styles copied from the input via `style.Style.from_file`).
 
 `solver.solve`:
@@ -69,18 +74,21 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
 - Default reproducible mode (`solver._configure`): deterministic time budget, `interleave_search`, clause and
   level-zero-bound sharing off. Same input + `main.py` constants + pinned libs ⇒ same timetable on the same OS.
   Windows and Linux give different (equally valid) timetables.
-- `Solution.fingerprint()` is the "Mã kết quả" printed and written to `Thong_Ke.xlsx` › Tổng quan.
+- `Solution.fingerprint()` is the "Mã kết quả"; it is only printed (`chay_mau.py` reads it from stdout).
 - Any change to constraints, objective, weights, solver params or model-building order changes the codes. Update:
   `tests/test_reproducible.py` `REFERENCE` (Linux: run the test, the failure message shows the new code;
-  `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table "Chạy trên máy khác" (sample-data
-  codes), and the spec (§0 history row, §9).
+  `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table
+  "Chạy trên máy khác" (codes of `python main.py`), the spec (§0 history row, §9), and the output templates
+  (`python tools/mau_dau_ra.py`).
 - Current codes: small school Linux `60A5-5219-142F`/`F08D-1913-F355`, Windows `BAB3-230A-56C1`/`8D95-DAE4-E979`;
-  sample data Linux `A77F-F330-8C78`, Windows `CAAD-454D-9F0F`.
+  `python main.py` (school file as of now) Linux `7148-3212-6BD1`, Windows `D18E-8606-BCFA`; fake school of
+  `tests/du_lieu_mau.py` with main.py constants Linux `A77F-F330-8C78`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
-  `.github/scripts/chay_mau.py` (sample data twice); a Linux job fails if any VM's code differs (~25 min).
-- `file_that_windows.yml`: manual (or when the file itself changes); runs `FILE_VAO` on 2 VMs, compares codes.
+  `.github/scripts/chay_mau.py` (`FILE_VAO` twice, uploads only the code); a Linux job fails if any VM's code
+  differs (~25 min).
+- `file_that_windows.yml`: manual (or when the file itself changes); same run once on 2 VMs with Python 3.14.
 
 ## Docs (open only the section you need)
 - `docs/CODE_MAP.md`: generated function index (prefer `python tools/code_map.py <filter>`).

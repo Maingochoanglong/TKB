@@ -2,15 +2,15 @@ import pytest
 
 from tkb import config
 from tkb.allocation import build_problem, split_homeroom
-from tkb.staff import InputError, build_teacher, make_teacher
+from tkb.staff import InputError, make_teacher
 
-from .conftest import CURRICULUM
+from .conftest import CURRICULUM, teacher
 
 C = config
 
 
-def test_homeroom_split_real(real_staff):
-    p = build_problem(real_staff, CURRICULUM)
+def test_homeroom_split_sample(sample_staff):
+    p = build_problem(sample_staff, CURRICULUM)
     take = p.homeroom_take
     assert take["1/1"] == {C.TV: 10, C.TOAN: 5, C.HDTN: 3, C.DD: 1}  # cắt 4 tiết TV
     assert take["2/1"] == {C.TV: 10, C.TOAN: 5, C.HDTN: 3, C.DD: 1}  # vừa đủ 19
@@ -18,7 +18,7 @@ def test_homeroom_split_real(real_staff):
     assert take["4/1"][C.TV] == 6  # cắt 1 tiết TV
     assert take["5/5"][C.TV] == 3 and sum(take["5/5"].values()) == 16  # GVCN 16 tiết
     for cls, t in take.items():
-        quota = next(x.max_lessons for x in real_staff if x.class_name == cls)
+        quota = next(x.max_lessons for x in sample_staff if x.class_name == cls)
         assert sum(t.values()) == quota
         assert t[C.DD] == 1 and t[C.HDTN] == 3
 
@@ -51,8 +51,8 @@ def test_cut_only_multi_lesson_subjects():
         split_homeroom("1/1", req, 5, reserved=set())
 
 
-def test_permissions(real_staff):
-    p = build_problem(real_staff, CURRICULUM)
+def test_permissions(sample_staff):
+    p = build_problem(sample_staff, CURRICULUM)
     for c in p.courses:
         roles = {p.teachers[t].role for t in c.teachers}
         if c.subject == C.HDTN:
@@ -69,8 +69,8 @@ def test_permissions(real_staff):
     assert len(manager_courses) == 6 and p.manager_load == {"quản lý 1": 4}
 
 
-def test_supplement_numbering(real_staff):
-    p = build_problem(real_staff, CURRICULUM, supplement_counts={config.ROLE_GENERAL: 2, "tin học": 1})
+def test_supplement_numbering(sample_staff):
+    p = build_problem(sample_staff, CURRICULUM, supplement_counts={config.ROLE_GENERAL: 2, "tin học": 1})
     assert p.supplement_roles[config.ROLE_GENERAL] == ["bộ môn 6", "bộ môn 7"]
     assert p.supplement_roles["tin học"] == ["tin học 2"]
     t = p.teachers["bộ môn 6"]
@@ -80,13 +80,13 @@ def test_supplement_numbering(real_staff):
 def test_homeroom_needs_enough_lessons_for_locked_periods(monkeypatch):
     # GVCN 8 tiết không đủ nếu khoá tiết 1 và tiết 2 mỗi ngày (10 tiết).
     monkeypatch.setattr(config, "HOMEROOM_PERIODS", {1, 2})
-    staff = [build_teacher("CN", "chủ nhiệm 3/1", 8, row=2), build_teacher("BM", "bộ môn 1", 23, row=3)]
+    staff = [teacher("CN", "chủ nhiệm 3/1", 8, row=2), teacher("BM", "bộ môn 1", 23, row=3)]
     with pytest.raises(InputError, match="tiết bắt buộc của GVCN"):
         build_problem(staff, CURRICULUM)
 
 
-def test_overtime_allowances_and_eligibility(real_staff):
-    p = build_problem(real_staff, CURRICULUM, overtime_max=2)
+def test_overtime_allowances_and_eligibility(sample_staff):
+    p = build_problem(sample_staff, CURRICULUM, overtime_max=2)
     assert p.overtime["chủ nhiệm 1/1"] == 2 and p.overtime["bộ môn 1"] == 2
     assert p.overtime["chủ nhiệm 5/5"] == 2 and p.overtime["bộ môn 5"] == 2  # định mức thấp cũng được bù
     assert all(p.teachers[g].role in C.OVERTIME_ROLES for g in p.overtime)
@@ -95,22 +95,22 @@ def test_overtime_allowances_and_eligibility(real_staff):
     assert "chủ nhiệm 1/1" in pool["1/1", C.TNXH].teachers
     assert "chủ nhiệm 1/1" not in pool["1/1", C.TIENG_ANH].teachers  # không bù môn chuyên biệt
     assert "chủ nhiệm 1/2" not in pool["1/1", C.TV].teachers  # chỉ bù lớp mình
-    hire = build_problem(real_staff, CURRICULUM)
+    hire = build_problem(sample_staff, CURRICULUM)
     assert hire.overtime == {} and not hire.overtime_mode()
     assert all(not hire.teachers[g].class_name for c in hire.courses if not c.homeroom for g in c.teachers)
 
 
 def test_class_gaps_are_warned():
-    staff = [build_teacher("A", "chủ nhiệm 1/1", 19), build_teacher("B", "chủ nhiệm 1/3", 19),
-             build_teacher("C", "bộ môn 1", 23)]
+    staff = [teacher("A", "chủ nhiệm 1/1", 19), teacher("B", "chủ nhiệm 1/3", 19),
+             teacher("C", "bộ môn 1", 23)]
     warnings = build_problem(staff, CURRICULUM).warnings
     assert any("Khối 1 không có lớp 1/2" in w for w in warnings)
 
 
-def test_curriculum_row_order_does_not_change_problem(real_staff):
+def test_curriculum_row_order_does_not_change_problem(sample_staff):
     shuffled = {g: dict(reversed(list(req.items()))) for g, req in CURRICULUM.items()}
     key = lambda p: [(c.class_name, c.subject, c.lessons, tuple(c.teachers)) for c in p.courses]
-    assert key(build_problem(real_staff, shuffled)) == key(build_problem(real_staff, CURRICULUM))
+    assert key(build_problem(sample_staff, shuffled)) == key(build_problem(sample_staff, CURRICULUM))
 
 
 def _v8(name, label, lessons, cls=None, index=None, row=None):

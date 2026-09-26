@@ -1,6 +1,6 @@
 """Đọc chương trình học: cột 'Môn học' và các cột 'Khối k'.
 
-Chương trình học nằm ở sheet "CHƯƠNG TRÌNH HỌC" của file vào, hoặc ở sheet đầu của một file riêng.
+Chương trình học nằm ở sheet "CHƯƠNG TRÌNH HỌC" của file vào (mẫu V8).
 Danh sách môn và tên môn lấy nguyên từ file. Khi dựng bài toán, môn nào trùng tên một môn có luật trong
 tkb/config.py (xem `canonical_subject`) thì nhận luật đó, môn khác vẫn được xếp bình thường.
 """
@@ -26,17 +26,15 @@ def canonical_subject(name) -> str:
     return _rule_names().get(subject_key(name), clean_name(name))
 
 
-def has_program_sheet(path: str | Path) -> bool:
-    return find_sheet(openpyxl.load_workbook(path, read_only=True), config.PROGRAM_SHEET) is not None
-
-
 def read_program(path: str | Path) -> dict[int, dict[str, int]]:
-    """Đọc sheet "CHƯƠNG TRÌNH HỌC" nếu có, không thì sheet đầu tiên.
+    """Đọc sheet "CHƯƠNG TRÌNH HỌC" của file vào.
 
     Trả về {khối: {tên môn như trong file: số tiết}}, giữ thứ tự dòng của file.
     """
     wb = openpyxl.load_workbook(path, data_only=True)
-    ws = find_sheet(wb, config.PROGRAM_SHEET) or wb.worksheets[0]
+    ws = find_sheet(wb, config.PROGRAM_SHEET)
+    if ws is None:
+        raise InputError(f"File vào thiếu sheet {config.PROGRAM_SHEET} (Môn học, Khối 1, Khối 2...)")
     header_row = subject_col = None
     grade_cols: dict[int, int] = {}
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
@@ -81,16 +79,6 @@ def read_program(path: str | Path) -> dict[int, dict[str, int]]:
     if not any(curriculum.values()):
         raise InputError(f"Sheet {config.PROGRAM_SHEET} chưa có môn nào")
     return curriculum
-
-
-def load_curriculum(input_path: str | Path, program_path: str | Path | None = None
-                    ) -> tuple[dict[int, dict[str, int]], str]:
-    """Chương trình học của file vào (hoặc file riêng `program_path`) và mô tả nguồn."""
-    if program_path:
-        return read_program(program_path), str(program_path)
-    if not has_program_sheet(input_path):
-        raise InputError(f"File vào thiếu sheet {config.PROGRAM_SHEET} (Môn học, Khối 1, Khối 2...)")
-    return read_program(input_path), f"sheet {config.PROGRAM_SHEET} của file vào"
 
 
 def subjects_in_order(curriculum: dict[int, dict[str, int]]) -> list[str]:

@@ -9,7 +9,7 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 - `_resolve(path)` — Đường dẫn tương đối tính từ thư mục dự án; để trống = chính thư mục dự án.
 - `run(file_vao, thu_muc_out, file_tkb, thoi_gian_toi_da, luat_hoc_sinh, chay_tai_lap_duoc, so_luong, che_do, so_tiet_bu_toi_da, file_thong_ke)` — Chạy xếp TKB; trả về 0 nếu thành công.
 
-## tkb/__main__.py — Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] [--program chương trình.xlsx] ...
+## tkb/__main__.py — Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] ...
 - `use_utf8_output()` — In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252).
 - `main(argv)`
 
@@ -56,9 +56,7 @@ Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE
 ## tkb/program.py — Đọc chương trình học: cột 'Môn học' và các cột 'Khối k'.
 - `_rule_names()`
 - `canonical_subject(name)` — Tên môn dùng khi dựng bài toán: tên trong config nếu khớp một môn có luật, không thì giữ tên trong file.
-- `has_program_sheet(path)`
-- `read_program(path)` — Đọc sheet "CHƯƠNG TRÌNH HỌC" nếu có, không thì sheet đầu tiên.
-- `load_curriculum(input_path, program_path)` — Chương trình học của file vào (hoặc file riêng `program_path`) và mô tả nguồn.
+- `read_program(path)` — Đọc sheet "CHƯƠNG TRÌNH HỌC" của file vào.
 - `subjects_in_order(curriculum)` — Các môn theo thứ tự xuất hiện trong file.
 - `missing_rule_subjects(curriculum)` — Môn có luật trong config nhưng không có trong chương trình học (thường do gõ khác tên).
 
@@ -97,7 +95,7 @@ Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE
 - `solve(staff, curriculum, settings, log)` — Toàn bộ quy trình: phân công → xếp giờ với phân công cố định → (dự phòng) mô hình tích hợp.
 
 ## tkb/staff.py — Đọc và kiểm tra file Excel danh sách nhân sự.
-Hằng số: `SPECIAL_ROLES`, `_TITLE_RE`, `_CLASS_RE`
+Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`
 - `class InputError` — Lỗi dữ liệu đầu vào.
 - `class Teacher`
   - `.grade()`
@@ -106,19 +104,16 @@ Hằng số: `SPECIAL_ROLES`, `_TITLE_RE`, `_CLASS_RE`
 - `clean_name(text)` — Chữ trong file, bỏ khoảng trắng thừa (giữ hoa thường).
 - `subject_key(name)` — Khóa so khớp tên môn/chức vụ: không phân biệt hoa thường, dấu câu và chữ "và".
 - `role_errors(teachers, subjects)` — Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý và không trùng tên môn nào của chương trình học.
-- `parse_title(raw)` — Tách chức vụ kiểu cũ ("bộ môn 5", "chủ nhiệm 1/1") thành (role, index, lớp chủ nhiệm).
 - `canonical_title(role, index, class_name)`
 - `parse_class(value)` — Cột Lớp: khối/số thứ tự, vd "1/1".
 - `find_sheet(wb, name)` — Sheet có tên `name` (không phân biệt hoa thường), hoặc None.
 - `staff_sheet(wb)` — Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có, không thì sheet đầu tiên.
 - `_blank(value)`
-- `_find_columns(ws)` — Dòng tiêu đề và vị trí các cột. Bắt buộc: tên, chức vụ, số tiết; không bắt buộc: lớp, stt.
+- `_find_columns(ws)` — Dòng tiêu đề và vị trí các cột (mẫu V8). Bắt buộc: Họ và Tên, Chức Vụ, Số Tiết/Tuần; không bắt buộc: Lớp, STT.
 - `_to_lessons(value, title)`
-- `build_teacher(name, raw_title, lessons, row)` — Chức vụ kèm số thứ tự (mẫu cũ), vd "bộ môn 5", "chủ nhiệm 1/1".
 - `make_teacher(name, role, index, class_name, lessons, row, label)`
 - `validate(teachers)` — Báo mọi lỗi trùng lặp cùng lúc (mỗi lỗi một dòng).
 - `read_staff(path, subjects)` — Đọc sheet nhân sự; `subjects`: các môn của chương trình học để kiểm tra chức vụ (None = không kiểm).
-  · Đánh số thứ tự cho các dòng chỉ ghi tên chức vụ, theo thứ tự dòng, bỏ qua số đã dùng.
 - `class_sort_key(class_name)`
 - `classes_from_staff(teachers)`
 
@@ -136,14 +131,13 @@ Hằng số: `DEFAULT_ROW_HEIGHT`, `MAX_COLUMN_WIDTH`, `STAFF_HEADERS`
   - `.lines(text, width)`
   - `.header_cell(ws, row, col, value)`
   - `.body_cell(ws, row, col, value, bold, horizontal)`
-  - `.title_cell(ws, row, col, value)` — Dòng tựa phía trên một bảng: chữ tiêu đề, không viền.
   - `.table(ws, header, rows, top, bold_last)` — Bảng như sheet nhân sự của file vào: dòng tiêu đề rồi các dòng dữ liệu. Trả về dòng cuối.
   - `.fit_columns(ws, first_row, minimum, skip_rows)` — Nới độ rộng cột vừa chữ dài nhất (tối đa MAX_COLUMN_WIDTH, dài hơn thì xuống dòng).
 
 ## tkb/template.py — File vào mẫu V8: một file Excel, hai sheet, style giống file của nhà trường.
 Hằng số: `LIST_SHEET`, `STAFF_HEADERS`, `STAFF_WIDTHS`, `LAST_ROW`, `BLANK_ROWS`, `MAX_LESSONS`, `BLANK_GRADES`, `FONT`, `HEADER_FONT`, `THIN`, `BORDER`, `CENTER`, `NAME_ALIGN`, `ROW_HEIGHT`, `ERROR_STYLE`, `NOTES`
 - `role_label(t)`
-- `role_choices(teachers)` — Chủ Nhiệm, Bộ Môn, các chức vụ chuyên biệt có trong file cũ, Quản Lý (chỉ để gợi ý).
+- `role_choices(teachers)` — Chủ Nhiệm, Bộ Môn, các chức vụ chuyên biệt có trong danh sách, Quản Lý (chỉ để gợi ý).
 - `staff_row(t)`
 - `_style_rows(ws, first, last, n_cols, header, name_col)`
 - `_staff_sheet(wb, teachers)`
@@ -152,34 +146,26 @@ Hằng số: `LIST_SHEET`, `STAFF_HEADERS`, `STAFF_WIDTHS`, `LAST_ROW`, `BLANK_R
 - `write_staff_template(path, teachers, curriculum)` — Ghi file vào mẫu V8 (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC).
 - `main(argv)`
 
-## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (tổng quan, danh sách nhân sự, thống kê giáo viên);
-Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `OVERVIEW_SHEET`
+## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (số tiết từng môn của mỗi giáo viên); file vào
+Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `STATS_SHEET`, `TOTAL_HEADER`
 - `teacher_labels(teachers)` — Chức vụ -> tên hiển thị dưới tên môn trong TKB.
-- `session_rows()` — Các hàng của bảng TKB: (buổi, tiết trong ngày, số thứ tự tiết trong buổi).
+- `session_rows()` — Các hàng của bảng TKB: (buổi, tiết trong ngày). Cột TIẾT ghi tiết trong ngày: sáng 1–4, chiều 5–7.
 - `_merge(ws, style, r1, c1, r2, c2, value)`
 - `_grade_sheets(wb, solution, style)`
-- `daily_loads(solution)`
 - `staff_rows(solution)` — GV thật theo thứ tự file gốc, sau đó GV bổ sung được dùng.
-- `role_label(solution, role)` — Chức vụ như ghi trong file vào (vd "Tiếng Anh"), ba chức vụ đặc biệt theo config.
-- `mode_label(problem)`
-- `overtime_details(solution)` — GVCN -> các môn dạy bù ở lớp mình, vd "TV tăng cường ×2".
-- `staff_table(solution, style)` — Danh sách nhân sự đã cập nhật: các cột của file vào + Mã GV, số tiết thực dạy, bù, ghi chú.
-- `_staff_sheet(wb, solution, style)`
-- `_overview_sheet(ws, solution, errors, warnings, style)` — Tổng quan: chế độ, kết quả kiểm tra luật, mã kết quả, người cần tuyển, dạy bù, lỗi kiểm tra.
 - `write_timetable(solution, path, style)` — File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics).
 - `_stats_name(t)`
-- `statistics_rows(solution)` — Tên | Chức vụ | Mã GV | Số tiết quy định | Số tiết bù | Số tiết thực dạy | Số tiết còn dư.
-- `assignment_rows(solution)` — Phân công chuyên môn: Tên | Mã GV | Lớp | Môn | Số tiết (theo thứ tự danh sách nhân sự).
-- `daily_rows(solution)` — Tên | Mã GV | Số lớp dạy | số tiết từng ngày | Tổng.
-- `role_rows(solution)` — Chức vụ | Số người | Quy định | Thực dạy | Bù | Còn dư | Số người tuyển thêm | Số tiết tuyển thêm.
-- `_stats_table(ws, style, header, rows, total_from)` — Bảng như sheet nhân sự của file vào (tiêu đề ở dòng 1); total_from: cộng các cột từ vị trí này.
-- `write_statistics(solution, path, style, errors, warnings)` — File thống kê: tổng quan, danh sách nhân sự, thống kê giáo viên, phân công, tải theo ngày, theo chức vụ.
+- `subject_table(solution, style)` — Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết, mỗi giáo viên một dòng; cuối bảng có dòng Tổng.
+- `write_statistics(solution, path, style)` — File thống kê: một bảng số tiết từng môn của mỗi giáo viên (xem subject_table).
 - `_copy_style(src, dst)`
 - `write_updated_staff(solution, source, path)` — Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
 
-## .github/scripts/chay_mau.py — Chạy xếp TKB với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã kết quả.
-Hằng số: `ROOT`, `SAMPLE`
-- `result_code(stats_file)`
+## .github/scripts/chay_mau.py — Chạy xếp TKB file FILE_VAO với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã.
+Hằng số: `ROOT`
+- `class _Tee` — Vừa in ra màn hình vừa giữ lại chữ đã in.
+  - `.write(text)`
+  - `.flush()`
+- `run_once(source, out)` — Chạy main.run; trả về (mã thoát, mã kết quả đọc từ dòng "Mã kết quả: ..." in ra màn hình).
 - `run(argv)`
 
 ## tools/code_map.py — Bản đồ code: mỗi module một dòng mô tả, rồi các hàm/lớp kèm tham số và dòng đầu docstring.
@@ -195,12 +181,16 @@ Hằng số: `ROOT`, `OUT`, `SOURCES`, `TESTS`, `LONG_FUNCTION`, `HEADER`
 - `render(lines, only)`
 - `main(argv)`
 
+## tools/mau_dau_ra.py — Sinh lại các file mẫu đầu ra từ trường mẫu tên giả (tests/du_lieu_mau.py), với các hằng số mặc định
+Hằng số: `ROOT`, `TEMPLATES`
+- `run()`
+
 ## tests
-- `tests/test_allocation.py`: test_homeroom_split_real, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
+- `tests/test_allocation.py`: test_homeroom_split_sample, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_main.py`: test_run_writes_outputs, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_240s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited
 - `tests/test_reproducible.py`: test_same_timetable_across_runs, test_reference_fingerprint, test_ortools_version_is_pinned, test_no_wall_clock_limit_in_reproducible_mode
-- `tests/test_solver.py`: test_small_school_solves_and_passes_checker, test_hdtn_fixed_and_flex, test_missing_general_teacher_becomes_supplement, test_checker_detects_violations, test_homeroom_teaches_first_period, test_heavy_subjects_avoid_last_period, test_core_subjects_in_the_morning, test_slot_capacity_limits_assignment, test_real_data_assignment_is_optimal, test_reproducible_mode_gives_identical_timetables, test_overtime_mode_covers_shortage_without_hiring, test_overtime_mode_hires_only_the_remainder, test_overtime_homeroom_before_general, test_checker_flags_invalid_overtime, test_real_data_overtime_assignment, test_same_subject_lessons_are_contiguous, test_contiguous_when_a_subject_must_repeat_in_a_session, test_checker_detects_split_subject, test_checker_requires_homeroom_to_cover_own_class_first
-- `tests/test_staff.py`: test_parse_titles, test_parse_title_rejects, test_bad_lessons, test_duplicates_rejected, test_read_real_staff, test_program_file_is_read_as_written, test_subject_names_match_rules_loosely, test_extra_columns_are_ignored, test_v7_columns_and_auto_numbering, test_v7_errors, test_v7_class_turned_into_date, test_program_sheet_aliases_and_total_row, test_missing_program_sheet_is_an_error, test_all_errors_at_once
-- `tests/test_template.py`: test_input_file_matches_v5, test_template_style_and_dropdowns, test_blank_template_has_only_headers, test_updated_staff_keeps_template_and_style, test_cli_converts_old_file
-- `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_has_overview_and_staff_list, test_supplement_added_to_staff_list, test_updated_staff_file_is_reusable, test_overtime_columns, test_teacher_labels, test_blank_names_show_teacher_code, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime
+- `tests/test_solver.py`: test_small_school_solves_and_passes_checker, test_hdtn_fixed_and_flex, test_missing_general_teacher_becomes_supplement, test_checker_detects_violations, test_homeroom_teaches_first_period, test_heavy_subjects_avoid_last_period, test_core_subjects_in_the_morning, test_slot_capacity_limits_assignment, test_sample_school_assignment_is_optimal, test_reproducible_mode_gives_identical_timetables, test_overtime_mode_covers_shortage_without_hiring, test_overtime_mode_hires_only_the_remainder, test_overtime_homeroom_before_general, test_checker_flags_invalid_overtime, test_sample_school_overtime_assignment, test_same_subject_lessons_are_contiguous, test_contiguous_when_a_subject_must_repeat_in_a_session, test_checker_detects_split_subject, test_checker_requires_homeroom_to_cover_own_class_first
+- `tests/test_staff.py`: test_bad_lessons, test_duplicates_rejected, test_read_sample_staff, test_program_file_is_read_as_written, test_subject_names_match_rules_loosely, test_columns_and_auto_numbering, test_numbered_titles_are_rejected, test_old_headers_are_rejected, test_class_errors, test_class_turned_into_date, test_program_sheet_aliases_and_total_row, test_missing_program_sheet_is_an_error, test_all_errors_at_once
+- `tests/test_template.py`: test_template_style_and_dropdowns, test_blank_template_has_only_headers, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template
+- `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime

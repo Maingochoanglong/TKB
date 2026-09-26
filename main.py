@@ -50,8 +50,9 @@ CHAY_TAI_LAP_DUOC = True
 
 # --- Ít khi phải sửa ---
 
-# Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_THONG_KE gồm
-# tổng quan (mã kết quả, kiểm tra luật, tuyển thêm, dạy bù), danh sách nhân sự và các bảng thống kê giáo viên.
+# Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_THONG_KE là một bảng:
+# mỗi giáo viên một dòng (tên, chức vụ), số tiết từng môn người đó dạy và tổng số tiết. Mã kết quả, kết quả kiểm
+# tra luật, người cần tuyển, dạy bù chỉ in ra màn hình.
 FILE_TKB = "TKB.xlsx"
 FILE_THONG_KE = "Thong_Ke.xlsx"
 

@@ -7,7 +7,7 @@ from tkb.staff import read_staff
 from tkb.template import main as template_main, role_choices, write_staff_template
 from tkb.writer import write_updated_staff
 
-from .conftest import CURRICULUM, INPUT_FILE, PROGRAM_FILE, STAFF_FILE, small_staff
+from .conftest import CURRICULUM, small_staff
 
 HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần")
 
@@ -20,19 +20,9 @@ def _rows(ws):
     return [r for r in ws.iter_rows(values_only=True) if any(v is not None for v in r)]
 
 
-def test_input_file_matches_v5(real_staff):
-    assert _key(read_staff(INPUT_FILE)) == _key(real_staff)
-    assert read_program(INPUT_FILE) == CURRICULUM
-    wb = openpyxl.load_workbook(INPUT_FILE)
-    rows = _rows(wb["NHÂN SỰ"])
-    assert rows[0] == HEADER
-    assert rows[1] == ("Giáo viên CN 1", "Chủ Nhiệm", "1/1", 19)
-    assert ("Giáo viên BM 5", "Bộ Môn", None, 19) in rows
-
-
-def test_template_style_and_dropdowns(tmp_path, real_staff):
+def test_template_style_and_dropdowns(tmp_path, sample_staff):
     path = tmp_path / "mau.xlsx"
-    write_staff_template(path, real_staff, CURRICULUM)
+    write_staff_template(path, sample_staff, CURRICULUM)
     wb = openpyxl.load_workbook(path)
     assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "Danh mục"]
     assert wb["Danh mục"].sheet_state == "hidden"
@@ -49,12 +39,12 @@ def test_template_style_and_dropdowns(tmp_path, real_staff):
     program = _rows(wb["CHƯƠNG TRÌNH HỌC"])
     assert program[0] == ("Môn học", "Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5")
     assert len(program) == 17
-    assert [c.value for c in wb["Danh mục"]["A"] if c.value] == role_choices(real_staff)
-    assert role_choices(real_staff) == ["Chủ Nhiệm", "Bộ Môn", "Tiếng Anh", "Thể Dục", "Âm Nhạc", "Mỹ Thuật",
+    assert [c.value for c in wb["Danh mục"]["A"] if c.value] == role_choices(sample_staff)
+    assert role_choices(sample_staff) == ["Chủ Nhiệm", "Bộ Môn", "Tiếng Anh", "Thể Dục", "Âm Nhạc", "Mỹ Thuật",
                                         "Tin Học", "Quản Lý"]
     assert ws["C2"].number_format == "@"  # Lớp là chữ để Excel không đổi thành ngày tháng
     assert len(ws.conditional_formatting) >= 1
-    assert _key(read_staff(path)) == _key(real_staff)
+    assert _key(read_staff(path)) == _key(sample_staff)
     assert read_program(path) == CURRICULUM
 
 
@@ -96,8 +86,7 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     assert rows2[0] == rows[0] and len(rows2) == len(rows)
 
 
-def test_cli_converts_old_file(tmp_path, real_staff):
+def test_cli_writes_blank_template(tmp_path):
     out = tmp_path / "moi.xlsx"
-    assert template_main([str(out), "--tu", str(STAFF_FILE), "--program", str(PROGRAM_FILE)]) == 0
-    assert _key(read_staff(out)) == _key(real_staff)
-    assert read_program(out) == CURRICULUM
+    assert template_main([str(out)]) == 0
+    assert _rows(openpyxl.load_workbook(out)["NHÂN SỰ"]) == [HEADER]

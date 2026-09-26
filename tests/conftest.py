@@ -1,21 +1,28 @@
+import tempfile
 from pathlib import Path
 
 import pytest
 
-from tkb.program import read_program
-from tkb.staff import build_teacher, read_staff
+from tkb.staff import make_teacher, read_staff
 
-DATA = Path(__file__).resolve().parent.parent / "data"
-STAFF_FILE = DATA / "Input_Danh_Sach_Nhan_Su_V5.xlsx"  # định dạng cũ: chức vụ kèm số, vd "bộ môn 5"
-INPUT_FILE = DATA / "Input_TKB_V8.xlsx"  # file vào hiện tại: sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC
-PROGRAM_FILE = DATA / "Input_Chuong_Trinh_Hoc_V5.xlsx"
-# Chương trình học dùng trong test: đọc từ file, không có trong code.
-CURRICULUM = read_program(PROGRAM_FILE)
+from .du_lieu_mau import CURRICULUM, write_sample_input  # noqa: F401  (CURRICULUM: dùng trong các test)
+
+# File vào mẫu V8 của trường mẫu tên giả (tests/du_lieu_mau.py), ghi vào thư mục tạm mỗi lần chạy test.
+INPUT_FILE = write_sample_input(Path(tempfile.mkdtemp(prefix="tkb_test_")) / "Input_Mau_V8.xlsx")
 
 
 @pytest.fixture(scope="session")
-def real_staff():
-    return read_staff(STAFF_FILE)
+def sample_staff():
+    """Nhân sự đủ 29 lớp của trường mẫu (tên giả), đọc từ file vào mẫu."""
+    return read_staff(INPUT_FILE)
+
+
+def teacher(name: str, title: str, lessons, row: int | None = None):
+    """GV cho test, chức vụ viết gọn kèm số: "chủ nhiệm 3/1" (lớp chủ nhiệm), "bộ môn 1", "tiếng anh 2"."""
+    role, key = title.rsplit(" ", 1)
+    if "/" in key:
+        return make_teacher(name, role, None, key, lessons, row)
+    return make_teacher(name, role, int(key), None, lessons, row)
 
 
 def small_staff(general: bool = True):
@@ -31,4 +38,4 @@ def small_staff(general: bool = True):
     ]
     if general:
         rows.append(("BM", "bộ môn 1", 23))
-    return [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    return [teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]

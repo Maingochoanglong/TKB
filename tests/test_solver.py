@@ -7,9 +7,8 @@ from tkb import config
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.solver import assign, distance_to_session_end, solve
-from tkb.staff import build_teacher
 
-from .conftest import CURRICULUM, small_staff
+from .conftest import CURRICULUM, small_staff, teacher
 
 FAST = config.Settings(time_limit=20, workers=4)
 OVERTIME = dataclasses.replace(FAST, mode=config.MODE_OVERTIME)
@@ -90,15 +89,15 @@ def test_slot_capacity_limits_assignment():
     rows += [("TA", "tiếng anh 1", 30), ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23),
              ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23), ("BM1", "bộ môn 1", 23),
              ("BM2", "bộ môn 2", 23)]
-    staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    staff = [teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
     plan = assign(build_problem(staff, CURRICULUM), FAST)
     assert plan.optimal
     assert {r: n for r, n in plan.counts.items() if n} == {"tiếng anh": 1}
     assert plan.supplement_lessons == 28 - 26
 
 
-def test_real_data_assignment_is_optimal(real_staff):
-    plan = assign(build_problem(real_staff, CURRICULUM), config.Settings(time_limit=80, workers=4))
+def test_sample_school_assignment_is_optimal(sample_staff):
+    plan = assign(build_problem(sample_staff, CURRICULUM), config.Settings(time_limit=80, workers=4))
     assert plan.optimal
     assert plan.supplement_lessons == 52
     assert {r: n for r, n in plan.counts.items() if n} == {config.ROLE_GENERAL: 3}
@@ -137,7 +136,7 @@ def test_overtime_homeroom_before_general():
     rows = [("CN A", "chủ nhiệm 3/1", 19), ("CN B", "chủ nhiệm 3/2", 19), ("TA", "tiếng anh 1", 23),
             ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23),
             ("BM", "bộ môn 1", 4)]
-    staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    staff = [teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
     sol = solve(staff, CURRICULUM, OVERTIME, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
     assert sol.used_supplements() == []
@@ -155,8 +154,8 @@ def test_checker_flags_invalid_overtime(overtime_solution):
     assert any("vượt định mức 19 + 4 tiết bù" in e for e in errors)
 
 
-def test_real_data_overtime_assignment(real_staff):
-    problem = build_problem(real_staff, CURRICULUM, overtime_max=2)
+def test_sample_school_overtime_assignment(sample_staff):
+    problem = build_problem(sample_staff, CURRICULUM, overtime_max=2)
     plan = assign(problem, config.Settings(time_limit=80, workers=4))
     assert plan.supplement_lessons == 0
     assert sum(plan.overtime.values()) == 52
@@ -183,7 +182,7 @@ def test_contiguous_when_a_subject_must_repeat_in_a_session():
     # Khối 1 học 14 tiết Tiếng Việt trong 9 buổi: buộc phải có buổi học 2 tiết TV, và 2 tiết đó phải liền.
     rows = [("CN A", "chủ nhiệm 1/1", 19), ("CN B", "chủ nhiệm 1/2", 19), ("TA", "tiếng anh 1", 23),
             ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("BM", "bộ môn 1", 23)]
-    staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    staff = [teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
     sol = solve(staff, CURRICULUM, FAST, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
     pairs = Counter((l.class_name, l.day, l.period < 5, l.subject) for l in sol.lessons if l.subject == config.TV)
@@ -225,7 +224,7 @@ def test_checker_requires_homeroom_to_cover_own_class_first():
     rows = [("CN A", "chủ nhiệm 3/1", 19), ("CN B", "chủ nhiệm 3/2", 19), ("TA", "tiếng anh 1", 23),
             ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23),
             ("BM", "bộ môn 1", 4)]
-    staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    staff = [teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
     sol = solve(staff, CURRICULUM, OVERTIME, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
     assert sol.overtime() == {"chủ nhiệm 3/1": 2, "chủ nhiệm 3/2": 2}

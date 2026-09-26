@@ -1,7 +1,7 @@
 # Kiểm chứng trên máy ảo Windows thật của GitHub: mọi máy Windows (Windows Server 2022 và 2025, Python 3.12 và
-# 3.14, loại CPU tuỳ máy ảo) chạy cùng main.py với dữ liệu mẫu phải ra cùng "Mã kết quả", và mỗi máy chạy 2 lần
-# cũng phải ra cùng mã. OR-Tools bản Windows ra TKB khác bản Linux, nên chỉ so giữa các máy Windows với nhau.
-# Chỉ dùng dữ liệu mẫu tên giả (data/Input_TKB_V8.xlsx); không bao giờ chạy file có tên giáo viên thật ở đây.
+# 3.14, loại CPU tuỳ máy ảo) chạy main.py với các hằng số mặc định (file FILE_VAO) phải ra cùng "Mã kết quả", và
+# mỗi máy chạy 2 lần cũng phải ra cùng mã. OR-Tools bản Windows ra TKB khác bản Linux, nên chỉ so giữa các máy
+# Windows với nhau. FILE_VAO có tên giáo viên thật: chỉ tải lên mã kết quả, không tải các file ra.
 name: Kiểm chứng trên Windows
 
 on:
@@ -41,16 +41,14 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Chạy test
         run: python -m pytest -q -rs
-      - name: Chạy dữ liệu mẫu 2 lần với hằng số mặc định của main.py
+      - name: Chạy main.py 2 lần với các hằng số mặc định
         if: success() || failure()  # vẫn chạy để lấy mã kết quả khi có test trượt
         run: python .github/scripts/chay_mau.py "${{ matrix.os }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4  # chỉ mã kết quả, không có tên giáo viên
         if: always()
         with:
           name: ket-qua-${{ matrix.os }}-python${{ matrix.python }}
-          path: |
-            out/
-            ma_ket_qua.txt
+          path: ma_ket_qua.txt
 
   so-sanh:
     name: So sánh mã kết quả giữa các máy Windows
