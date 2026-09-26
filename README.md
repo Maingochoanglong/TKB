@@ -82,6 +82,7 @@ Chạy test: `python -m pytest -q`
 
 | Hệ điều hành | Mã kết quả dữ liệu mẫu | Đã kiểm |
 |---|---|---|
+| Windows x86-64 | **`CAAD-454D-9F0F`** | 4 máy ảo GitHub Actions, mỗi máy chạy 2 lần: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
 | Linux x86-64 | **`A77F-F330-8C78`** | Python 3.11, chạy lặp nhiều lần |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
