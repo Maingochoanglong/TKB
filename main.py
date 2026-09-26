@@ -15,11 +15,11 @@ from pathlib import Path
 # Địa chỉ file vào: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần) và sheet
 # "CHƯƠNG TRÌNH HỌC" (Môn học, Khối 1..5). Danh sách môn, số tiết, giáo viên đều lấy từ file này;
 # các file ra dùng lại style (phông, cỡ chữ, viền, chiều cao dòng) của file này.
-FILE_VAO = "data/Input_TKB_V8.xlsx"
+FILE_VAO = "data/INPUT_V8.xlsx"
 
 # Thư mục ghi kết quả (tự tạo nếu chưa có). Để trống "" thì ghi ngay vào thư mục dự án
 # (thư mục chứa main.py).
-THU_MUC_OUT = "out"
+THU_MUC_OUT = ""
 
 # Khi thiếu người:
 #   "bu_gio"    : GVCN và bộ môn dạy bù vượt định mức (GVCN bù trước, ngay ở lớp mình,
