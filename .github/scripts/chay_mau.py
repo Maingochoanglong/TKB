@@ -1,12 +1,15 @@
-"""Chạy dữ liệu mẫu (tên giả) 2 lần với các hằng số mặc định của main.py; hai lần phải ra cùng mã kết quả.
+"""Chạy xếp TKB với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã kết quả.
 
 Dùng trong workflow kiểm chứng: ghi một dòng "<máy> | <mã kết quả>" vào ma_ket_qua.txt để job so sánh gom mã
-của mọi máy lại. Luôn chạy file mẫu, không theo FILE_VAO (file đó có thể có tên giáo viên thật).
+của mọi máy lại. Mặc định chạy file mẫu tên giả, không theo FILE_VAO (file đó có thể có tên giáo viên thật).
 
-Chạy: python .github/scripts/chay_mau.py <tên máy>
+Chạy: python .github/scripts/chay_mau.py <tên máy> [--theo-main] [--lan N]
+  --theo-main   chạy file FILE_VAO của main.py (file thật của trường) thay cho file mẫu
+  --lan N       số lần chạy (mặc định 2)
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -18,7 +21,6 @@ import openpyxl  # noqa: E402
 import main  # noqa: E402
 
 SAMPLE = ROOT / "data" / "Input_TKB_V8.xlsx"
-RUNS = 2
 
 
 def result_code(stats_file: Path) -> str:
@@ -26,24 +28,29 @@ def result_code(stats_file: Path) -> str:
     return next(row[1] for row in ws.iter_rows(values_only=True) if row[0] == "Mã kết quả")
 
 
-def run() -> int:
-    label = sys.argv[1] if len(sys.argv) > 1 else "máy này"
+def run(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("label", nargs="?", default="máy này")
+    ap.add_argument("--theo-main", action="store_true", help="chạy FILE_VAO của main.py thay cho file mẫu")
+    ap.add_argument("--lan", type=int, default=2, help="số lần chạy")
+    args = ap.parse_args(argv)
+    source = main._resolve(main.FILE_VAO) if args.theo_main else SAMPLE
     info = ROOT / "may.txt"
     machine = info.read_text(encoding="utf-8-sig").strip() if info.is_file() else ""
     codes = []
-    for i in range(1, RUNS + 1):
+    for i in range(1, args.lan + 1):
         out = ROOT / "out" / f"lan{i}"
-        status = main.run(SAMPLE, out)
+        status = main.run(source, out)
         if status != 0:
             print(f"LỖI: lần chạy {i} trả về mã thoát {status}")
             return status
         codes.append(result_code(out / main.FILE_THONG_KE))
         print(f"Lần {i}: mã kết quả {codes[-1]}")
-    line = " | ".join(part for part in (label, machine, codes[0]) if part)
+    line = " | ".join(part for part in (args.label, machine, codes[0]) if part)
     (ROOT / "ma_ket_qua.txt").write_text(line + "\n", encoding="utf-8", newline="\n")  # job so sánh chạy Linux
     print(line)
     if len(set(codes)) != 1:
-        print(f"LỖI: cùng máy, cùng cấu hình mà {RUNS} lần chạy ra mã khác nhau: {', '.join(codes)}")
+        print(f"LỖI: cùng máy, cùng cấu hình mà {args.lan} lần chạy ra mã khác nhau: {', '.join(codes)}")
         return 1
     return 0
 
