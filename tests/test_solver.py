@@ -124,16 +124,16 @@ def test_overtime_mode_hires_only_the_remainder():
     assert sol.teacher_load()["bộ môn 1"] == 4
 
 
-def test_overtime_includes_maternity_and_homeroom_first():
-    rows = [("CN A", "chủ nhiệm 3/1", 19), ("CN B", "chủ nhiệm 3/2 ts", 19), ("TA", "tiếng anh 1", 23),
+def test_overtime_homeroom_before_general():
+    rows = [("CN A", "chủ nhiệm 3/1", 19), ("CN B", "chủ nhiệm 3/2", 19), ("TA", "tiếng anh 1", 23),
             ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("TH", "tin học 1", 23),
             ("BM", "bộ môn 1", 4)]
     staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
     sol = solve(staff, CURRICULUM, OVERTIME, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
     assert sol.used_supplements() == []
-    # Thiếu 8 - 4 = 4 tiết: GVCN bù trước (kể cả GVCN thai sản), bộ môn không phải bù.
-    assert sol.overtime() == {"chủ nhiệm 3/1": 2, "chủ nhiệm 3/2 ts": 2}
+    # Thiếu 8 - 4 = 4 tiết: GVCN bù trước, bộ môn không phải bù.
+    assert sol.overtime() == {"chủ nhiệm 3/1": 2, "chủ nhiệm 3/2": 2}
 
 
 def test_checker_flags_invalid_overtime(overtime_solution):
@@ -151,7 +151,7 @@ def test_real_data_overtime_assignment(real_staff):
     plan = assign(problem, config.Settings(time_limit=80, workers=4))
     assert plan.supplement_lessons == 0
     assert sum(plan.overtime.values()) == 52
-    # Chỉ GVCN bù (kể cả GVCN thai sản), không ai quá 2 tiết.
+    # Chỉ GVCN bù (kể cả GVCN 5/5 chỉ có 16 tiết), không ai quá 2 tiết.
     assert all(problem.teachers[g].class_name for g in plan.overtime)
     assert max(plan.overtime.values()) == 2
 

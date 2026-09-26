@@ -121,7 +121,7 @@ HOMEROOM_PERIODS: set[int] = {1}
 # --------------------------------------------------------------------------
 # GV bổ sung khi thiếu người
 # --------------------------------------------------------------------------
-# Định mức của GV bổ sung = Số tiết lớn nhất của GV cùng chức vụ (không thai sản) trong file vào;
+# Định mức của GV bổ sung = Số tiết lớn nhất của GV cùng chức vụ trong file vào;
 # chức vụ chưa có ai thì lấy Số tiết lớn nhất của các GV không chủ nhiệm, không quản lý.
 SUPPLEMENT_NAME = "chưa có"
 
@@ -132,7 +132,7 @@ MODE_HIRE = "tuyen_them"  # thêm GV bổ sung "chưa có" vào danh sách nhân
 MODE_OVERTIME = "bu_gio"  # GVCN/bộ môn dạy bù vượt định mức; chỉ tuyển khi bù vẫn không đủ
 MODES = (MODE_HIRE, MODE_OVERTIME)
 # Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt; GVCN bù
-# trước, bộ môn chỉ bù khi GVCN đã bù hết mức. Người hưởng thai sản cũng được bù như mọi người.
+# trước, bộ môn chỉ bù khi GVCN đã bù hết mức.
 OVERTIME_ROLES: set[str] = {ROLE_HOMEROOM, ROLE_GENERAL}
 OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức được duyệt)
 

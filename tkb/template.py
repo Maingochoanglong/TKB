@@ -1,10 +1,9 @@
 """File vào mẫu V8: một file Excel, hai sheet, style giống file của nhà trường.
 
-- Sheet "NHÂN SỰ": Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Chế Độ
+- Sheet "NHÂN SỰ": Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần
   - Chức Vụ: Chủ Nhiệm, Bộ Môn, Quản Lý hoặc tên một môn (GV chuyên biệt, vd "Tiếng Anh"); không ghi số
     thứ tự (chương trình tự đánh số theo thứ tự dòng).
   - Lớp (khối/số thứ tự, vd 1/1) chỉ ghi cho Chủ Nhiệm.
-  - Chế Độ ghi "Có" nếu đang hưởng chế độ thai sản, để trống nếu không.
 - Sheet "CHƯƠNG TRÌNH HỌC": Môn học | Khối 1 ... Khối n (số tiết/tuần).
 
 Chạy:
@@ -27,11 +26,11 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 from . import config
 from .program import has_program_sheet, read_program
-from .staff import MATERNITY_LABEL, InputError, Teacher, read_staff
+from .staff import InputError, Teacher, read_staff
 
 LIST_SHEET = "Danh mục"
-STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Chế Độ"]
-STAFF_WIDTHS = (34, 16, 8, 17, 11)
+STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"]
+STAFF_WIDTHS = (34, 16, 8, 17)
 LAST_ROW = 300  # số dòng có sẵn danh sách thả xuống
 BLANK_ROWS = 10  # số dòng trống kẻ sẵn dưới danh sách
 MAX_LESSONS = 40
@@ -51,8 +50,7 @@ NOTES = {
     "Chức Vụ": "Chủ Nhiệm, Bộ Môn, Quản Lý hoặc tên một môn trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên biệt). "
                "Không ghi số thứ tự: chương trình tự đánh số theo thứ tự dòng.",
     "Lớp": "Chỉ ghi cho Chủ Nhiệm, dạng khối/số thứ tự, vd 1/1.",
-    "Số Tiết/Tuần": "Số tiết tối đa mỗi tuần (người hưởng thai sản ghi mức đã giảm).",
-    "Chế Độ": f"Ghi \"{MATERNITY_LABEL}\" nếu đang hưởng chế độ thai sản; để trống nếu không.",
+    "Số Tiết/Tuần": "Số tiết tối đa mỗi tuần.",
 }
 
 
@@ -69,7 +67,7 @@ def role_choices(teachers: list[Teacher] = ()) -> list[str]:
 
 
 def staff_row(t: Teacher) -> list:
-    return [t.name or None, role_label(t), t.class_name, t.max_lessons, MATERNITY_LABEL if t.maternity else None]
+    return [t.name or None, role_label(t), t.class_name, t.max_lessons]
 
 
 def _style_rows(ws, first: int, last: int, n_cols: int, header: bool = False, name_col: int | None = None) -> None:
@@ -95,7 +93,7 @@ def _staff_sheet(wb, teachers: list[Teacher]) -> None:
             cell.comment = Comment(NOTES[cell.value], "TKB")
     for r in range(2, LAST_ROW + 1):
         ws.cell(r, 3).number_format = "@"  # Lớp là chữ, để Excel không đổi "1/1" thành ngày tháng
-    for col, width in zip("ABCDE", STAFF_WIDTHS):
+    for col, width in zip("ABCD", STAFF_WIDTHS):
         ws.column_dimensions[col].width = width
 
     n_roles = len(role_choices(teachers))
@@ -107,10 +105,7 @@ def _staff_sheet(wb, teachers: list[Teacher]) -> None:
                              formula1='AND(ISNUMBER(FIND("/",C2)),ISNUMBER(--LEFT(C2,FIND("/",C2)-1)),'
                                       'ISNUMBER(--MID(C2,FIND("/",C2)+1,5)))')
     lessons = _whole(f"D2:D{LAST_ROW}")
-    maternity = DataValidation(type="list", formula1=f'"{MATERNITY_LABEL}"', allow_blank=True, showErrorMessage=True,
-                               errorTitle="Chế Độ", error=f"Ghi \"{MATERNITY_LABEL}\" hoặc để trống.",
-                               sqref=f"E2:E{LAST_ROW}")
-    for dv in (roles, classes, lessons, maternity):
+    for dv in (roles, classes, lessons):
         ws.add_data_validation(dv)
 
     # Tô đỏ: lớp có hai chủ nhiệm, Chủ Nhiệm thiếu Lớp, chức vụ khác lại ghi Lớp.

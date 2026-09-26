@@ -140,9 +140,9 @@ def split_homeroom(class_name: str, grade_req: dict[str, int], quota: int,
 
 
 def supplement_capacity(role: str, teachers: list[Teacher]) -> int:
-    """Định mức GV bổ sung: Số tiết lớn nhất của GV cùng chức vụ (không thai sản) trong file vào;
+    """Định mức GV bổ sung: Số tiết lớn nhất của GV cùng chức vụ trong file vào;
     chức vụ chưa có ai thì lấy của các GV không chủ nhiệm, không quản lý."""
-    real = [t for t in teachers if not t.maternity and not t.supplementary]
+    real = [t for t in teachers if not t.supplementary]
     loads = [t.max_lessons for t in real if t.role == role]
     loads = loads or [t.max_lessons for t in real if t.role not in (config.ROLE_HOMEROOM, config.ROLE_MANAGER)]
     if not loads:
@@ -155,13 +155,13 @@ def make_supplements(role: str, count: int, teachers: list[Teacher], label: str 
     start = max((t.index or 0 for t in teachers if t.role == role and not t.supplementary), default=0)
     cap = supplement_capacity(role, teachers) if count else 0
     return [Teacher(name=config.SUPPLEMENT_NAME, title=f"{role} {start + i}", role=role,
-                    index=start + i, class_name=None, maternity=False, max_lessons=cap,
+                    index=start + i, class_name=None, max_lessons=cap,
                     supplementary=True, label=label)
             for i in range(1, count + 1)]
 
 
 def overtime_allowance(t: Teacher, overtime_max: int) -> int:
-    """Số tiết bù tối đa của một GV ở chế độ bù giờ (người hưởng thai sản cũng được bù)."""
+    """Số tiết bù tối đa của một GV ở chế độ bù giờ."""
     if overtime_max <= 0 or t.supplementary or t.role not in config.OVERTIME_ROLES:
         return 0
     return overtime_max
@@ -173,7 +173,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
 
     curriculum: chương trình học đọc từ file vào ({khối: {môn: số tiết}}).
     supplement_counts: số GV bổ sung dự kiến cho từng chức vụ; None = đủ lớn để luôn có nghiệm.
-    overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn (kể cả người hưởng thai sản) được dạy vượt
+    overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn được dạy vượt
     định mức tối đa ngần ấy tiết; GVCN bù các môn không thuộc GV chuyên biệt của lớp mình.
     """
     # Môn có luật trong config được gọi theo tên trong config; tên như trong file giữ lại để in ra.

@@ -16,7 +16,7 @@ def test_homeroom_split_real(real_staff):
     assert take["2/1"] == {C.TV: 10, C.TOAN: 5, C.HDTN: 3, C.DD: 1}  # vừa đủ 19
     assert take["3/1"][C.TV_TC] == 1 and take["3/1"][C.TOAN_TC] == 2  # bù TV TC rồi Toán TC
     assert take["4/1"][C.TV] == 6  # cắt 1 tiết TV
-    assert take["5/5"][C.TV] == 3 and sum(take["5/5"].values()) == 16  # GVCN thai sản 16 tiết
+    assert take["5/5"][C.TV] == 3 and sum(take["5/5"].values()) == 16  # GVCN 16 tiết
     for cls, t in take.items():
         quota = next(x.max_lessons for x in real_staff if x.class_name == cls)
         assert sum(t.values()) == quota
@@ -88,7 +88,7 @@ def test_homeroom_needs_enough_lessons_for_locked_periods(monkeypatch):
 def test_overtime_allowances_and_eligibility(real_staff):
     p = build_problem(real_staff, CURRICULUM, overtime_max=2)
     assert p.overtime["chủ nhiệm 1/1"] == 2 and p.overtime["bộ môn 1"] == 2
-    assert p.overtime["chủ nhiệm 5/5 ts"] == 2 and p.overtime["bộ môn 5 ts"] == 2  # thai sản cũng được bù
+    assert p.overtime["chủ nhiệm 5/5"] == 2 and p.overtime["bộ môn 5"] == 2  # định mức thấp cũng được bù
     assert all(p.teachers[g].role in C.OVERTIME_ROLES for g in p.overtime)
     pool = {(c.class_name, c.subject): c for c in p.courses if not c.homeroom}
     assert "chủ nhiệm 1/1" in pool["1/1", C.TV].teachers
@@ -117,7 +117,7 @@ def _v8(name, label, lessons, cls=None, index=None, row=None):
     """GV đọc từ file mẫu V8: chức vụ ghi như trong file, không kèm số."""
     from tkb.staff import normalize
     role = normalize(label)
-    return make_teacher(name, role, index, cls, False, lessons, row=row, label=label)
+    return make_teacher(name, role, index, cls, lessons, row=row, label=label)
 
 
 SCHOOL = {3: {"Tiếng Việt": 7, "Toán": 5, "Hoạt Động Trải Nghiệm": 3, "Tiếng Anh": 4, "Tin Học": 1,

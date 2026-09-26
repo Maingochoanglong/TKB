@@ -130,8 +130,9 @@ def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: fl
 
     Chế độ tái lập (settings.reproducible): các luồng chạy xen kẽ theo thứ tự cố định và dừng theo
     "thời gian tất định" (đếm khối lượng tính toán, không phụ thuộc máy nhanh/chậm, số nhân CPU hay máy
-    đang bận), nên cùng dữ liệu + cùng phiên bản OR-Tools + cùng số luồng thì máy nào cũng ra đúng một
-    kết quả. Không đặt giới hạn giây thực: máy chậm chỉ chạy lâu hơn chứ không dừng sớm ra kết quả khác.
+    đang bận), để cùng dữ liệu + cùng phiên bản OR-Tools + cùng số luồng thì ra cùng kết quả (khác hệ điều
+    hành thì khác; thỉnh thoảng một lần chạy vẫn ra khác, đang điều tra — xem README). Không đặt giới hạn
+    giây thực: máy chậm chỉ chạy lâu hơn chứ không dừng sớm ra kết quả khác.
     Bấm Ctrl+C khi đang giải thì bộ giải dừng và giữ nghiệm tốt nhất đã tìm được.
     """
     p = solver.parameters

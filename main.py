@@ -12,7 +12,7 @@ from pathlib import Path
 # CẤU HÌNH — SỬA Ở ĐÂY
 # ==========================================================================
 
-# Địa chỉ file vào: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế Độ) và sheet
+# Địa chỉ file vào: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần) và sheet
 # "CHƯƠNG TRÌNH HỌC" (Môn học, Khối 1..5). Danh sách môn, số tiết, giáo viên đều lấy từ file này;
 # các file ra dùng lại style (phông, cỡ chữ, viền, chiều cao dòng) của file này.
 FILE_VAO = "data/Input_TKB_V8.xlsx"
@@ -27,7 +27,7 @@ THU_MUC_OUT = "out"
 #   "tuyen_them": thêm GV mới tên "chưa có" vào danh sách nhân sự.
 CHE_DO = "bu_gio"
 
-# Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (người hưởng thai sản cũng được bù).
+# Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần.
 SO_TIET_BU_TOI_DA = 2
 
 # Áp dụng luật bảo vệ học sinh: tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi; môn có từ 2 tiết
@@ -40,17 +40,19 @@ LUAT_HOC_SINH = True
 # TKB tốt nhất đã tìm được.
 THOI_GIAN_TOI_DA = 240
 
-# True: chạy lại bao nhiêu lần, ở máy nào cũng ra đúng một kết quả (ở cả chế độ bu_gio lẫn tuyen_them), miễn là
-#       giữ nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA, SO_LUONG và
-#       phiên bản OR-Tools (cài bằng: pip install -r requirements.txt). Máy nhanh/chậm, số nhân CPU, máy
-#       bận/rảnh, phiên bản Python không ảnh hưởng kết quả. Mỗi lần chạy in "Mã kết quả": hai máy cùng mã
-#       là cùng TKB (xem README, mục "Chạy trên máy khác").
+# True: bộ giải dừng theo lượng tính toán (không theo giây thực) để chạy lại ra cùng kết quả, miễn là giữ
+#       nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA, SO_LUONG và phiên bản
+#       OR-Tools (cài bằng: pip install -r requirements.txt). Máy nhanh/chậm, số nhân CPU, phiên bản Python
+#       không ảnh hưởng; Windows và Linux ra TKB khác nhau. Thỉnh thoảng một lần chạy vẫn ra TKB khác (đang
+#       điều tra), nên hãy giữ file TKB đã chốt. Mỗi lần chạy in "Mã kết quả": cùng mã là cùng TKB (xem
+#       README, mục "Chạy trên máy khác").
 # False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
 CHAY_TAI_LAP_DUOC = True
 
 # --- Ít khi phải sửa ---
 
-# Tên file TKB và file thống kê giáo viên xuất ra trong THU_MUC_OUT.
+# Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_THONG_KE gồm
+# tổng quan (mã kết quả, kiểm tra luật, tuyển thêm, dạy bù), danh sách nhân sự và các bảng thống kê giáo viên.
 FILE_TKB = "TKB.xlsx"
 FILE_THONG_KE = "Thong_Ke.xlsx"
 
