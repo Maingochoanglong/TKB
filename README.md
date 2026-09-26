@@ -82,8 +82,8 @@ Chạy test: `python -m pytest -q`
 
 | Hệ điều hành | Mã kết quả dữ liệu mẫu | Đã kiểm |
 |---|---|---|
-| Windows x86-64 | **`78D7-E529-57BD`** | 4 máy ảo GitHub Actions, mỗi máy chạy 2 lần: Windows Server 2022 và 2025, Python 3.12 và 3.14, CPU AMD EPYC 9V74 và 7763 |
-| Linux x86-64 | **`890D-FD11-2733`** | Python 3.11, chạy lặp nhiều lần, có lúc 2 tiến trình chạy song song |
+| Windows x86-64 | **`CAAD-454D-9F0F`** | 4 máy ảo GitHub Actions, mỗi máy chạy 2 lần: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
+| Linux x86-64 | **`A77F-F330-8C78`** | Python 3.11, chạy lặp nhiều lần |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
 
@@ -204,6 +204,13 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 - Môn nặng ở tiết 7 không bị cấm nữa, chỉ hạn chế bằng mục tiêu mềm (xem dưới). Không giới hạn số tiết nặng liên tiếp.
 
 **Mục tiêu mềm**
+- **Buổi sáng dành cho Tiếng Việt và Toán**, như TKB của các trường khác (xem [`docs/Tham_Khao_TKB_Truong_Khac.md`](docs/Tham_Khao_TKB_Truong_Khac.md)):
+  - mỗi tiết TV, Toán xếp vào buổi chiều bị phạt;
+  - tiết tăng cường (TV tăng cường, Toán tăng cường) thì ngược lại, ưu tiên buổi chiều để nhường buổi sáng cho tiết chính;
+  - TV, Toán vẫn được rải đều các ngày, nặng hơn cả việc đẩy lên buổi sáng (trọng số `core_spread`): thà 1 tiết Toán buổi chiều còn hơn 2 tiết Toán cùng một buổi sáng, để Toán có mặt mỗi ngày;
+  - đổi ở `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, trọng số `morning_core`, `extra_morning`, `core_spread`.
+
+  Khối có nhiều tiết TV (vd khối 1: 14 tiết, mỗi buổi tối đa 2) vẫn phải có vài tiết TV buổi chiều. Mỗi lần chạy in ra số tiết TV, Toán còn ở buổi chiều.
 - Hạn chế môn nặng ở tiết 7 (Toán, Tiếng Việt, tiết tăng cường, Tiếng Anh, Khoa học, Tin học; đổi ở `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, trọng số `heavy_late`).
 - Cân bằng số tiết mỗi ngày của giáo viên.
 - Ít tiết trống giữa buổi.

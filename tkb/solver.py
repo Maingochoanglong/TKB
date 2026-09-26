@@ -448,6 +448,13 @@ def timetable(problem: Problem, settings: config.Settings,
             objective.extend(w.heavy_late * x[c.id, s] for s in dom[c.id]
                              if s[1] in config.HEAVY_LATE_PERIODS)
 
+    # Buổi sáng dành cho TV, Toán; tiết tăng cường ưu tiên buổi chiều để nhường buổi sáng cho tiết chính.
+    for c in problem.courses:
+        if c.subject in config.MORNING_SUBJECTS:
+            objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if s[1] not in config.MORNING.periods)
+        elif c.subject in config.AFTERNOON_SUBJECTS:
+            objective.extend(w.extra_morning * x[c.id, s] for s in dom[c.id] if s[1] in config.MORNING.periods)
+
     # Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
     days = sorted(config.DAY_SESSIONS)
     for title, t in problem.teachers.items():
@@ -477,7 +484,8 @@ def timetable(problem: Problem, settings: config.Settings,
                     continue
                 ex = m.NewIntVar(0, len(vs), f"spread_{cls}_{subject}_{d}")
                 m.Add(ex >= sum(vs) - cap)
-                objective.append(w.subject_spread * ex)
+                weight = w.core_spread if subject in config.MORNING_SUBJECTS else w.subject_spread
+                objective.append(weight * ex)
 
     # Tiết trống giữa buổi của GV không chủ nhiệm.
     for title, t in problem.teachers.items():

@@ -37,6 +37,7 @@
 | 19 | Môn học liền trong buổi | – | **[Cứng]** Môn có từ 2 tiết trong một buổi phải học liền nhau (mục 6) |
 | 20 | File ra | `TKB.xlsx` gồm TKB, danh sách nhân sự và thống kê | `TKB.xlsx` **chỉ có thời khóa biểu** (các sheet Khối). Tổng quan, danh sách nhân sự và các bảng thống kê chuyển sang `Thong_Ke.xlsx` (mục 11) |
 | 21 | Tái lập | Thỉnh thoảng chạy lại vẫn ra TKB khác | Tắt phần chia sẻ không tất định giữa các luồng của OR-Tools: chạy lại luôn ra cùng TKB trên các máy cùng hệ điều hành; Actions kiểm trên 4 máy Windows (mục 9) |
+| 22 | Buổi sáng cho TV, Toán | – | **[Mềm]** TV, Toán ưu tiên buổi sáng; tiết tăng cường ưu tiên buổi chiều (mục 8.2). Rút ra từ TKB của hai trường khác (`docs/Tham_Khao_TKB_Truong_Khac.md`) |
 
 ---
 
@@ -326,7 +327,9 @@ Chương trình giải hai lần:
 | Tải ngày của giáo viên vượt mục tiêu. Mục tiêu ngày chia định mức theo tỷ lệ số slot của ngày | 100 / tiết vượt; thêm 300 nếu vượt quá mục tiêu + 1 |
 | HĐTN tiết thứ ba cách cuối buổi | 200 / tiết cách |
 | Môn nặng ở tiết 7 | 200 / tiết |
-| Rải đều môn (trừ HĐTN): số tiết một môn trong ngày vượt ⌈số tiết/tuần ÷ 5⌉ | 20 / tiết vượt |
+| **Buổi sáng dành cho TV, Toán** (`MORNING_SUBJECTS`): mỗi tiết TV, Toán xếp vào buổi chiều | 50 / tiết (`morning_core`) |
+| Tiết tăng cường (`AFTERNOON_SUBJECTS`: TV tăng cường, Toán tăng cường) xếp vào buổi sáng, để nhường buổi sáng cho tiết chính | 10 / tiết (`extra_morning`) |
+| Rải đều môn (trừ HĐTN): số tiết một môn trong ngày vượt ⌈số tiết/tuần ÷ 5⌉ | 20 / tiết vượt; **TV, Toán 60** (`core_spread`, lớn hơn `morning_core` để Toán vẫn có mặt mỗi ngày) |
 | Tiết trống giữa buổi của giáo viên không chủ nhiệm | 10 / tiết trống |
 
 ---
@@ -358,7 +361,7 @@ Chương trình giải hai lần:
   - Phiên bản Python (đã thử 3.10 đến 3.14), thư mục chạy, thứ tự băm của Python.
   - Thứ tự dựng mô hình cố định, không phụ thuộc thứ tự lặp của `set`.
 - **Tham số bộ giải ở chế độ tái lập** (`_configure` trong `tkb/solver.py`): `interleave_search` (các luồng chạy xen kẽ theo thứ tự cố định), dừng theo `max_deterministic_time`, và **tắt chia sẻ giữa các luồng** (`share_binary_clauses`, kéo theo `share_glue_clauses`, và `share_level_zero_bounds`). Phần chia sẻ này của OR-Tools 9.15 không tất định: đo trên dữ liệu mẫu, cùng một mô hình giải 6 lần ra 3 TKB khác nhau, lệch từ khoảng 60–120 đơn vị tính toán trở đi. Tắt đi thì chạy lặp 8 lần (có lúc 2 tiến trình song song) ra 8 lần cùng mã, chất lượng không giảm.
-- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Tổng quan của `Thong_Ke.xlsx`. Cùng mã là cùng TKB. Với dữ liệu mẫu `data/Input_TKB_V8.xlsx` và các hằng số mặc định còn lại của `main.py`, mã trên Linux là **`890D-FD11-2733`**, trên Windows là **`78D7-E529-57BD`** (4 máy ảo Windows Server 2022/2025, Python 3.12/3.14, hai loại CPU, mỗi máy chạy 2 lần: 8/8 cùng mã). Sheet Tổng quan không ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
+- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Tổng quan của `Thong_Ke.xlsx`. Cùng mã là cùng TKB. Với dữ liệu mẫu `data/Input_TKB_V8.xlsx` và các hằng số mặc định còn lại của `main.py`, mã trên Linux là **`A77F-F330-8C78`**, trên Windows là **`CAAD-454D-9F0F`** (4 máy ảo Windows Server 2022/2025, Python 3.12/3.14, mỗi máy chạy 2 lần: 8/8 cùng mã). Sheet Tổng quan không ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
 - **Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù), vì bản dựng khác trình biên dịch và phép tính số thực. `.github/workflows/windows.yml` kiểm mỗi lần đổi code: 4 máy ảo Windows (Windows Server 2022 và 2025, Python 3.12 và 3.14) chạy dữ liệu mẫu, mỗi máy 2 lần, mọi mã phải trùng nhau. Chưa thử macOS, chip ARM.
 - Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
 - `tests/test_reproducible.py` kiểm tra:
@@ -484,6 +487,7 @@ Mọi thứ về nhân sự và thống kê nằm ở file này (TKB.xlsx chỉ 
 | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | Phân GVCN (mục 5) |
 | `HOMEROOM_PERIODS` | Tiết luôn do GVCN dạy (mục 5.5) |
 | `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `SESSION_SUBJECT_LIMITS` | Luật học sinh (mục 6) |
+| `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS` | Môn ưu tiên buổi sáng (TV, Toán) và môn tăng cường ưu tiên buổi chiều (mục 8.2) |
 | `SUPPLEMENT_NAME` | Tên người bổ sung (mục 7.1) |
 | `ROLE_LABELS` | Cách ghi ba chức vụ Chủ Nhiệm, Bộ Môn, Quản Lý trong file ra |
 | `OVERTIME_ROLES`, `OVERTIME_MAX` | Bù giờ (mục 7.2) |

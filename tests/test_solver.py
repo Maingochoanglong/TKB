@@ -75,6 +75,15 @@ def test_heavy_subjects_avoid_last_period(small_solution):
     assert late == []
 
 
+def test_core_subjects_in_the_morning(small_solution):
+    # Khối 3 mỗi lớp TV 7 + Toán 5 = 12 tiết; buổi sáng còn 18 chỗ (trừ 2 tiết HĐTN cố định) nên xếp hết được.
+    core = [l for l in small_solution.lessons if l.subject in config.MORNING_SUBJECTS]
+    assert len(core) == 2 * 12 and all(l.period in config.MORNING.periods for l in core)
+    # Tiết tăng cường nhường buổi sáng cho tiết chính.
+    extra = [l for l in small_solution.lessons if l.subject in config.AFTERNOON_SUBJECTS]
+    assert extra and all(l.period not in config.MORNING.periods for l in extra)
+
+
 def test_slot_capacity_limits_assignment():
     # 7 lớp x 4 tiết Tiếng Anh = 28 tiết, nhưng GV tiếng anh chỉ có 26 slot ngoài tiết của GVCN/HĐTN.
     rows = [(f"CN {i}", f"chủ nhiệm 3/{i}", 19) for i in range(1, 8)]
