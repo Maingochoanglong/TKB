@@ -1,0 +1,75 @@
+# Chạy FILE THẬT của trường (FILE_VAO trong main.py, có tên giáo viên) với các hằng số mặc định của main.py
+# trên 2 máy ảo Windows (Windows Server 2022 và 2025, Python 3.14), rồi so mã kết quả giữa 2 máy.
+# Không tải file kết quả lên (có tên giáo viên thật): chỉ in mã kết quả và số liệu tổng hợp ra log.
+# Chỉ chạy khi bấm tay (tab Actions → "File thật trên Windows" → Run workflow) hoặc khi sửa chính file này.
+name: File thật trên Windows
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: [".github/workflows/file_that_windows.yml"]
+
+env:
+  SO_MAY: 2  # số máy trong ma trận bên dưới
+
+jobs:
+  windows:
+    name: ${{ matrix.os }} / Python 3.14
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Thông tin máy
+        shell: pwsh
+        run: |
+          $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+          $os = Get-CimInstance Win32_OperatingSystem
+          $py = python -c "import platform; print(platform.python_version())"
+          "$($os.Caption) $($os.Version) | Python $py | $($cpu.Name.Trim()) | $($cpu.NumberOfCores) nhân, $($cpu.NumberOfLogicalProcessors) luồng" | Tee-Object -FilePath may.txt
+      - name: Cài thư viện
+        run: python -m pip install -r requirements.txt
+      - name: Chạy file thật với các hằng số mặc định của main.py
+        run: python .github/scripts/chay_mau.py "${{ matrix.os }}" --theo-main --lan 1
+      - uses: actions/upload-artifact@v4  # chỉ mã kết quả, không có tên giáo viên
+        if: always()
+        with:
+          name: ma-ket-qua-${{ matrix.os }}
+          path: ma_ket_qua.txt
+
+  so-sanh:
+    name: So sánh mã kết quả giữa các máy Windows
+    needs: windows
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ma-ket-qua-*
+      - name: So sánh
+        run: |
+          shopt -s nullglob
+          files=(ma-ket-qua-*/ma_ket_qua.txt)
+          {
+            echo "| Máy | Thông tin | Mã kết quả |"
+            echo "|---|---|---|"
+            for f in "${files[@]}"; do sed 's/^/| /; s/$/ |/' "$f"; done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${#files[@]}" -ne "$SO_MAY" ]; then
+            echo "::error::Chỉ ${#files[@]}/$SO_MAY máy báo được mã kết quả"
+            exit 1
+          fi
+          codes=$(for f in "${files[@]}"; do awk -F' [|] ' '{print $NF}' "$f"; done | sort -u)
+          if [ "$(echo "$codes" | wc -l)" -ne 1 ]; then
+            echo "::error::Các máy Windows ra mã khác nhau: $(echo $codes)"
+            exit 1
+          fi
+          echo "Mọi máy Windows ra cùng mã: $codes" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -8,3 +8,6 @@ out_run*.log
 /Thong_Ke.xlsx
 /*_cap_nhat.xlsx
 .venv/
+# Tệp tạm của .github/scripts/chay_mau.py (mã kết quả, thông tin máy)
+/ma_ket_qua.txt
+/may.txt
