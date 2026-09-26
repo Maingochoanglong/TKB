@@ -40,7 +40,7 @@ def run() -> int:
         codes.append(result_code(out / main.FILE_THONG_KE))
         print(f"Lần {i}: mã kết quả {codes[-1]}")
     line = " | ".join(part for part in (label, machine, codes[0]) if part)
-    (ROOT / "ma_ket_qua.txt").write_text(line + "\n", encoding="utf-8")
+    (ROOT / "ma_ket_qua.txt").write_text(line + "\n", encoding="utf-8", newline="\n")  # job so sánh chạy Linux
     print(line)
     if len(set(codes)) != 1:
         print(f"LỖI: cùng máy, cùng cấu hình mà {RUNS} lần chạy ra mã khác nhau: {', '.join(codes)}")
