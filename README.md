@@ -123,7 +123,7 @@ Tạo file mẫu mới, hoặc chuyển file cũ sang file mẫu:
 
 ```bash
 python -m tkb.template data/Mau_Input.xlsx                                      # file vào mẫu trống
-python -m tkb.template data/Input_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V5.xlsx --program data/Input_Chuong_Trinh_Hoc_V5.xlsx
+python -m tkb.template data/Input_Moi.xlsx --tu nhan_su_cu.xlsx --program chuong_trinh_hoc.xlsx
 ```
 
 ## Cái gì nằm trong file vào, cái gì nằm trong code
@@ -140,8 +140,8 @@ python -m tkb.template data/Input_Moi.xlsx --tu data/Input_Danh_Sach_Nhan_Su_V5.
 ## Đầu ra
 
 1. **`TKB.xlsx`**: **chỉ có thời khóa biểu**, mỗi khối một sheet **Khối 1…5** (nhân sự và thống kê nằm ở `Thong_Ke.xlsx`).
-   - Định dạng theo `data/Output_Template_TKB_V5_Formatted.xlsx`. Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
-   - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
+   - Mẫu: `data/Output_Template_TKB_V8.xlsx` (TKB của file mẫu tên giả). Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
+   - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày.
    - Mỗi ô ghi môn và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Tên để trống hoặc người cần tuyển thì ghi Mã GV (`Bộ Môn 6`); hai người trùng tên thì kèm Mã GV. Chiều Thứ 6 ghi `Nghỉ`.
    - Các cột ngày ở mọi sheet cùng độ rộng, nới theo dòng dài nhất của cả trường (tối đa 30); tên dài hơn thì xuống dòng và hàng tự cao thêm. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
 2. **`Thong_Ke.xlsx`**: mọi thứ về nhân sự và thống kê. Trong các bảng thống kê, người cần tuyển có tên `tuyển thêm`.
@@ -240,5 +240,6 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |
 | `tkb/writer.py` | Xuất Excel |
 | `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |
+| `tools/mau_dau_ra.py` | Sinh lại các file mẫu đầu ra `data/Output_Template_TKB_V8.xlsx`, `data/Output_Template_Thong_Ke_V8.xlsx` từ file mẫu tên giả |
 
 Hướng dẫn cho Claude Code (lệnh, kiến trúc, luật bảo mật, mã tham chiếu): [`CLAUDE.md`](CLAUDE.md).

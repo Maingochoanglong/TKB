@@ -97,8 +97,8 @@ def test_slot_capacity_limits_assignment():
     assert plan.supplement_lessons == 28 - 26
 
 
-def test_real_data_assignment_is_optimal(real_staff):
-    plan = assign(build_problem(real_staff, CURRICULUM), config.Settings(time_limit=80, workers=4))
+def test_sample_school_assignment_is_optimal(sample_staff):
+    plan = assign(build_problem(sample_staff, CURRICULUM), config.Settings(time_limit=80, workers=4))
     assert plan.optimal
     assert plan.supplement_lessons == 52
     assert {r: n for r, n in plan.counts.items() if n} == {config.ROLE_GENERAL: 3}
@@ -155,8 +155,8 @@ def test_checker_flags_invalid_overtime(overtime_solution):
     assert any("vượt định mức 19 + 4 tiết bù" in e for e in errors)
 
 
-def test_real_data_overtime_assignment(real_staff):
-    problem = build_problem(real_staff, CURRICULUM, overtime_max=2)
+def test_sample_school_overtime_assignment(sample_staff):
+    problem = build_problem(sample_staff, CURRICULUM, overtime_max=2)
     plan = assign(problem, config.Settings(time_limit=80, workers=4))
     assert plan.supplement_lessons == 0
     assert sum(plan.overtime.values()) == 52

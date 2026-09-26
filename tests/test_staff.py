@@ -38,14 +38,14 @@ def test_duplicates_rejected():
                   build_teacher("C", "Bộ Môn 2", 19)])
 
 
-def test_read_real_staff(real_staff):
-    assert len(real_staff) == 45
-    classes = classes_from_staff(real_staff)
+def test_read_sample_staff(sample_staff):
+    assert len(sample_staff) == 45
+    classes = classes_from_staff(sample_staff)
     assert len(classes) == 29
     assert classes[0] == "1/1" and classes[-1] == "5/5"
-    cn55 = next(t for t in real_staff if t.class_name == "5/5")
+    cn55 = next(t for t in sample_staff if t.class_name == "5/5")
     assert cn55.title == "chủ nhiệm 5/5" and cn55.max_lessons == 16
-    bm5 = next(t for t in real_staff if t.title == "bộ môn 5")
+    bm5 = next(t for t in sample_staff if t.title == "bộ môn 5")
     assert bm5.max_lessons == 19
 
 

@@ -31,7 +31,7 @@ def test_timetable_layout(tmp_path):
     wb = openpyxl.load_workbook(out)
     assert wb.sheetnames == ["Khối 3"]  # file TKB chỉ có thời khóa biểu
     ws = wb["Khối 3"]
-    # Bố cục theo Output_Template_TKB_V5_Formatted.xlsx: mỗi lớp 1 dòng tiêu đề + 7 tiết + 2 dòng trống.
+    # Bố cục như data/Output_Template_TKB_V8.xlsx: mỗi lớp 1 dòng tiêu đề + 7 tiết + 2 dòng trống.
     assert [ws.cell(1, c).value for c in range(1, 9)] == [
         "LỚP", "BUỔI", "TIẾT", "THỨ 2", "THỨ 3", "THỨ 4", "THỨ 5", "THỨ 6"]
     assert {str(r) for r in ws.merged_cells.ranges} == {
@@ -39,7 +39,7 @@ def test_timetable_layout(tmp_path):
     assert ws["A2"].value == "LỚP 3/1" and ws["A12"].value == "LỚP 3/2"
     assert ws["A11"].value == "LỚP"
     assert ws["B2"].value == "SÁNG" and ws["B6"].value == "CHIỀU"
-    assert [ws.cell(r, 3).value for r in range(2, 9)] == [1, 2, 3, 4, 1, 2, 3]
+    assert [ws.cell(r, 3).value for r in range(2, 9)] == [1, 2, 3, 4, 5, 6, 7]  # tiết trong ngày: chiều là 5, 6, 7
     assert ws["D2"].value == "HĐTN\nCN A"  # môn, xuống dòng tên giáo viên
     assert ws["H5"].value == "HĐTN\nCN A"
     assert [ws.cell(r, 8).value for r in (6, 7, 8)] == ["Nghỉ"] * 3

@@ -45,14 +45,14 @@ def teacher_labels(teachers: dict[str, Teacher]) -> dict[str, str]:
     return labels
 
 
-def session_rows() -> list[tuple[config.Session, int, int]]:
-    """Các hàng của bảng TKB: (buổi, tiết trong ngày, số thứ tự tiết trong buổi)."""
+def session_rows() -> list[tuple[config.Session, int]]:
+    """Các hàng của bảng TKB: (buổi, tiết trong ngày). Cột TIẾT ghi tiết trong ngày: sáng 1–4, chiều 5–7."""
     sessions: dict[str, config.Session] = {}
     for d in sorted(config.DAY_SESSIONS):
         for s in config.DAY_SESSIONS[d]:
             sessions.setdefault(s.name, s)
     ordered = sorted(sessions.values(), key=lambda s: s.periods[0])
-    return [(s, p, i) for s in ordered for i, p in enumerate(s.periods, start=1)]
+    return [(s, p) for s in ordered for p in s.periods]
 
 
 def _merge(ws, style: Style, r1: int, c1: int, r2: int, c2: int, value) -> None:
@@ -80,7 +80,7 @@ def _grade_sheets(wb, solution: Solution, style: Style) -> None:
         ws = wb.create_sheet(f"Khối {grade}")
         classes = sorted((c for c in problem.classes if int(c.split("/")[0]) == grade), key=class_sort_key)
         widths = [max(style.text_width(t) for t in [header[0], *(f"LỚP {c}" for c in classes)]),
-                  max(style.text_width(t) for t in [header[1], *(s.name.upper() for s, _, _ in rows)]),
+                  max(style.text_width(t) for t in [header[1], *(s.name.upper() for s, _ in rows)]),
                   style.text_width(header[2])]
         for i, width in enumerate(widths + [day_width] * len(days), start=1):
             ws.column_dimensions[get_column_letter(i)].width = round(width, 1)
@@ -97,14 +97,14 @@ def _grade_sheets(wb, solution: Solution, style: Style) -> None:
             first = top + 1
             _merge(ws, style, first, 1, first + len(rows) - 1, 1, f"LỚP {cls}")
             r = first
-            for session in dict.fromkeys(s for s, _, _ in rows):
-                n = sum(1 for s, _, _ in rows if s is session)
+            for session in dict.fromkeys(s for s, _ in rows):
+                n = sum(1 for s, _ in rows if s is session)
                 _merge(ws, style, r, 2, r + n - 1, 2, session.name.upper())
                 r += n
-            for j, (_, period, number) in enumerate(rows):
+            for j, (_, period) in enumerate(rows):
                 r = first + j
                 lines = 2  # môn + tên giáo viên
-                style.body_cell(ws, r, 3, number)
+                style.body_cell(ws, r, 3, period)
                 for i, d in enumerate(days):
                     value = None
                     if period not in day_periods[d]:

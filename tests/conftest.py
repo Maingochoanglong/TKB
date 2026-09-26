@@ -6,16 +6,15 @@ from tkb.program import read_program
 from tkb.staff import build_teacher, read_staff
 
 DATA = Path(__file__).resolve().parent.parent / "data"
-STAFF_FILE = DATA / "Input_Danh_Sach_Nhan_Su_V5.xlsx"  # định dạng cũ: chức vụ kèm số, vd "bộ môn 5"
-INPUT_FILE = DATA / "Input_TKB_V8.xlsx"  # file vào hiện tại: sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC
-PROGRAM_FILE = DATA / "Input_Chuong_Trinh_Hoc_V5.xlsx"
+INPUT_FILE = DATA / "Input_TKB_V8.xlsx"  # file vào mẫu V8, tên giả: sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC
 # Chương trình học dùng trong test: đọc từ file, không có trong code.
-CURRICULUM = read_program(PROGRAM_FILE)
+CURRICULUM = read_program(INPUT_FILE)
 
 
 @pytest.fixture(scope="session")
-def real_staff():
-    return read_staff(STAFF_FILE)
+def sample_staff():
+    """Nhân sự đủ 29 lớp của file mẫu (tên giả)."""
+    return read_staff(INPUT_FILE)
 
 
 def small_staff(general: bool = True):

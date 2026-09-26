@@ -9,6 +9,8 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
+- Data files: `data/INPUT_V8.xlsx` (school's real file), `data/Input_TKB_V8.xlsx` (fake-name V8 sample used by
+  tests/CI), `data/Output_Template_{TKB,Thong_Ke}_V8.xlsx` (output templates made from the sample). Only V8.
 - **Privacy:** `data/INPUT_V8.xlsx` is the school's real file (real teacher names). Never print, quote, commit or
   upload teacher names or output files made from it (root `TKB.xlsx`, `Thong_Ke.xlsx`, `*_cap_nhat.xlsx`, `out/`
   are git-ignored). When analysing its output, read subject names only. CI uses the fake-name sample
@@ -26,6 +28,7 @@ python -m pytest tests/test_reproducible.py  # ~20 s: this OS's reference result
 python tools/code_map.py [solver checker ...] # function index with file:line — use it instead of opening files
 python tools/code_map.py --write             # regenerate docs/CODE_MAP.md (tests/test_code_map.py fails if stale)
 python -c "import main; main.run('data/Input_TKB_V8.xlsx', 'out')"   # sample data, ~4 min, prints "Mã kết quả"
+python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the sample (~4 min)
 python main.py                               # school's real file (FILE_VAO) -> project root; real names!
 python -m tkb <input.xlsx> -o out/TKB.xlsx [--mode bu_gio] [--time-limit 30] [--no-student-rules]
 python -m tkb.template <new.xlsx>            # blank input template
@@ -73,7 +76,7 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
 - Any change to constraints, objective, weights, solver params or model-building order changes the codes. Update:
   `tests/test_reproducible.py` `REFERENCE` (Linux: run the test, the failure message shows the new code;
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table "Chạy trên máy khác" (sample-data
-  codes), and the spec (§0 history row, §9).
+  codes), the spec (§0 history row, §9), and the output templates (`python tools/mau_dau_ra.py`).
 - Current codes: small school Linux `60A5-5219-142F`/`F08D-1913-F355`, Windows `BAB3-230A-56C1`/`8D95-DAE4-E979`;
   sample data Linux `A77F-F330-8C78`, Windows `CAAD-454D-9F0F`.
 

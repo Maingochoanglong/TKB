@@ -38,6 +38,7 @@
 | 20 | File ra | `TKB.xlsx` gồm TKB, danh sách nhân sự và thống kê | `TKB.xlsx` **chỉ có thời khóa biểu** (các sheet Khối). Tổng quan, danh sách nhân sự và các bảng thống kê chuyển sang `Thong_Ke.xlsx` (mục 11) |
 | 21 | Tái lập | Thỉnh thoảng chạy lại vẫn ra TKB khác | Tắt phần chia sẻ không tất định giữa các luồng của OR-Tools: chạy lại luôn ra cùng TKB trên các máy cùng hệ điều hành; Actions kiểm trên 4 máy Windows (mục 9) |
 | 22 | Buổi sáng cho TV, Toán | – | **[Mềm]** TV, Toán ưu tiên buổi sáng; tiết tăng cường ưu tiên buổi chiều (mục 8.2). Rút ra từ TKB của hai trường khác (`docs/Tham_Khao_TKB_Truong_Khac.md`) |
+| 23 | Cột TIẾT của TKB, file mẫu | Buổi chiều ghi tiết 1–3; mẫu đầu ra V5 | Ghi **tiết trong ngày**: sáng 1–4, chiều **5–7**. Chỉ giữ các file mẫu V8: file vào tên giả `data/Input_TKB_V8.xlsx`, mẫu đầu ra `data/Output_Template_TKB_V8.xlsx` và `data/Output_Template_Thong_Ke_V8.xlsx` (sinh lại bằng `python tools/mau_dau_ra.py`) |
 
 ---
 
@@ -402,10 +403,10 @@ Ba file, ghi vào `THU_MUC_OUT`:
 
 ### 11.1. `TKB.xlsx`
 
-Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục theo `data/Output_Template_TKB_V5_Formatted.xlsx`:
+Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `data/Output_Template_TKB_V8.xlsx`:
 - Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
   - Cột LỚP gộp 7 hàng (`LỚP 1/1`).
-  - Cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
+  - Cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày.
   - Giữa hai lớp có 2 dòng trống.
 - Mỗi ô ghi **môn** và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Chiều Thứ 6 ghi `Nghỉ`.
   - Tên để trống hoặc người cần tuyển: ghi **Mã GV**, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 6`.
