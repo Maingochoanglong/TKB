@@ -114,7 +114,7 @@ Số liệu đo trên TKB xếp cho file `data/INPUT_V8.xlsx`, với `main.py` m
 
 Xếp theo mức ưu tiên.
 
-### 5.1. Buổi sáng ưu tiên TV, Toán (nên làm)
+### 5.1. Buổi sáng ưu tiên TV, Toán (**đã đưa vào chương trình**: `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS` trong `tkb/config.py`)
 
 - **Cách làm:**
   - phạt nhẹ mỗi tiết TV, Toán (tiết chính) xếp vào buổi chiều;

@@ -142,6 +142,11 @@ OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức
 # Môn nặng: hạn chế xếp vào các tiết này (mục tiêu mềm, trọng số Weights.heavy_late).
 HEAVY_SUBJECTS: set[str] = {TOAN, TOAN_TC, TV, TV_TC, TIENG_ANH, KH, TIN_HOC}
 HEAVY_LATE_PERIODS: set[int] = {7}
+# Buổi sáng dành cho môn chính (mục tiêu mềm, như TKB các trường khác: docs/Tham_Khao_TKB_Truong_Khac.md):
+# mỗi tiết TV, Toán xếp vào buổi chiều bị phạt (Weights.morning_core); tiết tăng cường thì ngược lại, ưu tiên
+# buổi chiều để nhường buổi sáng cho tiết chính (Weights.extra_morning).
+MORNING_SUBJECTS: set[str] = {TV, TOAN}
+AFTERNOON_SUBJECTS: set[str] = {TV_TC, TOAN_TC}
 # Nhóm môn -> số tiết tối đa mỗi buổi (môn tăng cường được đếm riêng, không gộp vào môn gốc).
 # Luật cứng đi kèm (không cần cấu hình): môn nào có từ 2 tiết trong một buổi thì các tiết đó phải liền
 # nhau, vd sáng "TV, Toán, TV, Anh" là sai, phải là "Toán, TV, TV, Anh".
@@ -155,6 +160,7 @@ def rule_subjects() -> list[str]:
     """Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào)."""
     names = [HDTN, *HOMEROOM_PRIORITY, *HOMEROOM_CUT_ORDER, *HOMEROOM_FILL_ORDER, *HOMEROOM_ONLY_SUBJECTS,
              *GENERAL_FORBIDDEN_SUBJECTS, *(r.subject for r in MANAGER_RULES), *HEAVY_SUBJECTS,
+             *MORNING_SUBJECTS, *AFTERNOON_SUBJECTS,
              *(s for group, _ in SESSION_SUBJECT_LIMITS for s in group), *DISPLAY_NAMES]
     return sorted(set(names))
 
@@ -172,6 +178,10 @@ class Weights:
     day_over_buffer: int = 300  # mỗi tiết vượt tải ngày mong muốn + 1
     hdtn_flex_distance: int = 200  # mỗi tiết cách cuối buổi của HĐTN flex
     heavy_late: int = 200  # mỗi tiết môn nặng ở tiết 7
+    morning_core: int = 50  # mỗi tiết TV, Toán (MORNING_SUBJECTS) xếp vào buổi chiều
+    core_spread: int = 60  # như subject_spread nhưng cho MORNING_SUBJECTS: > morning_core để giữ Toán mỗi ngày
+                           # (thà 1 tiết Toán buổi chiều còn hơn 2 tiết Toán cùng một buổi sáng)
+    extra_morning: int = 10  # mỗi tiết tăng cường (AFTERNOON_SUBJECTS) xếp vào buổi sáng
     subject_spread: int = 20  # mỗi tiết vượt mức rải đều môn/ngày
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
     general_on_specialist: int = 1  # mỗi tiết bộ môn dạy thay môn chuyên biệt
