@@ -239,3 +239,6 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/solver.py` | Mô hình CP-SAT |
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |
 | `tkb/writer.py` | Xuất Excel |
+| `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |
+
+Hướng dẫn cho Claude Code (lệnh, kiến trúc, luật bảo mật, mã tham chiếu): [`CLAUDE.md`](CLAUDE.md).
