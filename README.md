@@ -31,7 +31,7 @@ pip install -r requirements.txt
 | `LUAT_HOC_SINH` | Áp dụng luật bảo vệ học sinh | `True` |
 | `THOI_GIAN_TOI_DA` | Thời gian cho bước xếp giờ, xấp xỉ giây; tăng lên để TKB đẹp hơn. **Để trống (`None`/`""`) hoặc `0` thì không giới hạn**: chạy đến khi bộ giải chứng minh TKB tốt nhất (có thể hàng giờ); bấm Ctrl+C để dừng sớm, TKB tốt nhất đã tìm được vẫn được ghi ra | `240` (≈ 3,5 phút) |
 | `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
-| `FILE_TKB`, `FILE_THONG_KE` | Tên file TKB (chỉ thời khóa biểu) và file nhân sự + thống kê xuất ra | `TKB.xlsx`, `Thong_Ke.xlsx` |
+| `FILE_TKB`, `FILE_THONG_KE` | Tên file TKB (chỉ thời khóa biểu) và file thống kê số tiết từng môn của giáo viên | `TKB.xlsx`, `Thong_Ke.xlsx` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
@@ -53,7 +53,7 @@ Tuỳ chọn:
 |---|---|
 | `-o, --output` | File TKB xuất ra, chỉ gồm các sheet Khối (mặc định `out/TKB.xlsx`) |
 | `--staff-out` | File nhân sự cập nhật (mặc định `<thư mục output>/<tên input>_cap_nhat.xlsx`) |
-| `--stats-out` | File nhân sự và thống kê (mặc định `<thư mục output>/Thong_Ke.xlsx`) |
+| `--stats-out` | File thống kê số tiết từng môn của mỗi giáo viên (mặc định `<thư mục output>/Thong_Ke.xlsx`) |
 | `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; `0` = không giới hạn, Ctrl+C để dừng) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
 | `--mode` | `tuyen_them` (mặc định) hoặc `bu_gio` |
@@ -71,7 +71,7 @@ Chạy test: `python -m pytest -q`
 
 **Không ảnh hưởng kết quả:** máy nhanh hay chậm, số nhân CPU, máy đang bận, phiên bản Python (đã thử 3.10–3.14), thư mục đặt dự án. Bộ giải dừng theo lượng tính toán chứ không theo giây thực, nên máy chậm chỉ chạy lâu hơn.
 
-**Mã kết quả:** mỗi lần chạy in ra màn hình và ghi ở sheet Tổng quan của `Thong_Ke.xlsx` một mã, ví dụ `Mã kết quả: 6523-7A90-932C`. Mã này là mã băm của toàn bộ TKB. Hai máy cùng mã là cùng TKB, khỏi phải so từng ô.
+**Mã kết quả:** mỗi lần chạy in ra màn hình một mã, ví dụ `Mã kết quả: 6523-7A90-932C`. Mã này là mã băm của toàn bộ TKB. Hai máy cùng mã là cùng TKB, khỏi phải so từng ô.
 
 **Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù), nên mỗi hệ điều hành có mã tham chiếu riêng. Chưa thử macOS và chip ARM (Apple M1).
 
@@ -137,22 +137,15 @@ python -m tkb.template data/Mau_Input.xlsx
 
 ## Đầu ra
 
-1. **`TKB.xlsx`**: **chỉ có thời khóa biểu**, mỗi khối một sheet **Khối 1…5** (nhân sự và thống kê nằm ở `Thong_Ke.xlsx`).
+1. **`TKB.xlsx`**: **chỉ có thời khóa biểu**, mỗi khối một sheet **Khối 1…5**.
    - Mẫu: `data/Output_Template_TKB_V8.xlsx` (TKB của trường mẫu tên giả). Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
    - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày.
    - Mỗi ô ghi môn và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Tên để trống hoặc người cần tuyển thì ghi Mã GV (`Bộ Môn 6`); hai người trùng tên thì kèm Mã GV. Chiều Thứ 6 ghi `Nghỉ`.
    - Các cột ngày ở mọi sheet cùng độ rộng, nới theo dòng dài nhất của cả trường (tối đa 30); tên dài hơn thì xuống dòng và hàng tự cao thêm. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
-2. **`Thong_Ke.xlsx`**: mọi thứ về nhân sự và thống kê. Trong các bảng thống kê, người cần tuyển có tên `tuyển thêm`.
-   - **Tổng quan**:
-     - Chế độ, kết quả kiểm tra luật bắt buộc, **mã kết quả**, phiên bản OR-Tools, số lớp, tổng số tiết, số tiết thiếu, số GV cần tuyển, tổng số tiết bù, ghi chú và cảnh báo.
-     - Các chức vụ thiếu và số tiết thiếu, kèm chi tiết lớp/môn.
-     - Chế độ bù giờ: ai dạy bù, bao nhiêu tiết, GVCN bù môn gì.
-     - Lỗi kiểm tra luật (nếu có).
-   - **Danh sách nhân sự**: các cột như sheet NHÂN SỰ của file vào (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần), thêm **Mã GV**, **Số Tiết Thực Dạy**, **Số Tiết Bù** (chế độ bù giờ) và Ghi Chú. Người cần tuyển có tên `chưa có`, Số tiết ghi theo **định mức tuyển đầy đủ** của chức vụ, dù thực dạy có thể ít hơn.
-   - **Thống kê giáo viên**: Họ và Tên | Chức Vụ | Mã GV | Số tiết quy định | Số tiết bù | Số tiết thực dạy | Số tiết còn dư, cuối bảng có dòng Tổng.
-   - **Phân công**: giáo viên dạy môn gì, lớp nào, bao nhiêu tiết (bảng phân công chuyên môn).
-   - **Theo ngày**: số lớp dạy và số tiết từng ngày Thứ 2 → Thứ 6 của mỗi giáo viên.
-   - **Theo chức vụ**: số người, tiết quy định, thực dạy, bù, còn dư, số người và số tiết tuyển thêm của từng chức vụ.
+2. **`Thong_Ke.xlsx`**: **một bảng** (sheet `Thống kê`), mẫu: `data/Output_Template_Thong_Ke_V8.xlsx`.
+   - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển (tên `tuyển thêm`).
+   - Cột: **Họ và Tên | Chức Vụ** (Mã GV, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 2`) **| số tiết từng môn người đó dạy | Tổng Tiết**. Chỉ có cột cho các môn có người dạy, theo thứ tự trong chương trình học; ô trống là không dạy môn đó. Cuối bảng có dòng **Tổng**.
+   - Chế độ, mã kết quả, kết quả kiểm tra luật, người cần tuyển và dạy bù chỉ in ra màn hình.
 3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ cả 2 sheet). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (và **Số Tiết Bù**). File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File gốc không bị sửa.
 
 **Style:** mọi file ra chép style của sheet NHÂN SỰ trong file vào: phông, cỡ chữ, tiêu đề in đậm, viền, căn lề và chiều cao dòng (làm tròn, ví dụ 24,95 → 25). Bảng ghi tiêu đề cột ở dòng 1 như file vào. Riêng hàng tiết trong TKB cao đủ 2 dòng chữ (môn và giáo viên).

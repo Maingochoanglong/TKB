@@ -29,7 +29,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("-o", "--output", default="out/TKB.xlsx",
                     help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
-    ap.add_argument("--stats-out", help="File nhân sự và thống kê (mặc định <thư mục output>/Thong_Ke.xlsx)")
+    ap.add_argument("--stats-out", help="File thống kê số tiết từng môn của mỗi giáo viên "
+                                        "(mặc định <thư mục output>/Thong_Ke.xlsx)")
     ap.add_argument("--time-limit", type=float, default=240,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; 0 = không giới hạn)")
     ap.add_argument("--non-reproducible", action="store_true",
@@ -75,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     write_timetable(solution, output, style)
     write_updated_staff(solution, args.staff, staff_out)
     stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
-    write_statistics(solution, stats_out, style, errors, solution.problem.warnings)
+    write_statistics(solution, stats_out, style)
 
     load = solution.teacher_load()
     extra = solution.used_supplements()

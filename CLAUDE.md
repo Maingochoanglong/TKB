@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-SAT. Input: one Excel file with
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
-only), `Thong_Ke.xlsx` (overview, staff, statistics), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
+only), `Thong_Ke.xlsx` (one table: lessons per subject per teacher + total), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
 docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules
@@ -74,7 +74,7 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
 - Default reproducible mode (`solver._configure`): deterministic time budget, `interleave_search`, clause and
   level-zero-bound sharing off. Same input + `main.py` constants + pinned libs ⇒ same timetable on the same OS.
   Windows and Linux give different (equally valid) timetables.
-- `Solution.fingerprint()` is the "Mã kết quả" printed and written to `Thong_Ke.xlsx` › Tổng quan.
+- `Solution.fingerprint()` is the "Mã kết quả"; it is only printed (`chay_mau.py` reads it from stdout).
 - Any change to constraints, objective, weights, solver params or model-building order changes the codes. Update:
   `tests/test_reproducible.py` `REFERENCE` (Linux: run the test, the failure message shows the new code;
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table

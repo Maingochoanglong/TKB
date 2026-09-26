@@ -25,12 +25,11 @@ def test_run_writes_outputs(tmp_path):
     assert code == 0
     # TKB.xlsx chỉ có thời khóa biểu; nhân sự và thống kê nằm ở Thong_Ke.xlsx.
     assert openpyxl.load_workbook(out_dir / "TKB.xlsx").sheetnames == ["Khối 3"]
-    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == [
-        "Tổng quan", "Danh sách nhân sự", "Thống kê giáo viên", "Phân công", "Theo ngày", "Theo chức vụ"]
+    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê"]
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
     assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
-    stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê giáo viên")
-    assert stats[-2][1:5] == ("tuyển thêm", "Bộ Môn", "Bộ Môn 1", 23)
+    stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê")
+    assert stats[-2][:2] == ("tuyển thêm", "Bộ Môn 1") and stats[-2][-1] == 8
     # Các file ra dùng style của file vào.
     tkb = openpyxl.load_workbook(out_dir / "TKB.xlsx")["Khối 3"]
     assert tkb["D2"].font.name == "Times New Roman" and tkb["D2"].font.sz == 14

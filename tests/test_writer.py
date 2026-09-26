@@ -11,7 +11,6 @@ from tkb.writer import write_timetable, write_updated_staff
 from .conftest import CURRICULUM, INPUT_FILE, small_staff, teacher
 
 STYLE = Style.from_file(INPUT_FILE)  # style của file vào: Times New Roman 14, viền mảnh, dòng cao 25
-STAFF_HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Mã GV", "Số Tiết Thực Dạy")
 
 
 def _solve_small(general):
@@ -59,32 +58,41 @@ def _values(ws):
     return [v for row in ws.iter_rows(values_only=True) for v in row if v is not None]
 
 
-def test_statistics_file_has_overview_and_staff_list(tmp_path):
+def _stats(path):
+    return list(openpyxl.load_workbook(path)["Thống kê"].iter_rows(values_only=True))
+
+
+def test_statistics_file_is_one_table(tmp_path):
     sol = _solve_small(general=True)
     out = tmp_path / "Thong_Ke.xlsx"
-    writer.write_statistics(sol, out, STYLE, check(sol.problem, sol.lessons), ["cảnh báo thử"])
-    wb = openpyxl.load_workbook(out)
-    assert wb.sheetnames == ["Tổng quan", "Danh sách nhân sự", "Thống kê giáo viên", "Phân công", "Theo ngày",
-                             "Theo chức vụ"]
-    overview = _values(wb["Tổng quan"])
-    assert "ĐẠT" in overview and "cảnh báo thử" in overview and sol.fingerprint() in overview
-    assert not any(isinstance(v, str) and ("THEO NHÓM CHỨC VỤ" in v or "TẢI TỪNG" in v) for v in overview)
+    writer.write_statistics(sol, out, STYLE)
+    assert openpyxl.load_workbook(out).sheetnames == ["Thống kê"]
+    rows = _stats(out)
+    header = rows[0]
+    # Tên, chức vụ (Mã GV), số tiết từng môn (chỉ các môn có người dạy), tổng tiết.
+    assert header[:2] == ("Họ và Tên", "Chức Vụ") and header[-1] == "Tổng Tiết"
+    assert "HĐTN" in header and "Tiếng Việt" in header and "Mã GV" not in header
+    load = sol.teacher_load()
+    for r in rows[1:-1]:
+        assert sum(v or 0 for v in r[2:-1]) == r[-1]
+    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-1] == load["chủ nhiệm 3/1"]
+    assert rows[1][header.index("HĐTN")] == 3 and rows[1][header.index("Tiếng Anh")] is None  # ô trống: không dạy
+    assert rows[-1][0] == "Tổng" and rows[-1][-1] == 64  # 2 lớp × 32 tiết
 
 
-def test_supplement_added_to_staff_list(tmp_path):
+def test_supplement_in_statistics(tmp_path):
     sol = _solve_small(general=False)
     out = tmp_path / "TKB.xlsx"
     stats = tmp_path / "Thong_Ke.xlsx"
     write_timetable(sol, out, STYLE)
     writer.write_statistics(sol, stats, STYLE)
-    ws = openpyxl.load_workbook(stats)["Danh sách nhân sự"]
-    rows = list(ws.iter_rows(values_only=True))
-    # Cột như sheet NHÂN SỰ của file vào, thêm các cột kết quả.
-    assert rows[0] == STAFF_HEADER + ("Ghi Chú",)
-    assert rows[1][:6] == ("CN A", "Chủ Nhiệm", "3/1", 19, "Chủ Nhiệm 3/1", 19)
-    # Tuyển theo định mức đầy đủ 23 tiết, thực dạy 8 tiết.
-    assert rows[-1][:6] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
+    rows = _stats(stats)
+    # Người cần tuyển: tên "tuyển thêm", chức vụ là Mã GV, thực dạy 8 tiết.
+    assert rows[-2][:2] == ("tuyển thêm", "Bộ Môn 1") and rows[-2][-1] == 8
+    ws = openpyxl.load_workbook(stats)["Thống kê"]
     assert ws["A1"].font.b and ws["A2"].font.sz == 14 and ws.row_dimensions[2].height == 25
+    assert ws["A2"].font.name == "Times New Roman" and ws["A2"].border.left.style == "thin"
+    assert ws.cell(len(rows), 1).font.b and ws.freeze_panes == "C2"
     grid = [v for row in openpyxl.load_workbook(out)["Khối 3"].iter_rows(values_only=True) for v in row if v]
     assert any(isinstance(v, str) and v.endswith("\nBộ Môn 1") for v in grid)
 
@@ -109,21 +117,6 @@ def test_updated_staff_file_is_reusable(tmp_path):
     sol2 = solve(again, CURRICULUM, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
     assert sol2.used_supplements() == []
     assert check(sol2.problem, sol2.lessons) == []
-
-
-def test_overtime_columns(tmp_path):
-    settings = config.Settings(time_limit=20, workers=4, mode=config.MODE_OVERTIME, overtime_max=4)
-    sol = solve(small_staff(general=False), CURRICULUM, settings, log=lambda *_: None)
-    out = tmp_path / "Thong_Ke.xlsx"
-    writer.write_statistics(sol, out, STYLE, check(sol.problem, sol.lessons))
-    wb = openpyxl.load_workbook(out)
-    staff = list(wb["Danh sách nhân sự"].iter_rows(values_only=True))
-    assert staff[0] == STAFF_HEADER + ("Số Tiết Bù", "Ghi Chú")
-    assert staff[1][:7] == ("CN A", "Chủ Nhiệm", "3/1", 19, "Chủ Nhiệm 3/1", 23, 4)
-    stats = _values(wb["Tổng quan"])
-    assert "2. DẠY BÙ (vượt định mức)" in stats
-    assert any(isinstance(v, str) and v.startswith("Bù giờ") for v in stats)
-    assert any(isinstance(v, str) and "TNXH ×2" in v for v in stats)
 
 
 def test_teacher_labels():
@@ -164,32 +157,14 @@ def test_long_names_widen_columns_and_rows(tmp_path):
 def test_statistics_file(tmp_path):
     out = tmp_path / "Thong_Ke.xlsx"
     writer.write_statistics(_solve_small(general=False), out, STYLE)
-    wb = openpyxl.load_workbook(out)
-    ws = wb["Thống kê giáo viên"]
-    rows = list(ws.iter_rows(values_only=True))
-    assert rows[0] == ("STT", "Họ và Tên", "Chức Vụ", "Mã GV", "Số Tiết Quy Định", "Số Tiết Bù",
-                       "Số Tiết Thực Dạy", "Số Tiết Còn Dư")
-    assert rows[1] == (1, "CN A", "Chủ Nhiệm", "Chủ Nhiệm 3/1", 19, 0, 19, 0)
-    assert rows[-2] == (8, "tuyển thêm", "Bộ Môn", "Bộ Môn 1", 23, 0, 8, 15)  # người cần tuyển
-    assert rows[-1] == (None, "Tổng", None, None, 19 * 2 + 23 * 6, 0, 64, 19 * 2 + 23 * 6 - 64)
-    assert ws["A1"].font.b and ws["B2"].font.name == "Times New Roman" and ws["B2"].border.left.style == "thin"
-    assert ws.cell(len(rows), 2).font.b and ws.row_dimensions[2].height == 25
-
-    assign = list(wb["Phân công"].iter_rows(min_row=2, values_only=True))
-    assert any(r[1:] == ("CN A", "Chủ Nhiệm 3/1", "3/1", "HĐTN", 3) for r in assign)
-    assert sum(r[5] for r in assign) == 64
-    assert any(r[1:4] == ("tuyển thêm", "Bộ Môn 1", "3/2") for r in assign)
-
-    daily = list(wb["Theo ngày"].iter_rows(values_only=True))
-    assert daily[0][3:9] == ("Số Lớp Dạy", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6")
-    assert all(sum(r[4:9]) == r[9] for r in daily[1:])
-    assert daily[1][1:4] == ("CN A", "Chủ Nhiệm 3/1", 1)  # GVCN chỉ dạy lớp mình
-    assert daily[-1][9] == 64 and daily[-1][3] is None  # dòng Tổng không cộng số lớp
-
-    roles = {r[1]: r[2:] for r in wb["Theo chức vụ"].iter_rows(min_row=2, values_only=True)}
-    assert roles["Chủ Nhiệm"] == (2, 38, 38, 0, 0, 0, 0)
-    assert roles["Bộ Môn"] == (0, 0, 0, 0, 0, 1, 8)
-    assert roles["Tổng"][5:] == (1, 8)
+    rows = _stats(out)
+    header = rows[0]
+    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-1] == 19
+    assert [r[1] for r in rows[1:-1]] == ["Chủ Nhiệm 3/1", "Chủ Nhiệm 3/2", "Tiếng Anh 1", "Thể dục 1", "Âm nhạc 1",
+                                          "Mỹ thuật 1", "Tin học 1", "Bộ Môn 1"]
+    ta = rows[3]  # GV Tiếng Anh chỉ dạy Tiếng Anh, 4 tiết mỗi lớp
+    assert ta[header.index("Tiếng Anh")] == 8 and ta[-1] == 8
+    assert rows[-1][0] == "Tổng" and rows[-1][header.index("Tiếng Anh")] == 8 and rows[-1][-1] == 64
 
 
 def test_statistics_file_overtime(tmp_path):
@@ -197,10 +172,7 @@ def test_statistics_file_overtime(tmp_path):
     sol = solve(small_staff(general=False), CURRICULUM, settings, log=lambda *_: None)
     out = tmp_path / "Thong_Ke.xlsx"
     writer.write_statistics(sol, out, STYLE)
-    wb = openpyxl.load_workbook(out)
-    rows = list(wb["Thống kê giáo viên"].iter_rows(min_row=2, values_only=True))
-    assert rows[0] == (1, "CN A", "Chủ Nhiệm", "Chủ Nhiệm 3/1", 19, 4, 23, 0) and rows[1][5] == 4
-    assert all(r[1] != "tuyển thêm" for r in rows)
-    assert rows[-1][1] == "Tổng" and rows[-1][5] == 8
-    roles = {r[1]: r[2:] for r in wb["Theo chức vụ"].iter_rows(min_row=2, values_only=True)}
-    assert roles["Chủ Nhiệm"][3] == 8  # cột Số tiết bù
+    rows = _stats(out)
+    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-1] == 23  # 19 tiết + 4 tiết bù
+    assert all(r[0] != "tuyển thêm" for r in rows)
+    assert rows[-1][0] == "Tổng" and rows[-1][-1] == 64

@@ -131,7 +131,6 @@ Hằng số: `DEFAULT_ROW_HEIGHT`, `MAX_COLUMN_WIDTH`, `STAFF_HEADERS`
   - `.lines(text, width)`
   - `.header_cell(ws, row, col, value)`
   - `.body_cell(ws, row, col, value, bold, horizontal)`
-  - `.title_cell(ws, row, col, value)` — Dòng tựa phía trên một bảng: chữ tiêu đề, không viền.
   - `.table(ws, header, rows, top, bold_last)` — Bảng như sheet nhân sự của file vào: dòng tiêu đề rồi các dòng dữ liệu. Trả về dòng cuối.
   - `.fit_columns(ws, first_row, minimum, skip_rows)` — Nới độ rộng cột vừa chữ dài nhất (tối đa MAX_COLUMN_WIDTH, dài hơn thì xuống dòng).
 
@@ -147,34 +146,26 @@ Hằng số: `LIST_SHEET`, `STAFF_HEADERS`, `STAFF_WIDTHS`, `LAST_ROW`, `BLANK_R
 - `write_staff_template(path, teachers, curriculum)` — Ghi file vào mẫu V8 (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC).
 - `main(argv)`
 
-## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (tổng quan, danh sách nhân sự, thống kê giáo viên);
-Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `OVERVIEW_SHEET`
+## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (số tiết từng môn của mỗi giáo viên); file vào
+Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `STATS_SHEET`, `TOTAL_HEADER`
 - `teacher_labels(teachers)` — Chức vụ -> tên hiển thị dưới tên môn trong TKB.
 - `session_rows()` — Các hàng của bảng TKB: (buổi, tiết trong ngày). Cột TIẾT ghi tiết trong ngày: sáng 1–4, chiều 5–7.
 - `_merge(ws, style, r1, c1, r2, c2, value)`
 - `_grade_sheets(wb, solution, style)`
-- `daily_loads(solution)`
 - `staff_rows(solution)` — GV thật theo thứ tự file gốc, sau đó GV bổ sung được dùng.
-- `role_label(solution, role)` — Chức vụ như ghi trong file vào (vd "Tiếng Anh"), ba chức vụ đặc biệt theo config.
-- `mode_label(problem)`
-- `overtime_details(solution)` — GVCN -> các môn dạy bù ở lớp mình, vd "TV tăng cường ×2".
-- `staff_table(solution, style)` — Danh sách nhân sự đã cập nhật: các cột của file vào + Mã GV, số tiết thực dạy, bù, ghi chú.
-- `_staff_sheet(wb, solution, style)`
-- `_overview_sheet(ws, solution, errors, warnings, style)` — Tổng quan: chế độ, kết quả kiểm tra luật, mã kết quả, người cần tuyển, dạy bù, lỗi kiểm tra.
 - `write_timetable(solution, path, style)` — File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics).
 - `_stats_name(t)`
-- `statistics_rows(solution)` — Tên | Chức vụ | Mã GV | Số tiết quy định | Số tiết bù | Số tiết thực dạy | Số tiết còn dư.
-- `assignment_rows(solution)` — Phân công chuyên môn: Tên | Mã GV | Lớp | Môn | Số tiết (theo thứ tự danh sách nhân sự).
-- `daily_rows(solution)` — Tên | Mã GV | Số lớp dạy | số tiết từng ngày | Tổng.
-- `role_rows(solution)` — Chức vụ | Số người | Quy định | Thực dạy | Bù | Còn dư | Số người tuyển thêm | Số tiết tuyển thêm.
-- `_stats_table(ws, style, header, rows, total_from)` — Bảng như sheet nhân sự của file vào (tiêu đề ở dòng 1); total_from: cộng các cột từ vị trí này.
-- `write_statistics(solution, path, style, errors, warnings)` — File thống kê: tổng quan, danh sách nhân sự, thống kê giáo viên, phân công, tải theo ngày, theo chức vụ.
+- `subject_table(solution, style)` — Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết, mỗi giáo viên một dòng; cuối bảng có dòng Tổng.
+- `write_statistics(solution, path, style)` — File thống kê: một bảng số tiết từng môn của mỗi giáo viên (xem subject_table).
 - `_copy_style(src, dst)`
 - `write_updated_staff(solution, source, path)` — Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
 
 ## .github/scripts/chay_mau.py — Chạy xếp TKB file FILE_VAO với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã.
 Hằng số: `ROOT`
-- `result_code(stats_file)`
+- `class _Tee` — Vừa in ra màn hình vừa giữ lại chữ đã in.
+  - `.write(text)`
+  - `.flush()`
+- `run_once(source, out)` — Chạy main.run; trả về (mã thoát, mã kết quả đọc từ dòng "Mã kết quả: ..." in ra màn hình).
 - `run(argv)`
 
 ## tools/code_map.py — Bản đồ code: mỗi module một dòng mô tả, rồi các hàm/lớp kèm tham số và dòng đầu docstring.
@@ -202,4 +193,4 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_solver.py`: test_small_school_solves_and_passes_checker, test_hdtn_fixed_and_flex, test_missing_general_teacher_becomes_supplement, test_checker_detects_violations, test_homeroom_teaches_first_period, test_heavy_subjects_avoid_last_period, test_core_subjects_in_the_morning, test_slot_capacity_limits_assignment, test_sample_school_assignment_is_optimal, test_reproducible_mode_gives_identical_timetables, test_overtime_mode_covers_shortage_without_hiring, test_overtime_mode_hires_only_the_remainder, test_overtime_homeroom_before_general, test_checker_flags_invalid_overtime, test_sample_school_overtime_assignment, test_same_subject_lessons_are_contiguous, test_contiguous_when_a_subject_must_repeat_in_a_session, test_checker_detects_split_subject, test_checker_requires_homeroom_to_cover_own_class_first
 - `tests/test_staff.py`: test_bad_lessons, test_duplicates_rejected, test_read_sample_staff, test_program_file_is_read_as_written, test_subject_names_match_rules_loosely, test_columns_and_auto_numbering, test_numbered_titles_are_rejected, test_old_headers_are_rejected, test_class_errors, test_class_turned_into_date, test_program_sheet_aliases_and_total_row, test_missing_program_sheet_is_an_error, test_all_errors_at_once
 - `tests/test_template.py`: test_template_style_and_dropdowns, test_blank_template_has_only_headers, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template
-- `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_has_overview_and_staff_list, test_supplement_added_to_staff_list, test_updated_staff_file_is_reusable, test_overtime_columns, test_teacher_labels, test_blank_names_show_teacher_code, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime
+- `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime

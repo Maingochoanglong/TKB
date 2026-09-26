@@ -89,13 +89,6 @@ class Style:
         self.body.apply(cell, bold=bold, horizontal=horizontal)
         return cell
 
-    def title_cell(self, ws, row: int, col: int, value) -> None:
-        """Dòng tựa phía trên một bảng: chữ tiêu đề, không viền."""
-        cell = ws.cell(row, col, value)
-        cell.font = copy(self.header.font)
-        cell.alignment = Alignment(horizontal="left", vertical="center")
-        ws.row_dimensions[row].height = self.row_height
-
     def table(self, ws, header: list[str], rows: list[list], top: int = 1, bold_last: bool = False) -> int:
         """Bảng như sheet nhân sự của file vào: dòng tiêu đề rồi các dòng dữ liệu. Trả về dòng cuối."""
         for c, h in enumerate(header, start=1):
