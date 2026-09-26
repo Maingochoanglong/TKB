@@ -15,7 +15,15 @@ from .style import Style
 from .writer import write_statistics, write_timetable, write_updated_staff
 
 
+def use_utf8_output() -> None:
+    """In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    use_utf8_output()
     ap = argparse.ArgumentParser(prog="python -m tkb", description="Xếp thời khóa biểu tự động")
     ap.add_argument("staff", help="File vào: sheet NHÂN SỰ và sheet CHƯƠNG TRÌNH HỌC")
     ap.add_argument("-o", "--output", default="out/TKB.xlsx", help="File TKB xuất ra (mặc định out/TKB.xlsx)")

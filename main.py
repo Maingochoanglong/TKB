@@ -84,10 +84,11 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MU
     """Chạy xếp TKB; trả về 0 nếu thành công."""
     try:
         from tkb import config
-        from tkb.__main__ import main as tkb_main
+        from tkb.__main__ import main as tkb_main, use_utf8_output
     except ImportError as exc:
         print(f"LỖI: thiếu thư viện ({exc.name}). Cài bằng lệnh:  pip install -r requirements.txt")
         return 1
+    use_utf8_output()
 
     if _blank(file_vao):
         print("LỖI: chưa điền FILE_VAO (địa chỉ file vào .xlsx)")
