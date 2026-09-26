@@ -23,9 +23,12 @@ def test_run_writes_outputs(tmp_path):
     code = main.run(in_dir / "nhan_su.xlsx", out_dir, "TKB.xlsx", thoi_gian_toi_da=20,
                     che_do="tuyen_them")
     assert code == 0
-    assert (out_dir / "TKB.xlsx").is_file()
+    # TKB.xlsx chỉ có thời khóa biểu; nhân sự và thống kê nằm ở Thong_Ke.xlsx.
+    assert openpyxl.load_workbook(out_dir / "TKB.xlsx").sheetnames == ["Khối 3"]
+    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == [
+        "Tổng quan", "Danh sách nhân sự", "Thống kê giáo viên", "Phân công", "Theo ngày", "Theo chức vụ"]
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, None, "Bộ Môn 1", 8)
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
     stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê giáo viên")
     assert stats[-2][1:5] == ("tuyển thêm", "Bộ Môn", "Bộ Môn 1", 23)
     # Các file ra dùng style của file vào.

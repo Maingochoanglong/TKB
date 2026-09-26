@@ -15,12 +15,21 @@ from .style import Style
 from .writer import write_statistics, write_timetable, write_updated_staff
 
 
+def use_utf8_output() -> None:
+    """In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    use_utf8_output()
     ap = argparse.ArgumentParser(prog="python -m tkb", description="Xếp thời khóa biểu tự động")
     ap.add_argument("staff", help="File vào: sheet NHÂN SỰ và sheet CHƯƠNG TRÌNH HỌC")
-    ap.add_argument("-o", "--output", default="out/TKB.xlsx", help="File TKB xuất ra (mặc định out/TKB.xlsx)")
+    ap.add_argument("-o", "--output", default="out/TKB.xlsx",
+                    help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
-    ap.add_argument("--stats-out", help="File thống kê giáo viên (mặc định <thư mục output>/Thong_Ke.xlsx)")
+    ap.add_argument("--stats-out", help="File nhân sự và thống kê (mặc định <thư mục output>/Thong_Ke.xlsx)")
     ap.add_argument("--program", help="File chương trình học riêng (mặc định: sheet CHƯƠNG TRÌNH HỌC của file vào)")
     ap.add_argument("--time-limit", type=float, default=240,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; 0 = không giới hạn)")
@@ -32,8 +41,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="Khi thiếu người: tuyen_them = thêm GV \"chưa có\"; bu_gio = GVCN/bộ môn dạy bù "
                          "(mặc định tuyen_them)")
     ap.add_argument("--max-overtime", type=int, default=config.OVERTIME_MAX,
-                    help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người, kể cả người hưởng thai sản "
-                         f"(mặc định {config.OVERTIME_MAX})")
+                    help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định {config.OVERTIME_MAX})")
     ap.add_argument("--no-student-rules", action="store_true",
                     help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi; môn có từ 2 tiết "
                          "trong buổi phải học liền nhau)")
@@ -65,16 +73,15 @@ def main(argv: list[str] | None = None) -> int:
     output = Path(args.output)
     staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
     style = Style.from_file(args.staff)  # các file ra dùng style của file vào
-    write_timetable(solution, output, errors, solution.problem.warnings, style)
+    write_timetable(solution, output, style)
     write_updated_staff(solution, args.staff, staff_out)
     stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
-    write_statistics(solution, stats_out, style)
+    write_statistics(solution, stats_out, style, errors, solution.problem.warnings)
 
     load = solution.teacher_load()
     extra = solution.used_supplements()
     print(f"Kết quả: {solution.status}, kiểm tra luật bắt buộc: {'ĐẠT' if not errors else 'KHÔNG ĐẠT'}")
-    print(f"Mã kết quả: {solution.fingerprint()} (cùng file vào, cùng cấu hình thì máy nào cũng ra cùng mã; "
-          f"xếp giờ mất {solution.wall_time:.0f} giây)")
+    print(f"Mã kết quả: {solution.fingerprint()} (cùng mã là cùng TKB; xếp giờ mất {solution.wall_time:.0f} giây)")
     if extra:
         print(f"Cần bổ sung {len(extra)} GV cho {sum(load[t.title] for t in extra)} tiết thiếu:")
         for t in extra:

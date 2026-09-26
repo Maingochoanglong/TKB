@@ -9,14 +9,14 @@ from .conftest import CURRICULUM
 
 
 def test_parse_titles():
-    assert parse_title("chủ nhiệm 1/1") == ("chủ nhiệm", None, "1/1", False)
-    assert parse_title("  Chủ  nhiệm 5 / 5 ts ") == ("chủ nhiệm", None, "5/5", True)
-    assert parse_title("bộ môn 5 ts") == ("bộ môn", 5, None, True)
-    assert parse_title("Tiếng Anh 3") == ("tiếng anh", 3, None, False)
-    assert parse_title("quản lý 1") == ("quản lý", 1, None, False)
+    assert parse_title("chủ nhiệm 1/1") == ("chủ nhiệm", None, "1/1")
+    assert parse_title("  Chủ  nhiệm 5 / 5 ") == ("chủ nhiệm", None, "5/5")
+    assert parse_title("bộ môn 5") == ("bộ môn", 5, None)
+    assert parse_title("Tiếng Anh 3") == ("tiếng anh", 3, None)
+    assert parse_title("quản lý 1") == ("quản lý", 1, None)
 
 
-@pytest.mark.parametrize("bad", ["bộ môn", "chủ nhiệm 1", "bộ môn 1/2", "thể dục một"])
+@pytest.mark.parametrize("bad", ["bộ môn", "chủ nhiệm 1", "bộ môn 1/2", "thể dục một", "bộ môn 5 ts"])
 def test_parse_title_rejects(bad):
     with pytest.raises(InputError):
         parse_title(bad)
@@ -32,10 +32,10 @@ def test_bad_lessons():
 
 def test_duplicates_rejected():
     with pytest.raises(InputError):
-        validate([build_teacher("A", "chủ nhiệm 1/1", 19), build_teacher("B", "chủ nhiệm 1/1 ts", 16)])
+        validate([build_teacher("A", "chủ nhiệm 1/1", 19), build_teacher("B", "Chủ nhiệm 1 / 1", 16)])
     with pytest.raises(InputError):
         validate([build_teacher("A", "chủ nhiệm 1/1", 19), build_teacher("B", "bộ môn 2", 23),
-                  build_teacher("C", "bộ môn 2 ts", 19)])
+                  build_teacher("C", "Bộ Môn 2", 19)])
 
 
 def test_read_real_staff(real_staff):
@@ -44,8 +44,8 @@ def test_read_real_staff(real_staff):
     assert len(classes) == 29
     assert classes[0] == "1/1" and classes[-1] == "5/5"
     cn55 = next(t for t in real_staff if t.class_name == "5/5")
-    assert cn55.maternity and cn55.max_lessons == 16
-    bm5 = next(t for t in real_staff if t.title == "bộ môn 5 ts")
+    assert cn55.title == "chủ nhiệm 5/5" and cn55.max_lessons == 16
+    bm5 = next(t for t in real_staff if t.title == "bộ môn 5")
     assert bm5.max_lessons == 19
 
 
@@ -63,7 +63,7 @@ def test_subject_names_match_rules_loosely():
     assert canonical_subject("Múa  dân gian") == "Múa dân gian"  # môn không có luật: giữ tên trong file
 
 
-def _staff_file(path, rows, header=("Tên", "Chức vụ", "Số tiết", "Thai sản")):
+def _staff_file(path, rows, header=("Tên", "Chức vụ", "Số tiết", "Chế Độ")):
     wb = openpyxl.Workbook()
     wb.active.append(list(header))
     for r in rows:
@@ -72,20 +72,12 @@ def _staff_file(path, rows, header=("Tên", "Chức vụ", "Số tiết", "Thai 
     return path
 
 
-def test_maternity_column(tmp_path):
+def test_extra_columns_are_ignored(tmp_path):
+    # File cũ còn cột Chế Độ (thai sản) hay cột ghi chú: chương trình bỏ qua, ghi gì cũng được.
     path = _staff_file(tmp_path / "ns.xlsx", [("A", "chủ nhiệm 1/1", 16, "Có"), ("B", "bộ môn 1", 23, None),
-                                             ("C", "bộ môn 2 ts", 19, None), ("D", "bộ môn 3", 23, "không")])
-    a, b, c, d = read_staff(path)
-    assert (a.title, a.maternity) == ("chủ nhiệm 1/1 ts", True)
-    assert (b.title, b.maternity) == ("bộ môn 1", False)
-    assert (c.title, c.maternity) == ("bộ môn 2 ts", True)  # file cũ ghi "ts" sau chức vụ vẫn hiểu
-    assert not d.maternity
-
-
-def test_maternity_column_rejects_other_values(tmp_path):
-    path = _staff_file(tmp_path / "ns.xlsx", [("A", "chủ nhiệm 1/1", 16, "đang nghỉ")])
-    with pytest.raises(InputError, match="Chế Độ"):
-        read_staff(path)
+                                             ("C", "bộ môn 2", 19, "đang nghỉ")])
+    got = [(t.name, t.title, t.max_lessons) for t in read_staff(path)]
+    assert got == [("A", "chủ nhiệm 1/1", 16), ("B", "bộ môn 1", 23), ("C", "bộ môn 2", 19)]
 
 
 V7 = ("Họ và Tên", "Chức Vụ", "Lớp", "Chế độ", "Số Tiết/Tuần")
@@ -96,17 +88,15 @@ def test_v7_columns_and_auto_numbering(tmp_path):
         ("A", "Chủ Nhiệm", "1/1", None, 19), ("B", "Bộ Môn", None, None, 23),
         ("C", "Tiếng Anh", None, None, 23), ("D", "bộ môn", None, "Thai sản", 19),
         ("E", "Chủ Nhiệm", " 1 / 2 ", "Thai sản", 16), ("F", "Bộ Môn", None, None, 23)], header=V7)
-    got = [(t.name, t.title, t.max_lessons, t.maternity) for t in read_staff(path)]
-    assert got == [("A", "chủ nhiệm 1/1", 19, False), ("B", "bộ môn 1", 23, False),
-                   ("C", "tiếng anh 1", 23, False), ("D", "bộ môn 2 ts", 19, True),
-                   ("E", "chủ nhiệm 1/2 ts", 16, True), ("F", "bộ môn 3", 23, False)]
+    got = [(t.name, t.title, t.max_lessons) for t in read_staff(path)]
+    assert got == [("A", "chủ nhiệm 1/1", 19), ("B", "bộ môn 1", 23), ("C", "tiếng anh 1", 23),
+                   ("D", "bộ môn 2", 19), ("E", "chủ nhiệm 1/2", 16), ("F", "bộ môn 3", 23)]
 
 
 @pytest.mark.parametrize("row, message", [
     (("A", "Chủ Nhiệm", None, None, 19), "phải ghi Lớp"),
     (("A", "Bộ Môn", "1/1", None, 23), "chỉ Chủ Nhiệm mới ghi Lớp"),
     (("A", "Chủ Nhiệm", "1-1", None, 19), "khối/số thứ tự"),
-    (("A", "Chủ Nhiệm", "1/1", "nghỉ ốm", 19), "Chế Độ"),
 ])
 def test_v7_errors(tmp_path, row, message):
     path = _staff_file(tmp_path / "ns.xlsx", [row], header=V7)

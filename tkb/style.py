@@ -17,8 +17,7 @@ from .staff import _find_columns, clean_name, staff_sheet
 
 DEFAULT_ROW_HEIGHT = 25  # file vào không đặt chiều cao dòng
 MAX_COLUMN_WIDTH = 60  # chữ dài hơn thì xuống dòng
-STAFF_HEADERS = {"name": "Họ và Tên", "title": "Chức Vụ", "class": "Lớp", "lessons": "Số Tiết/Tuần",
-                 "maternity": "Chế Độ"}
+STAFF_HEADERS = {"name": "Họ và Tên", "title": "Chức Vụ", "class": "Lớp", "lessons": "Số Tiết/Tuần"}
 
 
 def with_bold(font: Font, bold: bool) -> Font:

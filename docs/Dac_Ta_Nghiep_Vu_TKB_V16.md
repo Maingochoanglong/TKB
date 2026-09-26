@@ -26,15 +26,17 @@
 | 8 | Môn nặng ở tiết 7 | [Cứng] cấm | **[Mềm]** hạn chế |
 | 9 | Tiết nặng liên tiếp | [Cứng] giới hạn | **Bỏ** |
 | 10 | Tối đa 2 tiết TV, 2 tiết Toán mỗi buổi | [Cứng] | **Giữ nguyên** [Cứng]. Tiết tăng cường được đếm riêng |
-| 11 | Thai sản | Chữ `ts` sau chức vụ | Cột **Chế Độ** (`Có`/trống); vẫn đọc được chữ `ts`. Người thai sản **được dạy bù** như mọi người (cùng mức tối đa) |
+| 11 | Thai sản | Chữ `ts` sau chức vụ | **Bỏ hẳn.** Chương trình không có chế độ thai sản: người được giảm tiết ghi Số Tiết/Tuần đã giảm, mọi luật (kể cả bù giờ, định mức tuyển) áp dụng như nhau. Cột Chế Độ của file cũ (nếu còn) bị bỏ qua; chữ `ts` sau chức vụ không còn nhận |
 | 12 | Tải ngày | Buffer/overload động | [Mềm] mục tiêu tải ngày theo tỷ lệ số tiết của ngày |
 | 13 | Tái lập | – | Cùng file vào, cùng hằng số `main.py` và cùng phiên bản OR-Tools thì **máy nào cũng** ra cùng một TKB; kiểm bằng **Mã kết quả** (mục 9) |
 | 14 | Nội dung ô TKB | Chức vụ (môn) | Môn, xuống dòng **tên giáo viên**. Tên trống hoặc người cần tuyển thì ghi **Mã GV** (`Bộ Môn 6`); tên trùng thì kèm Mã GV |
-| 15 | File vào | Hai file: nhân sự (Tên, Chức vụ kèm số thứ tự, Số tiết) và chương trình học | **Một file duy nhất (mẫu V8):** sheet NHÂN SỰ (Họ và Tên, Chức Vụ không số thứ tự, Lớp khối/số thứ tự, Số Tiết/Tuần, Chế Độ) và sheet CHƯƠNG TRÌNH HỌC (bắt buộc) |
+| 15 | File vào | Hai file: nhân sự (Tên, Chức vụ kèm số thứ tự, Số tiết) và chương trình học | **Một file duy nhất (mẫu V8):** sheet NHÂN SỰ (Họ và Tên, Chức Vụ không số thứ tự, Lớp khối/số thứ tự, Số Tiết/Tuần) và sheet CHƯƠNG TRÌNH HỌC (bắt buộc) |
 | 16 | Dữ liệu trong code | Chương trình học, danh sách môn, danh sách chức vụ chuyên biệt, định mức 23 nằm trong code | **Không còn trong code.** Những gì suy ra được từ file vào thì lấy từ file vào (mục 2.4) |
 | 17 | Định dạng file ra | Cố định trong code | **Chép style của file vào** (phông, cỡ chữ, viền, căn lề, chiều cao dòng 25), được thêm cột (mục 11) |
 | 18 | Tuỳ chọn chạy (`main.py`) | Thời gian cố định | `THU_MUC_OUT` để trống thì ghi vào thư mục dự án; `THOI_GIAN_TOI_DA` để trống thì **không giới hạn** (Ctrl+C dừng sớm). Mặc định: bù giờ, áp dụng luật học sinh, 240 giây, tái lập (mục 12.1) |
 | 19 | Môn học liền trong buổi | – | **[Cứng]** Môn có từ 2 tiết trong một buổi phải học liền nhau (mục 6) |
+| 20 | File ra | `TKB.xlsx` gồm TKB, danh sách nhân sự và thống kê | `TKB.xlsx` **chỉ có thời khóa biểu** (các sheet Khối). Tổng quan, danh sách nhân sự và các bảng thống kê chuyển sang `Thong_Ke.xlsx` (mục 11) |
+| 21 | Tái lập | Thỉnh thoảng chạy lại vẫn ra TKB khác | Tắt phần chia sẻ không tất định giữa các luồng của OR-Tools: chạy lại luôn ra cùng TKB trên các máy cùng hệ điều hành; Actions kiểm trên 4 máy Windows (mục 9) |
 
 ---
 
@@ -52,7 +54,6 @@
 | GV chuyên biệt | Chức vụ **trùng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (ví dụ `Tiếng Anh`, `Thể Dục`, `Tin Học`); chỉ dạy đúng môn đó |
 | Mã GV | Chức vụ kèm số thứ tự hoặc lớp, ví dụ `Chủ Nhiệm 1/1`, `Tiếng Anh 2`, `Bộ Môn 6`. Dùng để nhận ra giáo viên khi cột tên để trống |
 | Quản lý | Chức vụ `Quản Lý`, Mã GV `Quản Lý n` |
-| Thai sản | Giáo viên đang hưởng chế độ thai sản (cột Chế Độ = `Có`). Số tiết ghi mức đã giảm. Được dạy bù như mọi người |
 | Số tiết (định mức) | Số tiết **tối đa** giáo viên dạy mỗi tuần |
 | Tiết bù | Tiết dạy **vượt** định mức, chỉ có ở chế độ bù giờ |
 | Người bổ sung | Người cần tuyển, tên `chưa có`, chức vụ `<chức vụ> n+1, n+2…` |
@@ -81,29 +82,27 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 | Họ và Tên | Có (cột) | Họ tên, tự do. **Có thể để trống** (bảo mật): TKB ghi Mã GV thay tên |
 | Chức Vụ | Có | `Chủ Nhiệm`, `Bộ Môn`, `Quản Lý`, hoặc **đúng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên biệt). **Không ghi số thứ tự**. So khớp không phân biệt hoa thường, dấu câu, khoảng trắng thừa |
 | Lớp | Với Chủ Nhiệm | Dạng **khối/số thứ tự** (`1/1`). Chỉ Chủ Nhiệm được ghi Lớp |
-| Số Tiết/Tuần | Có | Số nguyên ≥ 0. Người thai sản ghi mức đã giảm |
-| Chế Độ | Không | `Có` (hoặc `Thai sản`) nếu đang hưởng chế độ thai sản; để trống nếu không |
-| STT, cột khác | Không | Không dùng |
+| Số Tiết/Tuần | Có | Số nguyên ≥ 0. Người được giảm tiết (ví dụ thai sản) ghi mức đã giảm |
+| STT, cột khác | Không | Không dùng, ghi gì cũng được (ví dụ cột Chế Độ của file cũ) |
 
 - **Tự đánh số thứ tự (Mã GV):** mỗi chức vụ (trừ Chủ Nhiệm) được đánh số 1, 2, 3… theo thứ tự dòng trong file, ví dụ Bộ Môn thứ hai là `Bộ Môn 2`. Chủ Nhiệm được nhận diện theo Lớp (`Chủ Nhiệm 1/1`).
 - **File cũ vẫn đọc được** (một sheet nhân sự; chương trình học lấy từ `--program`):
-  - V7: `Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần`.
-  - V6: `Tên | Chức vụ | Số tiết | Thai sản`, chức vụ ghi kèm số (`bộ môn 5`, `chủ nhiệm 1/1`).
-  - V5: 3 cột, thai sản ghi bằng chữ `ts` sau chức vụ (`bộ môn 5 ts`).
+  - V7: `Họ và Tên | Chức Vụ | Lớp | Chế độ | Số Tiết/Tuần` (cột Chế độ bị bỏ qua).
+  - V6: `Tên | Chức vụ | Số tiết | Thai sản`, chức vụ ghi kèm số (`bộ môn 5`, `chủ nhiệm 1/1`); cột Thai sản bị bỏ qua.
+  - V5: 3 cột như V6. Chữ `ts` sau chức vụ (`bộ môn 5 ts`) không còn nhận: xoá đi rồi chạy.
 
 **Chương trình từ chối file và liệt kê tất cả lỗi một lần, kèm số dòng, khi:**
 - Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý và không trùng tên môn nào trong chương trình học, hoặc sai dạng (mẫu cũ).
 - Chủ Nhiệm thiếu Lớp, Lớp sai dạng khối/số thứ tự, hoặc chức vụ khác lại ghi Lớp.
 - Lớp bị Excel đổi thành ngày tháng (khi gõ tay `1/1` vào ô không định dạng chữ).
 - Số tiết trống, không phải số, âm hoặc không nguyên.
-- Cột Chế Độ ghi giá trị khác `Có`/`Thai sản`/`Không`/trống.
 - Một lớp có hai Chủ Nhiệm, hoặc trùng chức vụ kèm số (mẫu cũ).
 - Không có Chủ Nhiệm nào.
 
 Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối bị hụt, ví dụ có 1/3, 1/5 mà không có 1/4.
 
 **File mẫu V8** (tạo bằng `python -m tkb.template`), style giống file của nhà trường (Times New Roman 14, tiêu đề in đậm không tô nền, viền mảnh, căn giữa, dòng cao 25):
-- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Chế Độ`. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, các chức vụ chuyên biệt của file cũ, Quản Lý; vẫn gõ được tên môn khác). Lớp định dạng chữ và phải có dạng khối/số. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Chế Độ chọn `Có`. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
+- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, các chức vụ chuyên biệt của file cũ, Quản Lý; vẫn gõ được tên môn khác). Lớp định dạng chữ và phải có dạng khối/số. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
 - Sheet CHƯƠNG TRÌNH HỌC: `Môn học | Khối 1 …`. File mẫu trống không có môn nào; chuyển từ file cũ thì chép chương trình của file cũ.
 - Chuyển file cũ sang file mẫu: `python -m tkb.template <mới.xlsx> --tu <cũ.xlsx> [--program <chương trình.xlsx>]`.
 
@@ -156,7 +155,7 @@ Ví dụ (dữ liệu mẫu `data/Input_TKB_V8.xlsx`):
 | Lấy từ file vào | Nằm trong `tkb/config.py` (file vào không có) |
 |---|---|
 | Danh sách môn, tên môn, số tiết từng khối | Khung giờ (mục 3) |
-| Giáo viên, chức vụ, lớp chủ nhiệm, định mức, thai sản | HĐTN: 2 slot cố định, ngày của tiết thứ ba (mục 5.6) |
+| Giáo viên, chức vụ, lớp chủ nhiệm, định mức | HĐTN: 2 slot cố định, ngày của tiết thứ ba (mục 5.6) |
 | Danh sách lớp (từ các dòng Chủ Nhiệm) | Tiết 1 do GVCN dạy (mục 5.5) |
 | GV chuyên biệt: chức vụ trùng tên môn | Môn ưu tiên, thứ tự cắt / nhận thêm của GVCN (mục 5) |
 | Định mức người cần tuyển: Số tiết lớn nhất của GV cùng chức vụ | Bộ Môn không dạy Tiếng Anh, Tin học, HĐTN; Quản Lý dạy KNS khối 4 (mục 4) |
@@ -223,7 +222,7 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 | Khối 2 (19) | TV 10, Toán 5, HĐTN 3, Đạo đức 1 | – |
 | Khối 3 (19) | TV 7, Toán 5, HĐTN 3, Đạo đức 1, TV tăng cường 1, Toán tăng cường 2 | – |
 | Khối 4, 5/1–5/4 (19) | TV 6, Toán 5, HĐTN 3, Khoa học 2, LS-ĐL 2, Đạo đức 1 | TV 1 tiết/lớp |
-| 5/5 thai sản (16) | TV 3, Toán 5, HĐTN 3, Khoa học 2, LS-ĐL 2, Đạo đức 1 | TV 4 tiết (ở chế độ bù giờ, GVCN này có thể bù lại) |
+| 5/5 (16) | TV 3, Toán 5, HĐTN 3, Khoa học 2, LS-ĐL 2, Đạo đức 1 | TV 4 tiết (ở chế độ bù giờ, GVCN này có thể bù lại) |
 
 ### 5.5. Tiết 1 buổi sáng
 
@@ -270,7 +269,7 @@ Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy d�
 - Phần không ai dạy được giao cho **người bổ sung**:
   - Tên `chưa có`.
   - Mã GV `<chức vụ> n+1, n+2…` (ví dụ `Bộ Môn 6`), với n là số thứ tự lớn nhất hiện có của chức vụ đó.
-- **Định mức tuyển** của người bổ sung = Số tiết lớn nhất của các giáo viên cùng chức vụ trong file vào, không tính người thai sản. Nếu chức vụ đó chưa có ai thì lấy Số tiết lớn nhất của các giáo viên không chủ nhiệm, không quản lý.
+- **Định mức tuyển** của người bổ sung = Số tiết lớn nhất của các giáo viên cùng chức vụ trong file vào. Nếu chức vụ đó chưa có ai thì lấy Số tiết lớn nhất của các giáo viên không chủ nhiệm, không quản lý.
 - Người bổ sung là một người thật sẽ tuyển: không dạy 2 lớp cùng lúc, và không dạy quá định mức tuyển.
 - Thứ tự ưu tiên:
   1. Ít tiết giao cho người bổ sung nhất (dùng hết người hiện có trước).
@@ -282,7 +281,6 @@ Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy d�
 ### 7.2. Chế độ bù giờ (`bu_gio`)
 
 - **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (mặc định 2).
-- Người hưởng thai sản **cũng được bù** như mọi người, cùng mức tối đa `SO_TIET_BU_TOI_DA`.
 - **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt.
 - **[Cứng]** GVCN được **ưu tiên bù lớp mình**: không được để bộ môn dạy bù ở lớp X một môn mà GVCN lớp X dạy được, trong khi GVCN lớp X chưa bù hết mức. Chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ dạy lớp mình nên giờ đó rảnh), nên đây là lỗi phân công và bộ kiểm tra báo lỗi.
 - **Thứ tự môn GVCN bù:**
@@ -351,16 +349,17 @@ Chương trình giải hai lần:
   - Bước phân công: nhóm chính (tiết thiếu, người tuyển, tiết bù) giải đến khi **chứng minh tối ưu** (vài giây). Nhóm phụ (chia đều, thứ tự môn…) gần như không bao giờ chứng minh được nên vẫn giới hạn (`Settings.unlimited_polish_time`, 30).
   - Bước xếp giờ: chạy đến khi chứng minh TKB tốt nhất. Với trường cỡ 29 lớp, việc này gần như không kết thúc.
   - Bấm **Ctrl+C** thì bộ giải dừng, giữ TKB tốt nhất đã tìm được, kiểm tra luật và ghi đủ các file ra như bình thường. Kết quả khi dừng bằng tay phụ thuộc thời điểm dừng nên không tái lập.
-- **[Cứng] Tái lập giữa các lần chạy và giữa các máy:** khi `CHAY_TAI_LAP_DUOC = True` và có giới hạn thời gian, chạy lại bao nhiêu lần, ở máy nào cũng ra **đúng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
+- **[Cứng] Tái lập giữa các lần chạy và giữa các máy cùng hệ điều hành:** khi `CHAY_TAI_LAP_DUOC = True` và có giới hạn thời gian, chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra **cùng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
   - file vào (và file chương trình học riêng nếu có);
   - các hằng số trong `main.py`: `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `CHAY_TAI_LAP_DUOC`, `SO_LUONG`;
   - phiên bản thư viện đã ghim trong `requirements.txt` (OR-Tools 9.15.6755, openpyxl 3.1.5). Nếu OR-Tools khác bản đã ghim, chương trình in cảnh báo.
 - **Không ảnh hưởng kết quả:**
   - Máy nhanh hay chậm, số nhân CPU, máy đang bận hay rảnh: bộ giải dừng theo **lượng tính toán**, không theo giây thực. Chế độ tái lập **không có giới hạn giây thực**, nên máy chậm chỉ chạy lâu hơn chứ không dừng sớm.
-  - Phiên bản Python (đã thử 3.10, 3.11, 3.12, 3.13), thư mục chạy, thứ tự băm của Python.
+  - Phiên bản Python (đã thử 3.10 đến 3.14), thư mục chạy, thứ tự băm của Python.
   - Thứ tự dựng mô hình cố định, không phụ thuộc thứ tự lặp của `set`.
-- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Thống kê. Hai máy cùng mã là cùng TKB. Với dữ liệu mẫu `data/Input_TKB_V8.xlsx` và các hằng số mặc định của `main.py`, mã là **`FCE8-77C0-5CDA`**. Đã kiểm trên Python 3.11 và 3.13, chạy từ các thư mục khác nhau, lúc máy đang quá tải. Sheet Thống kê không còn ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
-- **Giới hạn đã biết:** đã kiểm chứng trên Linux x86-64. OR-Tools không cam kết kết quả giống hệt giữa các hệ điều hành hoặc loại CPU khác nhau (Windows, macOS, chip ARM như Apple M1), vì bản dựng khác trình biên dịch và phép tính số thực. Cách kiểm tra một máy: chạy `main.py` với cấu hình mặc định và dữ liệu mẫu, so mã kết quả với mã tham chiếu ở README. Nếu khác, hãy xếp TKB chính thức trên một máy cố định (hoặc cùng loại máy và hệ điều hành).
+- **Tham số bộ giải ở chế độ tái lập** (`_configure` trong `tkb/solver.py`): `interleave_search` (các luồng chạy xen kẽ theo thứ tự cố định), dừng theo `max_deterministic_time`, và **tắt chia sẻ giữa các luồng** (`share_binary_clauses`, kéo theo `share_glue_clauses`, và `share_level_zero_bounds`). Phần chia sẻ này của OR-Tools 9.15 không tất định: đo trên dữ liệu mẫu, cùng một mô hình giải 6 lần ra 3 TKB khác nhau, lệch từ khoảng 60–120 đơn vị tính toán trở đi. Tắt đi thì chạy lặp 8 lần (có lúc 2 tiến trình song song) ra 8 lần cùng mã, chất lượng không giảm.
+- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình và ghi ở sheet Tổng quan của `Thong_Ke.xlsx`. Cùng mã là cùng TKB. Với dữ liệu mẫu `data/Input_TKB_V8.xlsx` và các hằng số mặc định còn lại của `main.py`, mã trên Linux là **`890D-FD11-2733`**, trên Windows là **`78D7-E529-57BD`** (4 máy ảo Windows Server 2022/2025, Python 3.12/3.14, hai loại CPU, mỗi máy chạy 2 lần: 8/8 cùng mã). Sheet Tổng quan không ghi thời gian chạy (khác nhau giữa các máy); thời gian chỉ in ra màn hình.
+- **Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù), vì bản dựng khác trình biên dịch và phép tính số thực. `.github/workflows/windows.yml` kiểm mỗi lần đổi code: 4 máy ảo Windows (Windows Server 2022 và 2025, Python 3.12 và 3.14) chạy dữ liệu mẫu, mỗi máy 2 lần, mọi mã phải trùng nhau. Chưa thử macOS, chip ARM.
 - Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
 - `tests/test_reproducible.py` kiểm tra:
   - chạy trong hai tiến trình Python riêng, thứ tự băm khác nhau, và so sánh kết quả;
@@ -384,15 +383,23 @@ Chương trình giải hai lần:
 8. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
 9. Nếu bật luật học sinh: mỗi buổi tối đa 2 tiết TV và 2 tiết Toán; môn có từ 2 tiết trong buổi học liền nhau.
 
-Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) và in ra màn hình.
+Kết quả ghi vào sheet Tổng quan của `Thong_Ke.xlsx` (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) và in ra màn hình.
 
 ---
 
 ## 11. Đầu ra
 
+Ba file, ghi vào `THU_MUC_OUT`:
+
+| File | Nội dung |
+|---|---|
+| `TKB.xlsx` | **Chỉ thời khóa biểu**: các sheet Khối (mục 11.1) |
+| `Thong_Ke.xlsx` | Tổng quan, danh sách nhân sự và các bảng thống kê giáo viên (mục 11.3) |
+| `<tên file vào>_cap_nhat.xlsx` | File vào cập nhật, dùng lại làm file vào lần sau (mục 11.2) |
+
 ### 11.1. `TKB.xlsx`
 
-**Sheet `Khối 1` … `Khối 5`**, bố cục theo `data/Output_Template_TKB_V5_Formatted.xlsx`:
+Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục theo `data/Output_Template_TKB_V5_Formatted.xlsx`:
 - Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
   - Cột LỚP gộp 7 hàng (`LỚP 1/1`).
   - Cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 1–3).
@@ -400,7 +407,7 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
 - Mỗi ô ghi **môn** và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Chiều Thứ 6 ghi `Nghỉ`.
   - Tên để trống hoặc người cần tuyển: ghi **Mã GV**, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 6`.
   - Hai giáo viên trùng tên thì kèm Mã GV, ví dụ `Lan (Bộ Môn 1)`.
-  - Cột ngày tự nới theo dòng dài nhất, tối đa 30 (đơn vị cột Excel). Tên dài hơn thì xuống dòng và hàng tự cao thêm.
+  - Các cột ngày ở mọi sheet cùng độ rộng, nới theo dòng dài nhất của cả trường, tối đa 30 (đơn vị cột Excel). Tên dài hơn thì xuống dòng và hàng tự cao thêm.
 - Tên môn in như trong file vào; viết tắt: `HĐTN`, `TNXH`, `TV tăng cường`.
 - Khi in: khổ ngang, co vừa chiều rộng 1 trang.
 
@@ -410,18 +417,6 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
 - Chiều cao dòng: của dòng dữ liệu đầu tiên, làm tròn (24,95 → **25**); file vào không đặt thì 25.
 - Bảng ghi tiêu đề cột ở dòng 1 như file vào. Riêng hàng tiết trong TKB cao đủ 2 dòng chữ (môn và giáo viên), theo cỡ chữ của file vào.
 
-**Sheet `Danh sách nhân sự`:**
-- Cột như sheet NHÂN SỰ của file vào: Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế Độ. Thêm **Mã GV**, **Số Tiết Thực Dạy**, **Số Tiết Bù** (chế độ bù giờ) và Ghi Chú.
-- Thứ tự: giáo viên theo thứ tự file gốc, sau đó đến người bổ sung.
-
-**Sheet `Thống kê`:**
-- **Thông tin chung:** chế độ, kết quả kiểm tra luật, trạng thái bộ giải, **mã kết quả**, phiên bản OR-Tools, số lớp, tổng tiết, tổng tiết thiếu, số người bổ sung, tổng tiết dạy bù, ghi chú và cảnh báo.
-- **Chức vụ thiếu và số tiết thiếu:** người bổ sung và chi tiết lớp, môn.
-- **Dạy bù** (chế độ bù giờ): ai bù, bao nhiêu tiết, GVCN bù môn gì.
-- **Theo nhóm chức vụ:** số người, tổng định mức, đã dạy, dư, dạy bù, tiết thiếu, số người bổ sung.
-- **Tải từng giáo viên:** định mức, thực dạy, dư, bù, số tiết từng ngày, số lớp dạy.
-- **Lỗi kiểm tra** (nếu có).
-
 ### 11.2. File vào cập nhật `<tên file vào>_cap_nhat.xlsx`
 
 - Là bản chép của file vào (đủ các sheet), sheet NHÂN SỰ có thêm các dòng người bổ sung `chưa có` ở cuối với **định mức tuyển đầy đủ** (Chức Vụ ghi không kèm số, ví dụ `Bộ Môn`; STT điền tiếp nếu có). Dòng mới **chép style của dòng trên**.
@@ -429,15 +424,27 @@ Kết quả ghi vào sheet Thống kê (**ĐẠT** / **KHÔNG ĐẠT** kèm danh
 - Giữ nguyên danh sách thả xuống của file mẫu.
 - Dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc). File gốc không bị sửa.
 
-### 11.3. File thống kê giáo viên `Thong_Ke.xlsx`
+### 11.3. File nhân sự và thống kê `Thong_Ke.xlsx`
 
-Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến người cần tuyển. Người cần tuyển có tên **`tuyển thêm`**. Mọi bảng có tiêu đề cột ở dòng 1 (cố định khi cuộn), style theo file vào.
+Mọi thứ về nhân sự và thống kê nằm ở file này (TKB.xlsx chỉ có thời khóa biểu). Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến người cần tuyển. Trong các bảng thống kê, người cần tuyển có tên **`tuyển thêm`**. Các bảng có tiêu đề cột ở dòng 1 (cố định khi cuộn), style theo file vào.
+
+**Sheet `Tổng quan`** (sheet đầu tiên):
+- **Thông tin chung:** chế độ, kết quả kiểm tra luật, trạng thái bộ giải, **mã kết quả**, phiên bản OR-Tools, số lớp, tổng tiết, tổng tiết thiếu, số người bổ sung, tổng tiết dạy bù, ghi chú và cảnh báo.
+- **Chức vụ thiếu và số tiết thiếu:** người bổ sung và chi tiết lớp, môn.
+- **Dạy bù** (chế độ bù giờ): ai bù, bao nhiêu tiết, GVCN bù môn gì.
+- **Lỗi kiểm tra** (nếu có).
+
+**Sheet `Danh sách nhân sự`:**
+- Cột như sheet NHÂN SỰ của file vào: Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần. Thêm **Mã GV**, **Số Tiết Thực Dạy**, **Số Tiết Bù** (chế độ bù giờ) và Ghi Chú.
+- Người bổ sung có tên `chưa có`, sau các giáo viên của file gốc.
+
+**Các sheet thống kê:**
 
 | Sheet | Cột | Ghi chú |
 |---|---|---|
 | **Thống kê giáo viên** | STT, Họ và Tên, Chức Vụ, Mã GV, Số tiết quy định, Số tiết bù, Số tiết thực dạy, Số tiết còn dư | Có dòng **Tổng**. Số tiết quy định của người cần tuyển là định mức tuyển đầy đủ (ví dụ 23). Số tiết bù chỉ khác 0 ở chế độ bù giờ |
 | **Phân công** | STT, Họ và Tên, Mã GV, Lớp, Môn, Số tiết | Bảng phân công chuyên môn; mỗi dòng là một (giáo viên, lớp, môn) |
-| **Theo ngày** | STT, Họ và Tên, Mã GV, Thứ 2 … Thứ 6, Tổng | Có dòng **Tổng** |
+| **Theo ngày** | STT, Họ và Tên, Mã GV, Số lớp dạy, Thứ 2 … Thứ 6, Tổng | Có dòng **Tổng** (không cộng số lớp) |
 | **Theo chức vụ** | STT, Chức vụ, Số người, Số tiết quy định, Số tiết thực dạy, Số tiết bù, Số tiết còn dư, Số người tuyển thêm, Số tiết tuyển thêm | Có dòng **Tổng** |
 
 ### 11.4. Màn hình và mã thoát
@@ -456,8 +463,8 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 
 | Hằng số | Ý nghĩa | Mặc định |
 |---|---|---|
-| `FILE_VAO` | **Địa chỉ file vào** (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC), tương đối theo `main.py`. Để trống thì báo lỗi | `data/Input_TKB_V8.xlsx` |
-| `THU_MUC_OUT` | Thư mục ra. **Để trống thì ghi vào thư mục dự án** (thư mục chứa `main.py`) | `out` |
+| `FILE_VAO` | **Địa chỉ file vào** (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC), tương đối theo `main.py`. Để trống thì báo lỗi. File mẫu tên giả: `data/Input_TKB_V8.xlsx` | `data/INPUT_V8.xlsx` (file của trường) |
+| `THU_MUC_OUT` | Thư mục ra. **Để trống thì ghi vào thư mục dự án** (thư mục chứa `main.py`); các file ra ở đó được `.gitignore` bỏ qua | `""` |
 | `CHE_DO` | `bu_gio` hoặc `tuyen_them` | `bu_gio` |
 | `SO_TIET_BU_TOI_DA` | Mức bù tối đa mỗi người (chế độ bù giờ) | `2` |
 | `LUAT_HOC_SINH` | Áp dụng luật tối đa 2 TV/2 Toán mỗi buổi | `True` |
@@ -490,7 +497,7 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 **Nhân sự** (`data/Input_TKB_V8.xlsx`, tên giả): 45 người, gồm:
 - 29 GVCN, ứng với 29 lớp: khối 1–4 mỗi khối 6 lớp, khối 5 có 5 lớp.
 - 5 bộ môn, 4 tiếng anh, 3 thể dục, 1 âm nhạc, 1 mỹ thuật, 1 tin học, 1 quản lý.
-- 2 người thai sản: `Chủ Nhiệm 5/5` (16 tiết) và `Bộ Môn 5` (19 tiết).
+- 2 người có định mức thấp hơn người cùng chức vụ: `Chủ Nhiệm 5/5` (16 tiết) và `Bộ Môn 5` (19 tiết).
 
 **Nhu cầu so với năng lực** (ngoài phần GVCN):
 
@@ -507,7 +514,7 @@ Giáo viên được liệt kê theo thứ tự file nhân sự, rồi đến ng
 | Chế độ | Kết quả |
 |---|---|
 | Tuyển thêm | Thiếu **52** tiết. Tuyển `Bộ Môn 6`, `Bộ Môn 7`, `Bộ Môn 8` (định mức 23; thực dạy 23/23/6) |
-| Bù giờ (+2) | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN, kể cả GVCN thai sản 5/5 (29 người: 23 người +2, 6 người +1). Bộ môn không phải bù |
+| Bù giờ (+2) | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN, kể cả GVCN 5/5 chỉ có 16 tiết (29 người: 23 người +2, 6 người +1). Bộ môn không phải bù |
 | Cả hai | 145/145 ô tiết 1 buổi sáng là GVCN của lớp. Môn nặng ở tiết 7: 4 tiết (Tiếng Anh, mức tối thiểu) |
 
 Cả hai chế độ đều đã **chứng minh tối ưu** ở bước phân công: số tiết thiếu, số người tuyển và số tiết bù là nhỏ nhất.
@@ -517,7 +524,7 @@ Cả hai chế độ đều đã **chứng minh tối ưu** ở bước phân c�
 ## 14. Giả định và hạn chế đã biết
 
 1. **Tiết 1 buổi sáng thuộc GVCN** làm giáo viên không chủ nhiệm chỉ còn 26 slot/tuần. Giáo viên có định mức trên 26 sẽ bị phát hiện ngay ở bước phân công và cần người bổ sung hoặc bù.
-2. **Thai sản** không có ngày bắt đầu/kết thúc. Khi chế độ thay đổi, sửa cột Chế Độ và Số Tiết/Tuần rồi chạy lại.
+2. **Không có chế độ thai sản hay giảm tiết riêng.** Người được giảm tiết ghi Số Tiết/Tuần đã giảm; khi thay đổi thì sửa Số Tiết/Tuần rồi chạy lại.
 3. **Người được bù +1 thay vì +2**, lớp nào quản lý dạy KNS, và cách chia các tiết cùng chi phí là do chương trình chọn. Các phương án này tương đương nhau theo mục tiêu. Đổi dữ liệu hoặc `SO_LUONG` có thể làm đổi lựa chọn.
 4. **Bước xếp giờ** chỉ bảo đảm TKB hợp lệ và tốt trong thời gian cho phép (trạng thái FEASIBLE). Mục tiêu mềm không được chứng minh là tốt nhất, kể cả khi để không giới hạn thời gian rồi dừng bằng Ctrl+C.
 5. **Người bổ sung** được ghi theo định mức tuyển đầy đủ, dù có thể dạy ít hơn (ví dụ `Bộ Môn 8` ghi 23, thực dạy 6).

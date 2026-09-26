@@ -1,4 +1,5 @@
-"""Xuất TKB ra Excel: sheet Khối, Danh sách nhân sự, Thống kê; file thống kê; file vào cập nhật.
+"""Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (tổng quan, danh sách nhân sự, thống kê giáo viên);
+file vào cập nhật.
 
 Style (phông, cỡ chữ, viền, căn lề, chiều cao dòng) chép từ file vào (xem tkb/style.py).
 """
@@ -13,7 +14,7 @@ from openpyxl.utils import get_column_letter
 
 from . import config
 from .solver import Solution, ortools_version
-from .staff import MATERNITY_LABEL, Teacher, _find_columns, class_sort_key, normalize, staff_sheet
+from .staff import Teacher, _find_columns, class_sort_key, normalize, staff_sheet
 from .style import CellStyle, Style
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
@@ -22,6 +23,7 @@ HIRE_LABEL = "tuyển thêm"  # tên của người cần tuyển trong file th�
 CODE_HEADER = "Mã GV"
 LOAD_HEADER = "Số Tiết Thực Dạy"
 OVERTIME_HEADER = "Số Tiết Bù"
+OVERVIEW_SHEET = "Tổng quan"
 
 
 def teacher_labels(teachers: dict[str, Teacher]) -> dict[str, str]:
@@ -71,12 +73,12 @@ def _grade_sheets(wb, solution: Solution, style: Style) -> None:
     problem = solution.problem
     names = teacher_labels(problem.teachers)
     header = ["LỚP", "BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
+    # Cột ngày: cùng độ rộng ở mọi sheet Khối, nới theo dòng dài nhất của cả trường (tối đa MAX_DAY_WIDTH).
+    texts = {t for les in solution.lessons for t in (problem.subject_label(les.subject), names[les.teacher])}
+    day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
     for grade in sorted({int(c.split("/")[0]) for c in problem.classes}):
         ws = wb.create_sheet(f"Khối {grade}")
         classes = sorted((c for c in problem.classes if int(c.split("/")[0]) == grade), key=class_sort_key)
-        texts = [t for les in solution.lessons if int(les.class_name.split("/")[0]) == grade
-                 for t in (problem.subject_label(les.subject), names[les.teacher])]
-        day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
         widths = [max(style.text_width(t) for t in [header[0], *(f"LỚP {c}" for c in classes)]),
                   max(style.text_width(t) for t in [header[1], *(s.name.upper() for s, _, _ in rows)]),
                   style.text_width(header[2])]
@@ -162,7 +164,7 @@ def staff_table(solution: Solution, style: Style) -> tuple[list[str], list[list]
     overtime = solution.overtime()
     with_ot = solution.problem.overtime_mode()
     h = style.staff_headers
-    header = [h["name"], h["title"], h["class"], h["lessons"], h["maternity"], CODE_HEADER, LOAD_HEADER,
+    header = [h["name"], h["title"], h["class"], h["lessons"], CODE_HEADER, LOAD_HEADER,
               *([OVERTIME_HEADER] if with_ot else []), "Ghi Chú"]
     rows = []
     for t in staff_rows(solution):
@@ -171,9 +173,8 @@ def staff_table(solution: Solution, style: Style) -> tuple[list[str], list[list]
             note = "Cần tuyển thêm" + (f", còn dư {spare} tiết" if spare > 0 else "")
         else:
             note = f"Còn dư {spare} tiết" if spare > 0 else None
-        rows.append([t.name or None, role_label(solution, t.role), t.class_name, t.max_lessons,
-                     MATERNITY_LABEL if t.maternity else None, t.code, load[t.title],
-                     *([overtime.get(t.title)] if with_ot else []), note])
+        rows.append([t.name or None, role_label(solution, t.role), t.class_name, t.max_lessons, t.code,
+                     load[t.title], *([overtime.get(t.title)] if with_ot else []), note])
     return header, rows
 
 
@@ -185,27 +186,9 @@ def _staff_sheet(wb, solution: Solution, style: Style) -> None:
     style.fit_columns(ws)
 
 
-def role_summary(solution: Solution) -> list[list]:
-    problem = solution.problem
-    load = solution.teacher_load()
-    rows = []
-    for role in problem.roles():
-        real = [t for t in problem.teachers.values() if t.role == role and not t.supplementary]
-        extra = [t for t in solution.used_supplements() if t.role == role]
-        if not real and not extra:
-            continue
-        cap = sum(t.max_lessons for t in real)
-        used = sum(load[t.title] for t in real)
-        spare = sum(max(0, t.max_lessons - load[t.title]) for t in real)
-        row = [role_label(solution, role), len(real), cap, used, spare]
-        if problem.overtime_mode():
-            row.append(sum(max(0, load[t.title] - t.max_lessons) for t in real))
-        rows.append(row + [sum(load[t.title] for t in extra), len(extra)])
-    return rows
-
-
-def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str], style: Style) -> None:
-    ws = wb.create_sheet("Thống kê")
+def _overview_sheet(ws, solution: Solution, errors: list[str], warnings: list[str], style: Style) -> None:
+    """Tổng quan: chế độ, kết quả kiểm tra luật, mã kết quả, người cần tuyển, dạy bù, lỗi kiểm tra."""
+    ws.title = OVERVIEW_SHEET
     problem = solution.problem
     load = solution.teacher_load()
     overtime = solution.overtime()
@@ -264,35 +247,17 @@ def _stats_sheet(wb, solution: Solution, errors: list[str], warnings: list[str],
                [CODE_HEADER, "Tên", "Số Tiết Bù", "Môn Bù (GVCN, lớp mình)", "Định Mức", "Thực Dạy"], ot_rows,
                bold_last=True)
 
-    titled(f"{next(number)}. THEO NHÓM CHỨC VỤ",
-           ["Chức Vụ", "Số GV Hiện Có", "Tổng Định Mức", "Đã Dạy", "Dư (chưa dùng)",
-            *(["Dạy Bù"] if with_ot else []), "Tiết Thiếu", "Số GV Tuyển Thêm"], role_summary(solution))
-
-    days = sorted(config.DAY_SESSIONS)
-    per_day = daily_loads(solution)
-    classes_of: dict[str, set] = defaultdict(set)
-    for les in solution.lessons:
-        classes_of[les.teacher].add(les.class_name)
-    load_rows = [[t.code, t.name or None, t.max_lessons, load[t.title], max(0, t.max_lessons - load[t.title]),
-                  *([overtime.get(t.title, 0)] if with_ot else []),
-                  *[per_day[t.title][d] for d in days], len(classes_of[t.title])] for t in staff_rows(solution)]
-    titled(f"{next(number)}. TẢI TỪNG GIÁO VIÊN",
-           [CODE_HEADER, "Tên", "Định Mức", "Thực Dạy", "Dư", *(["Bù"] if with_ot else []),
-            *[config.DAYS[d] for d in days], "Số Lớp Dạy"], load_rows)
-
     if errors:
         titled(f"{next(number)}. LỖI KIỂM TRA", ["Lỗi"], [[e] for e in errors])
     style.fit_columns(ws, skip_rows=skip)
 
 
-def write_timetable(solution: Solution, path: str | Path, errors: list[str], warnings: list[str],
-                    style: Style | None = None) -> None:
+def write_timetable(solution: Solution, path: str | Path, style: Style | None = None) -> None:
+    """File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics)."""
     style = style or Style()
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     _grade_sheets(wb, solution, style)
-    _staff_sheet(wb, solution, style)
-    _stats_sheet(wb, solution, errors, warnings, style)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
@@ -323,11 +288,14 @@ def assignment_rows(solution: Solution) -> list[list]:
 
 
 def daily_rows(solution: Solution) -> list[list]:
-    """Tên | Mã GV | số tiết từng ngày | Tổng."""
+    """Tên | Mã GV | Số lớp dạy | số tiết từng ngày | Tổng."""
     per_day = daily_loads(solution)
+    classes_of: dict[str, set] = defaultdict(set)
+    for les in solution.lessons:
+        classes_of[les.teacher].add(les.class_name)
     days = sorted(config.DAY_SESSIONS)
-    return [[_stats_name(t), t.code, *[per_day[t.title][d] for d in days], sum(per_day[t.title].values())]
-            for t in staff_rows(solution)]
+    return [[_stats_name(t), t.code, len(classes_of[t.title]), *[per_day[t.title][d] for d in days],
+             sum(per_day[t.title].values())] for t in staff_rows(solution)]
 
 
 def role_rows(solution: Solution) -> list[list]:
@@ -359,20 +327,21 @@ def _stats_table(ws, style: Style, header: list[str], rows: list[list], total_fr
     style.fit_columns(ws)
 
 
-def write_statistics(solution: Solution, path: str | Path, style: Style | None = None) -> None:
-    """File Excel thống kê giáo viên: số tiết, phân công, tải theo ngày, tổng hợp theo chức vụ."""
+def write_statistics(solution: Solution, path: str | Path, style: Style | None = None,
+                     errors: list[str] = (), warnings: list[str] = ()) -> None:
+    """File thống kê: tổng quan, danh sách nhân sự, thống kê giáo viên, phân công, tải theo ngày, theo chức vụ."""
     style = style or Style()
     name = style.staff_headers["name"]
     wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Thống kê giáo viên"
-    _stats_table(ws, style, ["STT", name, "Chức Vụ", CODE_HEADER, "Số Tiết Quy Định", "Số Tiết Bù",
+    _overview_sheet(wb.active, solution, list(errors), list(warnings), style)
+    _staff_sheet(wb, solution, style)
+    _stats_table(wb.create_sheet("Thống kê giáo viên"), style, ["STT", name, "Chức Vụ", CODE_HEADER, "Số Tiết Quy Định", "Số Tiết Bù",
                              "Số Tiết Thực Dạy", "Số Tiết Còn Dư"], statistics_rows(solution), total_from=4)
     _stats_table(wb.create_sheet("Phân công"), style, ["STT", name, CODE_HEADER, "Lớp", "Môn", "Số Tiết"],
                  assignment_rows(solution))
     days = [config.DAYS[d] for d in sorted(config.DAY_SESSIONS)]
-    _stats_table(wb.create_sheet("Theo ngày"), style, ["STT", name, CODE_HEADER, *days, "Tổng"],
-                 daily_rows(solution), total_from=3)
+    _stats_table(wb.create_sheet("Theo ngày"), style, ["STT", name, CODE_HEADER, "Số Lớp Dạy", *days, "Tổng"],
+                 daily_rows(solution), total_from=4)
     _stats_table(wb.create_sheet("Theo chức vụ"), style,
                  ["STT", "Chức Vụ", "Số Người", "Số Tiết Quy Định", "Số Tiết Thực Dạy", "Số Tiết Bù",
                   "Số Tiết Còn Dư", "Số Người Tuyển Thêm", "Số Tiết Tuyển Thêm"], role_rows(solution), total_from=2)

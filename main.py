@@ -12,10 +12,10 @@ from pathlib import Path
 # CẤU HÌNH — SỬA Ở ĐÂY
 # ==========================================================================
 
-# Địa chỉ file vào: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần, Chế Độ) và sheet
+# Địa chỉ file vào: sheet "NHÂN SỰ" (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần) và sheet
 # "CHƯƠNG TRÌNH HỌC" (Môn học, Khối 1..5). Danh sách môn, số tiết, giáo viên đều lấy từ file này;
 # các file ra dùng lại style (phông, cỡ chữ, viền, chiều cao dòng) của file này.
-FILE_VAO = "INPUT_V8.xlsx"
+FILE_VAO = "data/INPUT_V8.xlsx"
 
 # Thư mục ghi kết quả (tự tạo nếu chưa có). Để trống "" thì ghi ngay vào thư mục dự án
 # (thư mục chứa main.py).
@@ -27,7 +27,7 @@ THU_MUC_OUT = ""
 #   "tuyen_them": thêm GV mới tên "chưa có" vào danh sách nhân sự.
 CHE_DO = "bu_gio"
 
-# Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (người hưởng thai sản cũng được bù).
+# Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần.
 SO_TIET_BU_TOI_DA = 2
 
 # Áp dụng luật bảo vệ học sinh: tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi; môn có từ 2 tiết
@@ -40,17 +40,18 @@ LUAT_HOC_SINH = True
 # TKB tốt nhất đã tìm được.
 THOI_GIAN_TOI_DA = 240
 
-# True: chạy lại bao nhiêu lần, ở máy nào cũng ra đúng một kết quả (ở cả chế độ bu_gio lẫn tuyen_them), miễn là
-#       giữ nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA, SO_LUONG và
-#       phiên bản OR-Tools (cài bằng: pip install -r requirements.txt). Máy nhanh/chậm, số nhân CPU, máy
-#       bận/rảnh, phiên bản Python không ảnh hưởng kết quả. Mỗi lần chạy in "Mã kết quả": hai máy cùng mã
-#       là cùng TKB (xem README, mục "Chạy trên máy khác").
+# True: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả (ở cả chế độ bu_gio lẫn
+#       tuyen_them), miễn là giữ nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA,
+#       SO_LUONG và phiên bản OR-Tools (cài bằng: pip install -r requirements.txt). Máy nhanh/chậm, số nhân
+#       CPU, máy bận/rảnh, phiên bản Python không ảnh hưởng; Windows và Linux ra TKB khác nhau. Mỗi lần chạy
+#       in "Mã kết quả": cùng mã là cùng TKB (xem README, mục "Chạy trên máy khác").
 # False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
 CHAY_TAI_LAP_DUOC = True
 
 # --- Ít khi phải sửa ---
 
-# Tên file TKB và file thống kê giáo viên xuất ra trong THU_MUC_OUT.
+# Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_THONG_KE gồm
+# tổng quan (mã kết quả, kiểm tra luật, tuyển thêm, dạy bù), danh sách nhân sự và các bảng thống kê giáo viên.
 FILE_TKB = "TKB.xlsx"
 FILE_THONG_KE = "Thong_Ke.xlsx"
 
@@ -84,10 +85,11 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MU
     """Chạy xếp TKB; trả về 0 nếu thành công."""
     try:
         from tkb import config
-        from tkb.__main__ import main as tkb_main
+        from tkb.__main__ import main as tkb_main, use_utf8_output
     except ImportError as exc:
         print(f"LỖI: thiếu thư viện ({exc.name}). Cài bằng lệnh:  pip install -r requirements.txt")
         return 1
+    use_utf8_output()
 
     if _blank(file_vao):
         print("LỖI: chưa điền FILE_VAO (địa chỉ file vào .xlsx)")

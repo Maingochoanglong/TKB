@@ -130,8 +130,13 @@ def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: fl
 
     Chế độ tái lập (settings.reproducible): các luồng chạy xen kẽ theo thứ tự cố định và dừng theo
     "thời gian tất định" (đếm khối lượng tính toán, không phụ thuộc máy nhanh/chậm, số nhân CPU hay máy
-    đang bận), nên cùng dữ liệu + cùng phiên bản OR-Tools + cùng số luồng thì máy nào cũng ra đúng một
-    kết quả. Không đặt giới hạn giây thực: máy chậm chỉ chạy lâu hơn chứ không dừng sớm ra kết quả khác.
+    đang bận), nên cùng dữ liệu + cùng phiên bản OR-Tools + cùng số luồng thì ra cùng kết quả trên các máy
+    cùng hệ điều hành (Windows và Linux ra TKB khác nhau). Không đặt giới hạn giây thực: máy chậm chỉ chạy
+    lâu hơn chứ không dừng sớm ra kết quả khác.
+
+    Tắt việc các luồng chia sẻ mệnh đề học được và cận ở mức gốc: dù có interleave_search, phần chia sẻ này
+    của OR-Tools 9.15 không tất định. Đo trên dữ liệu mẫu, cùng một mô hình giải 6 lần ra 3 TKB khác nhau
+    (lệch từ khoảng 60–120 đơn vị tính toán trở đi); tắt đi thì 8/8 lần giống hệt, chất lượng không giảm.
     Bấm Ctrl+C khi đang giải thì bộ giải dừng và giữ nghiệm tốt nhất đã tìm được.
     """
     p = solver.parameters
@@ -139,6 +144,8 @@ def _configure(solver: cp_model.CpSolver, settings: config.Settings, seconds: fl
     p.random_seed = settings.seed
     if settings.reproducible:
         p.interleave_search = True
+        p.share_binary_clauses = False  # tắt luôn cả share_glue_clauses
+        p.share_level_zero_bounds = False
     if seconds is None:
         return
     if settings.reproducible:

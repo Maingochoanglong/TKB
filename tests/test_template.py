@@ -9,11 +9,11 @@ from tkb.writer import write_updated_staff
 
 from .conftest import CURRICULUM, INPUT_FILE, PROGRAM_FILE, STAFF_FILE, small_staff
 
-HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Chế Độ")
+HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần")
 
 
 def _key(teachers):
-    return [(t.name, t.title, t.max_lessons, t.maternity) for t in teachers]
+    return [(t.name, t.title, t.max_lessons) for t in teachers]
 
 
 def _rows(ws):
@@ -26,8 +26,8 @@ def test_input_file_matches_v5(real_staff):
     wb = openpyxl.load_workbook(INPUT_FILE)
     rows = _rows(wb["NHÂN SỰ"])
     assert rows[0] == HEADER
-    assert rows[1] == ("Giáo viên CN 1", "Chủ Nhiệm", "1/1", 19, None)
-    assert ("Giáo viên BM 5 (Thai sản)", "Bộ Môn", None, 19, "Có") in rows
+    assert rows[1] == ("Giáo viên CN 1", "Chủ Nhiệm", "1/1", 19)
+    assert ("Giáo viên BM 5", "Bộ Môn", None, 19) in rows
 
 
 def test_template_style_and_dropdowns(tmp_path, real_staff):
@@ -45,7 +45,7 @@ def test_template_style_and_dropdowns(tmp_path, real_staff):
     dvs = {str(dv.sqref): dv for dv in ws.data_validations.dataValidation}
     assert dvs["B2:B300"].type == "list" and not dvs["B2:B300"].showErrorMessage  # chỉ gợi ý
     assert dvs["C2:C300"].type == "custom" and dvs["D2:D300"].type == "whole"
-    assert dvs["E2:E300"].formula1 == '"Có"'
+    assert len(dvs) == 3 and ws.max_column == 4
     program = _rows(wb["CHƯƠNG TRÌNH HỌC"])
     assert program[0] == ("Môn học", "Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5")
     assert len(program) == 17
@@ -75,16 +75,16 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     write_updated_staff(sol, src, dst)
     wb = openpyxl.load_workbook(dst)
     ws = wb["NHÂN SỰ"]
-    assert len(ws.data_validations.dataValidation) == 4  # vẫn còn danh sách thả xuống
+    assert len(ws.data_validations.dataValidation) == 3  # vẫn còn danh sách thả xuống
     rows = _rows(ws)
     assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy")
-    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, None, "Chủ Nhiệm 3/1", 19)
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, None, "Bộ Môn 1", 8)
+    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, "Chủ Nhiệm 3/1", 19)
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
     # Dòng mới và cột mới cùng style với file vào.
     last = len(rows)
-    for cell in (ws.cell(last, 2), ws.cell(last, 6), ws.cell(1, 7)):
+    for cell in (ws.cell(last, 2), ws.cell(last, 5), ws.cell(1, 6)):
         assert cell.font.name == "Times New Roman" and cell.font.sz == 14 and cell.border.left.style == "thin"
-    assert ws.cell(1, 7).font.b and ws.row_dimensions[last].height == 25
+    assert ws.cell(1, 6).font.b and ws.row_dimensions[last].height == 25
     assert _rows(wb["CHƯƠNG TRÌNH HỌC"])[1:] == _rows(openpyxl.load_workbook(src)["CHƯƠNG TRÌNH HỌC"])[1:]
     again = read_staff(dst)
     assert again[-1].title == "bộ môn 1"  # tự đánh số khi đọc lại
