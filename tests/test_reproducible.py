@@ -36,6 +36,8 @@ def test_same_timetable_across_runs(mode):
 # khác mã thì máy đó không ra cùng TKB (thường do khác phiên bản OR-Tools). Đổi mô hình thì cập nhật lại mã.
 REFERENCE = {
     "linux": {config.MODE_HIRE: "4B07-C5F1-F641", config.MODE_OVERTIME: "6523-7A90-932C"},
+    # Máy ảo Windows của GitHub Actions, Python 3.12 và 3.14 cùng ra mã này.
+    "win32": {config.MODE_HIRE: "8DBE-BAE8-2D1E", config.MODE_OVERTIME: "B24A-5235-115E"},
 }
 
 

@@ -29,6 +29,7 @@ jobs:
       - name: Chạy test
         run: python -m pytest -q -rs
       - name: Chạy main.py mặc định với dữ liệu mẫu
+        if: success() || failure()  # vẫn chạy để lấy mã kết quả khi có test trượt
         run: python main.py
       - uses: actions/upload-artifact@v4
         if: always()

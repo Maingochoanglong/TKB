@@ -168,9 +168,18 @@ def split_subjects(lessons):
 def test_same_subject_lessons_are_contiguous(small_solution, overtime_solution):
     for sol in (small_solution, overtime_solution):
         assert split_subjects(sol.lessons) == []
-        # Có buổi học 2 tiết cùng môn (TV, Toán…), và chúng liền nhau.
-        pairs = Counter((l.class_name, l.day, l.period < 5, l.subject) for l in sol.lessons)
-        assert any(n >= 2 for n in pairs.values())
+
+
+def test_contiguous_when_a_subject_must_repeat_in_a_session():
+    # Khối 1 học 14 tiết Tiếng Việt trong 9 buổi: buộc phải có buổi học 2 tiết TV, và 2 tiết đó phải liền.
+    rows = [("CN A", "chủ nhiệm 1/1", 19), ("CN B", "chủ nhiệm 1/2", 19), ("TA", "tiếng anh 1", 23),
+            ("TD", "thể dục 1", 23), ("AN", "âm nhạc 1", 23), ("MT", "mỹ thuật 1", 23), ("BM", "bộ môn 1", 23)]
+    staff = [build_teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+    sol = solve(staff, CURRICULUM, FAST, log=lambda *_: None)
+    assert check(sol.problem, sol.lessons) == []
+    pairs = Counter((l.class_name, l.day, l.period < 5, l.subject) for l in sol.lessons if l.subject == config.TV)
+    assert sum(1 for n in pairs.values() if n == 2) >= 2 * 5
+    assert split_subjects(sol.lessons) == []
 
 
 def test_checker_detects_split_subject(small_solution):
