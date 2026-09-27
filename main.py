@@ -36,7 +36,7 @@ SO_TIET_BU_TOI_DA = 2
 # tiết phải liền nhau (không xếp so le kiểu TV, Toán, TV).
 LUAT_HOC_SINH = True
 
-# Thời gian dành cho bước xếp giờ, đơn vị xấp xỉ giây (1200 ≈ 9–12 phút trên máy thử): xếp nhanh một TKB rồi
+# Thời gian dành cho bước xếp giờ, đơn vị xấp xỉ giây (1200 ≈ 9–13 phút trên máy thử): xếp nhanh một TKB rồi
 # xếp lại từng vùng (từng lớp, từng khối, từng cặp ngày...) cho tốt dần (xem README, mục "Cách giải"). Muốn
 # nhanh hơn thì đặt 600 (≈ 4–6 phút, TKB kém hơn một chút).
 # Để trống (None hoặc "") hoặc 0 thì không giới hạn: xếp lại đến khi một vòng không còn cải thiện (thường

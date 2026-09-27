@@ -32,7 +32,7 @@ pip install -r requirements.txt
 | `CHE_DO` | Khi thiếu người: `"bu_gio"` (GVCN/bộ môn dạy bù; không đủ thì báo lỗi) hoặc `"tuyen_them"` (thêm GV "chưa có" dạy các ô bù) | `"bu_gio"` |
 | `SO_TIET_BU_TOI_DA` | Số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần; chế độ tuyển: người mới nhận đúng các tiết bù này | `2` |
 | `LUAT_HOC_SINH` | Áp dụng luật bảo vệ học sinh | `True` |
-| `THOI_GIAN_TOI_DA` | Thời gian cho bước xếp giờ, xấp xỉ giây: xếp nhanh một TKB rồi xếp lại từng vùng cho tốt dần (mục [Cách giải](#cách-giải)); tăng lên để TKB đẹp hơn. **Để trống (`None`/`""`) hoặc `0` thì không giới hạn**: xếp lại đến khi một vòng không còn cải thiện (thường 9–17 phút); bấm Ctrl+C để dừng sớm (sau vài giây), TKB tốt nhất vẫn được ghi ra. Cần nhanh thì đặt `600` (≈ 4–6 phút, TKB kém hơn một chút) | `1200` (≈ 9–12 phút) |
+| `THOI_GIAN_TOI_DA` | Thời gian cho bước xếp giờ, xấp xỉ giây: xếp nhanh một TKB rồi xếp lại từng vùng cho tốt dần (mục [Cách giải](#cách-giải)); tăng lên để TKB đẹp hơn. **Để trống (`None`/`""`) hoặc `0` thì không giới hạn**: xếp lại đến khi một vòng không còn cải thiện (thường 9–17 phút); bấm Ctrl+C để dừng sớm (sau vài giây), TKB tốt nhất vẫn được ghi ra. Cần nhanh thì đặt `600` (≈ 4–6 phút, TKB kém hơn một chút) | `1200` (≈ 9–13 phút) |
 | `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
 | `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE` | Tên file TKB (chỉ thời khóa biểu), TKB ghi thêm chức vụ (Mã GV) trong mỗi ô, và file thống kê số tiết từng môn của giáo viên | `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `Thong_Ke.xlsx` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
@@ -83,7 +83,7 @@ Chạy test: `python -m pytest -q`
 
 **Kiểm tra một máy mới** (không cần sửa `main.py`):
 - Nhanh (khoảng 20 giây): `python -m pytest tests/test_reproducible.py`. Test so mã kết quả của một trường nhỏ với mã tham chiếu của hệ điều hành đó. Qua là máy đó ra đúng kết quả như các máy khác.
-- Đầy đủ (khoảng 10 phút): `python main.py` với các hằng số mặc định (file của trường `data/INPUT_V8.xlsx`), rồi so mã kết quả với bảng. Mã trong bảng ứng với file `data/INPUT_V8.xlsx` hiện tại; trường sửa file thì mã đổi theo.
+- Đầy đủ (10–15 phút): `python main.py` với các hằng số mặc định (file của trường `data/INPUT_V8.xlsx`), rồi so mã kết quả với bảng. Mã trong bảng ứng với file `data/INPUT_V8.xlsx` hiện tại; trường sửa file thì mã đổi theo.
 
 | Hệ điều hành | Mã kết quả `data/INPUT_V8.xlsx` | Đã kiểm |
 |---|---|---|

@@ -101,7 +101,7 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
   `.github/scripts/chay_mau.py` (`FILE_VAO` twice, uploads only the code); a Linux job fails if any VM's code
-  differs (~25 min).
+  differs (~35 min).
 - `file_that_windows.yml`: manual (or when the file itself changes); same run once on 2 VMs with Python 3.14.
 
 ## Docs (open only the section you need)
