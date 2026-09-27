@@ -29,7 +29,9 @@ def test_run_writes_outputs(tmp_path):
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
     assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
     stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê")
-    assert stats[-2][:2] == ("tuyển thêm", "Bộ Môn 1") and stats[-2][-1] == 8
+    total = [r[0] for r in stats].index("Tổng")  # dưới dòng Tổng là chú thích màu
+    assert stats[total - 1][:2] == ("tuyển thêm", "Bộ Môn 1") and stats[total - 1][-1] == 8
+    assert stats[total + 1][1] == "Cần tuyển thêm: 1 người, 8 tiết"
     # Các file ra dùng style của file vào.
     tkb = openpyxl.load_workbook(out_dir / "TKB.xlsx")["Khối 3"]
     assert tkb["D2"].font.name == "Times New Roman" and tkb["D2"].font.sz == 14

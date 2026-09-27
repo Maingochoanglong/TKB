@@ -48,6 +48,7 @@
 | 30 | Luật học sinh | Tối đa 2 TV, 2 Toán mỗi buổi | **Mỗi nhóm môn** (TV + TV tăng cường, Toán + Toán tăng cường, môn khác) tối đa 2 tiết mỗi buổi; **Toán tối đa 1 tiết mỗi ngày**; nhóm môn từ 6 tiết, tổng chẵn (TV khối 1–3) **ghép cặp 2 tiết liền** (mục 6) |
 | 31 | Trọng số, thời gian | TV/Toán buổi sáng 50, môn nặng tiết 7 200, rải đều 20/60; tăng cường ưu tiên buổi chiều; 240 | 300, 400, 40/120; TV tăng cường ghép với TV (chỉ Toán tăng cường ưu tiên chiều), thưởng tiết tăng cường liền sau tiết chính cùng người; **480** (mục 8.2, 9) |
 | 32 | File ra | `TKB.xlsx`, `Thong_Ke.xlsx`, file cập nhật | Thêm **`TKB_chuc_vu.xlsx`**: cùng TKB, mỗi ô thêm dòng chức vụ (Mã GV) (mục 11) |
+| 33 | File thống kê | Không phân biệt người bù, người tuyển | Tô **vàng** dòng người dạy bù (chế độ bù giờ), tô **xanh lá** dòng người cần tuyển (chế độ tuyển thêm), chú thích dưới bảng (mục 11.3). Chỉ đổi cách ghi file, TKB và mã kết quả không đổi |
 
 ---
 
@@ -455,6 +456,7 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | Tổng Tiết | Tổng số tiết người này dạy (kể cả tiết bù ở chế độ bù giờ) |
 
 - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển. Cuối bảng có dòng **Tổng** (tổng từng môn và tổng tiết toàn trường).
+- **Tô nền cả dòng:** chế độ bù giờ tô **vàng** (`FFEB9C`) dòng người dạy bù (tổng tiết vượt định mức); chế độ tuyển thêm tô **xanh lá** (`C6EFCE`) dòng người cần tuyển. Dưới bảng, cách một dòng, có chú thích: ô màu và dòng chữ `Dạy bù (vượt định mức): <số người> người, <số tiết bù> tiết` hoặc `Cần tuyển thêm: <số người> người, <số tiết> tiết`. Không ai bù, không ai tuyển thì không tô, không chú thích.
 - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển (số tiết thiếu), dạy bù và cảnh báo **chỉ in ra màn hình** (mục 11.4).
 - **Chế độ bù giờ mà thiếu tiết** (mục 7.2): file chỉ có sheet **`Thiếu tiết`**: **Lớp | Môn | Số Tiết Thiếu | Lý Do**, cuối bảng dòng Tổng.
 
