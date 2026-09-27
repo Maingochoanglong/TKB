@@ -1,11 +1,13 @@
-"""Mô hình CP-SAT: phân tiết cho GV và xếp tiết vào khung giờ.
+"""Xếp giờ bằng CP-SAT và toàn bộ quy trình giải.
 
-Quy trình:
-1. Phân công (chưa xếp giờ): tìm số tiết mỗi GV dạy cho từng lớp-môn sao cho số tiết giao
-   cho GV bổ sung ít nhất, rồi số GV bổ sung ít nhất. Đây là cận dưới của bài toán đầy đủ.
-2. Xếp giờ với phân công cố định ở bước 1 (nhanh). Nếu xếp được thì nghiệm đạt đúng cận dưới.
-3. Nếu bước 2 không xếp được: giải mô hình tích hợp (vừa chọn GV vừa xếp giờ), có dự phòng
-   thêm GV bổ sung.
+Quy trình (`solve`):
+1. Dự toán và phân công (tkb/phan_cong.py, không dùng CP-SAT): ai dạy lớp nào, môn nào, bao nhiêu tiết; mỗi
+   GVCN/bộ môn bù bao nhiêu tiết; còn thiếu bao nhiêu tiết.
+2. Tiết bù (và tiết thiếu ở chế độ tuyển) giao cho "người tuyển mới". Xếp giờ MỘT lần với phân công cố định
+   đó. Chế độ tuyển: người mới dạy các ô đó. Chế độ bù: trả các ô đó về đúng người bù. Hai chế độ cùng vị trí
+   môn trong TKB.
+3. Chế độ tuyển mà không xếp được với phân công cố định: mô hình tích hợp (vừa chọn GV vừa xếp giờ), có dự
+   phòng thêm GV bổ sung.
 """
 from __future__ import annotations
 
@@ -13,12 +15,13 @@ import hashlib
 import json
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from ortools.sat.python import cp_model
 
 from . import config
-from .allocation import Course, Problem, build_problem
+from .allocation import Course, Problem, build_problem, paired_groups, roles_for_subject, subject_group
+from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
 from .staff import Teacher
 
 
@@ -298,60 +301,7 @@ class _Allocation:
 
 
 # --------------------------------------------------------------------------
-# Bước 1: phân công (chưa xếp giờ)
-# --------------------------------------------------------------------------
-@dataclass
-class Assignment:
-    lessons: dict[tuple[int, str], int]  # (course, GV) -> số tiết
-    counts: dict[str, int]  # chức vụ -> số GV bổ sung cần
-    supplement_lessons: int
-    optimal: bool
-    overtime: dict[str, int] = field(default_factory=dict)  # GV -> số tiết dạy bù
-
-
-def assign(problem: Problem, settings: config.Settings) -> Assignment:
-    """Tối ưu theo thứ tự: (1) tiết/GV bổ sung, rồi (2) chia môn, dạy thay, cân bằng tải."""
-    m = cp_model.CpModel()
-    alloc = _Allocation(m, problem, settings.weights)
-    solver = cp_model.CpSolver()
-    # Không giới hạn thời gian: nhóm chính (tiết thiếu, tiết bù) giải đến khi chứng minh tối ưu (vài giây);
-    # nhóm phụ (chia đều, thứ tự môn) gần như không bao giờ chứng minh được nên vẫn giới hạn.
-    budget = max(10.0, settings.time_limit / 8) if settings.time_limit is not None else None
-    _configure(solver, settings, budget)
-
-    main = sum(alloc.main)
-    m.Minimize(main)
-    status = solver.Solve(m)
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        raise SolveError("Không phân công được GV ngay cả khi chưa xếp giờ (kiểm tra quyền dạy/định mức)")
-    optimal = status == cp_model.OPTIMAL
-    best_main = int(solver.ObjectiveValue())
-
-    all_vars = [v for v in list(alloc.a.values()) + list(alloc.used.values()) + list(alloc.load.values())
-                if not isinstance(v, int)]
-    first = {v.Index(): solver.Value(v) for v in all_vars}
-    m.Add(main <= best_main)
-    m.Minimize(sum(alloc.secondary))
-    m.ClearHints()
-    for v in all_vars:
-        m.AddHint(v, first[v.Index()])
-    if budget is None:
-        _configure(solver, settings, settings.unlimited_polish_time)
-    status = solver.Solve(m)
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        raise SolveError("Lỗi nội bộ khi tối ưu phân công bước 2")
-
-    lessons = {key: int(solver.Value(v)) for key, v in alloc.a.items()}
-    counts = {role: sum(1 for t in titles if solver.Value(alloc.hired[t]))
-              for role, titles in problem.supplement_roles.items()}
-    overtime = {g: int(solver.Value(v)) for g, v in alloc.overtime.items() if solver.Value(v)}
-    return Assignment(lessons={k: v for k, v in lessons.items() if v > 0}, counts=counts,
-                      supplement_lessons=int(solver.Value(alloc.supplement_lessons())),
-                      optimal=optimal, overtime=overtime)
-
-
-# --------------------------------------------------------------------------
-# Bước 2/3: xếp giờ
+# Xếp giờ
 # --------------------------------------------------------------------------
 def timetable(problem: Problem, settings: config.Settings,
               fixed: dict[tuple[int, str], int] | None = None,
@@ -409,32 +359,111 @@ def timetable(problem: Problem, settings: config.Settings,
         if len(terms) > 1:
             m.Add(sum(terms) <= 1)
 
-    # Luật bảo vệ học sinh: số tiết tối đa của một số môn trong mỗi buổi; môn có từ 2 tiết trong
-    # một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn").
+    # Biến "GV g dạy nhóm môn của lớp tại slot s" (và theo từng môn) cho các luật về người dạy.
+    teach: dict[tuple[str, str], dict[str, dict[tuple[int, int], list]]] = {}
+    teach_subject: dict[tuple[str, str], dict[str, dict[tuple[int, int], list]]] = {}
+    for c in problem.courses:
+        cand = alloc.teachers_of[c.id]
+        for s in dom[c.id]:
+            for g in cand:
+                v = x[c.id, s] if len(cand) == 1 else z[c.id, g, s]
+                teach.setdefault((c.class_name, subject_group(c.subject)), {}).setdefault(g, {}) \
+                    .setdefault(s, []).append(v)
+                teach_subject.setdefault((c.class_name, c.subject), {}).setdefault(g, {}).setdefault(s, []).append(v)
+    sessions_all = [(d, session) for d, sessions in config.DAY_SESSIONS.items() for session in sessions]
+
+    # Liên tiết: hai tiết liền nhau cùng lớp, cùng nhóm môn (vd TV và TV tăng cường) phải cùng người dạy.
+    for by_g in teach.values():
+        if len(by_g) < 2:
+            continue
+        gs = sorted(by_g)
+        for d, session in sessions_all:
+            for p1, p2 in zip(session.periods, session.periods[1:]):
+                for g1 in gs:
+                    for g2 in gs:
+                        a, b = by_g[g1].get((d, p1)), by_g[g2].get((d, p2))
+                        if g1 != g2 and a and b:
+                            m.Add(sum(a) + sum(b) <= 1)
+
+    # GVCN trước: nhóm môn ưu tiên của GVCN mà có người khác cùng dạy thì tiết đầu tuần là của GVCN, tiết của
+    # người khác không đứng trước tiết GVCN đầu tiên.
+    homeroom_of = {t.class_name: t.title for t in problem.teachers.values() if t.class_name}
+    week = sorted(slots)
+    for (cls, group), by_g in teach.items():
+        cn = homeroom_of.get(cls)
+        if group not in config.HOMEROOM_PRIORITY or cn not in by_g or len(by_g) < 2:
+            continue
+        for g in sorted(by_g):
+            if g == cn:
+                continue
+            for i, s in enumerate(week):
+                if s not in by_g[g]:
+                    continue
+                before = [v for s2 in week[:i] for v in by_g[cn].get(s2, [])]
+                m.Add(sum(by_g[g][s]) <= sum(before)) if before else m.Add(sum(by_g[g][s]) == 0)
+
+    # Luật bảo vệ học sinh: mỗi nhóm môn tối đa SESSION_GROUP_LIMIT tiết mỗi buổi; Toán mỗi ngày tối đa 1 tiết
+    # (DAILY_LIMITS); nhóm môn ghép cặp (allocation.paired_groups) mỗi buổi 0 hoặc 2 tiết liền nhau; môn có từ 2
+    # tiết trong một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn").
     if settings.student_rules:
+        n_days = len(config.DAY_SESSIONS)
         for cls in problem.classes:
             courses = problem.class_courses(cls)
+            req = problem.curriculum[int(cls.split("/")[0])]
+            pairs = paired_groups(req)
             by_subject: dict[str, list[Course]] = {}
+            by_group: dict[str, list[Course]] = {}
             for c in courses:
                 by_subject.setdefault(c.subject, []).append(c)
+                by_group.setdefault(subject_group(c.subject), []).append(c)
             for d, sessions in config.DAY_SESSIONS.items():
+                for subject, limit in config.DAILY_LIMITS.items():
+                    if req.get(subject, 0) > n_days:
+                        continue
+                    vs = [x[c.id, (d, p)] for c in by_subject.get(subject, []) for session in sessions
+                          for p in session.periods if (c.id, (d, p)) in x]
+                    if len(vs) > limit:
+                        m.Add(sum(vs) <= limit)
                 for session in sessions:
-                    for group, limit in config.SESSION_SUBJECT_LIMITS:
-                        vs = [x[c.id, (d, p)] for c in courses if c.subject in group
-                              for p in session.periods if (c.id, (d, p)) in x]
-                        if len(vs) > limit:
-                            m.Add(sum(vs) <= limit)
+                    ps = session.periods
+                    for group, cs in by_group.items():
+                        y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in ps}
+                        vs = [v for p in ps for v in y[p]]
+                        if len(vs) > config.SESSION_GROUP_LIMIT:
+                            m.Add(sum(vs) <= config.SESSION_GROUP_LIMIT)
+                        if group in pairs and vs:
+                            pair = m.NewBoolVar(f"pair_{cls}_{d}_{ps[0]}")
+                            m.Add(sum(vs) == 2 * pair)
+                            for i in range(len(ps)):
+                                for k in range(i + 2, len(ps)):
+                                    if y[ps[i]] and y[ps[k]]:
+                                        m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) <= 1)
                     for subject, cs in by_subject.items():
                         if sum(c.lessons for c in cs) < 2:
                             continue
-                        y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in session.periods}
-                        ps = session.periods
+                        y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in ps}
                         for i in range(len(ps)):
                             for k in range(i + 2, len(ps)):
                                 if not y[ps[i]] or not y[ps[k]]:
                                     continue
                                 for j in range(i + 1, k):
                                     m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) - sum(y[ps[j]]) <= 1)
+
+    # Tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy (thưởng).
+    session_at = session_of()
+    for (cls, subject), by_g in teach_subject.items():
+        main = config.SUBJECT_GROUPS.get(subject)
+        if main is None:
+            continue
+        main_by_g = teach_subject.get((cls, main), {})
+        for g in sorted(by_g):
+            for (d, p), vs in sorted(by_g[g].items()):
+                prev = main_by_g.get(g, {}).get((d, p - 1))
+                if prev and session_at.get((d, p - 1)) is session_at[(d, p)]:
+                    r = m.NewBoolVar(f"after_{cls}_{subject}_{d}_{p}")
+                    m.Add(r <= sum(vs))
+                    m.Add(r <= sum(prev))
+                    objective.append(-w.extra_after_main * r)
 
     # HĐTN linh hoạt: càng gần cuối buổi càng tốt.
     for c in problem.courses:
@@ -550,47 +579,135 @@ def timetable(problem: Problem, settings: config.Settings,
                     wall_time=wall, stage="phân công cố định" if fixed is not None else "mô hình tích hợp")
 
 
+class ShortageError(SolveError):
+    """Chế độ bù giờ: GVCN và bộ môn đã bù tối đa mà vẫn thiếu tiết (không tuyển thêm)."""
+
+    def __init__(self, problem: Problem, plan: PhanCong):
+        self.problem = problem
+        self.plan = plan
+        super().__init__(f"Chế độ bù giờ không đủ: GVCN và bộ môn đã bù tối đa +{problem.overtime_max} tiết/người, "
+                         f"còn thiếu {plan.missing_total()} tiết")
+
+    def rows(self) -> list[tuple[str, str, int, str]]:
+        """(lớp, môn, số tiết thiếu, lý do) theo thứ tự lớp."""
+        from .staff import class_sort_key
+        out = []
+        for cid, n in self.plan.missing.items():
+            c = self.problem.courses[cid]
+            general = config.ROLE_GENERAL in roles_for_subject(c.subject, self.problem.specialists)
+            reason = (f"GVCN và bộ môn đã bù tối đa +{self.problem.overtime_max} tiết" if general
+                      else "môn chuyên biệt: không ai được dạy bù")
+            out.append((c.class_name, self.problem.subject_label(c.subject), n, reason))
+        return sorted(out, key=lambda r: (class_sort_key(r[0]), r[1]))
+
+
+def du_toan_lines(problem: Problem, plan: PhanCong) -> list[str]:
+    """Dự toán in ra trước khi xếp giờ."""
+    teachers = problem.teachers
+    spec = problem.specialist_subjects()
+    total = sum(sum(problem.curriculum[int(cls.split("/")[0])].values()) for cls in problem.classes)
+    part = {"gvcn": 0, "spec": 0, "manager": 0, "general": 0, "general_spec": 0}
+    for (cid, g), n in plan.lessons.items():
+        t, c = teachers[g], problem.courses[cid]
+        if t.class_name:
+            part["gvcn"] += n if c.homeroom else 0
+        elif g in problem.manager_load:
+            part["manager"] += n
+        elif t.role in problem.specialists:
+            part["spec"] += n
+        else:
+            part["general"] += n
+            part["general_spec"] += n if c.subject in spec else 0
+    ot = plan.overtime
+    ot_h = sum(n for g, n in ot.items() if teachers[g].class_name)
+    cap_h = sum(n for g, n in plan.overtime_cap.items() if teachers[g].class_name)
+    cap_g = sum(n for g, n in plan.overtime_cap.items() if not teachers[g].class_name)
+    used = sum(ot.values())
+    lines = [f"  Dự toán: cần {total} tiết = GVCN {part['gvcn']} + GV chuyên biệt {part['spec']} + quản lý "
+             f"{part['manager']} + bộ môn {part['general'] - (used - ot_h)} (trong đó {part['general_spec']} tiết môn "
+             f"chuyên biệt) + bù {used} + thiếu {plan.missing_total()}"]
+    if problem.overtime:
+        lines.append(f"  Bù: {used}/{cap_h + cap_g} tiết (GVCN {ot_h}/{cap_h}, bộ môn {used - ot_h}/{cap_g}), "
+                     f"còn dư {cap_h + cap_g - used} tiết")
+    return lines
+
+
+def _hire_assignment(plan: PhanCong, work: Problem, split: dict[str, list[list[tuple[int, str, int]]]]
+                     ) -> tuple[dict[tuple[int, str], int], dict[tuple[int, str], list[str]]]:
+    """Phân công cố định khi tiết bù/tiết thiếu do người mới dạy; (course, người mới) -> người bù từng tiết."""
+    fixed = dict(plan.lessons)
+    owners: dict[tuple[int, str], list[str]] = {}
+    for role, groups in split.items():
+        for title, parts in zip(work.supplement_roles[role], groups):
+            for cid, owner, n in parts:
+                if owner:
+                    fixed[cid, owner] -= n
+                    if not fixed[cid, owner]:
+                        del fixed[cid, owner]
+                fixed[cid, title] = fixed.get((cid, title), 0) + n
+                owners.setdefault((cid, title), []).extend([owner] * n)
+    return fixed, owners
+
+
+def _to_overtime(solution: Solution, problem: Problem, owners: dict[tuple[int, str], list[str]]) -> Solution:
+    """TKB chế độ bù: các ô của người mới trả về đúng người bù (cùng vị trí môn)."""
+    by_key: dict[tuple[int, str], list[Lesson]] = {}
+    for les in solution.lessons:
+        if (les.course_id, les.teacher) in owners:
+            by_key.setdefault((les.course_id, les.teacher), []).append(les)
+    teacher_of: dict[int, str] = {}
+    for key, lessons in by_key.items():
+        for les, owner in zip(sorted(lessons, key=lambda l: (l.day, l.period)), owners[key]):
+            teacher_of[id(les)] = owner
+    lessons = [replace(les, teacher=teacher_of[id(les)]) if id(les) in teacher_of else les for les in solution.lessons]
+    return replace(solution, problem=problem, lessons=lessons)
+
+
 def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
           settings: config.Settings, log=print) -> Solution:
-    """Toàn bộ quy trình: phân công → xếp giờ với phân công cố định → (dự phòng) mô hình tích hợp."""
+    """Dự toán, phân công → xếp giờ một lần → TKB chế độ bù hoặc chế độ tuyển (cùng vị trí môn)."""
     if settings.mode not in config.MODES:
         raise SolveError(f"Chế độ không hợp lệ: {settings.mode!r} (chọn một trong {', '.join(config.MODES)})")
-    overtime_max = settings.overtime_max if settings.mode == config.MODE_OVERTIME else 0
-    if overtime_max < 0:
-        raise SolveError(f"Số tiết bù tối đa phải >= 0 (đang là {overtime_max})")
-    base = build_problem(staff, curriculum, overtime_max=overtime_max)
+    if settings.overtime_max < 0:
+        raise SolveError(f"Số tiết bù tối đa phải >= 0 (đang là {settings.overtime_max})")
+    hire = settings.mode == config.MODE_HIRE
+    base = build_problem(staff, curriculum, {}, overtime_max=settings.overtime_max)
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
-    mode = (f" (chế độ bù giờ, tối đa +{overtime_max} tiết/người)"
-            if overtime_max else "")
-    log(f"Bước 1/2: phân công giáo viên{mode}...")
-    plan = assign(base, settings)
-    if overtime_max:
-        homeroom = sum(n for g, n in plan.overtime.items() if base.teachers[g].class_name)
-        log(f"  Dạy bù: {sum(plan.overtime.values())} tiết (GVCN {homeroom}, "
-            f"bộ môn {sum(plan.overtime.values()) - homeroom})")
-    need = {r: c for r, c in plan.counts.items() if c}
-    log(f"  Cần bổ sung: {need or 'không'}; {plan.supplement_lessons} tiết cho GV bổ sung"
-        f"{' (tối ưu)' if plan.optimal else ' (chưa chứng minh tối ưu)'}")
+    log(f"Bước 1/2: dự toán và phân công giáo viên (bù tối đa +{settings.overtime_max} tiết/người)...")
+    plan = phan_cong(base, settings.weights)
+    for line in du_toan_lines(base, plan):
+        log(line)
+    if plan.missing and not hire:
+        raise ShortageError(base, plan)
+    split = tach_tiet_bu(base, plan, staff, include_missing=hire)
+    counts = {role: len(groups) for role, groups in split.items()}
+    work = build_problem(staff, curriculum, counts, overtime_max=0)
+    fixed, owners = _hire_assignment(plan, work, split)
+    if hire:
+        need = ", ".join(f"{work.teachers[titles[0]].label or role} x{len(titles)}"
+                         for role, titles in work.supplement_roles.items() if titles)
+        log(f"  Cần tuyển: {need or 'không'} (người mới dạy các tiết bù"
+            f"{' và tiết thiếu' if plan.missing else ''})")
+    for cls, group, g in plan.odd_pairs:
+        log(f"  Cảnh báo: {work.teachers.get(g, base.teachers[g]).code} dạy số tiết lẻ nhóm {group} lớp {cls}, "
+            f"khó xếp thành cặp")
 
-    problem = build_problem(staff, curriculum, plan.counts, overtime_max=overtime_max)
-    fixed = {k: v for k, v in plan.lessons.items() if k[1] in problem.teachers}
     mode = "chế độ tái lập" if settings.reproducible else "giới hạn giây thực"
     budget = ("không giới hạn thời gian, bấm Ctrl+C để dừng sớm" if settings.time_limit is None
               else f"~{settings.time_limit:.0f}s")
     log(f"Bước 2/2: xếp giờ ({budget}, {mode})...")
-    solution = timetable(problem, settings, fixed=fixed)
+    solution = timetable(work, settings, fixed=fixed)
     if solution is not None:
-        what = "Số tiết thiếu, số GV bổ sung" + (" và số tiết dạy bù" if overtime_max else "")
-        solution.notes.append(f"{what}: nhỏ nhất (đã chứng minh tối ưu)" if plan.optimal else
-                              f"{what}: chưa được chứng minh là nhỏ nhất")
-        return solution
-
+        return solution if hire else _to_overtime(solution, base, owners)
+    if not hire:
+        raise SolveError("Không xếp được TKB với phân công đã dự toán. Thử tăng thời gian (THOI_GIAN_TOI_DA) hoặc "
+                         "tắt luật học sinh (--no-student-rules) để tìm nguyên nhân.")
     for slack in (1, 3):
         log(f"  Không xếp được với phân công cố định; thử mô hình tích hợp (dự phòng {slack} GV/chức vụ)...")
-        planned = {role: plan.counts.get(role, 0) + slack for role in base.supplement_roles}
-        problem = build_problem(staff, curriculum, planned, overtime_max=overtime_max)
-        solution = timetable(problem, settings, hint=plan.lessons)
+        planned = {role: counts.get(role, 0) + slack for role in work.supplement_roles}
+        problem = build_problem(staff, curriculum, planned, overtime_max=0)
+        solution = timetable(problem, settings, hint=fixed)
         if solution is not None:
             solution.notes.append(f"Mô hình tích hợp (dự phòng {slack} GV bổ sung/chức vụ)")
             return solution

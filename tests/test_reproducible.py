@@ -14,7 +14,7 @@ import json, sys
 from tkb import config
 from tkb.solver import solve
 from tests.conftest import CURRICULUM, small_staff
-settings = config.Settings(time_limit=5, workers=4, mode=sys.argv[1], overtime_max=2)
+settings = config.Settings(time_limit=5, workers=4, mode=sys.argv[1], overtime_max=4)
 sol = solve(small_staff(general=False), CURRICULUM, settings, log=lambda *_: None)
 print(json.dumps(sorted((l.class_name, l.day, l.period, l.subject, l.teacher) for l in sol.lessons)))
 """
@@ -31,13 +31,13 @@ def test_same_timetable_across_runs(mode):
     assert outputs[0] and outputs[0] == outputs[1]
 
 
-# Mã kết quả tham chiếu của trường nhỏ (time_limit=5, 4 luồng), theo hệ điều hành: OR-Tools bản Windows và
-# bản Linux ra TKB khác nhau, nhưng các máy cùng hệ điều hành ra cùng mã. Chạy test này trên máy khác: nếu
-# khác mã thì máy đó không ra cùng TKB (thường do khác phiên bản OR-Tools). Đổi mô hình thì cập nhật lại mã.
+# Mã kết quả tham chiếu của trường nhỏ (time_limit=5, 4 luồng, bù tối đa +4), theo hệ điều hành: OR-Tools bản
+# Windows và bản Linux ra TKB khác nhau, nhưng các máy cùng hệ điều hành ra cùng mã. Chạy test này trên máy khác:
+# nếu khác mã thì máy đó không ra cùng TKB (thường do khác phiên bản OR-Tools). Đổi mô hình thì cập nhật lại mã.
+# Hai chế độ cùng TKB, chỉ khác người dạy các ô bù nên khác mã.
 REFERENCE = {
-    "linux": {config.MODE_HIRE: "60A5-5219-142F", config.MODE_OVERTIME: "F08D-1913-F355"},
-    # Máy ảo Windows của GitHub Actions (Windows Server 2022 và 2025, Python 3.12 và 3.14).
-    "win32": {config.MODE_HIRE: "BAB3-230A-56C1", config.MODE_OVERTIME: "8D95-DAE4-E979"},
+    "linux": {config.MODE_HIRE: "14CA-0CDD-A57E", config.MODE_OVERTIME: "A78D-7F44-CDA7"},
+    "win32": {config.MODE_HIRE: "6E11-2445-E375", config.MODE_OVERTIME: "C9D3-264F-A5FD"},
 }
 
 
@@ -45,7 +45,7 @@ REFERENCE = {
 def test_reference_fingerprint(mode):
     from tkb.solver import solve
     from tests.conftest import CURRICULUM, small_staff
-    settings = config.Settings(time_limit=5, workers=4, mode=mode, overtime_max=2)
+    settings = config.Settings(time_limit=5, workers=4, mode=mode, overtime_max=4)
     code = solve(small_staff(general=False), CURRICULUM, settings, log=lambda *_: None).fingerprint()
     expected = REFERENCE.get(sys.platform, {}).get(mode)
     if expected is None:

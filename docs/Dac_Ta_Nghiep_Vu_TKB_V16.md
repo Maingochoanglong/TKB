@@ -41,6 +41,13 @@
 | 23 | Cột TIẾT của TKB, file mẫu | Buổi chiều ghi tiết 1–3; mẫu đầu ra V5 | Ghi **tiết trong ngày**: sáng 1–4, chiều **5–7**. Mẫu đầu ra `data/Output_Template_TKB_V8.xlsx` và `data/Output_Template_Thong_Ke_V8.xlsx` (sinh lại bằng `python tools/mau_dau_ra.py`) |
 | 24 | Mẫu file vào | Đọc cả mẫu cũ V5–V7 (chức vụ kèm số, `--program`, chuyển file cũ `--tu`); có file mẫu tên giả trong `data/` | **Chỉ đọc mẫu V8** (mục 2.1). `data/` chỉ còn file của trường; test dùng trường mẫu tên giả sinh bằng code (`tests/du_lieu_mau.py`) |
 | 25 | File thống kê `Thong_Ke.xlsx` | 6 sheet: Tổng quan, Danh sách nhân sự, Thống kê giáo viên, Phân công, Theo ngày, Theo chức vụ | **Một bảng:** Họ và Tên, Chức Vụ (Mã GV), số tiết từng môn, Tổng Tiết, dòng Tổng (mục 11.3). Mã kết quả, kiểm tra luật, tuyển thêm, dạy bù chỉ in ra màn hình |
+| 26 | Phân công | CP-SAT (2 lần giải, ~45 giây, khác nhau giữa Windows và Linux) | **Dự toán + phân công không dùng CP-SAT** (`tkb/phan_cong.py`): luồng chi phí nhỏ nhất rồi tìm kiếm cục bộ, dưới 1 giây, mọi máy ra cùng phân công. Dự toán (tiết thiếu, bù, tuyển, biên bù) in ra trước khi xếp (mục 8.1, 9) |
+| 27 | Bù giờ không đủ | Tự thêm người `chưa có` | **Báo lỗi, không tuyển, không ra TKB**: in từng tiết thiếu, ghi sheet `Thiếu tiết` vào `Thong_Ke.xlsx`, mã thoát 3 (mục 7.2) |
+| 28 | Chế độ tuyển thêm | Người bổ sung nhận phần thiếu, CP-SAT chọn tiết | **Cùng TKB với chế độ bù**: người mới dạy đúng các ô mà ở chế độ bù là tiết bù, cộng các tiết còn thiếu (mục 7.1) |
+| 29 | Luật người dạy | – | **[Cứng]** Hai tiết liền nhau cùng nhóm môn do 1 người dạy. **[Cứng]** GVCN trước: tiết đầu tuần của môn ưu tiên là của GVCN, người khác không dạy trước tiết đó (mục 5.7, 6) |
+| 30 | Luật học sinh | Tối đa 2 TV, 2 Toán mỗi buổi | **Mỗi nhóm môn** (TV + TV tăng cường, Toán + Toán tăng cường, môn khác) tối đa 2 tiết mỗi buổi; **Toán tối đa 1 tiết mỗi ngày**; nhóm môn từ 6 tiết, tổng chẵn (TV khối 1–3) **ghép cặp 2 tiết liền** (mục 6) |
+| 31 | Trọng số, thời gian | TV/Toán buổi sáng 50, môn nặng tiết 7 200, rải đều 20/60; tăng cường ưu tiên buổi chiều; 240 | 300, 400, 40/120; TV tăng cường ghép với TV (chỉ Toán tăng cường ưu tiên chiều), thưởng tiết tăng cường liền sau tiết chính cùng người; **480** (mục 8.2, 9) |
+| 32 | File ra | `TKB.xlsx`, `Thong_Ke.xlsx`, file cập nhật | Thêm **`TKB_chuc_vu.xlsx`**: cùng TKB, mỗi ô thêm dòng chức vụ (Mã GV) (mục 11) |
 
 ---
 
@@ -189,7 +196,7 @@ Ví dụ (trường mẫu tên giả của test, `tests/du_lieu_mau.py`):
 - **[Cứng]** HĐTN chỉ do GVCN của lớp dạy.
 - Môn bộ môn không được dạy (Tiếng Anh, Tin học) mà trường chưa có GV chuyên biệt: chương trình tự thêm chức vụ trùng tên môn để tuyển (ví dụ `Tin Học 1`).
 - **[Cứng]** Quản lý dạy **đúng** bằng Số tiết của mình. Nếu số tiết phù hợp ít hơn thì dạy hết số đó và có cảnh báo. Chương trình tự chọn lớp; có thể cố định lớp trong `MANAGER_RULES`. Mỗi lớp chỉ có 1 tiết KNS, nên quản lý 4 tiết sẽ dạy ở 4 lớp khối 4.
-- **[Mềm]** Thể dục, Âm nhạc, Mỹ thuật ưu tiên do GV chuyên biệt dạy. Bộ môn chỉ dạy thay phần vượt năng lực của GV chuyên biệt.
+- Thể dục, Âm nhạc, Mỹ thuật do GV chuyên biệt dạy trước. Bộ môn chỉ dạy thay phần vượt năng lực của GV chuyên biệt; dự toán in số tiết này.
 - **[Mềm]** Hạn chế chia một lớp–môn cho nhiều giáo viên.
 
 ---
@@ -237,15 +244,24 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 - **[Mềm]** Tiết thứ ba ưu tiên tiết cuối buổi: mỗi tiết cách cuối buổi bị phạt 200.
 - Không môn nào khác của lớp được xếp vào slot đã cố định cho HĐTN.
 
+### 5.7. GVCN dạy trước
+
+- **[Cứng]** Nhóm môn ưu tiên của GVCN (mục 5.1; TV tăng cường tính chung với TV, Toán tăng cường với Toán) mà có người khác cùng dạy ở lớp đó (bộ môn, người tuyển mới): **tiết đầu tuần của nhóm môn là của GVCN**, và mọi tiết của người khác không đứng trước tiết GVCN đầu tiên đó.
+- Lý do: GVCN mở bài của tuần trước. Không bắt mọi tiết của người khác phải sau mọi tiết của GVCN (thử nghiệm cho thấy cách đó làm TKB kém rõ: rải đều từ 17 lên 20–23).
+- Luôn áp dụng, không tắt cùng luật học sinh.
+
 ---
 
 ## 6. Luật bảo vệ học sinh
 
 | Luật | Loại | Nội dung |
 |---|---|---|
-| Giới hạn TV/Toán | **[Cứng]** | Mỗi buổi tối đa **2 tiết Tiếng Việt** và **2 tiết Toán**. Tiết tăng cường được đếm riêng. Tắt được bằng `LUAT_HOC_SINH = False` |
-| Môn học liền trong buổi | **[Cứng]** | Môn nào có từ 2 tiết trong cùng một buổi thì các tiết đó phải **liền nhau**. Áp dụng cho mọi môn, không phân biệt giáo viên; môn tăng cường là môn riêng. Chỉ xét trong từng buổi (tiết 4 sáng và tiết 5 không tính là liền). Tắt cùng `LUAT_HOC_SINH = False` |
-| Môn nặng ở tiết 7 | **[Mềm]** | Mỗi tiết môn nặng ở tiết 7 bị phạt 200 (`heavy_late`) |
+| Giới hạn mỗi buổi | **[Cứng]** | Mỗi **nhóm môn** tối đa **2 tiết** mỗi buổi (`SESSION_GROUP_LIMIT`). Nhóm môn: TV cùng TV tăng cường, Toán cùng Toán tăng cường (`SUBJECT_GROUPS`), môn khác là nhóm riêng. Tắt được bằng `LUAT_HOC_SINH = False` |
+| Toán mỗi ngày | **[Cứng]** | **Toán tối đa 1 tiết mỗi ngày** khi số tiết Toán/tuần không quá số ngày học (`DAILY_LIMITS`). Tắt cùng `LUAT_HOC_SINH` |
+| Ghép cặp | **[Cứng]** | Nhóm môn có **từ 6 tiết/tuần và tổng chẵn** (`PAIR_MIN_LESSONS`; trừ Toán và HĐTN, `PAIR_EXCLUDED`) học thành **cặp 2 tiết liền nhau**: mỗi buổi 0 hoặc 2 tiết của nhóm. Với chương trình hiện tại: TV + TV tăng cường khối 1 (14, 7 cặp), khối 2 (12, 6 cặp), khối 3 (8, 4 cặp). Phân công luôn chia chẵn phần của mỗi người trong nhóm. Tắt cùng `LUAT_HOC_SINH` |
+| Môn học liền trong buổi | **[Cứng]** | Môn nào có từ 2 tiết trong cùng một buổi thì các tiết đó phải **liền nhau**. Áp dụng cho mọi môn, không phân biệt giáo viên. Chỉ xét trong từng buổi (tiết 4 sáng và tiết 5 không tính là liền). Tắt cùng `LUAT_HOC_SINH = False` |
+| Liên tiết do 1 người | **[Cứng]** | Hai tiết liền nhau trong một buổi, cùng lớp, **cùng nhóm môn** phải do **cùng một người** dạy. Luôn áp dụng |
+| Môn nặng ở tiết 7 | **[Mềm]** | Mỗi tiết môn nặng ở tiết 7 bị phạt 400 (`heavy_late`) |
 | Tiết nặng liên tiếp | Bỏ | Không còn giới hạn |
 
 Ví dụ luật học liền, buổi sáng tiết 1–4:
@@ -254,9 +270,7 @@ Ví dụ luật học liền, buổi sáng tiết 1–4:
 
 **Môn nặng** (`HEAVY_SUBJECTS`): Toán, Toán tăng cường, Tiếng Việt, Tiếng Việt tăng cường, Tiếng Anh, Khoa học, Tin học.
 
-Với dữ liệu mẫu, còn đúng **4 tiết Tiếng Anh ở tiết 7**, mỗi GV tiếng anh 1 tiết. Đây là mức tối thiểu:
-- Mỗi GV tiếng anh dạy 23 tiết.
-- Ngoài tiết 1, Thứ 6 tiết 4 và tiết 7, họ chỉ còn 22 slot.
+Mỗi GV tiếng anh dạy 23 tiết; ngoài tiết 1, Thứ 6 tiết 4 và tiết 7, họ chỉ còn 22 slot, nên luôn còn ít nhất 1 tiết Tiếng Anh ở tiết 7 mỗi người.
 
 ---
 
@@ -264,60 +278,61 @@ Với dữ liệu mẫu, còn đúng **4 tiết Tiếng Anh ở tiết 7**, mỗ
 
 Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy dòng lệnh.
 
+Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi ô). Trước khi xếp, chương trình **dự toán** (mục 8.1) và in ra: tổng tiết cần dạy chia theo GVCN, GV chuyên biệt, quản lý, bộ môn, tiết bù và tiết thiếu; biên bù (đã bù / tối đa có thể bù, theo GVCN và bộ môn).
+
 ### 7.1. Chế độ tuyển thêm (`tuyen_them`)
 
-- Phần không ai dạy được giao cho **người bổ sung**:
-  - Tên `chưa có`.
-  - Mã GV `<chức vụ> n+1, n+2…` (ví dụ `Bộ Môn 6`), với n là số thứ tự lớn nhất hiện có của chức vụ đó.
-- **Định mức tuyển** của người bổ sung = Số tiết lớn nhất của các giáo viên cùng chức vụ trong file vào. Nếu chức vụ đó chưa có ai thì lấy Số tiết lớn nhất của các giáo viên không chủ nhiệm, không quản lý.
-- Người bổ sung là một người thật sẽ tuyển: không dạy 2 lớp cùng lúc, và không dạy quá định mức tuyển.
-- Thứ tự ưu tiên:
-  1. Ít tiết giao cho người bổ sung nhất (dùng hết người hiện có trước).
-  2. Ít người bổ sung nhất.
-  3. Ưu tiên tuyển bộ môn hơn GV chuyên biệt.
-- Tiết được dồn cho người bổ sung đầu trước. Người cuối có thể dạy chưa đủ định mức, ví dụ 23 + 23 + 6.
-- Trong danh sách nhân sự, người bổ sung ghi **định mức tuyển đầy đủ** (ví dụ 23), kèm số tiết thực dạy.
+- **Người mới nhận đúng các tiết bù** của chế độ bù giờ (mục 7.2), cộng các tiết không ai dạy được. Các ô khác của TKB giống hệt chế độ bù giờ; các ô bù đổi người dạy từ GVCN/bộ môn sang người mới.
+- Người mới:
+  - Tên `chưa có`, Mã GV `<chức vụ> n+1, n+2…` (ví dụ `Bộ Môn 6`), với n là số thứ tự lớn nhất hiện có của chức vụ đó.
+  - Chức vụ: bộ môn nếu bộ môn được dạy các tiết đó; tiết thiếu của môn bộ môn không được dạy (Tiếng Anh, Tin học) thì tuyển GV chuyên biệt của môn.
+  - **Định mức tuyển** = Số tiết lớn nhất của các giáo viên cùng chức vụ trong file vào. Chức vụ chưa có ai thì lấy Số tiết lớn nhất của các giáo viên không chủ nhiệm, không quản lý.
+  - Là một người thật sẽ tuyển: không dạy 2 lớp cùng lúc, không dạy tiết 1 (của GVCN), không quá định mức tuyển.
+- Chia tiết cho người mới (`tach_tiet_bu`):
+  - tiết bù của một người ở một lớp giao trọn cho một người mới;
+  - mỗi người mới tối đa **một cặp tiết mỗi buổi** (9 cặp/tuần), vì các tiết ghép cặp (mục 6) phải liền nhau;
+  - số người = ít nhất có thể theo định mức và giới hạn cặp; người số nhỏ nhận nhiều tiết hơn.
+- Trong danh sách nhân sự, người mới ghi **định mức tuyển đầy đủ** (ví dụ 23), kèm số tiết thực dạy.
+- Dự phòng: nếu không xếp được TKB với phân công cố định, chương trình giải mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ) với thêm người dự phòng (mục 9). Khi đó TKB không còn khớp chế độ bù.
 
 ### 7.2. Chế độ bù giờ (`bu_gio`)
 
 - **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (mặc định 2).
 - **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt.
-- **[Cứng]** GVCN được **ưu tiên bù lớp mình**: không được để bộ môn dạy bù ở lớp X một môn mà GVCN lớp X dạy được, trong khi GVCN lớp X chưa bù hết mức. Chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ dạy lớp mình nên giờ đó rảnh), nên đây là lỗi phân công và bộ kiểm tra báo lỗi.
+- **[Cứng]** GVCN được **ưu tiên bù lớp mình**: không được để bộ môn dạy bù ở lớp X một môn mà GVCN lớp X dạy được, trong khi GVCN lớp X chưa bù hết mức. Bộ kiểm tra báo lỗi.
 - **Thứ tự môn GVCN bù:**
-  1. Môn ưu tiên (lấy lại tiết đã bị cắt ở mục 5.2).
-  2. TV tăng cường.
-  3. Toán tăng cường.
-  4. TNXH.
-  5. Kỹ năng sống.
-  6. Công nghệ.
-- **Thứ tự ưu tiên khi quyết định:**
-  1. Ít tiết không ai dạy nhất, ít người phải tuyển nhất.
+  1. Môn ưu tiên (lấy lại tiết đã bị cắt ở mục 5.2), theo nhóm môn; nhóm ghép cặp giữ phần của GVCN chẵn.
+  2. Các môn còn lại theo thứ tự TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ, **ưu tiên nhận trọn môn** cho vừa số tiết bù (không chia đôi môn nếu tránh được).
+- **Thứ tự ưu tiên khi quyết định ai bù:**
+  1. Ít tiết không ai dạy nhất.
   2. Ít tiết bù của **bộ môn** nhất: **GVCN bù trước**, bộ môn chỉ bù khi GVCN đã bù hết mức.
-  3. Ít tiết bù của GVCN nhất. Không trả bù thừa khi còn người dạy trong định mức.
+  3. Ít tiết bù của GVCN nhất.
   4. **Chia đều:** mọi người bù +1 rồi mới có người bù +2.
-  5. Đúng thứ tự môn ở trên.
-  6. Hạn chế chia một lớp–môn cho nhiều người.
-- Bù hết mức mà vẫn thiếu thì phần còn lại mới thêm người `chưa có` như mục 7.1.
+  5. Đúng thứ tự môn ở trên. GVCN phải nhường môn ưu tiên vì chia chẵn thì đổi mức bù với một GVCN khác (tổng không đổi).
+- **Bù hết mức mà vẫn thiếu: báo lỗi, không tuyển, không ra TKB.** Màn hình in từng lớp, môn, số tiết thiếu, lý do và cách sửa (tăng mức bù, sửa định mức/nhân sự, hoặc chạy chế độ tuyển thêm); `Thong_Ke.xlsx` chỉ có sheet `Thiếu tiết` (mục 11.3); mã thoát 3.
 
 ---
 
 ## 8. Mục tiêu tối ưu
 
-### 8.1. Bước phân công: tối ưu theo thứ tự
+### 8.1. Dự toán và phân công (`tkb/phan_cong.py`, không dùng CP-SAT)
 
-Chương trình giải hai lần:
-- **Lần 1** tối ưu nhóm chính:
-  - Tiết giao cho người bổ sung: ×1.000.000.
-  - Người bổ sung: ×100.000, cộng thêm ×1.000 nếu là GV chuyên biệt.
-  - Tiết bù của bộ môn: ×200.000.
-  - Tiết bù của GVCN: ×100.000.
-- **Lần 2** giữ nguyên kết quả lần 1 và tối ưu nhóm phụ:
-  - Tiết bù thứ 2 của một người: ×50.000.
-  - Thứ tự môn GVCN bù: ×3.000 × hạng môn.
-  - Chia lớp–môn: ×5.000 cho mỗi người thêm.
-  - Cân bằng phần định mức chưa dùng giữa người cùng chức vụ: ×50.
-  - Bộ môn dạy thay môn chuyên biệt: ×1.
-  - Dồn tiết cho người bổ sung đầu: ×1.
+Viết bằng Python thuần, số nguyên, duyệt theo thứ tự cố định: mọi máy (Windows, Linux) ra cùng một phân công, dưới 1 giây.
+
+1. **Dự toán:** luồng chi phí nhỏ nhất từ các lớp–môn ngoài phần GVCN sang các giáo viên được dạy. Mỗi giáo viên không nhận quá định mức (cộng mức bù) và không quá số ô giờ có thể dạy (ví dụ 26 với giáo viên không chủ nhiệm). Giá mỗi tiết:
+   - không ai dạy: 1.000.000;
+   - bộ môn bù: 200.000, GVCN bù: 100.000; tiết bù thứ 2 của một người: thêm 50.000;
+   - GVCN bù: 3.000 × hạng môn (môn ưu tiên 0, rồi theo `HOMEROOM_FILL_ORDER`);
+   - bộ môn dạy môn chuyên biệt: 1.000;
+   - quản lý: dạy đúng số tiết.
+   Luồng chi phí nhỏ nhất cho kết quả **tối ưu chính xác** với các giá trên.
+2. **GVCN nhận tiết bù** ở lớp mình theo mục 7.2.
+3. **Phần còn lại:** luồng lần 2 cho bộ môn, GV chuyên biệt, quản lý; rồi **tìm kiếm cục bộ** (chuyển, đổi chéo, gộp phần bị chia) giảm tổng:
+   - chia một lớp–môn cho nhiều người: 5.000 mỗi người thêm;
+   - bộ môn dạy môn chuyên biệt: 1.000 mỗi tiết;
+   - chênh lệch phần định mức chưa dùng giữa người cùng chức vụ: 50;
+   - gom lớp: 20 mỗi khối, 5 mỗi lớp một giáo viên dạy (`group_grade`, `group_class`);
+   - phần lẻ của một người trong nhóm môn ghép cặp: 100.000 (`odd_pair_share`).
 
 ### 8.2. Bước xếp giờ: mục tiêu mềm
 
@@ -325,11 +340,14 @@ Chương trình giải hai lần:
 |---|---:|
 | Tải ngày của giáo viên vượt mục tiêu. Mục tiêu ngày chia định mức theo tỷ lệ số slot của ngày | 100 / tiết vượt; thêm 300 nếu vượt quá mục tiêu + 1 |
 | HĐTN tiết thứ ba cách cuối buổi | 200 / tiết cách |
-| Môn nặng ở tiết 7 | 200 / tiết |
-| **Buổi sáng dành cho TV, Toán** (`MORNING_SUBJECTS`): mỗi tiết TV, Toán xếp vào buổi chiều | 50 / tiết (`morning_core`) |
-| Tiết tăng cường (`AFTERNOON_SUBJECTS`: TV tăng cường, Toán tăng cường) xếp vào buổi sáng, để nhường buổi sáng cho tiết chính | 10 / tiết (`extra_morning`) |
-| Rải đều môn (trừ HĐTN): số tiết một môn trong ngày vượt ⌈số tiết/tuần ÷ 5⌉ | 20 / tiết vượt; **TV, Toán 60** (`core_spread`, lớn hơn `morning_core` để Toán vẫn có mặt mỗi ngày) |
+| Môn nặng ở tiết 7 | 400 / tiết (`heavy_late`) |
+| **Buổi sáng dành cho TV, Toán** (`MORNING_SUBJECTS`): mỗi tiết TV, Toán xếp vào buổi chiều | 300 / tiết (`morning_core`) |
+| Toán tăng cường (`AFTERNOON_SUBJECTS`) xếp vào buổi sáng | 10 / tiết (`extra_morning`). TV tăng cường không có ở đây: nó ghép cặp với TV |
+| Tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy | thưởng 100 / tiết (`extra_after_main`) |
+| Rải đều môn (trừ HĐTN): số tiết một môn trong ngày vượt ⌈số tiết/tuần ÷ 5⌉ | 40 / tiết vượt; **TV, Toán 120** (`core_spread`). Khối 1 có 7 cặp TV trong 5 ngày nên luôn có 2 ngày vượt |
 | Tiết trống giữa buổi của giáo viên không chủ nhiệm | 10 / tiết trống |
+
+Các trọng số chọn qua thử nghiệm trên file của trường (lượng tính toán 480): với mọi luật cứng mới, TV/Toán buổi chiều 39 tiết (như trước khi có luật mới), môn nặng ở tiết 7: 7 tiết, vượt rải đều 19, tiết trống 1.
 
 ---
 
@@ -337,18 +355,15 @@ Chương trình giải hai lần:
 
 1. **Đọc và kiểm tra** đầu vào (mục 2).
 2. **Phân GVCN** (mục 5) và tạo các lớp–môn còn lại, mỗi lớp–môn kèm danh sách giáo viên được dạy (mục 4).
-3. **Bước 1 – Phân công** (chưa xếp giờ):
-   - Tìm số tiết mỗi giáo viên dạy ở từng lớp–môn, theo thứ tự ưu tiên ở mục 8.1.
-   - Mỗi giáo viên không được nhận quá số slot họ thực sự xếp được, ví dụ 26 slot với giáo viên không chủ nhiệm.
-   - Kết quả thường được **chứng minh tối ưu**. Đây là cận dưới của số tiết thiếu và số tiết bù.
-4. **Bước 2 – Xếp giờ** với phân công cố định từ bước 1, tối ưu mục tiêu mềm ở mục 8.2. Nếu xếp được thì kết quả đạt đúng cận dưới của bước 1.
-5. **Dự phòng:** nếu bước 2 không xếp được, chương trình giải mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ), cho phép thêm 1 người bổ sung dự phòng mỗi chức vụ, rồi 3 người.
-6. **Kiểm tra độc lập** (mục 10) và xuất file (mục 11).
+3. **Bước 1 – Dự toán và phân công** (mục 8.1): in dự toán; chế độ bù giờ mà còn thiếu thì dừng, báo lỗi (mục 7.2).
+4. **Tiết bù → người mới:** các tiết bù (và ở chế độ tuyển, tiết thiếu) giao cho người tuyển mới (mục 7.1).
+5. **Bước 2 – Xếp giờ một lần** (CP-SAT) với phân công cố định đó, tối ưu mục tiêu mềm ở mục 8.2. Chế độ tuyển: giữ người mới. Chế độ bù giờ: trả các ô của người mới về đúng người bù. Hai chế độ cùng vị trí môn; mã kết quả khác nhau vì người dạy các ô bù khác nhau.
+6. **Dự phòng** (chỉ chế độ tuyển): nếu bước 2 không xếp được, giải mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ), cho phép thêm 1 người dự phòng mỗi chức vụ, rồi 3 người. Chế độ bù giờ thì báo lỗi.
+7. **Kiểm tra độc lập** (mục 10) và xuất file (mục 11).
 
 **Thời gian và tái lập:**
-- `THOI_GIAN_TOI_DA` (mặc định 240) là lượng tính toán dành cho bước xếp giờ, tính xấp xỉ bằng giây. Bước phân công dùng 1/8 lượng này (tối thiểu 10).
+- `THOI_GIAN_TOI_DA` (mặc định 480) là lượng tính toán dành cho bước xếp giờ, tính xấp xỉ bằng giây. Thử nghiệm: lên 720 gần như không tốt hơn 480. Bước dự toán và phân công không dùng CP-SAT, xong ngay.
 - **Không giới hạn** (`THOI_GIAN_TOI_DA` để trống hoặc 0, dòng lệnh `--time-limit 0`):
-  - Bước phân công: nhóm chính (tiết thiếu, người tuyển, tiết bù) giải đến khi **chứng minh tối ưu** (vài giây). Nhóm phụ (chia đều, thứ tự môn…) gần như không bao giờ chứng minh được nên vẫn giới hạn (`Settings.unlimited_polish_time`, 30).
   - Bước xếp giờ: chạy đến khi chứng minh TKB tốt nhất. Với trường cỡ 29 lớp, việc này gần như không kết thúc.
   - Bấm **Ctrl+C** thì bộ giải dừng, giữ TKB tốt nhất đã tìm được, kiểm tra luật và ghi đủ các file ra như bình thường. Kết quả khi dừng bằng tay phụ thuộc thời điểm dừng nên không tái lập.
 - **[Cứng] Tái lập giữa các lần chạy và giữa các máy cùng hệ điều hành:** khi `CHAY_TAI_LAP_DUOC = True` và có giới hạn thời gian, chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra **cùng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
@@ -360,8 +375,8 @@ Chương trình giải hai lần:
   - Phiên bản Python (đã thử 3.10 đến 3.14), thư mục chạy, thứ tự băm của Python.
   - Thứ tự dựng mô hình cố định, không phụ thuộc thứ tự lặp của `set`.
 - **Tham số bộ giải ở chế độ tái lập** (`_configure` trong `tkb/solver.py`): `interleave_search` (các luồng chạy xen kẽ theo thứ tự cố định), dừng theo `max_deterministic_time`, và **tắt chia sẻ giữa các luồng** (`share_binary_clauses`, kéo theo `share_glue_clauses`, và `share_level_zero_bounds`). Phần chia sẻ này của OR-Tools 9.15 không tất định: đo trên dữ liệu mẫu, cùng một mô hình giải 6 lần ra 3 TKB khác nhau, lệch từ khoảng 60–120 đơn vị tính toán trở đi. Tắt đi thì chạy lặp 8 lần (có lúc 2 tiến trình song song) ra 8 lần cùng mã, chất lượng không giảm.
-- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình. Cùng mã là cùng TKB. Với các hằng số mặc định của `main.py` (file của trường `data/INPUT_V8.xlsx` hiện tại), mã trên Linux là **`7148-3212-6BD1`**, trên Windows là **`D18E-8606-BCFA`** (máy ảo Windows Server 2022/2025). Trường mẫu tên giả của test (`tests/du_lieu_mau.py`) cho `A77F-F330-8C78` trên Linux.
-- **Theo hệ điều hành:** OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng số tiết thiếu/bù), vì bản dựng khác trình biên dịch và phép tính số thực. `.github/workflows/windows.yml` kiểm mỗi lần đổi code: 4 máy ảo Windows (Windows Server 2022 và 2025, Python 3.12 và 3.14) chạy `main.py` với các hằng số mặc định, mỗi máy 2 lần, mọi mã phải trùng nhau; chỉ mã kết quả được tải lên, không tải file ra. Chưa thử macOS, chip ARM.
+- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình. Cùng mã là cùng TKB. Với các hằng số mặc định của `main.py` (file của trường `data/INPUT_V8.xlsx` hiện tại), mã trên Linux là **`BA73-927C-79DB`**, trên Windows là **`50A0-9EFB-4877`** (máy ảo Windows Server 2022/2025). Trường mẫu tên giả của test (`tests/du_lieu_mau.py`) cho `B266-1DC3-966D` trên Linux.
+- **Theo hệ điều hành:** phân công (mục 8.1) giống nhau trên mọi máy. Bước xếp giờ: OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng phân công), vì bản dựng khác trình biên dịch và phép tính số thực. `.github/workflows/windows.yml` kiểm mỗi lần đổi code: 4 máy ảo Windows (Windows Server 2022 và 2025, Python 3.12 và 3.14) chạy `main.py` với các hằng số mặc định, mỗi máy 2 lần, mọi mã phải trùng nhau; chỉ mã kết quả được tải lên, không tải file ra. Chưa thử macOS, chip ARM.
 - Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
 - `tests/test_reproducible.py` kiểm tra:
   - chạy trong hai tiến trình Python riêng, thứ tự băm khác nhau, và so sánh kết quả;
@@ -383,7 +398,8 @@ Chương trình giải hai lần:
 6. GVCN dạy đủ phần được phân. Phần dạy thêm chỉ là tiết bù hợp lệ: đúng lớp mình, không phải môn chuyên biệt, không quá mức bù.
 7. GVCN được ưu tiên bù lớp mình: bộ môn không dạy bù ở lớp mà GVCN còn được bù và dạy được môn đó.
 8. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
-9. Nếu bật luật học sinh: mỗi buổi tối đa 2 tiết TV và 2 tiết Toán; môn có từ 2 tiết trong buổi học liền nhau.
+9. Hai tiết liền nhau cùng nhóm môn do 1 người dạy; nhóm môn ưu tiên: người khác không dạy trước tiết GVCN đầu tuần (mục 5.7).
+10. Nếu bật luật học sinh: mỗi nhóm môn tối đa 2 tiết mỗi buổi; Toán tối đa 1 tiết mỗi ngày; nhóm ghép cặp mỗi buổi 0 hoặc 2 tiết liền; môn có từ 2 tiết trong buổi học liền nhau.
 
 Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn hình.
 
@@ -391,11 +407,12 @@ Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn h�
 
 ## 11. Đầu ra
 
-Ba file, ghi vào `THU_MUC_OUT`:
+Bốn file, ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: chỉ `Thong_Ke.xlsx` với sheet `Thiếu tiết`):
 
 | File | Nội dung |
 |---|---|
 | `TKB.xlsx` | **Chỉ thời khóa biểu**: các sheet Khối (mục 11.1) |
+| `TKB_chuc_vu.xlsx` | Cùng TKB, mỗi ô thêm dòng thứ 3 là chức vụ (Mã GV), để theo dõi ai dạy tiết nào |
 | `Thong_Ke.xlsx` | Một bảng: số tiết từng môn của mỗi giáo viên (mục 11.3) |
 | `<tên file vào>_cap_nhat.xlsx` | File vào cập nhật, dùng lại làm file vào lần sau (mục 11.2) |
 
@@ -438,15 +455,17 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | Tổng Tiết | Tổng số tiết người này dạy (kể cả tiết bù ở chế độ bù giờ) |
 
 - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển. Cuối bảng có dòng **Tổng** (tổng từng môn và tổng tiết toàn trường).
-- Chế độ, mã kết quả, kết quả kiểm tra luật, người cần tuyển (số tiết thiếu), dạy bù và cảnh báo **chỉ in ra màn hình** (mục 11.4).
+- Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển (số tiết thiếu), dạy bù và cảnh báo **chỉ in ra màn hình** (mục 11.4).
+- **Chế độ bù giờ mà thiếu tiết** (mục 7.2): file chỉ có sheet **`Thiếu tiết`**: **Lớp | Môn | Số Tiết Thiếu | Lý Do**, cuối bảng dòng Tổng.
 
 ### 11.4. Màn hình và mã thoát
 
-- Màn hình in: các bước giải, cảnh báo, kết quả kiểm tra luật, **mã kết quả**, người cần bổ sung, tiết dạy bù (tổng, theo GVCN/bộ môn, số người +2/+1), số tiết môn nặng ở tiết 7, số tiết TV/Toán buổi chiều, lỗi kiểm tra.
+- Màn hình in: các bước giải, **dự toán và biên bù**, cảnh báo, kết quả kiểm tra luật, **mã kết quả**, người cần bổ sung, tiết dạy bù (tổng, theo GVCN/bộ môn, số người +2/+1), số tiết môn nặng ở tiết 7, số tiết TV/Toán buổi chiều, lỗi kiểm tra.
 - Mã thoát:
   - `0`: thành công (kể cả khi dừng sớm bằng Ctrl+C ở chế độ không giới hạn thời gian).
   - `1`: lỗi đầu vào, hoặc không xếp được.
   - `2`: đã xuất file nhưng kiểm tra luật **không đạt**.
+  - `3`: chế độ bù giờ thiếu tiết (không ra TKB, chỉ có bảng tiết thiếu).
 
 ---
 
@@ -458,12 +477,12 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 |---|---|---|
 | `FILE_VAO` | **Địa chỉ file vào** (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC), tương đối theo `main.py`. Để trống thì báo lỗi | `data/INPUT_V8.xlsx` (file của trường) |
 | `THU_MUC_OUT` | Thư mục ra. **Để trống thì ghi vào thư mục dự án** (thư mục chứa `main.py`); các file ra ở đó được `.gitignore` bỏ qua | `""` |
-| `CHE_DO` | `bu_gio` hoặc `tuyen_them` | `bu_gio` |
-| `SO_TIET_BU_TOI_DA` | Mức bù tối đa mỗi người (chế độ bù giờ) | `2` |
-| `LUAT_HOC_SINH` | Áp dụng luật tối đa 2 TV/2 Toán mỗi buổi | `True` |
-| `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ (≈ giây). **Để trống hoặc 0 thì không giới hạn**: chạy đến khi chứng minh tối ưu; Ctrl+C dừng sớm và vẫn ghi TKB tốt nhất đã tìm được | `240` |
+| `CHE_DO` | `bu_gio` hoặc `tuyen_them` (cùng TKB, mục 7) | `bu_gio` |
+| `SO_TIET_BU_TOI_DA` | Mức bù tối đa mỗi người; chế độ tuyển: người mới nhận các tiết bù này | `2` |
+| `LUAT_HOC_SINH` | Áp dụng luật học sinh (mục 6) | `True` |
+| `THOI_GIAN_TOI_DA` | Lượng tính toán cho bước xếp giờ (≈ giây). **Để trống hoặc 0 thì không giới hạn**: chạy đến khi chứng minh tối ưu; Ctrl+C dừng sớm và vẫn ghi TKB tốt nhất đã tìm được | `480` |
 | `CHAY_TAI_LAP_DUOC` | Cùng dữ liệu luôn ra cùng một kết quả | `True` |
-| `FILE_TKB`, `FILE_THONG_KE` | Tên file TKB, file thống kê số tiết từng môn của giáo viên | `TKB.xlsx`, `Thong_Ke.xlsx` |
+| `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE` | Tên file TKB, TKB có chức vụ, file thống kê số tiết từng môn của giáo viên | `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `Thong_Ke.xlsx` |
 | `SO_LUONG` | Số luồng tìm kiếm song song | `8` |
 
 ### 12.2. `tkb/config.py` (tham số nghiệp vụ)
@@ -476,13 +495,13 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | `TV`, `TOAN`, `HDTN`…, `DISPLAY_NAMES` | Tên các môn có luật (so khớp với file vào, mục 2.3) và tên viết tắt |
 | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | Phân GVCN (mục 5) |
 | `HOMEROOM_PERIODS` | Tiết luôn do GVCN dạy (mục 5.5) |
-| `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `SESSION_SUBJECT_LIMITS` | Luật học sinh (mục 6) |
-| `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS` | Môn ưu tiên buổi sáng (TV, Toán) và môn tăng cường ưu tiên buổi chiều (mục 8.2) |
+| `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | Luật học sinh, nhóm môn, ghép cặp (mục 6) |
+| `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS` | Môn ưu tiên buổi sáng (TV, Toán) và môn tăng cường ưu tiên buổi chiều (Toán tăng cường) (mục 8.2) |
 | `SUPPLEMENT_NAME` | Tên người bổ sung (mục 7.1) |
 | `ROLE_LABELS` | Cách ghi ba chức vụ Chủ Nhiệm, Bộ Môn, Quản Lý trong file ra |
 | `OVERTIME_ROLES`, `OVERTIME_MAX` | Bù giờ (mục 7.2) |
 | `Weights` | Trọng số mục tiêu (mục 8) |
-| `Settings` | Tham số chạy mặc định (thời gian, tái lập, số luồng; `unlimited_polish_time` ở mục 9) |
+| `Settings` | Tham số chạy mặc định (thời gian 480, tái lập, số luồng, mức bù) |
 
 ---
 
@@ -503,15 +522,18 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | Âm nhạc / Mỹ thuật | 29 / 29 | 23 / 23 | Mỗi môn 6 tiết chuyển cho bộ môn |
 | Bộ môn | 163 | 111 | **Thiếu 52**. Nhu cầu gồm TV 38, TNXH 36, KNS 25 (29 trừ 4 của quản lý), Toán TC 23, Công nghệ 17, TV TC 12, cộng 12 tiết Âm nhạc/Mỹ thuật |
 
-**Kết quả** (chế độ tái lập, 240, 8 luồng; kiểm tra luật **ĐẠT**):
+**Kết quả** (hằng số mặc định của `main.py`: chế độ tái lập, 480, 8 luồng; kiểm tra luật **ĐẠT**):
 
 | Chế độ | Kết quả |
 |---|---|
-| Tuyển thêm | Thiếu **52** tiết. Tuyển `Bộ Môn 6`, `Bộ Môn 7`, `Bộ Môn 8` (định mức 23; thực dạy 23/23/6) |
-| Bù giờ (+2) | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN, kể cả GVCN 5/5 chỉ có 16 tiết (29 người: 23 người +2, 6 người +1). Bộ môn không phải bù |
-| Cả hai | 145/145 ô tiết 1 buổi sáng là GVCN của lớp. Môn nặng ở tiết 7: 4 tiết (Tiếng Anh, mức tối thiểu) |
+| Dự toán | `Bù: 52/68 tiết (GVCN 52/58, bộ môn 0/10), còn dư 16 tiết`, không thiếu tiết |
+| Bù giờ (+2) | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN, kể cả GVCN 5/5 chỉ có 16 tiết (29 người: 23 người +2, 6 người +1). Bộ môn không phải bù. Mã Linux `B266-1DC3-966D` |
+| Tuyển thêm | Tuyển `Bộ Môn 6`, `Bộ Môn 7`, `Bộ Môn 8` (định mức 23; thực dạy 18/18/16 = 52 tiết bù). Cùng TKB với chế độ bù, người mới đứng đúng các ô bù |
+| Cả hai | 145/145 ô tiết 1 buổi sáng là GVCN của lớp. Môn nặng ở tiết 7: 6 tiết. TV/Toán buổi chiều: 42/408 tiết |
 
-Cả hai chế độ đều đã **chứng minh tối ưu** ở bước phân công: số tiết thiếu, số người tuyển và số tiết bù là nhỏ nhất.
+Số tiết thiếu và số tiết bù do luồng chi phí nhỏ nhất tính, nên là **nhỏ nhất**. Phần gom lớp (mục 8.1) dùng tìm kiếm cục bộ nên chỉ là tốt, không chứng minh tối ưu.
+
+Với file của trường (`data/INPUT_V8.xlsx` hiện tại, Linux): bù 56 tiết (27 người +2, 2 người +1), hoặc tuyển 3 bộ môn (thực dạy 20/18/18). Hai TKB giống nhau từng ô, trừ đúng 56 ô bù.
 
 ---
 
@@ -521,7 +543,7 @@ Cả hai chế độ đều đã **chứng minh tối ưu** ở bước phân c�
 2. **Không có chế độ thai sản hay giảm tiết riêng.** Người được giảm tiết ghi Số Tiết/Tuần đã giảm; khi thay đổi thì sửa Số Tiết/Tuần rồi chạy lại.
 3. **Người được bù +1 thay vì +2**, lớp nào quản lý dạy KNS, và cách chia các tiết cùng chi phí là do chương trình chọn. Các phương án này tương đương nhau theo mục tiêu. Đổi dữ liệu hoặc `SO_LUONG` có thể làm đổi lựa chọn.
 4. **Bước xếp giờ** chỉ bảo đảm TKB hợp lệ và tốt trong thời gian cho phép (trạng thái FEASIBLE). Mục tiêu mềm không được chứng minh là tốt nhất, kể cả khi để không giới hạn thời gian rồi dừng bằng Ctrl+C.
-5. **Người bổ sung** được ghi theo định mức tuyển đầy đủ, dù có thể dạy ít hơn (ví dụ `Bộ Môn 8` ghi 23, thực dạy 6).
+5. **Người bổ sung** được ghi theo định mức tuyển đầy đủ, dù có thể dạy ít hơn (ví dụ `Bộ Môn 8` của trường mẫu ghi 23, thực dạy 16).
 6. **"Kỹ năng số"** trong yêu cầu ban đầu được hiểu là **Kỹ năng sống**, vì chương trình không có môn Kỹ năng số.
 7. **Số thứ tự tự đánh theo thứ tự dòng:** đổi thứ tự các dòng cùng chức vụ thì Mã GV (ví dụ `Bộ Môn 2`) đổi theo. Khi cột tên để trống, hãy dùng cột Mã GV trong file cập nhật để biết ai là ai.
 8. **Tên môn phải khớp luật:** môn viết khác hẳn tên trong config (ví dụ `TV` thay cho `Tiếng Việt`) sẽ không nhận luật của môn đó; chương trình cảnh báo khi luật nhắc môn không có trong file.

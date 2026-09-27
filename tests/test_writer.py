@@ -145,6 +145,33 @@ def test_blank_names_show_teacher_code(tmp_path):
     assert {"Tiếng Anh 1", "Thể dục 1"} <= grid  # chức vụ chuyên biệt ghi theo tên môn
 
 
+def test_timetable_with_codes(tmp_path):
+    sol = solve(small_staff(), CURRICULUM, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
+    plain, coded = tmp_path / "TKB.xlsx", tmp_path / "TKB_chuc_vu.xlsx"
+    write_timetable(sol, plain, STYLE)
+    write_timetable(sol, coded, STYLE, with_codes=True)
+    a, b = openpyxl.load_workbook(plain)["Khối 3"], openpyxl.load_workbook(coded)["Khối 3"]
+    codes = {t.title: t.code for t in sol.problem.teachers.values()}
+    names = writer.teacher_labels(sol.problem.teachers)
+    by_label = {names[g]: codes[g] for g in names}
+    for row_a, row_b in zip(a.iter_rows(min_col=4, values_only=True), b.iter_rows(min_col=4, values_only=True)):
+        for va, vb in zip(row_a, row_b):
+            if va and "\n" in str(va):
+                subject, label = va.split("\n")
+                assert vb == f"{va}\n{by_label[label]}"
+    assert b.row_dimensions[2].height > a.row_dimensions[2].height  # 3 dòng chữ
+
+
+def test_shortage_file(tmp_path):
+    out = tmp_path / "Thong_Ke.xlsx"
+    writer.write_shortage([("3/1", "KNS", 1, "GVCN và bộ môn đã bù tối đa +2 tiết"),
+                           ("3/2", "KNS", 1, "GVCN và bộ môn đã bù tối đa +2 tiết")], out, STYLE)
+    wb = openpyxl.load_workbook(out)
+    assert wb.sheetnames == ["Thiếu tiết"]
+    rows = [r for r in wb["Thiếu tiết"].iter_rows(values_only=True) if any(r)]
+    assert rows[0] == ("Lớp", "Môn", "Số Tiết Thiếu", "Lý Do") and rows[-1][:3] == ("Tổng", None, 2)
+
+
 def test_long_names_widen_columns_and_rows(tmp_path):
     staff = small_staff()
     staff[0].name = "Nguyễn Thị Thanh Hương Giang Mai"  # GVCN 3/1, tên rất dài
