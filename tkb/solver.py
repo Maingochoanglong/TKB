@@ -303,9 +303,52 @@ class _Allocation:
 # --------------------------------------------------------------------------
 # Xếp giờ
 # --------------------------------------------------------------------------
+@dataclass
+class TimetableModel:
+    """Mô hình xếp giờ đã dựng. x[course, slot]: course có tiết ở slot; z[course, GV, slot]: GV nào dạy tiết đó
+    (chỉ có khi course có nhiều hơn 1 GV). allocation_cost: phần mục tiêu của phân công (hằng số khi phân công
+    cố định), để tách ra chi phí của riêng việc xếp giờ."""
+    problem: Problem
+    model: cp_model.CpModel
+    x: dict[tuple[int, tuple[int, int]], cp_model.IntVar]
+    z: dict[tuple[int, str, tuple[int, int]], cp_model.IntVar]
+    dom: dict[int, list[tuple[int, int]]]
+    teachers_of: dict[int, list[str]]
+    allocation_cost: list
+
+    def lessons(self, value) -> list[Lesson]:
+        """Các tiết của nghiệm; value(biến) -> giá trị (vd CpSolver.Value)."""
+        out: list[Lesson] = []
+        for c in self.problem.courses:
+            cand = self.teachers_of[c.id]
+            for s in self.dom[c.id]:
+                if not value(self.x[c.id, s]):
+                    continue
+                g = cand[0] if len(cand) == 1 else next(t for t in cand if value(self.z[c.id, t, s]))
+                out.append(Lesson(c.class_name, s[0], s[1], c.subject, g, c.id))
+        return out
+
+
 def timetable(problem: Problem, settings: config.Settings,
               fixed: dict[tuple[int, str], int] | None = None,
               hint: dict[tuple[int, str], int] | None = None) -> Solution | None:
+    tm = build_timetable(problem, settings, fixed, hint)
+    solver = cp_model.CpSolver()
+    _configure(solver, settings, settings.time_limit)
+    start = time.time()
+    status = solver.Solve(tm.model)
+    wall = time.time() - start
+    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return None
+    return Solution(problem=problem, status=solver.StatusName(status), lessons=tm.lessons(solver.Value),
+                    objective=solver.ObjectiveValue(), best_bound=solver.BestObjectiveBound(),
+                    wall_time=wall, stage="phân công cố định" if fixed is not None else "mô hình tích hợp")
+
+
+def build_timetable(problem: Problem, settings: config.Settings,
+                    fixed: dict[tuple[int, str], int] | None = None,
+                    hint: dict[tuple[int, str], int] | None = None) -> TimetableModel:
+    """Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights)."""
     w = settings.weights
     m = cp_model.CpModel()
     slots = problem.slots
@@ -554,29 +597,7 @@ def timetable(problem: Problem, settings: config.Settings,
             if not isinstance(a, int):
                 m.AddHint(a, hint.get((cid, g), 0))
                 m.AddHint(alloc.used[cid, g], 1 if hint.get((cid, g), 0) > 0 else 0)
-
-    solver = cp_model.CpSolver()
-    _configure(solver, settings, settings.time_limit)
-    start = time.time()
-    status = solver.Solve(m)
-    wall = time.time() - start
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        return None
-
-    lessons: list[Lesson] = []
-    for c in problem.courses:
-        cand = alloc.teachers_of[c.id]
-        for s in dom[c.id]:
-            if not solver.Value(x[c.id, s]):
-                continue
-            if len(cand) == 1:
-                g = cand[0]
-            else:
-                g = next(t for t in cand if solver.Value(z[c.id, t, s]))
-            lessons.append(Lesson(c.class_name, s[0], s[1], c.subject, g, c.id))
-    return Solution(problem=problem, status=solver.StatusName(status), lessons=lessons,
-                    objective=solver.ObjectiveValue(), best_bound=solver.BestObjectiveBound(),
-                    wall_time=wall, stage="phân công cố định" if fixed is not None else "mô hình tích hợp")
+    return TimetableModel(problem, m, x, z, dom, alloc.teachers_of, list(alloc.objective))
 
 
 class ShortageError(SolveError):
