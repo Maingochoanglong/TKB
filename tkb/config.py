@@ -128,8 +128,9 @@ SUPPLEMENT_NAME = "chưa có"
 # --------------------------------------------------------------------------
 # Chế độ xử lý khi thiếu người
 # --------------------------------------------------------------------------
-MODE_HIRE = "tuyen_them"  # thêm GV bổ sung "chưa có" vào danh sách nhân sự
-MODE_OVERTIME = "bu_gio"  # GVCN/bộ môn dạy bù vượt định mức; chỉ tuyển khi bù vẫn không đủ
+# Cả hai chế độ dùng chung một TKB: người tuyển mới dạy đúng các ô mà ở chế độ bù giờ là tiết bù.
+MODE_HIRE = "tuyen_them"  # thêm GV bổ sung "chưa có": nhận các tiết bù và phần còn thiếu
+MODE_OVERTIME = "bu_gio"  # GVCN/bộ môn dạy bù vượt định mức; bù vẫn không đủ thì báo lỗi, không tuyển
 MODES = (MODE_HIRE, MODE_OVERTIME)
 # Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt; GVCN bù
 # trước, bộ môn chỉ bù khi GVCN đã bù hết mức.
@@ -146,22 +147,27 @@ HEAVY_LATE_PERIODS: set[int] = {7}
 # mỗi tiết TV, Toán xếp vào buổi chiều bị phạt (Weights.morning_core); tiết tăng cường thì ngược lại, ưu tiên
 # buổi chiều để nhường buổi sáng cho tiết chính (Weights.extra_morning).
 MORNING_SUBJECTS: set[str] = {TV, TOAN}
-AFTERNOON_SUBJECTS: set[str] = {TV_TC, TOAN_TC}
-# Nhóm môn -> số tiết tối đa mỗi buổi (môn tăng cường được đếm riêng, không gộp vào môn gốc).
-# Luật cứng đi kèm (không cần cấu hình): môn nào có từ 2 tiết trong một buổi thì các tiết đó phải liền
-# nhau, vd sáng "TV, Toán, TV, Anh" là sai, phải là "Toán, TV, TV, Anh".
-SESSION_SUBJECT_LIMITS: list[tuple[frozenset[str], int]] = [
-    (frozenset({TV}), 2),
-    (frozenset({TOAN}), 2),
-]
+# TV tăng cường không ở đây: nó ghép cặp liền với tiết TV (SUBJECT_GROUPS, PAIR_MIN_LESSONS).
+AFTERNOON_SUBJECTS: set[str] = {TOAN_TC}
+# Nhóm môn: môn tăng cường tính chung với môn chính cho các luật liên tiết, số tiết mỗi buổi và ghép cặp.
+SUBJECT_GROUPS: dict[str, str] = {TV_TC: TV, TOAN_TC: TOAN}
+# Mỗi nhóm môn tối đa ngần ấy tiết mỗi buổi. Luật cứng đi kèm: môn nào có từ 2 tiết trong một buổi thì
+# các tiết đó phải liền nhau, vd sáng "TV, Toán, TV, Anh" là sai, phải là "Toán, TV, TV, Anh".
+SESSION_GROUP_LIMIT = 2
+# Môn -> số tiết tối đa mỗi ngày, chỉ áp dụng khi số tiết/tuần không quá số ngày học (Toán mỗi ngày 1 tiết).
+DAILY_LIMITS: dict[str, int] = {TOAN: 1}
+# Nhóm môn có từ ngần ấy tiết/tuần và tổng số tiết chẵn thì xếp thành các cặp 2 tiết liền nhau, cùng người
+# dạy (mỗi buổi 0 hoặc 2 tiết của nhóm), vd TV + TV tăng cường khối 1–3. Trừ các nhóm trong PAIR_EXCLUDED.
+PAIR_MIN_LESSONS = 6
+PAIR_EXCLUDED: set[str] = {TOAN, HDTN}  # Toán: mỗi ngày 1 tiết (DAILY_LIMITS); HĐTN: có ô cố định
 
 
 def rule_subjects() -> list[str]:
     """Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào)."""
     names = [HDTN, *HOMEROOM_PRIORITY, *HOMEROOM_CUT_ORDER, *HOMEROOM_FILL_ORDER, *HOMEROOM_ONLY_SUBJECTS,
              *GENERAL_FORBIDDEN_SUBJECTS, *(r.subject for r in MANAGER_RULES), *HEAVY_SUBJECTS,
-             *MORNING_SUBJECTS, *AFTERNOON_SUBJECTS,
-             *(s for group, _ in SESSION_SUBJECT_LIMITS for s in group), *DISPLAY_NAMES]
+             *MORNING_SUBJECTS, *AFTERNOON_SUBJECTS, *SUBJECT_GROUPS, *SUBJECT_GROUPS.values(),
+             *DAILY_LIMITS, *DISPLAY_NAMES]
     return sorted(set(names))
 
 
@@ -177,14 +183,15 @@ class Weights:
     day_over_preferred: int = 100  # mỗi tiết vượt tải ngày mong muốn
     day_over_buffer: int = 300  # mỗi tiết vượt tải ngày mong muốn + 1
     hdtn_flex_distance: int = 200  # mỗi tiết cách cuối buổi của HĐTN flex
-    heavy_late: int = 200  # mỗi tiết môn nặng ở tiết 7
-    morning_core: int = 50  # mỗi tiết TV, Toán (MORNING_SUBJECTS) xếp vào buổi chiều
-    core_spread: int = 60  # như subject_spread nhưng cho MORNING_SUBJECTS: > morning_core để giữ Toán mỗi ngày
-                           # (thà 1 tiết Toán buổi chiều còn hơn 2 tiết Toán cùng một buổi sáng)
+    heavy_late: int = 400  # mỗi tiết môn nặng ở tiết 7
+    morning_core: int = 300  # mỗi tiết TV, Toán (MORNING_SUBJECTS) xếp vào buổi chiều
+    core_spread: int = 120  # như subject_spread nhưng cho MORNING_SUBJECTS
     extra_morning: int = 10  # mỗi tiết tăng cường (AFTERNOON_SUBJECTS) xếp vào buổi sáng
-    subject_spread: int = 20  # mỗi tiết vượt mức rải đều môn/ngày
+    extra_after_main: int = 100  # thưởng mỗi tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy
+    subject_spread: int = 40  # mỗi tiết vượt mức rải đều môn/ngày
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
-    general_on_specialist: int = 1  # mỗi tiết bộ môn dạy thay môn chuyên biệt
+    general_on_specialist: int = 1_000  # mỗi tiết bộ môn dạy thay môn chuyên biệt (chỉ khi GV chuyên biệt đã
+                                       # hết định mức; lớn hơn điểm gom lớp để không bị đổi chỉ vì gom lớp)
     load_balance: int = 50  # mỗi tiết dư lớn nhất giữa các GV cùng chức vụ
     supplement_order: int = 1  # dồn tiết cho GV bổ sung số thứ tự nhỏ trước
     # Chế độ bù giờ (thứ tự ưu tiên: ít tiết bù của bộ môn > ít tiết bù của GVCN > chia đều >
@@ -193,6 +200,11 @@ class Weights:
     overtime_homeroom: int = 100_000  # mỗi tiết GVCN dạy bù
     overtime_second: int = 50_000  # mỗi tiết bù từ tiết thứ 2 của một người (ai cũng +1 rồi mới +2)
     overtime_subject_order: int = 3_000  # × hạng môn: môn ưu tiên (0) rồi HOMEROOM_FILL_ORDER (1, 2...)
+    # Phân công (tkb/phan_cong.py, tìm kiếm cục bộ): gom lớp của một GV vào ít khối, ít lớp; môn ghép cặp
+    # (PAIR_MIN_LESSONS) phải chia chẵn cho mỗi người.
+    group_grade: int = 20  # mỗi khối một GV không chủ nhiệm dạy
+    group_class: int = 5  # mỗi lớp một GV không chủ nhiệm dạy
+    odd_pair_share: int = 100_000  # mỗi phần lẻ của một người trong nhóm môn ghép cặp
 
 
 # Phiên bản OR-Tools đã ghim trong requirements.txt. Máy khác phiên bản thì TKB có thể khác.
@@ -203,9 +215,8 @@ ORTOOLS_VERSION = "9.15.6755"
 class Settings:
     student_rules: bool = True
     mode: str = MODE_HIRE
-    overtime_max: int = OVERTIME_MAX  # chỉ dùng ở chế độ bù giờ
-    time_limit: float | None = 240.0  # None: không giới hạn (chạy đến khi chứng minh tối ưu)
-    unlimited_polish_time: float = 30.0  # khi không giới hạn: lượng tính toán cho nhóm mục tiêu phụ của bước phân công
+    overtime_max: int = OVERTIME_MAX  # bù tối đa mỗi người; chế độ tuyển: người mới nhận đúng các tiết bù này
+    time_limit: float | None = 480.0  # None: không giới hạn (chạy đến khi chứng minh tối ưu)
     # Chạy lại cùng dữ liệu luôn ra cùng một TKB (xem solver._configure).
     reproducible: bool = True
     deterministic_per_second: float = 1.0  # quy đổi time_limit sang thời gian tất định

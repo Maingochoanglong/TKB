@@ -25,14 +25,15 @@ CODE_HEADER = "Mã GV"
 LOAD_HEADER = "Số Tiết Thực Dạy"
 OVERTIME_HEADER = "Số Tiết Bù"
 STATS_SHEET = "Thống kê"
+SHORTAGE_SHEET = "Thiếu tiết"
 TOTAL_HEADER = "Tổng Tiết"
 
 
-def teacher_labels(teachers: dict[str, Teacher]) -> dict[str, str]:
+def teacher_labels(teachers: dict[str, Teacher], with_codes: bool = False) -> dict[str, str]:
     """Chức vụ -> tên hiển thị dưới tên môn trong TKB.
 
     Ghi tên giáo viên; tên để trống hoặc người cần tuyển thêm thì ghi Mã GV (vd "Bộ Môn 6"), tên trùng
-    nhau thì kèm Mã GV.
+    nhau thì kèm Mã GV. with_codes: thêm một dòng Mã GV dưới tên (file TKB có chức vụ).
     """
     counts = Counter(t.name.strip() for t in teachers.values() if t.name.strip())
     labels = {}
@@ -40,6 +41,8 @@ def teacher_labels(teachers: dict[str, Teacher]) -> dict[str, str]:
         name = t.name.strip()
         if not name or t.supplementary:
             labels[title] = t.code
+        elif with_codes:
+            labels[title] = f"{name}\n{t.code}"
         elif counts[name] > 1:
             labels[title] = f"{name} ({t.code})"
         else:
@@ -66,17 +69,18 @@ def _merge(ws, style: Style, r1: int, c1: int, r2: int, c2: int, value) -> None:
         ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
 
 
-def _grade_sheets(wb, solution: Solution, style: Style) -> None:
+def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False) -> None:
     grid = {(l.class_name, l.day, l.period): l for l in solution.lessons}
     days = sorted(config.DAY_SESSIONS)
     rows = session_rows()
     day_periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
     first_day_col = 4
     problem = solution.problem
-    names = teacher_labels(problem.teachers)
+    names = teacher_labels(problem.teachers, with_codes)
     header = ["LỚP", "BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
     # Cột ngày: cùng độ rộng ở mọi sheet Khối, nới theo dòng dài nhất của cả trường (tối đa MAX_DAY_WIDTH).
-    texts = {t for les in solution.lessons for t in (problem.subject_label(les.subject), names[les.teacher])}
+    texts = {line for les in solution.lessons
+             for t in (problem.subject_label(les.subject), names[les.teacher]) for line in t.split("\n")}
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
     for grade in sorted({int(c.split("/")[0]) for c in problem.classes}):
         ws = wb.create_sheet(f"Khối {grade}")
@@ -126,12 +130,14 @@ def staff_rows(solution: Solution) -> list[Teacher]:
     return real + solution.used_supplements()
 
 
-def write_timetable(solution: Solution, path: str | Path, style: Style | None = None) -> None:
-    """File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics)."""
+def write_timetable(solution: Solution, path: str | Path, style: Style | None = None,
+                    with_codes: bool = False) -> None:
+    """File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics).
+    with_codes: mỗi ô thêm dòng Mã GV (chức vụ) dưới tên giáo viên."""
     style = style or Style()
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
-    _grade_sheets(wb, solution, style)
+    _grade_sheets(wb, solution, style, with_codes)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
@@ -167,6 +173,20 @@ def write_statistics(solution: Solution, path: str | Path, style: Style | None =
     header, rows = subject_table(solution, style)
     style.table(ws, header, rows, bold_last=True)
     ws.freeze_panes = "C2"  # giữ cột tên, chức vụ và dòng tiêu đề khi cuộn
+    style.fit_columns(ws)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
+
+
+def write_shortage(rows: list[tuple[str, str, int, str]], path: str | Path, style: Style | None = None) -> None:
+    """File thống kê khi chế độ bù giờ không đủ: sheet SHORTAGE_SHEET liệt kê các tiết không ai dạy được."""
+    style = style or Style()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = SHORTAGE_SHEET
+    body = [list(r) for r in rows] + [["Tổng", None, sum(r[2] for r in rows), None]]
+    style.table(ws, ["Lớp", "Môn", "Số Tiết Thiếu", "Lý Do"], body, bold_last=True)
+    ws.freeze_panes = "A2"
     style.fit_columns(ws)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

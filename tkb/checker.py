@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from . import config
-from .allocation import Problem, all_slots, manager_allowed
+from .allocation import Problem, all_slots, manager_allowed, paired_groups, subject_group
 from .solver import Lesson
 
 
@@ -127,23 +127,64 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             if s not in config.HDTN_FIXED_SLOTS and s[0] not in config.HDTN_FLEX_DAYS:
                 errors.append(f"Lớp {cls}: HĐTN linh hoạt ở {where(*s)} ngoài các ngày cho phép")
 
+    errors.extend(_check_teacher_order(problem, lessons))
     if student_rules:
         errors.extend(_check_student_rules(problem, lessons))
+    return errors
+
+
+def _check_teacher_order(problem: Problem, lessons: list[Lesson]) -> list[str]:
+    """Liên tiết do 1 người dạy; nhóm môn ưu tiên của GVCN: tiết của người khác không trước tiết GVCN đầu tuần."""
+    errors = []
+    session_of = {(d, p): s for d, sessions in config.DAY_SESSIONS.items() for s in sessions for p in s.periods}
+    grid = {(l.class_name, l.day, l.period): l for l in lessons}
+    for les in sorted(lessons, key=lambda l: (l.class_name, l.day, l.period)):
+        nxt = grid.get((les.class_name, les.day, les.period + 1))
+        if nxt and session_of.get((les.day, les.period + 1)) is session_of[les.day, les.period] \
+                and subject_group(nxt.subject) == subject_group(les.subject) and nxt.teacher != les.teacher:
+            errors.append(f"Lớp {les.class_name} {config.DAYS[les.day]} tiết {les.period}–{les.period + 1}: "
+                          f"hai tiết liền {les.subject}/{nxt.subject} do 2 người dạy ({les.teacher}, {nxt.teacher})")
+    homeroom = {t.class_name: t.title for t in problem.teachers.values() if t.class_name}
+    by: dict[tuple[str, str], dict[str, list[tuple[int, int]]]] = defaultdict(lambda: defaultdict(list))
+    for les in lessons:
+        by[les.class_name, subject_group(les.subject)][les.teacher].append((les.day, les.period))
+    for (cls, group), per_teacher in sorted(by.items()):
+        cn = homeroom.get(cls)
+        if group not in config.HOMEROOM_PRIORITY or cn not in per_teacher:
+            continue
+        first = min(per_teacher[cn])
+        for g, slots in sorted(per_teacher.items()):
+            early = sorted(s for s in slots if g != cn and s < first)
+            if early:
+                errors.append(f"Lớp {cls} môn {group}: {g} dạy {config.DAYS[early[0][0]]} tiết {early[0][1]}, "
+                              f"trước tiết đầu tuần của GVCN")
     return errors
 
 
 def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
     errors = []
     grid: dict[tuple[str, int, int], str] = {(l.class_name, l.day, l.period): l.subject for l in lessons}
+    n_days = len(config.DAY_SESSIONS)
     for cls in problem.classes:
+        req = problem.curriculum[int(cls.split("/")[0])]
+        pairs = paired_groups(req)
         for d, sessions in config.DAY_SESSIONS.items():
+            day_subjects = [grid.get((cls, d, p)) for s in sessions for p in s.periods]
+            for subject, limit in config.DAILY_LIMITS.items():
+                n = day_subjects.count(subject)
+                if req.get(subject, 0) <= n_days and n > limit:
+                    errors.append(f"Lớp {cls} {config.DAYS[d]}: {n} tiết {subject} (tối đa {limit} mỗi ngày)")
             for session in sessions:
                 subjects = [grid.get((cls, d, p)) for p in session.periods]
-                for group, limit in config.SESSION_SUBJECT_LIMITS:
-                    n = sum(1 for s in subjects if s in group)
-                    if n > limit:
-                        errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: "
-                                      f"{n} tiết {'/'.join(sorted(group))} (tối đa {limit})")
+                groups = Counter(subject_group(s) for s in subjects if s)
+                for group, n in sorted(groups.items()):
+                    if n > config.SESSION_GROUP_LIMIT:
+                        errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: {n} tiết nhóm {group} "
+                                      f"(tối đa {config.SESSION_GROUP_LIMIT})")
+                    at = [p for p, s in zip(session.periods, subjects) if s and subject_group(s) == group]
+                    if group in pairs and (n % 2 or (n and at[-1] - at[0] + 1 != n)):
+                        errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: nhóm {group} phải thành "
+                                      f"cặp 2 tiết liền (tiết {', '.join(map(str, at))})")
                 # Môn có từ 2 tiết trong buổi phải học liền nhau.
                 for subject in dict.fromkeys(s for s in subjects if s):
                     at = [p for p, s in zip(session.periods, subjects) if s == subject]

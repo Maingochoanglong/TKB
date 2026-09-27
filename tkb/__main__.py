@@ -9,10 +9,10 @@ from pathlib import Path
 from . import config
 from .checker import check
 from .program import read_program
-from .solver import SolveError, ortools_version, solve
+from .solver import ShortageError, SolveError, ortools_version, solve
 from .staff import InputError, read_staff
 from .style import Style
-from .writer import write_statistics, write_timetable, write_updated_staff
+from .writer import write_shortage, write_statistics, write_timetable, write_updated_staff
 
 
 def use_utf8_output() -> None:
@@ -29,22 +29,26 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("-o", "--output", default="out/TKB.xlsx",
                     help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
-    ap.add_argument("--stats-out", help="File thống kê số tiết từng môn của mỗi giáo viên "
-                                        "(mặc định <thư mục output>/Thong_Ke.xlsx)")
-    ap.add_argument("--time-limit", type=float, default=240,
-                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 240; 0 = không giới hạn)")
+    ap.add_argument("--stats-out", help="File thống kê số tiết từng môn của mỗi giáo viên; chế độ bù giờ mà thiếu "
+                                        "tiết thì là bảng tiết thiếu (mặc định <thư mục output>/Thong_Ke.xlsx)")
+    ap.add_argument("--roles-out", help="File TKB ghi thêm chức vụ (Mã GV) trong mỗi ô "
+                                        "(mặc định <thư mục output>/TKB_chuc_vu.xlsx)")
+    ap.add_argument("--time-limit", type=float, default=480,
+                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 480; 0 = không giới hạn)")
     ap.add_argument("--non-reproducible", action="store_true",
                     help="Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau")
     ap.add_argument("--workers", type=int, default=8, help="Số luồng CP-SAT (mặc định 8)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--mode", choices=config.MODES, default=config.MODE_HIRE,
-                    help="Khi thiếu người: tuyen_them = thêm GV \"chưa có\"; bu_gio = GVCN/bộ môn dạy bù "
+                    help="Khi thiếu người: bu_gio = GVCN/bộ môn dạy bù, bù không đủ thì báo lỗi; tuyen_them = "
+                         "thêm GV \"chưa có\" dạy đúng các ô bù (cùng TKB với bu_gio) và phần còn thiếu "
                          "(mặc định tuyen_them)")
     ap.add_argument("--max-overtime", type=int, default=config.OVERTIME_MAX,
-                    help=f"Chế độ bù giờ: số tiết bù tối đa mỗi người (mặc định {config.OVERTIME_MAX})")
+                    help=f"Số tiết bù tối đa mỗi người; chế độ tuyển: người mới nhận các tiết bù này "
+                         f"(mặc định {config.OVERTIME_MAX})")
     ap.add_argument("--no-student-rules", action="store_true",
-                    help="Tắt luật bảo vệ học sinh (tối đa 2 tiết TV, 2 tiết Toán mỗi buổi; môn có từ 2 tiết "
-                         "trong buổi phải học liền nhau)")
+                    help="Tắt luật bảo vệ học sinh (mỗi nhóm môn tối đa 2 tiết mỗi buổi; Toán mỗi ngày 1 tiết; "
+                         "TV ghép cặp 2 tiết liền; môn có từ 2 tiết trong buổi phải học liền nhau)")
     args = ap.parse_args(argv)
 
     if args.max_overtime < 0:
@@ -58,6 +62,10 @@ def main(argv: list[str] | None = None) -> int:
     if settings.reproducible and ortools_version() != config.ORTOOLS_VERSION:
         print(f"CẢNH BÁO: đang dùng OR-Tools {ortools_version()}, khác bản {config.ORTOOLS_VERSION} đã ghim; kết quả "
               f"có thể khác máy khác. Cài đúng bản bằng:  pip install -r requirements.txt", file=sys.stderr)
+    output = Path(args.output)
+    staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
+    stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
+    roles_out = Path(args.roles_out) if args.roles_out else output.parent / "TKB_chuc_vu.xlsx"
     try:
         curriculum = read_program(args.staff)
         staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
@@ -65,17 +73,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp; "
               f"chương trình học: {n_subjects} môn (sheet {config.PROGRAM_SHEET}).")
         solution = solve(staff, curriculum, settings)
+    except ShortageError as exc:
+        rows = exc.rows()
+        print(f"LỖI: {exc}. Không xếp TKB. Các tiết không ai dạy được:", file=sys.stderr)
+        for cls, subject, n, reason in rows:
+            print(f"  Lớp {cls}: {subject} thiếu {n} tiết ({reason})", file=sys.stderr)
+        print("Cách sửa: tăng số tiết bù tối đa, sửa định mức/nhân sự trong file vào, hoặc chạy chế độ tuyen_them.",
+              file=sys.stderr)
+        write_shortage(rows, stats_out, Style.from_file(args.staff))
+        print(f"Đã ghi: {stats_out}")
+        return 3
     except (InputError, SolveError) as exc:
         print(f"LỖI: {exc}", file=sys.stderr)
         return 1
 
     errors = check(solution.problem, solution.lessons, settings.student_rules)
-    output = Path(args.output)
-    staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
     style = Style.from_file(args.staff)  # các file ra dùng style của file vào
     write_timetable(solution, output, style)
+    write_timetable(solution, roles_out, style, with_codes=True)
     write_updated_staff(solution, args.staff, staff_out)
-    stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
     write_statistics(solution, stats_out, style)
 
     load = solution.teacher_load()
@@ -111,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     for e in errors[:20]:
         print(f"  LỖI: {e}")
     print(f"Đã ghi: {output}")
+    print(f"Đã ghi: {roles_out}")
     print(f"Đã ghi: {staff_out}")
     print(f"Đã ghi: {stats_out}")
     return 0 if not errors else 2

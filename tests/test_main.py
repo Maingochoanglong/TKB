@@ -33,6 +33,23 @@ def test_run_writes_outputs(tmp_path):
     # Các file ra dùng style của file vào.
     tkb = openpyxl.load_workbook(out_dir / "TKB.xlsx")["Khối 3"]
     assert tkb["D2"].font.name == "Times New Roman" and tkb["D2"].font.sz == 14
+    # TKB có chức vụ: cùng TKB, mỗi ô thêm dòng Mã GV.
+    roles = openpyxl.load_workbook(out_dir / "TKB_chuc_vu.xlsx")["Khối 3"]
+    assert roles["D2"].value == tkb["D2"].value + "\nChủ Nhiệm 3/1"
+
+
+def test_overtime_shortage_is_an_error_with_a_table(tmp_path, capsys):
+    in_dir, out_dir = tmp_path / "in", tmp_path / "out"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx", general=False)
+    code = main.run(in_dir / "nhan_su.xlsx", out_dir, "TKB.xlsx", thoi_gian_toi_da=20, che_do="bu_gio",
+                    so_tiet_bu_toi_da=2)
+    assert code == 3
+    assert "thiếu 4 tiết" in capsys.readouterr().err
+    assert not (out_dir / "TKB.xlsx").exists()
+    rows = _rows(out_dir / "Thong_Ke.xlsx", "Thiếu tiết")
+    assert rows[0] == ("Lớp", "Môn", "Số Tiết Thiếu", "Lý Do")
+    assert rows[-1][:3] == ("Tổng", None, 4)
 
 
 def test_run_reports_missing_file(tmp_path, capsys):
@@ -121,9 +138,9 @@ def _argv(monkeypatch, **kwargs):
     return seen.get("argv")
 
 
-def test_defaults_are_overtime_student_rules_240s_reproducible():
+def test_defaults_are_overtime_student_rules_480s_reproducible():
     assert main.CHE_DO == "bu_gio" and main.LUAT_HOC_SINH is True
-    assert main.THOI_GIAN_TOI_DA == 240 and main.CHAY_TAI_LAP_DUOC is True
+    assert main.THOI_GIAN_TOI_DA == 480 and main.CHAY_TAI_LAP_DUOC is True
 
 
 def test_blank_output_folder_means_project_folder(tmp_path, monkeypatch):
@@ -140,7 +157,7 @@ def test_blank_time_limit_means_unlimited(tmp_path, monkeypatch):
         argv = _argv(monkeypatch, file_vao=tmp_path / "in.xlsx", thu_muc_out=tmp_path, thoi_gian_toi_da=blank)
         assert argv[argv.index("--time-limit") + 1] == "0"  # 0 = không giới hạn
     argv = _argv(monkeypatch, file_vao=tmp_path / "in.xlsx", thu_muc_out=tmp_path)
-    assert argv[argv.index("--time-limit") + 1] == "240" and "--non-reproducible" not in argv
+    assert argv[argv.index("--time-limit") + 1] == "480" and "--non-reproducible" not in argv
     assert "--no-student-rules" not in argv and argv[argv.index("--mode") + 1] == "bu_gio"
 
 

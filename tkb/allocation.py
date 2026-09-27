@@ -64,6 +64,24 @@ def all_slots() -> list[tuple[int, int]]:
             for s in config.DAY_SESSIONS[d] for p in s.periods]
 
 
+def subject_group(subject: str) -> str:
+    """Nhóm môn: môn tăng cường đi cùng môn chính (config.SUBJECT_GROUPS), môn khác là nhóm riêng."""
+    return config.SUBJECT_GROUPS.get(subject, subject)
+
+
+def paired_groups(grade_req: dict[str, int]) -> set[str]:
+    """Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS)."""
+    totals: dict[str, int] = {}
+    for s, n in grade_req.items():
+        totals[subject_group(s)] = totals.get(subject_group(s), 0) + n
+    return {g for g, n in totals.items()
+            if n >= config.PAIR_MIN_LESSONS and n % 2 == 0 and g not in config.PAIR_EXCLUDED}
+
+
+def sessions_per_week() -> int:
+    return sum(len(s) for s in config.DAY_SESSIONS.values())
+
+
 def roles_for_subject(subject: str, specialists: dict[str, str]) -> list[str]:
     """Các chức vụ (ngoài chủ nhiệm/quản lý) được dạy môn này."""
     roles = [r for r, s in specialists.items() if s == subject]

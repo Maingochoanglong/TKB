@@ -4,7 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-SAT. Input: one Excel file with
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
-only), `Thong_Ke.xlsx` (one table: lessons per subject per teacher + total), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
+only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code), `Thong_Ke.xlsx` (one table: lessons per subject
+per teacher + total; in `bu_gio` with a shortage only the sheet `Thiếu tiết`), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
 docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules
@@ -30,26 +31,32 @@ python -m pytest tests/test_solver.py -k contiguous -q    # one test
 python -m pytest tests/test_reproducible.py  # ~20 s: this OS's reference result codes
 python tools/code_map.py [solver checker ...] # function index with file:line — use it instead of opening files
 python tools/code_map.py --write             # regenerate docs/CODE_MAP.md (tests/test_code_map.py fails if stale)
-python main.py                               # school's real file (FILE_VAO) -> project root; real names! ~4 min
-python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the fake school (~4 min)
+python main.py                               # school's real file (FILE_VAO) -> project root; real names! ~5 min
+python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the fake school (~5 min)
 python -m tkb <input.xlsx> -o out/TKB.xlsx [--mode bu_gio] [--time-limit 30] [--no-student-rules]
 python -m tkb.template <new.xlsx>            # blank input template
 ```
 No linter/formatter is configured. CLI default `--mode` is `tuyen_them`; `main.py` default `CHE_DO` is `bu_gio`.
+Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` shortage (table in the statistics file).
 
 ## Architecture
 `main.run()` validates the constants at the top of `main.py` and calls `tkb.__main__.main(argv)`:
 `program.read_program` + `staff.read_staff` → `solver.solve` → `checker.check` → `writer.write_timetable`,
-`write_updated_staff`, `write_statistics` (all output styles copied from the input via `style.Style.from_file`).
+`write_timetable(with_codes=True)`, `write_updated_staff`, `write_statistics` (all output styles copied from the input via
+`style.Style.from_file`); `solver.ShortageError` → `writer.write_shortage`.
 
-`solver.solve`:
+`solver.solve` (both modes share one timetable; only who teaches the overtime cells differs):
 1. `allocation.build_problem` → `Problem`: one `Course` per (class, subject) with lesson count, candidate
    teachers, fixed slots; homeroom share from `split_homeroom`; supplement teachers named "chưa có".
-2. `assign()`: CP-SAT on teacher↔course lesson counts only (`_Allocation`), lexicographic: missing lessons /
-   hires / overtime proven optimal first, then secondary goals (splits, balance) with hints.
-3. `timetable(fixed=assignment)`: ONE global CP-SAT over all lessons, `x[course, (day, period)]` booleans, hard
-   constraints + soft objective weighted by `config.Weights`. Not greedy per subject.
-4. If infeasible: integrated model (assignment + timetable) with +1, then +3 spare supplements.
+2. `phan_cong.phan_cong` (pure Python, no CP-SAT, integer and fixed order ⇒ same on every OS): min-cost flow for
+   the estimate (missing lessons, overtime per teacher, homeroom first, +1 before +2), then local search for
+   class grouping → `PhanCong`. Printed as "Dự toán"/"Bù:". `bu_gio` with missing lessons → `ShortageError`.
+3. `tach_tiet_bu`: overtime lessons (+ missing ones in `tuyen_them`) go to hired "bộ môn n+1…" supplements,
+   heaviest first (the `_Allocation` symmetry rule), ≤ one pair per session each.
+4. `timetable(fixed=...)`: ONE global CP-SAT over all lessons, `x[course, (day, period)]` booleans, hard
+   constraints + soft objective weighted by `config.Weights`. `bu_gio` then relabels hire lessons back to their
+   owners (`_to_overtime`), so both modes place every lesson in the same cell.
+5. If infeasible (`tuyen_them` only): integrated model (`_Allocation` + timetable) with +1, then +3 spare supplements.
 
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
 `solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday
@@ -58,13 +65,14 @@ afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names 
 
 | Rule | `tkb/config.py` | Implemented in |
 |---|---|---|
-| Max TV/Toán per session; same subject contiguous in a session (hard) | `SESSION_SUBJECT_LIMITS` | `solver.timetable` "Luật bảo vệ học sinh" block; `checker._check_student_rules` |
+| Subject group (TV+TV TC, Toán+Toán TC) ≤ 2 per session; Toán ≤ 1 per day; groups ≥ 6 lessons with even total in consecutive pairs; same subject contiguous in a session (hard) | `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `solver.timetable` "Luật bảo vệ học sinh" block; `checker._check_student_rules`; `allocation.paired_groups` |
+| Consecutive lessons of a group by one teacher; homeroom priority group: GVCN's lesson first in the week (hard, always) | `SUBJECT_GROUPS`, `HOMEROOM_PRIORITY` | `solver.timetable` "Liên tiết", "GVCN trước"; `checker._check_teacher_order` |
 | HĐTN Mon p1 + Fri p4 fixed, rest Tue–Thu near session end | `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS` | `allocation.build_problem`, `solver.allowed_slots`, objective `hdtn_flex_distance` |
 | Period 1 always the homeroom teacher | `HOMEROOM_PERIODS` | `solver.allowed_slots` |
 | Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES` | `allocation.roles_for_subject`, `manager_allowed` |
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
-| Overtime mode (`bu_gio`), homeroom first | `OVERTIME_ROLES`, `OVERTIME_MAX`, `Weights.overtime_*` | `solver._Allocation._overtime` |
-| Soft: heavy subjects at p7, TV/Toán mornings, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.timetable` objective blocks |
+| Estimate + assignment, overtime homeroom first, max +2 | `OVERTIME_ROLES`, `OVERTIME_MAX`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
+| Soft: heavy subjects at p7, TV/Toán mornings, Toán TC right after Toán, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.timetable` objective blocks |
 
 Glossary: GVCN/chủ nhiệm = homeroom teacher; bộ môn = general subject teacher; GV chuyên biệt = specialist (role
 name = subject name); quản lý = manager; tuyển thêm = hire "chưa có"; bù giờ = overtime; tiết = period; buổi =
@@ -80,9 +88,9 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table
   "Chạy trên máy khác" (codes of `python main.py`), the spec (§0 history row, §9), and the output templates
   (`python tools/mau_dau_ra.py`).
-- Current codes: small school Linux `60A5-5219-142F`/`F08D-1913-F355`, Windows `BAB3-230A-56C1`/`8D95-DAE4-E979`;
-  `python main.py` (school file as of now) Linux `7148-3212-6BD1`, Windows `D18E-8606-BCFA`; fake school of
-  `tests/du_lieu_mau.py` with main.py constants Linux `A77F-F330-8C78`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows pending;
+  `python main.py` (school file as of now) Linux `BA73-927C-79DB`, Windows pending; fake school of
+  `tests/du_lieu_mau.py` with main.py constants Linux pending. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and

@@ -21,24 +21,26 @@ FILE_VAO = "data/INPUT_V8.xlsx"
 # (thư mục chứa main.py).
 THU_MUC_OUT = ""
 
-# Khi thiếu người:
-#   "bu_gio"    : GVCN và bộ môn dạy bù vượt định mức (GVCN bù trước, ngay ở lớp mình,
-#                 môn ưu tiên trước); chỉ khi bù vẫn không đủ mới thêm GV "chưa có".
-#   "tuyen_them": thêm GV mới tên "chưa có" vào danh sách nhân sự.
+# Khi thiếu người (chương trình tính trước số tiết bù, tiết thiếu, số người cần tuyển và in ra màn hình):
+#   "bu_gio"    : GVCN và bộ môn dạy bù vượt định mức (GVCN bù trước, ngay ở lớp mình, môn ưu tiên trước).
+#                 Bù tối đa vẫn không đủ thì báo lỗi (mã 3), không ra TKB, ghi bảng tiết thiếu vào FILE_THONG_KE.
+#   "tuyen_them": thêm GV mới tên "chưa có" vào danh sách nhân sự. Cùng TKB với "bu_gio": người mới dạy đúng
+#                 các ô mà ở chế độ bù là tiết bù (và các tiết còn thiếu).
 CHE_DO = "bu_gio"
 
-# Chế độ bù giờ: số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần.
+# Số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (ở chế độ tuyển: người mới nhận đúng các tiết bù này).
 SO_TIET_BU_TOI_DA = 2
 
-# Áp dụng luật bảo vệ học sinh: tối đa 2 tiết Tiếng Việt và 2 tiết Toán mỗi buổi; môn có từ 2 tiết
-# trong một buổi thì các tiết phải liền nhau (không xếp so le kiểu TV, Toán, TV).
+# Áp dụng luật bảo vệ học sinh: mỗi nhóm môn (vd TV + TV tăng cường) tối đa 2 tiết mỗi buổi; Toán mỗi ngày
+# 1 tiết; TV khối có từ 6 tiết (tổng chẵn) học thành cặp 2 tiết liền; môn có từ 2 tiết trong một buổi thì các
+# tiết phải liền nhau (không xếp so le kiểu TV, Toán, TV).
 LUAT_HOC_SINH = True
 
-# Thời gian dành cho bước xếp giờ, đơn vị xấp xỉ giây (240 ≈ 3,5 phút trên máy thử).
+# Thời gian dành cho bước xếp giờ, đơn vị xấp xỉ giây (480 ≈ 4–5 phút trên máy thử).
 # Để trống (None hoặc "") hoặc 0 thì không giới hạn: chạy bao lâu cũng được, đến khi bộ giải chứng
 # minh TKB tốt nhất (có thể rất lâu, hàng giờ); muốn dừng sớm thì bấm Ctrl+C, chương trình vẫn ghi
 # TKB tốt nhất đã tìm được.
-THOI_GIAN_TOI_DA = 240
+THOI_GIAN_TOI_DA = 480
 
 # True: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả (ở cả chế độ bu_gio lẫn
 #       tuyen_them), miễn là giữ nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA,
@@ -50,10 +52,12 @@ CHAY_TAI_LAP_DUOC = True
 
 # --- Ít khi phải sửa ---
 
-# Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_THONG_KE là một bảng:
-# mỗi giáo viên một dòng (tên, chức vụ), số tiết từng môn người đó dạy và tổng số tiết. Mã kết quả, kết quả kiểm
-# tra luật, người cần tuyển, dạy bù chỉ in ra màn hình.
+# Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_TKB_CHUC_VU là cùng TKB,
+# mỗi ô thêm dòng chức vụ (Mã GV) để theo dõi; FILE_THONG_KE là một bảng: mỗi giáo viên một dòng (tên, chức vụ), số
+# tiết từng môn người đó dạy và tổng số tiết. Dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển, dạy bù
+# chỉ in ra màn hình.
 FILE_TKB = "TKB.xlsx"
+FILE_TKB_CHUC_VU = "TKB_chuc_vu.xlsx"
 FILE_THONG_KE = "Thong_Ke.xlsx"
 
 # Số luồng tìm kiếm song song của bộ giải (mỗi luồng chạy một chiến lược khác nhau).
@@ -82,8 +86,8 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MU
         file_tkb: str = FILE_TKB, thoi_gian_toi_da: float | None = THOI_GIAN_TOI_DA,
         luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC,
         so_luong: int = SO_LUONG, che_do: str = CHE_DO, so_tiet_bu_toi_da: int = SO_TIET_BU_TOI_DA,
-        file_thong_ke: str = FILE_THONG_KE) -> int:
-    """Chạy xếp TKB; trả về 0 nếu thành công."""
+        file_thong_ke: str = FILE_THONG_KE, file_tkb_chuc_vu: str = FILE_TKB_CHUC_VU) -> int:
+    """Chạy xếp TKB; trả về 0 nếu thành công, 3 nếu chế độ bù giờ thiếu tiết."""
     try:
         from tkb import config
         from tkb.__main__ import main as tkb_main, use_utf8_output
@@ -125,7 +129,7 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MU
 
     argv = [str(source), "-o", str(out_dir / file_tkb), "--time-limit", str(limit),
             "--workers", str(so_luong), "--mode", che_do, "--max-overtime", str(so_tiet_bu_toi_da),
-            "--stats-out", str(out_dir / file_thong_ke)]
+            "--stats-out", str(out_dir / file_thong_ke), "--roles-out", str(out_dir / file_tkb_chuc_vu)]
     if not luat_hoc_sinh:
         argv.append("--no-student-rules")
     if not chay_tai_lap_duoc:
