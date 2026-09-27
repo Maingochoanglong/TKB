@@ -4,8 +4,8 @@ Quy trình (`solve`):
 1. Dự toán và phân công (tkb/phan_cong.py, không dùng CP-SAT): ai dạy lớp nào, môn nào, bao nhiêu tiết; mỗi
    GVCN/bộ môn bù bao nhiêu tiết; còn thiếu bao nhiêu tiết.
 2. Tiết bù (và tiết thiếu ở chế độ tuyển) giao cho "người tuyển mới". Xếp giờ MỘT lần với phân công cố định
-   đó. Chế độ tuyển: người mới dạy các ô đó. Chế độ bù: trả các ô đó về đúng người bù. Hai chế độ cùng vị trí
-   môn trong TKB.
+   đó (tkb/lns.py: CP-SAT khởi đầu rồi xếp lại từng vùng). Chế độ tuyển: người mới dạy các ô đó. Chế độ bù:
+   trả các ô đó về đúng người bù. Hai chế độ cùng vị trí môn trong TKB.
 3. Chế độ tuyển mà không xếp được với phân công cố định: mô hình tích hợp (vừa chọn GV vừa xếp giờ), có dự
    phòng thêm GV bổ sung.
 """
@@ -331,8 +331,20 @@ class TimetableModel:
 
 def timetable(problem: Problem, settings: config.Settings,
               fixed: dict[tuple[int, str], int] | None = None,
-              hint: dict[tuple[int, str], int] | None = None) -> Solution | None:
+              hint: dict[tuple[int, str], int] | None = None, log=lambda *_: None) -> Solution | None:
+    """Xếp giờ. Phân công cố định: CP-SAT khởi đầu rồi xếp lại từng vùng (tkb/lns.py). Mô hình tích hợp (vừa
+    phân công vừa xếp giờ, chỉ dùng dự phòng): một lần CP-SAT trong time_limit."""
     tm = build_timetable(problem, settings, fixed, hint)
+    if fixed is not None:
+        from .lns import improve
+        start = time.time()
+        res = improve(tm, settings, log)
+        if res is None:
+            return None
+        return Solution(problem=problem, status=res.status, lessons=tm.lessons(lambda v: res.values[v.Index()]),
+                        objective=res.objective, best_bound=res.bound, wall_time=time.time() - start,
+                        stage="phân công cố định, xếp lại từng vùng",
+                        notes=[f"Xếp giờ: chi phí {' -> '.join(map(str, res.history))}; dừng: {res.stop}"])
     solver = cp_model.CpSolver()
     _configure(solver, settings, settings.time_limit)
     start = time.time()
@@ -718,7 +730,7 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     budget = ("không giới hạn thời gian, bấm Ctrl+C để dừng sớm" if settings.time_limit is None
               else f"~{settings.time_limit:.0f}s")
     log(f"Bước 2/2: xếp giờ ({budget}, {mode})...")
-    solution = timetable(work, settings, fixed=fixed)
+    solution = timetable(work, settings, fixed=fixed, log=log)
     if solution is not None:
         return solution if hire else _to_overtime(solution, base, owners)
     if not hire:

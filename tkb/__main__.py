@@ -33,8 +33,9 @@ def main(argv: list[str] | None = None) -> int:
                                         "tiết thì là bảng tiết thiếu (mặc định <thư mục output>/Thong_Ke.xlsx)")
     ap.add_argument("--roles-out", help="File TKB ghi thêm chức vụ (Mã GV) trong mỗi ô "
                                         "(mặc định <thư mục output>/TKB_chuc_vu.xlsx)")
-    ap.add_argument("--time-limit", type=float, default=480,
-                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 480; 0 = không giới hạn)")
+    ap.add_argument("--time-limit", type=float, default=600,
+                    help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 600; 0 = không giới hạn: xếp "
+                         "lại từng vùng đến khi hết cải thiện)")
     ap.add_argument("--non-reproducible", action="store_true",
                     help="Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau")
     ap.add_argument("--workers", type=int, default=8, help="Số luồng CP-SAT (mặc định 8)")
