@@ -90,7 +90,7 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
   (`python tools/mau_dau_ra.py`).
 - Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows pending;
   `python main.py` (school file as of now) Linux `BA73-927C-79DB`, Windows pending; fake school of
-  `tests/du_lieu_mau.py` with main.py constants Linux pending. Editing `INPUT_V8.xlsx` changes the main.py codes.
+  `tests/du_lieu_mau.py` with main.py constants Linux `B266-1DC3-966D`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
