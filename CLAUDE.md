@@ -96,7 +96,7 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
 - Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows `6E11-2445-E375`/`C9D3-264F-A5FD`
   (the small school is proven optimal at the LNS start, so these did not change with LNS);
   `python main.py` (school file as of now) Linux `E605-A8C9-49DF`, Windows `6D35-AD5A-3ABA`; fake school of
-  `tests/du_lieu_mau.py` with main.py constants Linux `AB60-534E-499F`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+  `tests/du_lieu_mau.py` with main.py constants Linux `428A-3655-C110`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
