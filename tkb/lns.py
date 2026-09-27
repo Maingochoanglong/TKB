@@ -210,19 +210,21 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) 
             rnd += 1
             before = result.objective
             cost, lessons = search.qa(result.values)
-            gains: Counter = Counter()
-            for kind, _, free, limit in search.regions(cost, lessons):
+            tried = 0
+            for _, _, free, limit in search.regions(cost, lessons):
                 left = total - search.used
                 if left < 1:
                     result.stop = "hết thời gian"
                     break
+                tried += 1
                 _, val, new, _, _ = search.region(free, min(limit, left), result.values)
                 if val is not None and val < result.objective - 0.5:
-                    gains[kind] += round(result.objective - val)
                     result.objective, result.values = val, new
                 if search.interrupted:
                     result.stop = "Ctrl+C"
                     break
+            if not tried:
+                break
             result.history.append(round(result.objective - offset))
             log(f"  Vòng {rnd}: chi phí xếp giờ {result.history[-1]} (−{round(before - result.objective)})")
             gain = before - result.objective

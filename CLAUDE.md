@@ -26,7 +26,7 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 ## Commands
 ```bash
 pip install -r requirements.txt              # pinned ortools==9.15.6755, openpyxl==3.1.5 (other versions => other results)
-python -m pytest -q                          # full suite, ~1.5 min on Linux (slowest: test_sample_school_* ~20 s)
+python -m pytest -q                          # full suite, ~2.5 min on Linux (slowest: tests/test_lns.py ~1 min)
 python -m pytest tests/test_solver.py -k contiguous -q    # one test
 python -m pytest tests/test_reproducible.py  # ~20 s: this OS's reference result codes
 python tools/code_map.py [solver checker ...] # function index with file:line — use it instead of opening files
@@ -53,10 +53,14 @@ Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` sh
    class grouping → `PhanCong`. Printed as "Dự toán"/"Bù:". `bu_gio` with missing lessons → `ShortageError`.
 3. `tach_tiet_bu`: overtime lessons (+ missing ones in `tuyen_them`) go to hired "bộ môn n+1…" supplements,
    heaviest first (the `_Allocation` symmetry rule), ≤ one pair per session each.
-4. `timetable(fixed=...)`: ONE global CP-SAT over all lessons, `x[course, (day, period)]` booleans, hard
-   constraints + soft objective weighted by `config.Weights`. `bu_gio` then relabels hire lessons back to their
-   owners (`_to_overtime`), so both modes place every lesson in the same cell.
-5. If infeasible (`tuyen_them` only): integrated model (`_Allocation` + timetable) with +1, then +3 spare supplements.
+4. `timetable(fixed=...)`: `build_timetable` makes ONE global CP-SAT model over all lessons (`x[course, (day,
+   period)]`, `z[course, teacher, slot]` booleans, hard constraints + soft objective weighted by `config.Weights`),
+   then `lns.improve`: CP-SAT start with 20% of the budget, then rounds of QA (cost per class-day) and re-solving
+   regions (class, hot spot, shared-teacher classes, grade, day pair) with everything else fixed; stops on budget,
+   a round gaining < 0.3%, 10 rounds, or Ctrl+C. Budget is deterministic time ⇒ reproducible. `bu_gio` then
+   relabels hire lessons back to their owners (`_to_overtime`), so both modes place every lesson in the same cell.
+5. If infeasible (`tuyen_them` only): integrated model (`_Allocation` + timetable, single CP-SAT solve) with +1, then
+   +3 spare supplements.
 
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
 `solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday
@@ -72,7 +76,8 @@ afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names 
 | Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES` | `allocation.roles_for_subject`, `manager_allowed` |
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 | `OVERTIME_ROLES`, `OVERTIME_MAX`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
-| Soft: heavy subjects at p7, TV/Toán mornings, Toán TC right after Toán, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.timetable` objective blocks |
+| Soft: heavy subjects at p7, TV/Toán mornings, Toán TC right after Toán, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |
+| Timetabling loop: start share, region limits, stop rules | `LNS_*`, `Settings.time_limit` (600) | `lns.improve`, `lns._Search.regions` |
 
 Glossary: GVCN/chủ nhiệm = homeroom teacher; bộ môn = general subject teacher; GV chuyên biệt = specialist (role
 name = subject name); quản lý = manager; tuyển thêm = hire "chưa có"; bù giờ = overtime; tiết = period; buổi =
@@ -88,9 +93,10 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table
   "Chạy trên máy khác" (codes of `python main.py`), the spec (§0 history row, §9), and the output templates
   (`python tools/mau_dau_ra.py`).
-- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows `6E11-2445-E375`/`C9D3-264F-A5FD`;
-  `python main.py` (school file as of now) Linux `BA73-927C-79DB`, Windows `50A0-9EFB-4877`; fake school of
-  `tests/du_lieu_mau.py` with main.py constants Linux `B266-1DC3-966D`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows `6E11-2445-E375`/`C9D3-264F-A5FD`
+  (the small school is proven optimal at the LNS start, so these did not change with LNS);
+  `python main.py` (school file as of now) Linux `5643-B571-E20B`, Windows pending (from CI); fake school of
+  `tests/du_lieu_mau.py` with main.py constants Linux `AB60-534E-499F`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
