@@ -36,11 +36,12 @@ SO_TIET_BU_TOI_DA = 2
 # tiết phải liền nhau (không xếp so le kiểu TV, Toán, TV).
 LUAT_HOC_SINH = True
 
-# Thời gian dành cho bước xếp giờ, đơn vị xấp xỉ giây (600 ≈ 4–6 phút trên máy thử): xếp nhanh một TKB rồi
-# xếp lại từng vùng (từng lớp, từng khối, từng cặp ngày...) cho tốt dần (xem README, mục "Cách giải").
+# Thời gian dành cho bước xếp giờ, đơn vị xấp xỉ giây (1200 ≈ 9–12 phút trên máy thử): xếp nhanh một TKB rồi
+# xếp lại từng vùng (từng lớp, từng khối, từng cặp ngày...) cho tốt dần (xem README, mục "Cách giải"). Muốn
+# nhanh hơn thì đặt 600 (≈ 4–6 phút, TKB kém hơn một chút).
 # Để trống (None hoặc "") hoặc 0 thì không giới hạn: xếp lại đến khi một vòng không còn cải thiện (thường
-# 10–15 phút); muốn dừng sớm thì bấm Ctrl+C, chương trình dừng sau vài giây và vẫn ghi TKB tốt nhất.
-THOI_GIAN_TOI_DA = 600
+# 9–17 phút); muốn dừng sớm thì bấm Ctrl+C, chương trình dừng sau vài giây và vẫn ghi TKB tốt nhất.
+THOI_GIAN_TOI_DA = 1200
 
 # True: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả (ở cả chế độ bu_gio lẫn
 #       tuyen_them), miễn là giữ nguyên file vào, CHE_DO, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH, THOI_GIAN_TOI_DA,

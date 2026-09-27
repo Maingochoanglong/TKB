@@ -1,6 +1,6 @@
 """Xếp giờ với phân công cố định: CP-SAT khởi đầu, rồi lặp QA -> xếp lại từng vùng (LNS) đến khi dừng.
 
-1. Khởi đầu: CP-SAT trên toàn mô hình với LNS_START_SHARE ngân sách (không giới hạn: LNS_START_UNLIMITED).
+1. Khởi đầu: CP-SAT trên toàn mô hình với LNS_START_SHARE ngân sách, tối đa LNS_START_MAX.
 2. Mỗi vòng:
    - QA: chi phí mềm của từng lớp-ngày theo đúng trọng số mục tiêu (config.Weights); phạt tải ngày và tiết trống
      của một GV chia đều cho các lớp GV đó dạy hôm ấy. QA chỉ dùng để xếp thứ tự các vùng, không đổi luật.
@@ -178,7 +178,7 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) 
     search = _Search(tm, settings, log)
     total = settings.time_limit if settings.time_limit else math.inf
     unlimited = math.isinf(total)
-    start = config.LNS_START_UNLIMITED if unlimited else total * config.LNS_START_SHARE
+    start = min(total * config.LNS_START_SHARE, config.LNS_START_MAX)
 
     def on_sigint(*_):
         search.interrupted = True

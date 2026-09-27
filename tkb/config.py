@@ -210,8 +210,11 @@ class Weights:
 # --------------------------------------------------------------------------
 # Xếp giờ: CP-SAT khởi đầu rồi xếp lại từng vùng (tkb/lns.py). Thời lượng tính như time_limit (≈ giây).
 # --------------------------------------------------------------------------
-LNS_START_SHARE: float = 0.2  # phần time_limit cho CP-SAT khởi đầu trên toàn mô hình
-LNS_START_UNLIMITED: float = 120  # thời lượng khởi đầu khi không giới hạn thời gian
+# Khởi đầu: CP-SAT trên toàn mô hình với LNS_START_SHARE time_limit nhưng không quá LNS_START_MAX (không giới
+# hạn thời gian: LNS_START_MAX). Khởi đầu dài hơn cho điểm xuất phát tốt hơn nhưng các vòng xếp lại kéo về gần
+# như cùng mức, nên phần ngân sách còn lại dành cho các vòng.
+LNS_START_SHARE: float = 0.2
+LNS_START_MAX: float = 120
 # Thời lượng tối đa mỗi lần xếp lại một vùng, theo loại vùng (vùng nhỏ thường giải xong sớm hơn).
 LNS_REGION_LIMITS: dict[str, float] = {"lớp": 5, "điểm nóng": 10, "GV dùng chung": 15, "khối": 20, "cặp ngày": 30}
 LNS_HOTSPOTS: int = 5  # số lớp-ngày xấu nhất (theo QA) được mở thành vùng "điểm nóng" mỗi vòng
@@ -228,7 +231,7 @@ class Settings:
     student_rules: bool = True
     mode: str = MODE_HIRE
     overtime_max: int = OVERTIME_MAX  # bù tối đa mỗi người; chế độ tuyển: người mới nhận đúng các tiết bù này
-    time_limit: float | None = 600.0  # tổng cho bước xếp giờ (tkb/lns.py); None: không giới hạn
+    time_limit: float | None = 1200.0  # tổng cho bước xếp giờ (tkb/lns.py); None: không giới hạn
     # Chạy lại cùng dữ liệu luôn ra cùng một TKB (xem solver._configure).
     reproducible: bool = True
     deterministic_per_second: float = 1.0  # quy đổi time_limit sang thời gian tất định

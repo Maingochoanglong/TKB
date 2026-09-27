@@ -140,9 +140,9 @@ def _argv(monkeypatch, **kwargs):
     return seen.get("argv")
 
 
-def test_defaults_are_overtime_student_rules_600s_reproducible():
+def test_defaults_are_overtime_student_rules_1200s_reproducible():
     assert main.CHE_DO == "bu_gio" and main.LUAT_HOC_SINH is True
-    assert main.THOI_GIAN_TOI_DA == 600 and main.CHAY_TAI_LAP_DUOC is True
+    assert main.THOI_GIAN_TOI_DA == 1200 and main.CHAY_TAI_LAP_DUOC is True
 
 
 def test_blank_output_folder_means_project_folder(tmp_path, monkeypatch):
@@ -159,7 +159,7 @@ def test_blank_time_limit_means_unlimited(tmp_path, monkeypatch):
         argv = _argv(monkeypatch, file_vao=tmp_path / "in.xlsx", thu_muc_out=tmp_path, thoi_gian_toi_da=blank)
         assert argv[argv.index("--time-limit") + 1] == "0"  # 0 = không giới hạn
     argv = _argv(monkeypatch, file_vao=tmp_path / "in.xlsx", thu_muc_out=tmp_path)
-    assert argv[argv.index("--time-limit") + 1] == "600" and "--non-reproducible" not in argv
+    assert argv[argv.index("--time-limit") + 1] == "1200" and "--non-reproducible" not in argv
     assert "--no-student-rules" not in argv and argv[argv.index("--mode") + 1] == "bu_gio"
 
 
