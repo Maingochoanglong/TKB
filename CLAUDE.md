@@ -88,8 +88,8 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table
   "Chạy trên máy khác" (codes of `python main.py`), the spec (§0 history row, §9), and the output templates
   (`python tools/mau_dau_ra.py`).
-- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows pending;
-  `python main.py` (school file as of now) Linux `BA73-927C-79DB`, Windows pending; fake school of
+- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows `6E11-2445-E375`/`C9D3-264F-A5FD`;
+  `python main.py` (school file as of now) Linux `BA73-927C-79DB`, Windows `50A0-9EFB-4877`; fake school of
   `tests/du_lieu_mau.py` with main.py constants Linux `B266-1DC3-966D`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)

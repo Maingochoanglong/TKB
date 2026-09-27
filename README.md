@@ -87,7 +87,7 @@ Chạy test: `python -m pytest -q`
 
 | Hệ điều hành | Mã kết quả `data/INPUT_V8.xlsx` | Đã kiểm |
 |---|---|---|
-| Windows x86-64 | *(đang chờ máy ảo Windows)* | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
+| Windows x86-64 | **`50A0-9EFB-4877`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
 | Linux x86-64 | **`BA73-927C-79DB`** | Python 3.11 |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.

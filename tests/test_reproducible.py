@@ -37,6 +37,7 @@ def test_same_timetable_across_runs(mode):
 # Hai chế độ cùng TKB, chỉ khác người dạy các ô bù nên khác mã.
 REFERENCE = {
     "linux": {config.MODE_HIRE: "14CA-0CDD-A57E", config.MODE_OVERTIME: "A78D-7F44-CDA7"},
+    "win32": {config.MODE_HIRE: "6E11-2445-E375", config.MODE_OVERTIME: "C9D3-264F-A5FD"},
 }
 
 
