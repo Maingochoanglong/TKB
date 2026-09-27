@@ -188,7 +188,7 @@ Hằng số: `LIST_SHEET`, `STAFF_HEADERS`, `STAFF_WIDTHS`, `LAST_ROW`, `BLANK_R
 - `main(argv)`
 
 ## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (số tiết từng môn của mỗi giáo viên); file vào
-Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `STATS_SHEET`, `SHORTAGE_SHEET`, `TOTAL_HEADER`
+Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `STATS_SHEET`, `SHORTAGE_SHEET`, `TOTAL_HEADER`, `OVERTIME_FILL`, `HIRE_FILL`, `OVERTIME_LEGEND`, `HIRE_LEGEND`
 - `teacher_labels(teachers, with_codes)` — Chức vụ -> tên hiển thị dưới tên môn trong TKB.
 - `session_rows()` — Các hàng của bảng TKB: (buổi, tiết trong ngày). Cột TIẾT ghi tiết trong ngày: sáng 1–4, chiều 5–7.
 - `_merge(ws, style, r1, c1, r2, c2, value)`
@@ -197,7 +197,10 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `write_timetable(solution, path, style, with_codes)` — File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics).
 - `_stats_name(t)`
 - `subject_table(solution, style)` — Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết, mỗi giáo viên một dòng; cuối bảng có dòng Tổng.
-- `write_statistics(solution, path, style)` — File thống kê: một bảng số tiết từng môn của mỗi giáo viên (xem subject_table).
+- `_fill(color)`
+- `row_marks(solution)` — GV -> (màu nền, số tiết): người dạy bù (số tiết bù) và người cần tuyển thêm (số tiết thực dạy).
+- `_mark_rows(ws, solution, width, top, style)` — Tô nền dòng người dạy bù và người cần tuyển (bảng bắt đầu ở dòng 1); dưới bảng, từ dòng `top`, ghi chú
+- `write_statistics(solution, path, style)` — File thống kê: một bảng số tiết từng môn của mỗi giáo viên (xem subject_table). Dòng người dạy bù tô
 - `write_shortage(rows, path, style)` — File thống kê khi chế độ bù giờ không đủ: sheet SHORTAGE_SHEET liệt kê các tiết không ai dạy được.
 - `_copy_style(src, dst)`
 - `write_updated_staff(solution, source, path)` — Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy

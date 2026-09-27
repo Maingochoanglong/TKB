@@ -62,7 +62,18 @@ def _values(ws):
 
 
 def _stats(path):
-    return list(openpyxl.load_workbook(path)["Thống kê"].iter_rows(values_only=True))
+    """Các dòng của bảng thống kê, đến dòng Tổng (bỏ phần chú thích màu bên dưới)."""
+    rows = list(openpyxl.load_workbook(path)["Thống kê"].iter_rows(values_only=True))
+    return rows[:[r[0] for r in rows].index("Tổng") + 1]
+
+
+def _fills(path):
+    """Màu nền cột A của từng dòng bảng thống kê (None: không tô) và các dòng chú thích dưới bảng."""
+    ws = openpyxl.load_workbook(path)["Thống kê"]
+    n = len(_stats(path))
+    color = lambda c: c.fill.start_color.rgb[-6:] if c.fill.fill_type else None
+    legend = [(color(ws.cell(r, 1)), ws.cell(r, 2).value) for r in range(n + 1, ws.max_row + 1) if ws.cell(r, 2).value]
+    return [color(ws.cell(r, 1)) for r in range(2, n + 1)], legend
 
 
 def test_statistics_file_is_one_table(tmp_path):
@@ -98,6 +109,10 @@ def test_supplement_in_statistics(tmp_path):
     assert ws.cell(len(rows), 1).font.b and ws.freeze_panes == "C2"
     grid = [v for row in openpyxl.load_workbook(out)["Khối 3"].iter_rows(values_only=True) for v in row if v]
     assert any(isinstance(v, str) and v.endswith("\nBộ Môn 1") for v in grid)
+    # Dòng người cần tuyển tô xanh, chú thích dưới bảng; không ai dạy bù.
+    fills, legend = _fills(stats)
+    assert fills == [None] * (len(rows) - 3) + [writer.HIRE_FILL, None]
+    assert legend == [(writer.HIRE_FILL, "Cần tuyển thêm: 1 người, 8 tiết")]
 
 
 def test_updated_staff_file_is_reusable(tmp_path):
@@ -206,3 +221,9 @@ def test_statistics_file_overtime(tmp_path):
     assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-1] == 23  # 19 tiết + 4 tiết bù
     assert all(r[0] != "tuyển thêm" for r in rows)
     assert rows[-1][0] == "Tổng" and rows[-1][-1] == 64
+    # Dòng GVCN dạy bù tô vàng (cả dòng), chú thích dưới bảng.
+    fills, legend = _fills(out)
+    assert fills == [writer.OVERTIME_FILL] * 2 + [None] * (len(rows) - 3)
+    ws = openpyxl.load_workbook(out)["Thống kê"]
+    assert {ws.cell(2, c).fill.start_color.rgb[-6:] for c in range(1, len(rows[0]) + 1)} == {writer.OVERTIME_FILL}
+    assert legend == [(writer.OVERTIME_FILL, "Dạy bù (vượt định mức): 2 người, 8 tiết")]

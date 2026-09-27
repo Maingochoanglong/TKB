@@ -152,6 +152,7 @@ python -m tkb.template data/Mau_Input.xlsx
 2. **`Thong_Ke.xlsx`**: **một bảng** (sheet `Thống kê`), mẫu: `data/Output_Template_Thong_Ke_V8.xlsx`.
    - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển (tên `tuyển thêm`).
    - Cột: **Họ và Tên | Chức Vụ** (Mã GV, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 2`) **| số tiết từng môn người đó dạy | Tổng Tiết**. Chỉ có cột cho các môn có người dạy, theo thứ tự trong chương trình học; ô trống là không dạy môn đó. Cuối bảng có dòng **Tổng**.
+   - **Tô màu cả dòng** để biết ai bù, ai thêm: chế độ bù giờ tô **vàng** dòng người dạy bù (vượt định mức); chế độ tuyển thêm tô **xanh lá** dòng người cần tuyển. Dưới bảng có chú thích màu kèm số người, số tiết, ví dụ `Dạy bù (vượt định mức): 29 người, 56 tiết` hoặc `Cần tuyển thêm: 3 người, 56 tiết`.
    - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển và dạy bù chỉ in ra màn hình.
    - **Chế độ bù giờ mà thiếu tiết:** không ra TKB; file này chỉ có sheet `Thiếu tiết`: **Lớp | Môn | Số Tiết Thiếu | Lý Do** và dòng Tổng.
 3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ cả 2 sheet). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (và **Số Tiết Bù**). File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File gốc không bị sửa.

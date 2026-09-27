@@ -10,6 +10,7 @@ from copy import copy
 from pathlib import Path
 
 import openpyxl
+from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
 from . import config
@@ -27,6 +28,11 @@ OVERTIME_HEADER = "Số Tiết Bù"
 STATS_SHEET = "Thống kê"
 SHORTAGE_SHEET = "Thiếu tiết"
 TOTAL_HEADER = "Tổng Tiết"
+# File thống kê: tô nền cả dòng để biết ai dạy bù (chế độ bù giờ), ai là người cần tuyển (chế độ tuyển thêm).
+OVERTIME_FILL = "FFEB9C"  # vàng nhạt
+HIRE_FILL = "C6EFCE"  # xanh lá nhạt
+OVERTIME_LEGEND = "Dạy bù (vượt định mức)"
+HIRE_LEGEND = "Cần tuyển thêm"
 
 
 def teacher_labels(teachers: dict[str, Teacher], with_codes: bool = False) -> dict[str, str]:
@@ -164,16 +170,52 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
     return header, rows
 
 
+def _fill(color: str) -> PatternFill:
+    return PatternFill(fill_type="solid", start_color=color, end_color=color)
+
+
+def row_marks(solution: Solution) -> dict[str, tuple[str, int]]:
+    """GV -> (màu nền, số tiết): người dạy bù (số tiết bù) và người cần tuyển thêm (số tiết thực dạy)."""
+    load = solution.teacher_load()
+    marks = {g: (OVERTIME_FILL, n) for g, n in solution.overtime().items()}
+    marks.update({t.title: (HIRE_FILL, load[t.title]) for t in solution.used_supplements()})
+    return marks
+
+
+def _mark_rows(ws, solution: Solution, width: int, top: int, style: Style) -> list[int]:
+    """Tô nền dòng người dạy bù và người cần tuyển (bảng bắt đầu ở dòng 1); dưới bảng, từ dòng `top`, ghi chú
+    thích màu kèm số người, số tiết. Trả về các dòng chú thích."""
+    marks = row_marks(solution)
+    for r, t in enumerate(staff_rows(solution), start=2):
+        if t.title in marks:
+            for c in range(1, width + 1):
+                ws.cell(r, c).fill = _fill(marks[t.title][0])
+    legend = []
+    for color, label in ((OVERTIME_FILL, OVERTIME_LEGEND), (HIRE_FILL, HIRE_LEGEND)):
+        lessons = [n for mark, n in marks.values() if mark == color]
+        if lessons:
+            style.body_cell(ws, top, 1, None).fill = _fill(color)
+            cell = ws.cell(top, 2, f"{label}: {len(lessons)} người, {sum(lessons)} tiết")
+            cell.font = copy(style.body.font)
+            cell.alignment = Alignment(horizontal="left", vertical="center")
+            ws.row_dimensions[top].height = style.row_height
+            legend.append(top)
+            top += 1
+    return legend
+
+
 def write_statistics(solution: Solution, path: str | Path, style: Style | None = None) -> None:
-    """File thống kê: một bảng số tiết từng môn của mỗi giáo viên (xem subject_table)."""
+    """File thống kê: một bảng số tiết từng môn của mỗi giáo viên (xem subject_table). Dòng người dạy bù tô
+    vàng, dòng người cần tuyển tô xanh, chú thích dưới bảng."""
     style = style or Style()
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = STATS_SHEET
     header, rows = subject_table(solution, style)
-    style.table(ws, header, rows, bold_last=True)
+    last = style.table(ws, header, rows, bold_last=True)
+    legend = _mark_rows(ws, solution, len(header), last + 2, style)
     ws.freeze_panes = "C2"  # giữ cột tên, chức vụ và dòng tiêu đề khi cuộn
-    style.fit_columns(ws)
+    style.fit_columns(ws, skip_rows=legend)  # chú thích tràn sang các ô trống bên phải, không nới cột
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
