@@ -32,14 +32,14 @@ pip install -r requirements.txt
 | `CHE_DO` | Khi thiếu người: `"bu_gio"` (GVCN/bộ môn dạy bù; không đủ thì báo lỗi) hoặc `"tuyen_them"` (thêm GV "chưa có" dạy các ô bù) | `"bu_gio"` |
 | `SO_TIET_BU_TOI_DA` | Số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần; chế độ tuyển: người mới nhận đúng các tiết bù này | `2` |
 | `LUAT_HOC_SINH` | Áp dụng luật bảo vệ học sinh | `True` |
-| `THOI_GIAN_TOI_DA` | Thời gian cho bước xếp giờ, xấp xỉ giây: xếp nhanh một TKB rồi xếp lại từng vùng cho tốt dần (mục [Cách giải](#cách-giải)); tăng lên để TKB đẹp hơn. **Để trống (`None`/`""`) hoặc `0` thì không giới hạn**: xếp lại đến khi một vòng không còn cải thiện (thường 10–15 phút); bấm Ctrl+C để dừng sớm (sau vài giây), TKB tốt nhất vẫn được ghi ra | `600` (≈ 4–6 phút) |
+| `THOI_GIAN_TOI_DA` | Thời gian cho bước xếp giờ, xấp xỉ giây: xếp nhanh một TKB rồi xếp lại từng vùng cho tốt dần (mục [Cách giải](#cách-giải)); tăng lên để TKB đẹp hơn. **Để trống (`None`/`""`) hoặc `0` thì không giới hạn**: xếp lại đến khi một vòng không còn cải thiện (thường 9–17 phút); bấm Ctrl+C để dừng sớm (sau vài giây), TKB tốt nhất vẫn được ghi ra. Cần nhanh thì đặt `600` (≈ 4–6 phút, TKB kém hơn một chút) | `1200` (≈ 9–12 phút) |
 | `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
 | `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE` | Tên file TKB (chỉ thời khóa biểu), TKB ghi thêm chức vụ (Mã GV) trong mỗi ô, và file thống kê số tiết từng môn của giáo viên | `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `Thong_Ke.xlsx` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
    - **Chạy lại, hoặc chạy ở máy khác cùng hệ điều hành, ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file vào, các hằng số trong `main.py`, phiên bản thư viện (cài bằng `pip install -r requirements.txt`). Xem mục [Chạy trên máy khác](#chạy-trên-máy-khác).
-   - **Không giới hạn thời gian** (`THOI_GIAN_TOI_DA` để trống hoặc `0`): bước dự toán và phân công xong ngay; bước xếp giờ xếp lại từng vùng đến khi một vòng không còn cải thiện rồi tự dừng, vẫn tái lập được. File của trường: Linux khoảng 9 phút, tốt hơn mặc định chưa tới 1%; Windows (giả lập) khoảng 16 phút, tốt hơn mặc định khoảng 4% (chi phí xếp giờ 18.030 → 17.260, mã `6D35-AD5A-3ABA`). Bấm **Ctrl+C** để dừng sớm: chương trình dừng sau vùng đang xếp (vài giây), vẫn kiểm tra luật và ghi đủ các file ra; dừng bằng tay thì mỗi lần có thể ra TKB khác nhau.
+   - **Không giới hạn thời gian** (`THOI_GIAN_TOI_DA` để trống hoặc `0`): bước dự toán và phân công xong ngay; bước xếp giờ xếp lại từng vùng đến khi một vòng không còn cải thiện rồi tự dừng, vẫn tái lập được. Với file của trường, mặc định 1200 đã ra đúng TKB của chế độ không giới hạn, trên cả Linux và Windows; chế độ không giới hạn có thể lâu hơn (Windows giả lập khoảng 16 phút) vì chạy thêm các vòng cho tới khi biết chắc không còn cải thiện. Bấm **Ctrl+C** để dừng sớm: chương trình dừng sau vùng đang xếp (vài giây), vẫn kiểm tra luật và ghi đủ các file ra; dừng bằng tay thì mỗi lần có thể ra TKB khác nhau.
    - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\input.xlsx"` hoặc `"C:/Users/ten/TKB/input.xlsx"`.
 2. Bấm **Run ▶** (VS Code, PyCharm...) hoặc chạy `python main.py`.
 3. Kết quả nằm trong `THU_MUC_OUT`: `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `Thong_Ke.xlsx` và `<tên file vào>_cap_nhat.xlsx`. Khi ghi ra thư mục dự án, các file này đã được `.gitignore` bỏ qua để không lỡ đưa tên giáo viên lên git. Chế độ bù giờ mà thiếu tiết thì chỉ có `Thong_Ke.xlsx` (bảng tiết thiếu) và `main.py` trả về mã 3.
@@ -58,7 +58,7 @@ Tuỳ chọn:
 | `--staff-out` | File nhân sự cập nhật (mặc định `<thư mục output>/<tên input>_cap_nhat.xlsx`) |
 | `--stats-out` | File thống kê số tiết từng môn của mỗi giáo viên; chế độ bù giờ mà thiếu tiết thì là bảng tiết thiếu (mặc định `<thư mục output>/Thong_Ke.xlsx`) |
 | `--roles-out` | File TKB ghi thêm chức vụ (Mã GV) trong mỗi ô (mặc định `<thư mục output>/TKB_chuc_vu.xlsx`) |
-| `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 600; `0` = không giới hạn: xếp lại đến khi hết cải thiện, Ctrl+C để dừng sớm) |
+| `--time-limit` | Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 1200; `0` = không giới hạn: xếp lại đến khi hết cải thiện, Ctrl+C để dừng sớm) |
 | `--non-reproducible` | Dừng theo giây thực; mỗi lần chạy có thể ra TKB khác nhau |
 | `--mode` | `tuyen_them` (mặc định) hoặc `bu_gio` |
 | `--max-overtime` | Số tiết bù tối đa mỗi người; chế độ tuyển: người mới nhận các tiết bù này (mặc định 2) |
@@ -83,12 +83,12 @@ Chạy test: `python -m pytest -q`
 
 **Kiểm tra một máy mới** (không cần sửa `main.py`):
 - Nhanh (khoảng 20 giây): `python -m pytest tests/test_reproducible.py`. Test so mã kết quả của một trường nhỏ với mã tham chiếu của hệ điều hành đó. Qua là máy đó ra đúng kết quả như các máy khác.
-- Đầy đủ (vài phút): `python main.py` với các hằng số mặc định (file của trường `data/INPUT_V8.xlsx`), rồi so mã kết quả với bảng. Mã trong bảng ứng với file `data/INPUT_V8.xlsx` hiện tại; trường sửa file thì mã đổi theo.
+- Đầy đủ (khoảng 10 phút): `python main.py` với các hằng số mặc định (file của trường `data/INPUT_V8.xlsx`), rồi so mã kết quả với bảng. Mã trong bảng ứng với file `data/INPUT_V8.xlsx` hiện tại; trường sửa file thì mã đổi theo.
 
 | Hệ điều hành | Mã kết quả `data/INPUT_V8.xlsx` | Đã kiểm |
 |---|---|---|
-| Windows x86-64 | **`1AEF-1765-F8EF`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
-| Linux x86-64 | **`5643-B571-E20B`** | Python 3.11 |
+| Windows x86-64 | **`6D35-AD5A-3ABA`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
+| Linux x86-64 | **`E605-A8C9-49DF`** | Python 3.11 |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
 
@@ -233,10 +233,10 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
    - GVCN nhận tiết bù ở lớp mình (môn ưu tiên trước, môn trọn vẹn, chia chẵn nhóm ghép cặp); phần còn lại chia cho bộ môn, GV chuyên biệt, quản lý, rồi tìm kiếm cục bộ bớt chia môn, gom lớp, cân bằng tải.
 2. **Tiết bù → người mới:** các tiết bù (và, ở chế độ tuyển, tiết thiếu) giao cho người tuyển mới.
 3. **Xếp giờ** với phân công cố định đó (`tkb/lns.py`), trong `THOI_GIAN_TOI_DA`:
-   - **khởi đầu:** CP-SAT xếp toàn trường với 20% thời gian (không giới hạn: 120), được một TKB đúng luật;
+   - **khởi đầu:** CP-SAT xếp toàn trường với 20% thời gian nhưng không quá 120 (không giới hạn: 120), được một TKB đúng luật;
    - **các vòng xếp lại:** mỗi vòng chấm điểm từng lớp-ngày theo các mục tiêu mềm (QA), rồi lần lượt xếp lại từng vùng, vùng xấu trước: từng lớp, các "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên hôm đó), nhóm lớp của một giáo viên dùng chung, từng khối, từng cặp ngày. Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT tìm cách xếp tốt hơn trong vùng, chỉ nhận khi tốt hơn. Luật bắt buộc luôn đúng;
    - **dừng** khi hết thời gian, khi một vòng tốt lên chưa tới 0,3% (không giới hạn: khi vòng không tốt lên), sau 10 vòng, hoặc khi bấm Ctrl+C. Màn hình in chi phí xếp giờ (tổng điểm phạt mềm) sau mỗi vòng.
-   - Với file của trường, cách này cho TKB tốt hơn cả khi để một lần CP-SAT chạy 110 phút, trong khoảng 4–6 phút. Kết quả là tốt nhất tìm được, không chứng minh là tối ưu.
+   - Với file của trường, cách này cho TKB tốt hơn cả khi để một lần CP-SAT chạy 110 phút, ngay với 600 (khoảng 4–6 phút). Mặc định 1200 ra đúng TKB của chế độ không giới hạn. Kết quả là tốt nhất tìm được, không chứng minh là tối ưu.
 
    Chế độ tuyển: giữ người mới. Chế độ bù: trả các ô đó về đúng người bù. Hai chế độ cùng vị trí môn.
 4. **Dự phòng** (chỉ chế độ tuyển): nếu bước 3 không xếp được, giải một lần CP-SAT mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ) với thêm giáo viên bổ sung dự phòng.

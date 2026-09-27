@@ -31,8 +31,8 @@ python -m pytest tests/test_solver.py -k contiguous -q    # one test
 python -m pytest tests/test_reproducible.py  # ~20 s: this OS's reference result codes
 python tools/code_map.py [solver checker ...] # function index with file:line — use it instead of opening files
 python tools/code_map.py --write             # regenerate docs/CODE_MAP.md (tests/test_code_map.py fails if stale)
-python main.py                               # school's real file (FILE_VAO) -> project root; real names! ~5 min
-python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the fake school (~5 min)
+python main.py                               # school's real file (FILE_VAO) -> project root; real names! ~10 min
+python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the fake school (~10 min)
 python -m tkb <input.xlsx> -o out/TKB.xlsx [--mode bu_gio] [--time-limit 30] [--no-student-rules]
 python -m tkb.template <new.xlsx>            # blank input template
 ```
@@ -55,7 +55,7 @@ Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` sh
    heaviest first (the `_Allocation` symmetry rule), ≤ one pair per session each.
 4. `timetable(fixed=...)`: `build_timetable` makes ONE global CP-SAT model over all lessons (`x[course, (day,
    period)]`, `z[course, teacher, slot]` booleans, hard constraints + soft objective weighted by `config.Weights`),
-   then `lns.improve`: CP-SAT start with 20% of the budget, then rounds of QA (cost per class-day) and re-solving
+   then `lns.improve`: CP-SAT start with 20% of the budget (≤ 120), then rounds of QA (cost per class-day) and re-solving
    regions (class, hot spot, shared-teacher classes, grade, day pair) with everything else fixed; stops on budget,
    a round gaining < 0.3%, 10 rounds, or Ctrl+C. Budget is deterministic time ⇒ reproducible. `bu_gio` then
    relabels hire lessons back to their owners (`_to_overtime`), so both modes place every lesson in the same cell.
@@ -77,7 +77,7 @@ afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names 
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 | `OVERTIME_ROLES`, `OVERTIME_MAX`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
 | Soft: heavy subjects at p7, TV/Toán mornings, Toán TC right after Toán, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |
-| Timetabling loop: start share, region limits, stop rules | `LNS_*`, `Settings.time_limit` (600) | `lns.improve`, `lns._Search.regions` |
+| Timetabling loop: start share (≤ `LNS_START_MAX`), region limits, stop rules | `LNS_*`, `Settings.time_limit` (1200) | `lns.improve`, `lns._Search.regions` |
 
 Glossary: GVCN/chủ nhiệm = homeroom teacher; bộ môn = general subject teacher; GV chuyên biệt = specialist (role
 name = subject name); quản lý = manager; tuyển thêm = hire "chưa có"; bù giờ = overtime; tiết = period; buổi =
@@ -95,7 +95,7 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
   (`python tools/mau_dau_ra.py`).
 - Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows `6E11-2445-E375`/`C9D3-264F-A5FD`
   (the small school is proven optimal at the LNS start, so these did not change with LNS);
-  `python main.py` (school file as of now) Linux `5643-B571-E20B`, Windows `1AEF-1765-F8EF`; fake school of
+  `python main.py` (school file as of now) Linux `E605-A8C9-49DF`, Windows `6D35-AD5A-3ABA`; fake school of
   `tests/du_lieu_mau.py` with main.py constants Linux `AB60-534E-499F`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)

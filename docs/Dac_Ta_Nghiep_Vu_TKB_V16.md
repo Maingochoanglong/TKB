@@ -50,6 +50,7 @@
 | 32 | File ra | `TKB.xlsx`, `Thong_Ke.xlsx`, file cập nhật | Thêm **`TKB_chuc_vu.xlsx`**: cùng TKB, mỗi ô thêm dòng chức vụ (Mã GV) (mục 11) |
 | 33 | File thống kê | Không phân biệt người bù, người tuyển | Tô **vàng** dòng người dạy bù (chế độ bù giờ), tô **xanh lá** dòng người cần tuyển (chế độ tuyển thêm), chú thích dưới bảng (mục 11.3). Chỉ đổi cách ghi file, TKB và mã kết quả không đổi |
 | 34 | Bước xếp giờ | Một lần CP-SAT trong `THOI_GIAN_TOI_DA` (480); không giới hạn = chạy đến khi chứng minh tối ưu (gần như không dừng) | **CP-SAT khởi đầu rồi các vòng QA → xếp lại từng vùng** (mục 9); mặc định **600**; không giới hạn = xếp lại đến khi một vòng không còn cải thiện, vẫn tái lập. File của trường: chi phí xếp giờ 21.590 → 17.260 trong khoảng 4–6 phút (một lần CP-SAT chạy 110 phút chỉ được 18.270) |
+| 35 | Thời gian xếp giờ | Mặc định 600; khởi đầu 20% ngân sách (không giới hạn: 120) | Mặc định **1200**; khởi đầu 20% ngân sách nhưng **tối đa 120** (`LNS_START_MAX`, thay `LNS_START_UNLIMITED`), phần còn lại cho các vòng xếp lại (mục 9). Thử trên file của trường với 1200: khởi đầu 120 cho 17.200 (Linux) / 17.260 (Windows), khởi đầu 240 cho 17.580 / 17.150; khởi đầu 120 ra đúng TKB của chế độ không giới hạn. Đặt 600 thì vẫn ra đúng TKB như trước |
 
 ---
 
@@ -360,10 +361,10 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
 3. **Bước 1 – Dự toán và phân công** (mục 8.1): in dự toán; chế độ bù giờ mà còn thiếu thì dừng, báo lỗi (mục 7.2).
 4. **Tiết bù → người mới:** các tiết bù (và ở chế độ tuyển, tiết thiếu) giao cho người tuyển mới (mục 7.1).
 5. **Bước 2 – Xếp giờ** với phân công cố định đó, tối ưu mục tiêu mềm ở mục 8.2 (`tkb/lns.py`):
-   - **Khởi đầu:** CP-SAT trên toàn mô hình với 20% `THOI_GIAN_TOI_DA` (không giới hạn: 120). Nếu đã chứng minh tối ưu thì dừng (trường nhỏ của test).
+   - **Khởi đầu:** CP-SAT trên toàn mô hình với 20% `THOI_GIAN_TOI_DA` nhưng không quá 120 (không giới hạn: 120). Nếu đã chứng minh tối ưu thì dừng (trường nhỏ của test).
    - **Mỗi vòng:** QA chấm chi phí mềm của từng lớp-ngày theo đúng trọng số mục 8.2 (phạt tải ngày, tiết trống của một giáo viên chia đều cho các lớp người đó dạy hôm ấy). Rồi xếp lại lần lượt các vùng, vùng xấu trước: từng lớp (tối đa 5) → 5 "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên không chủ nhiệm hôm ấy, mở thêm ngày tốt nhất của lớp; 10) → nhóm lớp của một giáo viên dùng chung 2–8 lớp (15) → từng khối (20) → từng cặp ngày (30). Mỗi vùng: giữ nguyên mọi biến ngoài vùng, CP-SAT giải lại xuất phát từ nghiệm đang có, **chỉ nhận khi chi phí giảm**. Luật cứng luôn đúng vì vẫn giải trên toàn mô hình.
    - **Dừng:** hết `THOI_GIAN_TOI_DA`; một vòng giảm chưa tới 0,3% chi phí (không giới hạn: vòng không giảm); đủ 10 vòng; hoặc Ctrl+C (dừng sau vùng đang xếp).
-   - Tham số trong `config.py`: `LNS_START_SHARE`, `LNS_START_UNLIMITED`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`.
+   - Tham số trong `config.py`: `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`.
    - Màn hình in "chi phí xếp giờ" (mục tiêu trừ phần của phân công, là hằng số) sau khởi đầu và sau mỗi vòng. Trạng thái là FEASIBLE: kết quả là tốt nhất tìm được (tối ưu cục bộ theo các vùng), không chứng minh tối ưu.
 
    Chế độ tuyển: giữ người mới. Chế độ bù giờ: trả các ô của người mới về đúng người bù. Hai chế độ cùng vị trí môn; mã kết quả khác nhau vì người dạy các ô bù khác nhau.
@@ -371,8 +372,9 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
 7. **Kiểm tra độc lập** (mục 10) và xuất file (mục 11).
 
 **Thời gian và tái lập:**
-- `THOI_GIAN_TOI_DA` (mặc định 600) là tổng lượng tính toán dành cho bước xếp giờ (khởi đầu và các vòng), tính xấp xỉ bằng giây; đếm theo thời gian tất định của CP-SAT. Các vùng nhỏ giải xong sớm nên 600 đơn vị chạy khoảng 4–6 phút. Bước dự toán và phân công không dùng CP-SAT, xong ngay.
-- **So sánh trên file của trường (Linux, chi phí xếp giờ, càng thấp càng tốt):** một lần CP-SAT 480: 21.590 (8 phút); một lần CP-SAT không giới hạn dừng sau 110 phút: 18.270 (cận dưới 14.210); khởi đầu + xếp lại 600: **17.260** (khoảng 4,5 phút); không giới hạn: 17.200 (khoảng 9 phút). Windows: cách cũ 20.850; 600: 18.030 (khoảng 4 phút trên máy ảo CI); không giới hạn: 17.260 (4 vòng, khoảng 16 phút trên Wine, mã `6D35-AD5A-3ABA`). Trường mẫu tên giả: cách cũ 20.550, 600: 17.360.
+- `THOI_GIAN_TOI_DA` (mặc định 1200) là tổng lượng tính toán dành cho bước xếp giờ (khởi đầu và các vòng), tính xấp xỉ bằng giây; đếm theo thời gian tất định của CP-SAT. Các vùng nhỏ giải xong sớm nên 1200 đơn vị chạy khoảng 9 phút trên Linux, 11–12 phút trên Windows giả lập (600: khoảng 4–6 phút). Bước dự toán và phân công không dùng CP-SAT, xong ngay.
+- **So sánh trên file của trường (Linux, chi phí xếp giờ, càng thấp càng tốt):** một lần CP-SAT 480: 21.590 (8 phút); một lần CP-SAT không giới hạn dừng sau 110 phút: 18.270 (cận dưới 14.210); khởi đầu + xếp lại 600: 17.260 (khoảng 4,5 phút); **1200: 17.200** (khoảng 9 phút), bằng chế độ không giới hạn. Windows: cách cũ 20.850; 600: 18.030 (khoảng 4 phút trên máy ảo CI); **1200: 17.260** (3 vòng, khoảng 11,5 phút trên Wine), bằng chế độ không giới hạn (4 vòng, khoảng 16 phút trên Wine). Trường mẫu tên giả: cách cũ 20.550, 600: 17.360.
+- **Vì sao khởi đầu tối đa 120:** khởi đầu dài hơn cho điểm xuất phát tốt hơn (file của trường, khởi đầu 240: khoảng 23.000 thay vì 28.000–30.000) nhưng các vòng xếp lại kéo về gần như cùng mức. Với 1200, khởi đầu 120 cho 17.200 / 17.260 (Linux / Windows), khởi đầu 240 cho 17.580 / 17.150: khởi đầu 120 có trường hợp xấu nhất tốt hơn và có TKB tốt sớm hơn (khi bấm Ctrl+C giữa chừng).
 - **Không giới hạn** (`THOI_GIAN_TOI_DA` để trống hoặc 0, dòng lệnh `--time-limit 0`): khởi đầu 120, rồi xếp lại đến khi một vòng không còn giảm; tự dừng và vẫn tái lập. Bấm **Ctrl+C** thì dừng sau vùng đang xếp (vài giây), giữ TKB tốt nhất, kiểm tra luật và ghi đủ các file ra như bình thường; dừng bằng tay thì không tái lập.
 - **[Cứng] Tái lập giữa các lần chạy và giữa các máy cùng hệ điều hành:** khi `CHAY_TAI_LAP_DUOC = True` và không bấm Ctrl+C, chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra **cùng một TKB**, ở **cả chế độ tuyển thêm lẫn bù giờ**, miễn là giữ nguyên:
   - file vào (và file chương trình học riêng nếu có);
@@ -489,7 +491,7 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | `CHE_DO` | `bu_gio` hoặc `tuyen_them` (cùng TKB, mục 7) | `bu_gio` |
 | `SO_TIET_BU_TOI_DA` | Mức bù tối đa mỗi người; chế độ tuyển: người mới nhận các tiết bù này | `2` |
 | `LUAT_HOC_SINH` | Áp dụng luật học sinh (mục 6) | `True` |
-| `THOI_GIAN_TOI_DA` | Tổng lượng tính toán cho bước xếp giờ (≈ giây): khởi đầu và các vòng xếp lại (mục 9). **Để trống hoặc 0 thì không giới hạn**: xếp lại đến khi một vòng không còn cải thiện; Ctrl+C dừng sớm và vẫn ghi TKB tốt nhất | `600` |
+| `THOI_GIAN_TOI_DA` | Tổng lượng tính toán cho bước xếp giờ (≈ giây): khởi đầu và các vòng xếp lại (mục 9). **Để trống hoặc 0 thì không giới hạn**: xếp lại đến khi một vòng không còn cải thiện; Ctrl+C dừng sớm và vẫn ghi TKB tốt nhất | `1200` |
 | `CHAY_TAI_LAP_DUOC` | Cùng dữ liệu luôn ra cùng một kết quả | `True` |
 | `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE` | Tên file TKB, TKB có chức vụ, file thống kê số tiết từng môn của giáo viên | `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `Thong_Ke.xlsx` |
 | `SO_LUONG` | Số luồng tìm kiếm song song | `8` |
@@ -510,8 +512,8 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | `ROLE_LABELS` | Cách ghi ba chức vụ Chủ Nhiệm, Bộ Môn, Quản Lý trong file ra |
 | `OVERTIME_ROLES`, `OVERTIME_MAX` | Bù giờ (mục 7.2) |
 | `Weights` | Trọng số mục tiêu (mục 8) |
-| `LNS_START_SHARE`, `LNS_START_UNLIMITED`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS` | Bước xếp giờ: phần khởi đầu, giới hạn mỗi loại vùng, điều kiện dừng (mục 9) |
-| `Settings` | Tham số chạy mặc định (thời gian 600, tái lập, số luồng, mức bù) |
+| `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS` | Bước xếp giờ: phần khởi đầu, giới hạn mỗi loại vùng, điều kiện dừng (mục 9) |
+| `Settings` | Tham số chạy mặc định (thời gian 1200, tái lập, số luồng, mức bù) |
 
 ---
 
@@ -532,7 +534,7 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | Âm nhạc / Mỹ thuật | 29 / 29 | 23 / 23 | Mỗi môn 6 tiết chuyển cho bộ môn |
 | Bộ môn | 163 | 111 | **Thiếu 52**. Nhu cầu gồm TV 38, TNXH 36, KNS 25 (29 trừ 4 của quản lý), Toán TC 23, Công nghệ 17, TV TC 12, cộng 12 tiết Âm nhạc/Mỹ thuật |
 
-**Kết quả** (hằng số mặc định của `main.py`: chế độ tái lập, 600, 8 luồng; kiểm tra luật **ĐẠT**):
+**Kết quả** (hằng số mặc định của `main.py`: chế độ tái lập, 1200, 8 luồng; kiểm tra luật **ĐẠT**):
 
 | Chế độ | Kết quả |
 |---|---|
