@@ -6,7 +6,20 @@ mã kết quả và TKB giữ nguyên. Mọi số liệu dưới đây đo trên
 
 ## 1. Tóm tắt
 
-(điền sau khi có kết quả)
+- **ALNS** (Adaptive Large Neighborhood Search) là LNS có nhiều cách "phá" một phần nghiệm và **học trong lúc chạy**
+  nên dùng cách nào (trọng số roulette), thường kèm mô phỏng luyện kim để thoát tối ưu cục bộ (mục 2).
+- `tkb/lns.py` đã là LNS kiểu fix-and-optimize với CP-SAT làm bước sửa. Nó chỉ thiếu phần "A": thứ tự vùng cố định,
+  giới hạn cố định, chỉ nhận khi giảm (mục 3).
+- **Đo LNS hiện tại** (1200, cả trường mẫu và file của trường): vòng 1 làm 98–99% mức giảm, sau đó chỉ vùng lớn còn
+  giảm thêm được 0,3–1,8%. Trên file của trường, **17% ngân sách** xếp lại vùng bị dùng để giải lại đúng bài toán
+  đã giải, chắc chắn không giảm (mục 4).
+- **Ba nguyên mẫu ALNS không tốt hơn** (mục 5): ALNS thuần kém 6%; hai bản giữ vòng 1 rồi mới thích nghi (`v2`,
+  `v3` có luyện kim) bằng LNS hiện tại trên file của trường, kém 1,2–1,8% trên trường mẫu. Lý do: mỗi lần sửa là
+  một lần CP-SAT nên chỉ có 100–200 lần lặp, không đủ để học; thứ tự "rẻ trước, xấu trước" hiện có đã tốt; và TKB có
+  nhiều vùng phẳng nên luyện kim không có tác dụng.
+- **Đề xuất** (mục 7): giữ LNS theo vòng; lấy một ý của ALNS/tabu là **bỏ lần xếp lại y hệt**. Ý này ra đúng cùng
+  TKB, riêng file của trường xong sớm hơn 17% (1001 thay vì 1204 đơn vị). Muốn TKB tốt hơn thì cần loại vùng mới
+  hoặc nhiễu mạnh hơn, không cần cách chọn vùng mới.
 
 ---
 
@@ -150,7 +163,7 @@ Mọi biến thể dùng chung bước khởi đầu, cách xếp lại một v�
 | `bo_trung` | **17.050**, cùng TKB | **17.200**, cùng TKB | 1204 / **1001** |
 | `v1` | 18.030 (+5,7%) | 18.240 (+6,0%) | 1199 / 1207 |
 | `v2` | 17.360 (+1,8%) | 17.200 (bằng) | 1200 / 1205 |
-| `v3` | V3_MAU | V3_TRUONG | V3_USED |
+| `v3` | 17.260 (+1,2%) | 17.200 (bằng) | 1200 / 1202 |
 
 "Cùng TKB": danh sách các lần xếp lại của `bo_trung` trùng từng lần (vùng, chi phí, lượng tính toán) với của `lns`
 sau khi bỏ các lần y hệt; trên file của trường, vòng 3 bỏ hết các lần y hệt nên không giảm, dừng vì "vòng sau cùng
@@ -159,13 +172,17 @@ không còn cải thiện đáng kể" ở 1001 thay vì hết ngân sách giữ
 ### 5.2. Vì sao ALNS không thắng
 
 - **`v1` mất độ phủ.** Luôn lấy vùng xấu nhất của loại được chọn nên lặp lại đúng một vùng nhiều lần (file của
-  trường: "thứ 2+4" 10 lần, "khối 1" 8 lần trong 81 lần xếp lại; trường mẫu: "thứ 2+5" 8 lần). Tabu bị xoá gần như sau mỗi lần giảm vì GV dùng chung (tiếng
-  Anh, thể dục...) nối hầu hết các lớp với nhau. Roulette sớm dồn trọng số cho cặp ngày (70–77% ngân sách), trong
-  khi LNS hiện tại quét hết 29 lớp với giá gần 0 rồi mới tới vùng lớn.
+  trường: "thứ 2+4" 10 lần, "khối 1" 8 lần trong 81 lần xếp lại; trường mẫu: "thứ 2+5" 8 lần). Tabu bị xoá gần như
+  sau mỗi lần giảm vì GV dùng chung (tiếng Anh, thể dục...) nối hầu hết các lớp với nhau. Chọn loại vùng ngay từ đầu
+  nên cặp ngày (30 đơn vị mỗi lần) chiếm 70–77% ngân sách, trong khi LNS hiện tại quét hết 29 lớp với giá gần 0 rồi
+  mới tới vùng lớn.
 - **`v2`: vòng 1 đã lấy gần hết phần có thể giảm.** Phần ALNS sau đó không tìm thêm được gì trên trường mẫu (LNS
   hiện tại còn giảm 310 ở vòng 2–3 nhờ quét lần lượt đủ 10 cặp ngày trên nghiệm mới). Gấp đôi thời gian cho cùng
   một vùng hết giờ không giúp: vùng GV dùng chung khối 1 chạy ở 30 rồi 60 đơn vị vẫn không giảm.
-- **`v3`:** V3_WHY
+- **`v3`: TKB có rất nhiều "vùng phẳng".** Buộc đổi một tiết gần như luôn tìm được cách xếp **cùng chi phí**
+  (trường mẫu 49/55 lần, file của trường 61/62 lần), phần còn lại tốt hơn, **không lần nào tệ hơn**: luôn có hai
+  tiết đổi chỗ cho nhau mà chi phí không đổi. Vì vậy tiêu chí luyện kim không bao giờ phải nhận nghiệm kém hơn và
+  tìm kiếm chỉ đi loanh quanh trên vùng phẳng. Trường mẫu giảm thêm được 100 sau vòng 1, ít hơn LNS hiện tại (310).
 - **Quá ít lần lặp để học.** Một lần chạy 1200 chỉ có 100–200 lần xếp lại, và sau vòng 1 chỉ còn vài chục lần tốn
   kém. ALNS gốc học trọng số qua hàng chục nghìn lần sửa rẻ. Thứ tự cố định "rẻ trước, đắt sau, xấu trước" của LNS
   hiện tại đã là điều mà trọng số thích nghi sẽ học ra.
@@ -199,7 +216,9 @@ Nguyên mẫu vẫn tái lập (cùng dữ liệu, cùng hệ điều hành thì
 3. **Muốn TKB tốt hơn thì cần vùng mới, không phải cách chọn vùng mới.** File của trường còn cách cận dưới
    14.210 khoảng 17%, nhưng phần lớn là bắt buộc theo luật cứng (spec §14.4). Hướng đáng thử tiếp:
    - vùng cắt ngang các loại hiện có: các lớp của một GV dùng chung trong 2–3 ngày; một khối trong một cặp ngày;
-   - V3_NEXT
+   - nhiễu mạnh hơn khi LNS đã dừng: buộc đổi nhiều tiết một lúc, hoặc không cho đổi sang cách cùng chi phí, để
+     thật sự rời vùng phẳng (`v3` cho thấy buộc đổi một tiết là quá yếu). Chỉ đáng thử ở chế độ không giới hạn thời
+     gian, vì với 1200 thì vòng 1–2 đã dùng gần hết ngân sách.
 
 ## 8. Tài liệu tham khảo
 
