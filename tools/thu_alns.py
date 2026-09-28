@@ -333,7 +333,8 @@ def v3(tm, settings, log, Search, segment=5, reaction=0.3, w_floor=100, t_start=
     Mỗi bước: chọn loại vùng (roulette, điểm σ của Ropke & Pisinger: nghiệm tốt nhất mới / tốt hơn nghiệm hiện
     tại / nhận nghiệm tệ hơn), vùng ngẫu nhiên, BUỘC ĐỔI ít nhất một tiết trong vùng, CP-SAT tìm cách đổi tốt nhất.
     Nhận nếu không tệ hơn; tệ hơn Δ thì nhận với xác suất exp(-Δ/T), T giảm dần từ t_start đến t_end × chi phí
-    xếp giờ. Giữ riêng nghiệm tốt nhất."""
+    xếp giờ. Giữ riêng nghiệm tốt nhất. Các lần buộc đổi không vào bảng --tom-tat (chỉ có vòng 1); số lần tốt hơn /
+    bằng / tệ hơn in ở dòng "Kết quả buộc đổi"."""
     search = Search(tm, settings, log)
     started = _start(search, tm, settings, log)
     if started is None:
