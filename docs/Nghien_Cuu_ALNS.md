@@ -129,15 +129,77 @@ vòng 2, rồi hết ngân sách.
 
 ## 5. Nguyên mẫu ALNS
 
-(điền sau)
+Các biến thể nằm trong `tools/thu_alns.py` (không đổi `tkb/`). Chạy lại: `python tools/thu_alns.py <mau|truong>
+<biến thể> [ngân sách]`, rồi `python tools/thu_alns.py --tom-tat out/thu_alns/*.json` để in bảng theo loại vùng.
+Mọi biến thể dùng chung bước khởi đầu, cách xếp lại một vùng, QA và danh sách vùng của `tkb/lns.py`, cùng ngân sách
+1200.
+
+| Biến thể | Cách làm |
+|---|---|
+| `lns` | LNS hiện tại (`lns.improve`) |
+| `bo_trung` | LNS hiện tại, **bỏ lần xếp lại y hệt**: cùng vùng, cùng giới hạn, cùng nghiệm đầu vào thì không giải lại (mục 4.3) |
+| `v1` | ALNS "sách giáo khoa" ngay sau khởi đầu: roulette chọn loại vùng, trọng số = hiệu quả (giảm / ngân sách) của 8 lần gần nhất, trong loại lấy vùng xấu nhất (QA) chưa tabu; vùng không giảm thành tabu tới khi nghiệm đổi ở lớp liên quan; hết vùng thì gấp đôi giới hạn các vùng hết giờ |
+| `v2` | Vòng 1 như hiện tại, rồi roulette chọn loại vùng, **vùng ngẫu nhiên** trong loại, bỏ vùng đã chứng minh tối ưu trên nghiệm hiện tại, vùng hết giờ mà không giảm thì lần sau gấp đôi giới hạn (tối đa ×4) |
+| `v3` | Vòng 1 như hiện tại, rồi ALNS có **mô phỏng luyện kim**: vùng ngẫu nhiên, **buộc đổi** ít nhất một tiết trong vùng, CP-SAT tìm cách đổi tốt nhất; nhận nếu không tệ hơn, tệ hơn Δ thì nhận với xác suất e^(−Δ/T); điểm σ = 33/9/13 như Ropke & Pisinger |
+
+### 5.1. Kết quả (chi phí xếp giờ, càng thấp càng tốt)
+
+| Biến thể | Trường mẫu | File của trường | Ngân sách dùng (mẫu / trường) |
+|---|---:|---:|---:|
+| `lns` (hiện tại) | **17.050** | **17.200** | 1200 / 1204 |
+| `bo_trung` | **17.050**, cùng TKB | **17.200**, cùng TKB | 1204 / **1001** |
+| `v1` | 18.030 (+5,7%) | 18.240 (+6,0%) | 1199 / 1207 |
+| `v2` | 17.360 (+1,8%) | 17.200 (bằng) | 1200 / 1205 |
+| `v3` | V3_MAU | V3_TRUONG | V3_USED |
+
+"Cùng TKB": danh sách các lần xếp lại của `bo_trung` trùng từng lần (vùng, chi phí, lượng tính toán) với của `lns`
+sau khi bỏ các lần y hệt; trên file của trường, vòng 3 bỏ hết các lần y hệt nên không giảm, dừng vì "vòng sau cùng
+không còn cải thiện đáng kể" ở 1001 thay vì hết ngân sách giữa vòng.
+
+### 5.2. Vì sao ALNS không thắng
+
+- **`v1` mất độ phủ.** Luôn lấy vùng xấu nhất của loại được chọn nên lặp lại đúng một vùng nhiều lần (file của
+  trường: "thứ 2+4" 10 lần, "khối 1" 8 lần trong 81 lần xếp lại; trường mẫu: "thứ 2+5" 8 lần). Tabu bị xoá gần như sau mỗi lần giảm vì GV dùng chung (tiếng
+  Anh, thể dục...) nối hầu hết các lớp với nhau. Roulette sớm dồn trọng số cho cặp ngày (70–77% ngân sách), trong
+  khi LNS hiện tại quét hết 29 lớp với giá gần 0 rồi mới tới vùng lớn.
+- **`v2`: vòng 1 đã lấy gần hết phần có thể giảm.** Phần ALNS sau đó không tìm thêm được gì trên trường mẫu (LNS
+  hiện tại còn giảm 310 ở vòng 2–3 nhờ quét lần lượt đủ 10 cặp ngày trên nghiệm mới). Gấp đôi thời gian cho cùng
+  một vùng hết giờ không giúp: vùng GV dùng chung khối 1 chạy ở 30 rồi 60 đơn vị vẫn không giảm.
+- **`v3`:** V3_WHY
+- **Quá ít lần lặp để học.** Một lần chạy 1200 chỉ có 100–200 lần xếp lại, và sau vòng 1 chỉ còn vài chục lần tốn
+  kém. ALNS gốc học trọng số qua hàng chục nghìn lần sửa rẻ. Thứ tự cố định "rẻ trước, đắt sau, xấu trước" của LNS
+  hiện tại đã là điều mà trọng số thích nghi sẽ học ra.
 
 ## 6. Giữ tái lập khi có ngẫu nhiên
 
-(điền sau)
+Nguyên mẫu vẫn tái lập (cùng dữ liệu, cùng hệ điều hành thì cùng kết quả) nhờ:
+- **Bộ sinh số splitmix64 viết bằng số nguyên** (`tools/thu_alns.py`, `Rng`), hạt giống từ `Settings.seed`.
+  Không dùng module `random`: cách `choice`, `shuffle`, `randrange` sinh số có thể đổi giữa các bản Python.
+- **Roulette trên trọng số nguyên:** trọng số làm tròn thành số nguyên sau mỗi lần cập nhật, chọn bằng phép chia
+  lấy dư.
+- **Mọi quyết định chỉ dựa trên đại lượng tất định:** chi phí (số nguyên) và thời gian tất định của CP-SAT, không
+  bao giờ dùng giây thực.
+- **Cẩn thận với hàm số thực của thư viện C:** `math.exp` trong tiêu chí luyện kim của `v3` đi qua thư viện C của
+  hệ điều hành, có thể lệch bit cuối giữa hai máy. Nếu đưa vào code thật thì nên so sánh bằng số nguyên (ví dụ
+  bảng tra hoặc so `u · 2⁶⁴ < ngưỡng` với ngưỡng tính sẵn).
 
 ## 7. Đề xuất
 
-(điền sau)
+1. **Giữ LNS theo vòng, không thay bằng ALNS.** Ba nguyên mẫu ALNS không tốt hơn trên cả hai bộ dữ liệu; bản
+   thuần ALNS kém hơn 6%. Với CP-SAT làm bước sửa, mỗi lần lặp đắt nên không đủ số lần để phần "thích nghi" có ích.
+2. **Lấy một ý của ALNS/tabu: nhớ vùng đã thử trên nghiệm hiện tại** (biến thể `bo_trung`). Chắc chắn không làm TKB
+   kém đi, vì lần bị bỏ là lần chắc chắn không giảm:
+   - Trên Linux, cả hai bộ dữ liệu ra **đúng cùng TKB**. File của trường xong ở **1001 thay vì 1204 đơn vị (−17%)**;
+     trường mẫu không đổi (chỉ có 1 lần trùng).
+   - Sửa khoảng 10 dòng trong `lns.improve`: tập các khoá (vùng, giới hạn, phiên bản nghiệm), phiên bản tăng mỗi
+     khi nhận nghiệm mới; khoá đã có thì bỏ qua, không tốn ngân sách.
+   - Mã kết quả trên Linux không đổi. Windows chạy đường đi khác nên cần xem log của `windows.yml`: nếu một vòng
+     dang dở vì hết ngân sách mà nay chạy được thêm vùng và giảm thêm, TKB Windows sẽ khác (tốt hơn hoặc bằng).
+     Khi đó phải cập nhật mã Windows trong README, spec §0/§9 và `CLAUDE.md`.
+3. **Muốn TKB tốt hơn thì cần vùng mới, không phải cách chọn vùng mới.** File của trường còn cách cận dưới
+   14.210 khoảng 17%, nhưng phần lớn là bắt buộc theo luật cứng (spec §14.4). Hướng đáng thử tiếp:
+   - vùng cắt ngang các loại hiện có: các lớp của một GV dùng chung trong 2–3 ngày; một khối trong một cặp ngày;
+   - V3_NEXT
 
 ## 8. Tài liệu tham khảo
 

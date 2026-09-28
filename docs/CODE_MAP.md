@@ -244,6 +244,22 @@ Hằng số: `ROOT`, `OUT`, `SOURCES`, `TESTS`, `LONG_FUNCTION`, `HEADER`
 Hằng số: `ROOT`, `TEMPLATES`
 - `run()`
 
+## tools/thu_alns.py — Thử nghiệm ALNS (docs/Nghien_Cuu_ALNS.md): đo LNS hiện tại theo loại vùng, so với các nguyên mẫu ALNS.
+Hằng số: `ROOT`, `OUT`, `KINDS`, `MASK`
+- `class Rng` — splitmix64 bằng số nguyên thuần: như nhau trên mọi máy, mọi bản Python (không dùng module random).
+  - `.next()`
+  - `.pick(weights)` — Bánh xe roulette với trọng số nguyên > 0.
+- `build_model(data, settings)` — Mô hình xếp giờ với phân công cố định, như solver.solve dựng (chế độ bù giờ).
+- `measuring_search(cache, records, skip_repeats)` — Lớp con của lns._Search ghi từng lần xếp lại vào `records` và lưu/đọc lại bước khởi đầu từ `cache`.
+- `_start(search, tm, settings, log)` — Khởi đầu như lns.improve: (LnsResult, phần chi phí phân công) hoặc None.
+- `_first_round(search, res, total, offset, log)` — Vòng 1 đúng như lns.improve.
+- `_finish(search, res, offset, log, note)` — Ghi lý do dừng, chi phí cuối và ngân sách đã dùng.
+- `v1(tm, settings, log, Search, segment, reaction, w_min)` — ALNS từ đầu: roulette theo loại vùng, vùng xấu nhất chưa tabu.
+- `v2(tm, settings, log, Search, segment, reaction, w_floor, max_mult)` — Vòng 1 như LNS hiện tại, rồi roulette theo loại vùng, vùng ngẫu nhiên, vùng hết giờ thì gấp đôi giới hạn.
+- `v3(tm, settings, log, Search, segment, reaction, w_floor, t_start, t_end, sigma)` — Vòng 1 như LNS hiện tại, rồi ALNS có mô phỏng luyện kim và buộc đổi.
+- `run(data, variant, limit)` — Chạy một biến thể, ghi out/thu_alns/<dữ liệu>_<biến thể>_<ngân sách>.json.
+- `summary(paths)` — Bảng theo loại vùng: số lần, số lần giảm, tổng giảm, ngân sách, giảm/đơn vị, số vùng chứng minh xong.
+
 ## tests
 - `tests/test_allocation.py`: test_homeroom_split_sample, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
