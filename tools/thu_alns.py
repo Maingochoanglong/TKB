@@ -1,4 +1,4 @@
-"""Thử nghiệm ALNS (docs/Nghien_Cuu_ALNS.md): đo LNS hiện tại theo loại vùng, so với các nguyên mẫu ALNS.
+"""Thử nghiệm bước xếp giờ (docs/Nghien_Cuu_ALNS.md): đo LNS hiện tại, so với ALNS, vùng mới, nhiễu mạnh.
 
 Không đổi tkb/: mọi biến thể dùng lại lns._Search (khởi đầu, xếp lại một vùng, QA, danh sách vùng).
 
@@ -13,14 +13,18 @@ Biến thể:
   v1        ALNS từ đầu: roulette theo loại vùng, vùng xấu nhất (QA) chưa tabu của loại đó.
   v2        Vòng 1 như LNS hiện tại, rồi roulette theo loại vùng, vùng ngẫu nhiên, vùng hết giờ thì gấp đôi giới hạn.
   v3        Vòng 1 như LNS hiện tại, rồi ALNS có mô phỏng luyện kim: buộc đổi ít nhất một tiết trong vùng.
+  vung_moi  Hướng A: LNS hiện tại (bỏ lần trùng) thêm hai loại vùng "khối × 2 ngày", "GV × 2 ngày".
+  nhieu     Hướng B: LNS hiện tại (bỏ lần trùng) tới khi dừng, rồi lặp: nhiễu mạnh (buộc đổi 20% số tiết của một
+            vùng lớn) -> LNS lại; giữ nghiệm tốt nhất.
 Hằng số lấy từ main.py (SO_LUONG, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH), chế độ tái lập. Kết quả ghi
 out/thu_alns/<dữ liệu>_<biến thể>_<ngân sách>.json; bước khởi đầu (tất định, như nhau ở mọi biến thể) lưu ở
-out/thu_alns/khoi_dau_<dữ liệu>_<ngân sách>.json để lần sau khỏi giải lại (xóa file này khi đổi mô hình).
+out/thu_alns/khoi_dau_<dữ liệu>_<ngân sách khởi đầu>.json để lần sau khỏi giải lại (xóa file này khi đổi mô hình).
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import math
 import sys
@@ -41,6 +45,8 @@ from tkb.solver import _hire_assignment, build_timetable  # noqa: E402
 
 OUT = ROOT / "out" / "thu_alns"
 KINDS = ["lớp", "điểm nóng", "GV dùng chung", "khối", "cặp ngày"]
+EXTRA_KINDS = {"khối × 2 ngày": 10, "GV × 2 ngày": 10}  # hướng A: loại vùng mới -> giới hạn mỗi lần xếp lại
+ALL_KINDS = KINDS[:2] + list(EXTRA_KINDS) + KINDS[2:]
 MASK = (1 << 64) - 1
 
 
@@ -86,8 +92,11 @@ def build_model(data: str, settings: config.Settings):
     return build_timetable(work, settings, fixed=fixed)
 
 
-def measuring_search(cache: Path, records: list, skip_repeats: bool = False):
-    """Lớp con của lns._Search ghi từng lần xếp lại vào `records` và lưu/đọc lại bước khởi đầu từ `cache`."""
+def measuring_search(cache: Path, records: list, skip_repeats: bool = False, extra_regions: bool = False):
+    """Lớp con của lns._Search ghi từng lần xếp lại vào `records` và lưu/đọc lại bước khởi đầu từ `cache`.
+
+    skip_repeats: bỏ lần xếp lại y hệt (biến thể bo_trung). extra_regions: thêm vùng của hướng A.
+    """
 
     class _Fake:  # thay CpSolver khi đọc khởi đầu từ cache: chỉ cần Value(phần chi phí phân công)
         def __init__(self, offset):
@@ -101,6 +110,8 @@ def measuring_search(cache: Path, records: list, skip_repeats: bool = False):
 
         def regions(self, cost, lessons):
             out = super().regions(cost, lessons)
+            if extra_regions:
+                out = _with_extra_regions(self, out, cost)
             self.kind_of = {id(free): (kind, name) for kind, name, free, _ in out}
             return out
 
@@ -140,6 +151,48 @@ def measuring_search(cache: Path, records: list, skip_repeats: bool = False):
     return Search
 
 
+def _with_extra_regions(search, out, cost):
+    """Hướng A: thêm vùng "khối × 2 ngày" và "GV × 2 ngày" trước các vùng GV dùng chung (sau lớp, điểm nóng).
+
+    Mỗi khối, và mỗi nhóm lớp của một GV dùng chung (như vùng GV dùng chung), được mở trong cặp ngày có tổng chi
+    phí QA lớn nhất của nó. Đây là phần giao của các vùng lớn hay hết giờ (khối, GV dùng chung, cặp ngày), nhỏ hơn
+    nhiều nên CP-SAT dễ giải xong. Trong mỗi loại, vùng xấu trước; bỏ vùng có chi phí 0.
+    """
+    tm = search.tm
+    problem = tm.problem
+    pairs = list(itertools.combinations(sorted(config.DAY_SESSIONS), 2))
+
+    def worst_pair(cs):
+        score = {p: sum(cost[c, d] for c in cs for d in p) for p in pairs}
+        pair = min(pairs, key=lambda p: (-round(score[p]), p))
+        return pair, round(score[pair])
+
+    grades = defaultdict(list)
+    for c in sorted(problem.classes, key=lns._class_key):
+        grades[c.split("/")[0]].append(c)
+    homeroom = {g for g, t in problem.teachers.items() if t.class_name}
+    teacher_classes = defaultdict(set)
+    for cid, cand in tm.teachers_of.items():
+        for g in cand:
+            if g not in homeroom:
+                teacher_classes[g].add(problem.courses[cid].class_name)
+    lo, hi = config.LNS_SHARED_CLASSES
+    groups = list(dict.fromkeys(frozenset(v) for g, v in sorted(teacher_classes.items()) if lo <= len(v) <= hi))
+    sets = {"khối × 2 ngày": [(f"khối {g}", cs) for g, cs in grades.items()],
+            "GV × 2 ngày": [("lớp " + ",".join(cs), cs) for cs in (sorted(s, key=lns._class_key) for s in groups)]}
+    extra = []
+    for kind, items in sets.items():
+        found = []
+        for label, cs in items:
+            (a, b), score = worst_pair(cs)
+            if score > 0:
+                found.append((-score, label, cs, a, b))
+        extra += [(kind, f"{label} thứ {a + 2}+{b + 2}", search.free(cs, [a, b]), EXTRA_KINDS[kind])
+                  for _, label, cs, a, b in sorted(found, key=lambda f: f[:2])]
+    at = next((i for i, r in enumerate(out) if r[0] not in ("lớp", "điểm nóng")), len(out))
+    return out[:at] + extra + out[at:]
+
+
 def _start(search, tm, settings, log):
     """Khởi đầu như lns.improve: (LnsResult, phần chi phí phân công) hoặc None."""
     total = settings.time_limit
@@ -167,6 +220,37 @@ def _first_round(search, res, total, offset, log):
             res.objective, res.values = val, new
     res.history.append(round(res.objective - offset))
     log(f"  Vòng 1: chi phí xếp giờ {res.history[-1]}")
+
+
+def _descent(search, res, total, offset, log, label="Vòng"):
+    """Các vòng QA -> xếp lại từng vùng từ nghiệm `res`, đúng như vòng lặp của lns.improve; trả về lý do dừng."""
+    history = [round(res.objective - offset)]
+    rnd = 0
+    while True:
+        if rnd == config.LNS_MAX_ROUNDS:
+            return f"đủ {rnd} vòng"
+        rnd += 1
+        before = res.objective
+        cost, lessons = search.qa(res.values)
+        tried, stop = 0, ""
+        for _, _, free, limit in search.regions(cost, lessons):
+            left = total - search.used
+            if left < 1:
+                stop = "hết thời gian"
+                break
+            tried += 1
+            _, val, new, _, _ = search.region(free, min(limit, left), res.values)
+            if val is not None and val < res.objective - 0.5:
+                res.objective, res.values = val, new
+        if not tried:
+            return stop or "hết thời gian"
+        history.append(round(res.objective - offset))
+        log(f"  {label} {rnd}: chi phí xếp giờ {history[-1]} (−{round(before - res.objective)})")
+        if stop:
+            return stop
+        gain = before - res.objective
+        if gain < 0.5 or gain < config.LNS_MIN_GAIN * history[-2]:
+            return "vòng sau cùng không còn cải thiện đáng kể"
 
 
 def _finish(search, res, offset, log, note=""):
@@ -413,6 +497,59 @@ def v3(tm, settings, log, Search, segment=5, reaction=0.3, w_floor=100, t_start=
     return _finish(search, res, offset, log, f" (sau vòng 1: {it} lần, nhận tệ hơn {worse} lần)")
 
 
+def nhieu(tm, settings, log, Search, share=0.2, kick_limit=30, kick_min=60):
+    """Hướng B: LNS như hiện tại tới khi dừng, rồi lặp nhiễu mạnh -> LNS lại, giữ nghiệm tốt nhất.
+
+    Nhiễu: chọn ngẫu nhiên một vùng lớn (GV dùng chung, khối hoặc cặp ngày) của nghiệm tốt nhất, BUỘC ĐỔI CHỖ ít nhất
+    `share` số tiết trong vùng; CP-SAT tìm cách đổi rẻ nhất (có thể tệ hơn), giới hạn kick_limit. Rồi các vòng LNS
+    như cũ từ nghiệm đó tới khi dừng; tốt hơn thì giữ. Dừng khi ngân sách còn dưới kick_min.
+    """
+    search = Search(tm, settings, log)
+    started = _start(search, tm, settings, log)
+    if started is None:
+        return None
+    res, offset = started
+    total = settings.time_limit
+    stop = _descent(search, res, total, offset, log)
+    res.history.append(round(res.objective - offset))
+    log(f"  LNS dừng ({stop}): chi phí xếp giờ {res.history[-1]}, đã dùng {search.used:.0f}")
+    xs = {v.Index() for v in tm.x.values()}
+    big = ("GV dùng chung", "khối", "cặp ngày")
+    rng = Rng(settings.seed * 1_000_003 + 43)
+    kicks = better = 0
+    while total - search.used >= kick_min:
+        by_kind = defaultdict(list)
+        for r in search.regions(*search.qa(res.values)):
+            if r[0] in big:
+                by_kind[r[0]].append(r)
+        kinds = [k for k in big if by_kind[k]]
+        kind = kinds[rng.next() % len(kinds)]
+        _, name, free, _ = by_kind[kind][rng.next() % len(by_kind[kind])]
+        ones = [i for i in sorted(free) if i in xs and res.values[i] == 1]
+        k = max(1, round(share * len(ones)))
+        m = tm.model.clone()
+        variables = m.proto.variables
+        for i in search.decision:
+            if i not in free:
+                variables[i].domain[0] = variables[i].domain[1] = res.values[i]
+        m.add(sum(m.get_bool_var_from_proto_index(i) for i in ones) <= len(ones) - k)
+        _, val, new, _, _ = search.solve(m, min(kick_limit, total - search.used), hint=res.values)
+        kicks += 1
+        if val is None:
+            log(f"  Nhiễu {kicks}: {kind} {name}, đổi ≥ {k}/{len(ones)} tiết: không tìm được cách đổi")
+            continue
+        cur = lns.LnsResult(new, val, res.bound, res.status)
+        stop = _descent(search, cur, total, offset, log, label=f"  Nhiễu {kicks}, vòng")
+        log(f"  Nhiễu {kicks}: {kind} {name}, đổi ≥ {k}/{len(ones)} tiết: {round(res.objective - offset)} -> "
+            f"{round(val - offset)} -> LNS lại {round(cur.objective - offset)} ({stop}), đã dùng {search.used:.0f}")
+        if cur.objective < res.objective - 0.5:
+            res.objective, res.values = cur.objective, cur.values
+            better += 1
+        res.history.append(round(res.objective - offset))
+    res.stop = "hết thời gian"
+    return _finish(search, res, offset, log, f" (sau {kicks} lần nhiễu, {better} lần tốt hơn)")
+
+
 def run(data: str, variant: str, limit: float) -> Path:
     """Chạy một biến thể, ghi out/thu_alns/<dữ liệu>_<biến thể>_<ngân sách>.json."""
     settings = config.Settings(time_limit=limit, workers=main.SO_LUONG, mode=config.MODE_OVERTIME,
@@ -425,16 +562,18 @@ def run(data: str, variant: str, limit: float) -> Path:
         logs.append(msg)
         print(msg, flush=True)
 
-    Search = measuring_search(OUT / f"khoi_dau_{data}_{limit:g}.json", records, skip_repeats=variant == "bo_trung")
+    Search = measuring_search(_start_cache(data, limit), records,
+                              skip_repeats=variant in ("bo_trung", "vung_moi", "nhieu"),
+                              extra_regions=variant == "vung_moi")
     start = time.time()
-    if variant in ("lns", "bo_trung"):
+    if variant in ("lns", "bo_trung", "vung_moi"):
         original, lns._Search = lns._Search, Search
         try:
             res = lns.improve(tm, settings, log)
         finally:
             lns._Search = original
     else:
-        res = {"v1": v1, "v2": v2, "v3": v3}[variant](tm, settings, log, Search)
+        res = {"v1": v1, "v2": v2, "v3": v3, "nhieu": nhieu}[variant](tm, settings, log, Search)
     out = OUT / f"{data}_{variant}_{limit:g}.json"
     out.write_text(json.dumps(dict(
         data=data, variant=variant, limit=limit, history=res.history, used=res.used, stop=res.stop,
@@ -445,11 +584,16 @@ def run(data: str, variant: str, limit: float) -> Path:
     return out
 
 
+def _start_cache(data: str, limit: float) -> Path:
+    """File lưu bước khởi đầu: theo ngân sách khởi đầu (1200 và 2400 cùng khởi đầu 120)."""
+    return OUT / f"khoi_dau_{data}_{min(limit * config.LNS_START_SHARE, config.LNS_START_MAX):g}.json"
+
+
 def summary(paths: list[str]) -> None:
     """Bảng theo loại vùng: số lần, số lần giảm, tổng giảm, ngân sách, giảm/đơn vị, số vùng chứng minh xong."""
     for p in paths:
         d = json.loads(Path(p).read_text())
-        start = json.loads((OUT / f"khoi_dau_{d['data']}_{d['limit']:g}.json").read_text())
+        start = json.loads(_start_cache(d["data"], d["limit"]).read_text())
         cur = start["objective"]
         agg = defaultdict(lambda: [0, 0, 0.0, 0.0, 0, 0])
         for r in d["records"]:
@@ -466,7 +610,7 @@ def summary(paths: list[str]) -> None:
         print(f"{p}: chi phí {' -> '.join(map(str, d['history']))}, dùng {d['used']:.0f}, dừng: {d['stop']}")
         print(f"  {'loại':14} {'lần':>4} {'giảm':>4} {'tổng giảm':>9} {'ngân sách':>9} {'%':>4} {'giảm/đv':>8} "
               f"{'chứng minh':>10} {'bỏ trùng':>8}")
-        for k in KINDS:
+        for k in ALL_KINDS:
             if k in agg:
                 n, imp, gain, dt, opt, skip = agg[k]
                 print(f"  {k:14} {n:4} {imp:4} {gain:9.0f} {dt:9.1f} {100 * dt / total:4.0f} "
@@ -476,7 +620,7 @@ def summary(paths: list[str]) -> None:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("data", nargs="?", choices=["mau", "truong"])
-    ap.add_argument("variant", nargs="?", choices=["lns", "bo_trung", "v1", "v2", "v3"])
+    ap.add_argument("variant", nargs="?", choices=["lns", "bo_trung", "v1", "v2", "v3", "vung_moi", "nhieu"])
     ap.add_argument("limit", nargs="?", type=float, default=1200.0)
     ap.add_argument("--tom-tat", nargs="+", metavar="JSON", help="in bảng theo loại vùng rồi thoát")
     args = ap.parse_args()
