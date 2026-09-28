@@ -13,7 +13,8 @@ Biến thể:
   v1        ALNS từ đầu: roulette theo loại vùng, vùng xấu nhất (QA) chưa tabu của loại đó.
   v2        Vòng 1 như LNS hiện tại, rồi roulette theo loại vùng, vùng ngẫu nhiên, vùng hết giờ thì gấp đôi giới hạn.
   v3        Vòng 1 như LNS hiện tại, rồi ALNS có mô phỏng luyện kim: buộc đổi ít nhất một tiết trong vùng.
-  vung_moi  Hướng A: LNS hiện tại (bỏ lần trùng) thêm hai loại vùng "khối × 2 ngày", "GV × 2 ngày".
+  vung_moi  Hướng A: LNS hiện tại (bỏ lần trùng) thêm hai loại vùng "khối × 2 ngày", "GV × 2 ngày", đặt trước
+            vùng GV dùng chung (vùng nhỏ trước). vung_moi_sau: cùng các vùng đó nhưng đặt cuối mỗi vòng.
   nhieu     Hướng B: LNS hiện tại (bỏ lần trùng) tới khi dừng, rồi lặp: nhiễu mạnh (buộc đổi 20% số tiết của một
             vùng lớn) -> LNS lại; giữ nghiệm tốt nhất.
 Hằng số lấy từ main.py (SO_LUONG, SO_TIET_BU_TOI_DA, LUAT_HOC_SINH), chế độ tái lập. Kết quả ghi
@@ -92,10 +93,11 @@ def build_model(data: str, settings: config.Settings):
     return build_timetable(work, settings, fixed=fixed)
 
 
-def measuring_search(cache: Path, records: list, skip_repeats: bool = False, extra_regions: bool = False):
+def measuring_search(cache: Path, records: list, skip_repeats: bool = False, extra_regions: str = ""):
     """Lớp con của lns._Search ghi từng lần xếp lại vào `records` và lưu/đọc lại bước khởi đầu từ `cache`.
 
-    skip_repeats: bỏ lần xếp lại y hệt (biến thể bo_trung). extra_regions: thêm vùng của hướng A.
+    skip_repeats: bỏ lần xếp lại y hệt (biến thể bo_trung). extra_regions: thêm vùng của hướng A, "truoc" (trước
+    vùng GV dùng chung) hoặc "sau" (cuối vòng).
     """
 
     class _Fake:  # thay CpSolver khi đọc khởi đầu từ cache: chỉ cần Value(phần chi phí phân công)
@@ -111,7 +113,7 @@ def measuring_search(cache: Path, records: list, skip_repeats: bool = False, ext
         def regions(self, cost, lessons):
             out = super().regions(cost, lessons)
             if extra_regions:
-                out = _with_extra_regions(self, out, cost)
+                out = _with_extra_regions(self, out, cost, extra_regions)
             self.kind_of = {id(free): (kind, name) for kind, name, free, _ in out}
             return out
 
@@ -151,8 +153,8 @@ def measuring_search(cache: Path, records: list, skip_repeats: bool = False, ext
     return Search
 
 
-def _with_extra_regions(search, out, cost):
-    """Hướng A: thêm vùng "khối × 2 ngày" và "GV × 2 ngày" trước các vùng GV dùng chung (sau lớp, điểm nóng).
+def _with_extra_regions(search, out, cost, where="truoc"):
+    """Hướng A: thêm vùng "khối × 2 ngày" và "GV × 2 ngày", trước các vùng GV dùng chung hoặc cuối vòng.
 
     Mỗi khối, và mỗi nhóm lớp của một GV dùng chung (như vùng GV dùng chung), được mở trong cặp ngày có tổng chi
     phí QA lớn nhất của nó. Đây là phần giao của các vùng lớn hay hết giờ (khối, GV dùng chung, cặp ngày), nhỏ hơn
@@ -189,6 +191,8 @@ def _with_extra_regions(search, out, cost):
                 found.append((-score, label, cs, a, b))
         extra += [(kind, f"{label} thứ {a + 2}+{b + 2}", search.free(cs, [a, b]), EXTRA_KINDS[kind])
                   for _, label, cs, a, b in sorted(found, key=lambda f: f[:2])]
+    if where == "sau":
+        return out + extra
     at = next((i for i, r in enumerate(out) if r[0] not in ("lớp", "điểm nóng")), len(out))
     return out[:at] + extra + out[at:]
 
@@ -563,10 +567,10 @@ def run(data: str, variant: str, limit: float) -> Path:
         print(msg, flush=True)
 
     Search = measuring_search(_start_cache(data, limit), records,
-                              skip_repeats=variant in ("bo_trung", "vung_moi", "nhieu"),
-                              extra_regions=variant == "vung_moi")
+                              skip_repeats=variant in ("bo_trung", "vung_moi", "vung_moi_sau", "nhieu"),
+                              extra_regions={"vung_moi": "truoc", "vung_moi_sau": "sau"}.get(variant, ""))
     start = time.time()
-    if variant in ("lns", "bo_trung", "vung_moi"):
+    if variant in ("lns", "bo_trung", "vung_moi", "vung_moi_sau"):
         original, lns._Search = lns._Search, Search
         try:
             res = lns.improve(tm, settings, log)
@@ -620,7 +624,8 @@ def summary(paths: list[str]) -> None:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("data", nargs="?", choices=["mau", "truong"])
-    ap.add_argument("variant", nargs="?", choices=["lns", "bo_trung", "v1", "v2", "v3", "vung_moi", "nhieu"])
+    ap.add_argument("variant", nargs="?", choices=["lns", "bo_trung", "v1", "v2", "v3", "vung_moi",
+                                                         "vung_moi_sau", "nhieu"])
     ap.add_argument("limit", nargs="?", type=float, default=1200.0)
     ap.add_argument("--tom-tat", nargs="+", metavar="JSON", help="in bảng theo loại vùng rồi thoát")
     args = ap.parse_args()

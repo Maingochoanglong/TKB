@@ -251,7 +251,7 @@ Hằng số: `ROOT`, `OUT`, `KINDS`, `EXTRA_KINDS`, `ALL_KINDS`, `MASK`
   - `.pick(weights)` — Bánh xe roulette với trọng số nguyên > 0.
 - `build_model(data, settings)` — Mô hình xếp giờ với phân công cố định, như solver.solve dựng (chế độ bù giờ).
 - `measuring_search(cache, records, skip_repeats, extra_regions)` — Lớp con của lns._Search ghi từng lần xếp lại vào `records` và lưu/đọc lại bước khởi đầu từ `cache`.
-- `_with_extra_regions(search, out, cost)` — Hướng A: thêm vùng "khối × 2 ngày" và "GV × 2 ngày" trước các vùng GV dùng chung (sau lớp, điểm nóng).
+- `_with_extra_regions(search, out, cost, where)` — Hướng A: thêm vùng "khối × 2 ngày" và "GV × 2 ngày", trước các vùng GV dùng chung hoặc cuối vòng.
 - `_start(search, tm, settings, log)` — Khởi đầu như lns.improve: (LnsResult, phần chi phí phân công) hoặc None.
 - `_first_round(search, res, total, offset, log)` — Vòng 1 đúng như lns.improve.
 - `_descent(search, res, total, offset, log, label)` — Các vòng QA -> xếp lại từng vùng từ nghiệm `res`, đúng như vòng lặp của lns.improve; trả về lý do dừng.
