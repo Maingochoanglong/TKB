@@ -72,7 +72,60 @@ Nói cách khác, cách hiện tại là **LNS/fix-and-optimize có hướng d�
 
 ## 4. Số liệu đo LNS hiện tại
 
-(điền sau)
+Đo bằng cách bọc `_Search.region` để ghi từng lần xếp lại (loại vùng, ngân sách dùng, chi phí trước/sau, CP-SAT có
+chứng minh xong vùng không). Kết quả cuối trùng với số trong spec (§9, §13): trường mẫu **17.050**, file của trường
+**17.200**, nên cách đo không làm đổi đường đi của thuật toán.
+
+### 4.1. Theo vòng
+
+| | Khởi đầu | Vòng 1 | Vòng 2 | Vòng 3 | Vòng 4 |
+|---|---:|---:|---:|---:|---:|
+| Trường mẫu | 30.510 | 17.360 (−13.150) | 17.260 (−100) | 17.050 (−210) | 17.050 (0, hết ngân sách giữa vòng) |
+| File của trường | 27.760 | 17.260 (−10.500) | 17.200 (−60) | 17.200 (0, hết ngân sách giữa vòng) | |
+
+**Vòng 1 làm gần hết việc** (98–99% mức giảm). Sau vòng 1 chỉ còn giảm được 0,3–1,8%, và chỉ nhờ vùng lớn: trường mẫu
+nhờ **cặp ngày** (vòng 2: 2 lần giảm, vòng 3: 4 lần), file của trường nhờ một vùng **GV dùng chung** (vòng 2).
+
+### 4.2. Theo loại vùng (cả lần chạy)
+
+Ngân sách = đơn vị như `THOI_GIAN_TOI_DA` (≈ giây). "Chứng minh xong": CP-SAT chứng minh không có cách xếp tốt hơn
+trong vùng; còn lại là hết giờ giữa chừng.
+
+| Loại vùng | Lần xếp lại | Lần giảm | Tổng giảm | Ngân sách | Giảm / đơn vị | Chứng minh xong |
+|---|---:|---:|---:|---:|---:|---:|
+| **Trường mẫu** | | | | | | |
+| lớp | 116 | 19 | 4.280 | 23 (2%) | 185 | 116/116 |
+| điểm nóng | 20 | 4 | 1.200 | 23 (2%) | 52 | 20/20 |
+| GV dùng chung | 23 | 7 | 5.460 | 273 (25%) | 20 | 13/23 |
+| khối | 15 | 5 | 760 | 166 (15%) | 4,6 | 9/15 |
+| cặp ngày | 30 | 15 | 1.760 | 594 (55%) | 3,0 | 17/30 |
+| **File của trường** | | | | | | |
+| lớp | 87 | 15 | 3.300 | 14 (1%) | 235 | 87/87 |
+| điểm nóng | 15 | 2 | 1.150 | 7 (1%) | 175 | 15/15 |
+| GV dùng chung | 24 | 9 | 4.610 | 335 (31%) | 14 | 12/24 |
+| khối | 15 | 2 | 350 | 230 (21%) | 1,5 | 9/15 |
+| cặp ngày | 25 | 6 | 1.150 | 496 (46%) | 2,3 | 16/25 |
+
+Nhận xét:
+- **Lớp, điểm nóng:** rất rẻ (trung bình 0,2–1 đơn vị mỗi lần), luôn chứng minh xong, chỉ có ích ở vòng 1.
+- **GV dùng chung:** tổng giảm lớn nhất; ở vòng 1 gần như lần nào cũng giảm. Một nửa số lần hết giờ.
+- **Cặp ngày:** tốn một nửa ngân sách, hiệu quả thấp nhất tính theo đơn vị, nhưng là nguồn giảm chính sau vòng 1
+  (trường mẫu).
+- **Khối:** kém hiệu quả nhất trên cả hai bộ dữ liệu.
+
+### 4.3. Giải lại y hệt
+
+CP-SAT ở chế độ tái lập là tất định: đã thử giải cùng một vùng, cùng nghiệm đầu vào, cùng giới hạn 3 lần liền trong
+một tiến trình, cả 3 lần ra đúng cùng chi phí và cùng lượng tính toán. Vì vậy giải lại một vùng khi nghiệm đầu vào
+chưa đổi **chắc chắn không giảm được gì**.
+
+| | Lần giải lại y hệt | Ngân sách phí | Loại vùng |
+|---|---:|---:|---|
+| Trường mẫu | 1 | 1 đơn vị (0%) | cặp ngày |
+| File của trường | 11 | 184 đơn vị (**17%**) | cặp ngày 100, khối 74, GV dùng chung 11 |
+
+Với file của trường, vòng 2 chỉ giảm một lần (ở giữa vòng), nên vòng 3 giải lại y hệt mọi vùng đứng sau vùng đó ở
+vòng 2, rồi hết ngân sách.
 
 ## 5. Nguyên mẫu ALNS
 
