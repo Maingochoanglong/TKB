@@ -9,9 +9,11 @@ from tkb import config, lns
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.phan_cong import phan_cong, tach_tiet_bu
-from tkb.solver import _hire_assignment, build_timetable
+from ortools.sat.python import cp_model
 
-from .conftest import CURRICULUM
+from tkb.solver import _hire_assignment, build_timetable, cost_breakdown
+
+from .conftest import CURRICULUM, small_staff
 
 ROOT = Path(__file__).resolve().parent.parent
 SETTINGS = config.Settings(time_limit=15, workers=4, mode=config.MODE_OVERTIME, overtime_max=2)
@@ -73,3 +75,41 @@ def test_same_timetable_in_new_processes():
                             capture_output=True, text=True, check=True).stdout for seed in ("1", "2")}
     assert len(codes) == 1 and next(iter(codes)).strip()
 
+
+
+def test_unchanged_regions_are_not_solved_again(sample_staff, monkeypatch):
+    """Vùng đã xếp lại trên đúng nghiệm hiện tại thì vòng sau bỏ qua (CP-SAT tất định: giải lại ra y hệt)."""
+    names, calls = [], []
+    regions, region = lns._Search.regions, lns._Search.region
+
+    def recorded_regions(self, cost, lessons):
+        out = regions(self, cost, lessons)
+        names.append([name for _, name, _, _ in out])
+        self.name_of = {id(free): name for _, name, free, _ in out}
+        return out
+
+    def fake_region(self, free, seconds, best):
+        calls.append(self.name_of[id(free)])
+        if len(calls) == 1:  # vùng đầu tiên giảm rất mạnh, các vùng khác không giảm
+            return cp_model.FEASIBLE, -1e12, list(best), None, None
+        return cp_model.FEASIBLE, None, None, None, None
+
+    monkeypatch.setattr(lns._Search, "regions", recorded_regions)
+    monkeypatch.setattr(lns._Search, "region", fake_region)
+    res = lns.improve(_model(sample_staff), SETTINGS)
+    assert len(names) == 2 and names[0] == names[1]
+    # Vòng 1 giải mọi vùng; vòng 2 chỉ giải lại vùng đầu (lần trước nó được giải trên nghiệm cũ), rồi dừng.
+    assert calls == names[0] + names[0][:1]
+    assert res.stop == "vòng sau cùng không còn cải thiện đáng kể"
+
+
+def test_cost_breakdown_adds_up_to_the_timetabling_cost():
+    """Chi phí theo thành phần (solver.cost_breakdown) cộng lại đúng bằng chi phí xếp giờ của nghiệm tối ưu."""
+    settings = config.Settings(time_limit=5, workers=4, mode=config.MODE_OVERTIME, overtime_max=4)
+    tm = _model(small_staff(general=False), settings)
+    res = lns.improve(tm, settings)
+    assert res.status == "OPTIMAL"
+    costs = cost_breakdown(tm.problem, tm.lessons(lambda v: res.values[v.Index()]), settings.weights)
+    assert [c[0] for c in costs] == ["morning_core", "heavy_late", "extra_morning", "hdtn_flex", "spread",
+                                     "day_load", "teacher_gap", "extra_after_main"]
+    assert sum(c[-1] for c in costs) == res.history[-1]

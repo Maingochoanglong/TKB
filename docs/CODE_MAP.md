@@ -142,6 +142,7 @@ Hằng số: `MANAGER_BONUS`
   · Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
   · Rải đều môn trong tuần theo từng lớp.
   · Tiết trống giữa buổi của GV không chủ nhiệm.
+- `cost_breakdown(problem, lessons, w)` — Chi phí xếp giờ theo thành phần mục tiêu mềm: (khoá, tên, số lượng, đơn vị, điểm), thứ tự cố định.
 - `class ShortageError` — Chế độ bù giờ: GVCN và bộ môn đã bù tối đa mà vẫn thiếu tiết (không tuyển thêm).
   - `.rows()` — (lớp, môn, số tiết thiếu, lý do) theo thứ tự lớp.
 - `du_toan_lines(problem, plan)` — Dự toán in ra trước khi xếp giờ.
@@ -272,7 +273,7 @@ Hằng số: `ROOT`, `OUT`, `KINDS`, `EXTRA_KINDS`, `ALL_KINDS`, `MASK`, `COMPON
 ## tests
 - `tests/test_allocation.py`: test_homeroom_split_sample, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
-- `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
+- `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes, test_unchanged_regions_are_not_solved_again, test_cost_breakdown_adds_up_to_the_timetabling_cost
 - `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited
 - `tests/test_phan_cong.py`: test_min_cost_flow_prefers_cheap_paths, test_estimate_overtime_then_missing, test_homeroom_overtime_before_general, test_homeroom_overtime_takes_whole_subjects, test_assignment_is_deterministic, test_hires_take_overtime_and_missing_lessons, test_hire_split_limits_pairs_and_orders_by_load
 - `tests/test_reproducible.py`: test_same_timetable_across_runs, test_reference_fingerprint, test_ortools_version_is_pinned, test_no_wall_clock_limit_in_reproducible_mode

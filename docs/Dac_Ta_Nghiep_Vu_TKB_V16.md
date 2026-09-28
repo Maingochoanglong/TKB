@@ -362,7 +362,7 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
 4. **Tiết bù → người mới:** các tiết bù (và ở chế độ tuyển, tiết thiếu) giao cho người tuyển mới (mục 7.1).
 5. **Bước 2 – Xếp giờ** với phân công cố định đó, tối ưu mục tiêu mềm ở mục 8.2 (`tkb/lns.py`):
    - **Khởi đầu:** CP-SAT trên toàn mô hình với 20% `THOI_GIAN_TOI_DA` nhưng không quá 120 (không giới hạn: 120). Nếu đã chứng minh tối ưu thì dừng (trường nhỏ của test).
-   - **Mỗi vòng:** QA chấm chi phí mềm của từng lớp-ngày theo đúng trọng số mục 8.2 (phạt tải ngày, tiết trống của một giáo viên chia đều cho các lớp người đó dạy hôm ấy). Rồi xếp lại lần lượt các vùng, vùng xấu trước: từng lớp (tối đa 5) → 5 "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên không chủ nhiệm hôm ấy, mở thêm ngày tốt nhất của lớp; 10) → nhóm lớp của một giáo viên dùng chung 2–8 lớp (15) → từng khối (20) → từng cặp ngày (30). Mỗi vùng: giữ nguyên mọi biến ngoài vùng, CP-SAT giải lại xuất phát từ nghiệm đang có, **chỉ nhận khi chi phí giảm**. Luật cứng luôn đúng vì vẫn giải trên toàn mô hình.
+   - **Mỗi vòng:** QA chấm chi phí mềm của từng lớp-ngày theo đúng trọng số mục 8.2 (phạt tải ngày, tiết trống của một giáo viên chia đều cho các lớp người đó dạy hôm ấy). Rồi xếp lại lần lượt các vùng, vùng xấu trước: từng lớp (tối đa 5) → 5 "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên không chủ nhiệm hôm ấy, mở thêm ngày tốt nhất của lớp; 10) → nhóm lớp của một giáo viên dùng chung 2–8 lớp (15) → từng khối (20) → từng cặp ngày (30). Mỗi vùng: giữ nguyên mọi biến ngoài vùng, CP-SAT giải lại xuất phát từ nghiệm đang có, **chỉ nhận khi chi phí giảm**. Luật cứng luôn đúng vì vẫn giải trên toàn mô hình. **Bỏ qua** vùng đã xếp lại (cùng giới hạn) mà nghiệm chưa đổi từ lần đó: CP-SAT tất định nên giải lại chắc chắn ra y hệt; bỏ qua không đổi TKB, chỉ bớt thời gian (file của trường: xong ở khoảng 1000 thay vì 1200 đơn vị).
    - **Dừng:** hết `THOI_GIAN_TOI_DA`; một vòng giảm chưa tới 0,3% chi phí (không giới hạn: vòng không giảm); đủ 10 vòng; hoặc Ctrl+C (dừng sau vùng đang xếp).
    - Tham số trong `config.py`: `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`.
    - Màn hình in "chi phí xếp giờ" (mục tiêu trừ phần của phân công, là hằng số) sau khởi đầu và sau mỗi vòng. Trạng thái là FEASIBLE: kết quả là tốt nhất tìm được (tối ưu cục bộ theo các vùng), không chứng minh tối ưu.
@@ -471,7 +471,7 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 
 ### 11.4. Màn hình và mã thoát
 
-- Màn hình in: các bước giải, **dự toán và biên bù**, cảnh báo, kết quả kiểm tra luật, **mã kết quả**, người cần bổ sung, tiết dạy bù (tổng, theo GVCN/bộ môn, số người +2/+1), số tiết môn nặng ở tiết 7, số tiết TV/Toán buổi chiều, lỗi kiểm tra.
+- Màn hình in: các bước giải, **dự toán và biên bù**, cảnh báo, kết quả kiểm tra luật, **mã kết quả**, người cần bổ sung, tiết dạy bù (tổng, theo GVCN/bộ môn, số người +2/+1), **chi phí xếp giờ theo từng mục tiêu mềm** (số tiết và điểm: TV/Toán buổi chiều trên tổng số tiết TV/Toán, môn nặng tiết 7, rải đều, tải ngày của giáo viên, thưởng tiết tăng cường...; tính trên TKB trước khi trả ô bù về người bù, tổng bằng chi phí xếp giờ của mục 9), lỗi kiểm tra.
 - Mã thoát:
   - `0`: thành công (kể cả khi dừng sớm bằng Ctrl+C ở chế độ không giới hạn thời gian).
   - `1`: lỗi đầu vào, hoặc không xếp được.

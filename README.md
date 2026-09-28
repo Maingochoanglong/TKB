@@ -234,8 +234,8 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 2. **Tiết bù → người mới:** các tiết bù (và, ở chế độ tuyển, tiết thiếu) giao cho người tuyển mới.
 3. **Xếp giờ** với phân công cố định đó (`tkb/lns.py`), trong `THOI_GIAN_TOI_DA`:
    - **khởi đầu:** CP-SAT xếp toàn trường với 20% thời gian nhưng không quá 120 (không giới hạn: 120), được một TKB đúng luật;
-   - **các vòng xếp lại:** mỗi vòng chấm điểm từng lớp-ngày theo các mục tiêu mềm (QA), rồi lần lượt xếp lại từng vùng, vùng xấu trước: từng lớp, các "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên hôm đó), nhóm lớp của một giáo viên dùng chung, từng khối, từng cặp ngày. Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT tìm cách xếp tốt hơn trong vùng, chỉ nhận khi tốt hơn. Luật bắt buộc luôn đúng;
-   - **dừng** khi hết thời gian, khi một vòng tốt lên chưa tới 0,3% (không giới hạn: khi vòng không tốt lên), sau 10 vòng, hoặc khi bấm Ctrl+C. Màn hình in chi phí xếp giờ (tổng điểm phạt mềm) sau mỗi vòng.
+   - **các vòng xếp lại:** mỗi vòng chấm điểm từng lớp-ngày theo các mục tiêu mềm (QA), rồi lần lượt xếp lại từng vùng, vùng xấu trước: từng lớp, các "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên hôm đó), nhóm lớp của một giáo viên dùng chung, từng khối, từng cặp ngày. Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT tìm cách xếp tốt hơn trong vùng, chỉ nhận khi tốt hơn; vùng đã xếp lại mà TKB chưa đổi từ lần đó thì bỏ qua (giải lại chắc chắn ra y hệt). Luật bắt buộc luôn đúng;
+   - **dừng** khi hết thời gian, khi một vòng tốt lên chưa tới 0,3% (không giới hạn: khi vòng không tốt lên), sau 10 vòng, hoặc khi bấm Ctrl+C. Màn hình in chi phí xếp giờ (tổng điểm phạt mềm) sau mỗi vòng, và cuối cùng in chi phí theo từng mục tiêu mềm (ví dụ `TV, Toán ở buổi chiều: 37/408 tiết, 11100 điểm`) để thấy chi phí nằm ở đâu.
    - Với file của trường, cách này cho TKB tốt hơn cả khi để một lần CP-SAT chạy 110 phút, ngay với 600 (khoảng 4–6 phút). Mặc định 1200 ra đúng TKB của chế độ không giới hạn. Kết quả là tốt nhất tìm được, không chứng minh là tối ưu.
 
    Chế độ tuyển: giữ người mới. Chế độ bù: trả các ô đó về đúng người bù. Hai chế độ cùng vị trí môn.

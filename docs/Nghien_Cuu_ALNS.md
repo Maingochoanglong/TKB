@@ -211,8 +211,8 @@ Nguyên mẫu vẫn tái lập (cùng dữ liệu, cùng hệ điều hành thì
 
 1. **Giữ LNS theo vòng, không thay bằng ALNS.** Ba nguyên mẫu ALNS không tốt hơn trên cả hai bộ dữ liệu; bản
    thuần ALNS kém hơn 6%. Với CP-SAT làm bước sửa, mỗi lần lặp đắt nên không đủ số lần để phần "thích nghi" có ích.
-2. **Lấy một ý của ALNS/tabu: nhớ vùng đã thử trên nghiệm hiện tại** (biến thể `bo_trung`). Chắc chắn không làm TKB
-   kém đi, vì lần bị bỏ là lần chắc chắn không giảm:
+2. **Lấy một ý của ALNS/tabu: nhớ vùng đã thử trên nghiệm hiện tại** (biến thể `bo_trung`; đã đưa vào
+   `lns.improve` trên nhánh này). Chắc chắn không làm TKB kém đi, vì lần bị bỏ là lần chắc chắn không giảm:
    - Trên Linux, cả hai bộ dữ liệu ra **đúng cùng TKB**. File của trường xong ở **1001 thay vì 1204 đơn vị (−17%)**;
      trường mẫu không đổi (chỉ có 1 lần trùng).
    - Sửa khoảng 10 dòng trong `lns.improve`: tập các khoá (vùng, giới hạn, phiên bản nghiệm), phiên bản tăng mỗi

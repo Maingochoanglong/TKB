@@ -179,8 +179,8 @@ TV/Toán, môn liền nhau, cặp, tiết 1 GVCN, giáo viên không trùng gi�
 
 | Đề xuất | Lợi ích (đo được hoặc ước lượng) | Công sức | Rủi ro | Đánh giá |
 |---|---|---|---|---|
-| Bỏ lần xếp lại y hệt | **Đã đo:** cùng TKB (so từng lần giải); file của trường xong ở 1001 thay vì 1204 đơn vị (−17%, khoảng 1,5–2 phút); trường mẫu gần như không đổi | Khoảng 10 dòng trong `lns.improve` + 1 test | Rất thấp. Mã kết quả Linux không đổi; Windows cần CI xác nhận | **Làm ngay** |
-| In chi phí theo thành phần và phần bắt buộc | Không đổi TKB. Nhà trường thấy 17.200 gồm những gì, phần nào không tránh được (bảng mục 7.1) | Khoảng 30 dòng (có sẵn hàm tách thành phần) | Không (chỉ in thêm ra màn hình hoặc file thống kê) | **Nên làm** |
+| Bỏ lần xếp lại y hệt | **Đã đo:** cùng TKB (so từng lần giải); file của trường xong ở 1001 thay vì 1204 đơn vị (−17%, khoảng 1,5–2 phút); trường mẫu gần như không đổi | Khoảng 10 dòng trong `lns.improve` + 1 test | Rất thấp. Mã kết quả Linux không đổi; Windows cần CI xác nhận | **Làm ngay**; đã làm trên nhánh này |
+| In chi phí theo thành phần và phần bắt buộc | Không đổi TKB. Nhà trường thấy 17.200 gồm những gì, phần nào không tránh được (bảng mục 7.1) | Khoảng 30 dòng (có sẵn hàm tách thành phần) | Không (chỉ in thêm ra màn hình hoặc file thống kê) | **Nên làm**; đã làm trên nhánh này (`solver.cost_breakdown`) |
 | Nhiễu mạnh cho chế độ không giới hạn | **Đã đo:** −40 (−0,23%) trên file của trường khi gấp đôi thời gian; 0 trên trường mẫu; mỗi bộ một lần chạy | Khoảng 60 dòng | Chế độ không giới hạn mất "tự dừng"; lợi ích chưa chắc | Tùy chọn, cần đo thêm nhiều hạt giống |
 | Cận theo lớp | **Đã làm:** 8.400 / 8.300, yếu hơn cận CP-SAT | Xong | Không | Giữ làm công cụ phân tích; không đủ để biết còn giảm được bao nhiêu |
 | Mô hình mẫu ngày + sinh cột | **Ước lượng:** tối đa 2.990 (17%) trên file của trường. Riêng phần nới lỏng tuyến tính (cận dưới) sẽ cho biết con số thật | Phần cận: khoảng 1 tuần. Cả bộ giải: vài tuần | Cao | Chỉ làm nếu nhà trường cần TKB tốt hơn nữa; làm phần cận trước |

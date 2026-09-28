@@ -8,6 +8,8 @@
      hôm ấy, mở thêm ngày tốt nhất của lớp) -> nhóm lớp của một GV dùng chung -> từng khối -> từng cặp ngày.
      Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT xếp lại trong vùng xuất phát từ nghiệm đang có, chỉ nhận
      khi chi phí giảm. Luật cứng luôn đúng vì vẫn giải trên toàn mô hình.
+   - Bỏ qua vùng đã xếp lại (cùng giới hạn) mà nghiệm chưa đổi từ lần đó: CP-SAT tất định nên giải lại chắc chắn
+     ra y hệt, không giảm được gì. Cùng TKB như khi giải lại, chỉ bớt ngân sách (docs/Nghien_Cuu_ALNS.md, mục 4.3).
 3. Dừng khi: hết ngân sách; một vòng giảm chưa tới LNS_MIN_GAIN chi phí (không giới hạn: vòng không giảm);
    đủ LNS_MAX_ROUNDS vòng; hoặc Ctrl+C (dừng sau lần xếp lại đang chạy, vài giây).
 
@@ -199,6 +201,9 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) 
         log(f"  Khởi đầu: chi phí xếp giờ {result.history[-1]}")
         if status == cp_model.OPTIMAL:
             result.stop = "đã tối ưu"
+        # (tên vùng, giới hạn, phiên bản nghiệm) đã xếp lại; phiên bản tăng mỗi khi nhận nghiệm mới.
+        done: set[tuple[str, float, int]] = set()
+        version = 0
         rnd = 0
         while not result.stop:
             if search.interrupted:
@@ -211,15 +216,20 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) 
             before = result.objective
             cost, lessons = search.qa(result.values)
             tried = 0
-            for _, _, free, limit in search.regions(cost, lessons):
+            for _, name, free, limit in search.regions(cost, lessons):
                 left = total - search.used
                 if left < 1:
                     result.stop = "hết thời gian"
                     break
                 tried += 1
-                _, val, new, _, _ = search.region(free, min(limit, left), result.values)
+                key = (name, min(limit, left), version)
+                if key in done:
+                    continue  # giải lại y hệt lần trước (xem đầu module)
+                done.add(key)
+                _, val, new, _, _ = search.region(free, key[1], result.values)
                 if val is not None and val < result.objective - 0.5:
                     result.objective, result.values = val, new
+                    version += 1
                 if search.interrupted:
                     result.stop = "Ctrl+C"
                     break
