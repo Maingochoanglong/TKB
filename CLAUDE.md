@@ -111,5 +111,6 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
   §6 student rules, §7 shortage modes, §8 objectives and weights, §9 solve process and reproducibility,
   §11 outputs, §13 reference results.
 - `docs/Tham_Khao_TKB_Truong_Khac.md`: how other schools arrange subjects; §5 proposals (5.1 done).
-- `docs/Nghien_Cuu_ALNS.md`: ALNS research for the timetabling step: LNS measured per round/region kind, ALNS
-  prototypes (`tools/thu_alns.py <mau|truong> <lns|bo_trung|v1|v2|v3>`, results in `out/thu_alns/`), proposals.
+- `docs/Nghien_Cuu_ALNS.md`: research on the timetabling step: LNS measured per round/region kind, ALNS prototypes,
+  new region kinds, strong perturbation + LNS (`tools/thu_alns.py <mau|truong> <lns|bo_trung|v1|v2|v3|vung_moi|
+  vung_moi_sau|nhieu> [budget]`, results in `out/thu_alns/`), proposals.

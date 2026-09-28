@@ -1,8 +1,9 @@
-# Nghiên cứu: ALNS cho bước xếp giờ
+# Nghiên cứu: ALNS và hai hướng khác cho bước xếp giờ
 
 Tài liệu nghiên cứu trên nhánh `claude/cp-sat-anlp-development-6uqx3j`. Chưa đổi code chạy thật: `tkb/lns.py`,
 mã kết quả và TKB giữ nguyên. Mọi số liệu dưới đây đo trên Linux với các hằng số mặc định của `main.py` (bù giờ,
-`THOI_GIAN_TOI_DA = 1200`, 8 luồng, chế độ tái lập). Với file của trường chỉ ghi chi phí và loại vùng, không ghi tên.
+`THOI_GIAN_TOI_DA = 1200`, 8 luồng, chế độ tái lập; mục 8 có thêm 2400). Với file của trường chỉ ghi chi phí và loại
+vùng, không ghi tên.
 
 ## 1. Tóm tắt
 
@@ -17,9 +18,15 @@ mã kết quả và TKB giữ nguyên. Mọi số liệu dưới đây đo trên
   `v3` có luyện kim) bằng LNS hiện tại trên file của trường, kém 1,2–1,8% trên trường mẫu. Lý do: mỗi lần sửa là
   một lần CP-SAT nên chỉ có 100–200 lần lặp, không đủ để học; thứ tự "rẻ trước, xấu trước" hiện có đã tốt; và TKB có
   nhiều vùng phẳng nên luyện kim không có tác dụng.
+- **Hai hướng khác** (mục 8), so với cách cũ ở 1200 và 2400:
+  - **Vùng mới** cắt ngang loại cũ (một khối, hoặc các lớp của một GV dùng chung, trong 2 ngày) không giúp gì. Đặt
+    cuối vòng thì ra đúng cùng TKB; đặt trước vùng lớn thì kém hơn 0,06–0,6%.
+  - **Nhiễu mạnh rồi LNS lại** (buộc đổi 20% số tiết của một vùng lớn) là hướng duy nhất dùng được thêm thời gian.
+    Nhưng mức lợi nhỏ: với 2400, file của trường tốt hơn 0,23% (17.200 → 17.160), trường mẫu bằng; với 1200 thì bằng.
+  - Mọi lần buộc đổi 20% số tiết đều **không làm tăng chi phí**: TKB có những vùng phẳng rất rộng.
 - **Đề xuất** (mục 7): giữ LNS theo vòng; lấy một ý của ALNS/tabu là **bỏ lần xếp lại y hệt**. Ý này ra đúng cùng
-  TKB, riêng file của trường xong sớm hơn 17% (1001 thay vì 1204 đơn vị). Muốn TKB tốt hơn thì cần loại vùng mới
-  hoặc nhiễu mạnh hơn, không cần cách chọn vùng mới.
+  TKB, riêng file của trường xong sớm hơn 17% (1001 thay vì 1204 đơn vị). Vùng mới và nhiễu mạnh không đáng đưa
+  vào mặc định; nhiễu mạnh chỉ có thể cân nhắc cho chế độ không giới hạn thời gian.
 
 ---
 
@@ -213,14 +220,92 @@ Nguyên mẫu vẫn tái lập (cùng dữ liệu, cùng hệ điều hành thì
    - Mã kết quả trên Linux không đổi. Windows chạy đường đi khác nên cần xem log của `windows.yml`: nếu một vòng
      dang dở vì hết ngân sách mà nay chạy được thêm vùng và giảm thêm, TKB Windows sẽ khác (tốt hơn hoặc bằng).
      Khi đó phải cập nhật mã Windows trong README, spec §0/§9 và `CLAUDE.md`.
-3. **Muốn TKB tốt hơn thì cần vùng mới, không phải cách chọn vùng mới.** File của trường còn cách cận dưới
-   14.210 khoảng 17%, nhưng phần lớn là bắt buộc theo luật cứng (spec §14.4). Hướng đáng thử tiếp:
-   - vùng cắt ngang các loại hiện có: các lớp của một GV dùng chung trong 2–3 ngày; một khối trong một cặp ngày;
-   - nhiễu mạnh hơn khi LNS đã dừng: buộc đổi nhiều tiết một lúc, hoặc không cho đổi sang cách cùng chi phí, để
-     thật sự rời vùng phẳng (`v3` cho thấy buộc đổi một tiết là quá yếu). Chỉ đáng thử ở chế độ không giới hạn thời
-     gian, vì với 1200 thì vòng 1–2 đã dùng gần hết ngân sách.
+3. **Vùng mới và nhiễu mạnh (mục 8) cũng không đáng đưa vào mặc định 1200.** File của trường còn cách cận dưới
+   14.210 khoảng 17%, nhưng phần lớn là bắt buộc theo luật cứng (spec §14.4), và tối ưu cục bộ mà LNS hiện tại đạt
+   được rất "chắc":
+   - vùng mới cắt ngang không phá được nó (đặt cuối vòng: cùng TKB), đặt trước còn làm kết quả kém đi;
+   - nhiễu mạnh rồi LNS lại đôi khi tìm được nghiệm tốt hơn, nhưng ít (0,23% trên file của trường sau gấp đôi thời
+     gian). Có thể cân nhắc cho **chế độ không giới hạn**: thay vì tự dừng khi một vòng không còn giảm (file của
+     trường dừng ở khoảng 1000 đơn vị), tiếp tục nhiễu + LNS lại tới khi bấm Ctrl+C. Trước khi quyết cần thử thêm
+     nhiều hạt giống và mức nhiễu khác, vì mỗi bộ dữ liệu mới chạy một lần.
 
-## 8. Tài liệu tham khảo
+## 8. Hai hướng khác so với cách cũ
+
+Sau ALNS (mục 5), thử tiếp hai hướng của mục 7.3 bằng `tools/thu_alns.py`. Hai hướng dùng chung bước khởi đầu và
+cách xếp lại một vùng với cách cũ, và cũng bỏ lần xếp lại y hệt (không làm đổi TKB, mục 7.2). Mỗi hướng chạy với
+1200 (mặc định) và 2400, để xem hướng đó có biến thêm thời gian thành TKB tốt hơn không. Cách cũ thì không: nó tự
+dừng khi một vòng không còn giảm (bỏ lần trùng: trường mẫu ở 1439 đơn vị, file của trường ở 1001), và mọi ngân sách
+từ 1200 trở lên đều ra cùng TKB (spec §9: 1200 đã bằng chế độ không giới hạn).
+
+### 8.1. Hướng A: vùng mới (`vung_moi`, `vung_moi_sau`)
+
+Mỗi vòng thêm hai loại vùng cắt ngang các loại cũ, giới hạn 10 mỗi vùng:
+- **khối × 2 ngày:** một khối trong cặp ngày có tổng chi phí QA lớn nhất của khối đó (5 vùng mỗi vòng);
+- **GV × 2 ngày:** các lớp của một GV dùng chung (như vùng GV dùng chung) trong cặp ngày xấu nhất của các lớp đó
+  (7–8 vùng mỗi vòng).
+
+Mỗi vùng mới có 700–1.400 biến (vùng cặp ngày khoảng 5.000). Đây là phần giao của các vùng lớn hay hết giờ (khối, GV
+dùng chung, cặp ngày): nếu vùng lớn hết giờ mà bỏ sót một cách giảm nằm trong phần giao thì vùng mới sẽ tìm ra.
+Thử hai cách đặt: trước vùng GV dùng chung (`vung_moi`, "vùng nhỏ trước" như cách cũ) và cuối mỗi vòng
+(`vung_moi_sau`).
+
+| | Trường mẫu 1200 | Trường mẫu 2400 | File của trường 1200 | File của trường 2400 |
+|---|---:|---:|---:|---:|
+| Cách cũ | 17.050 | 17.050 | 17.200 | 17.200 |
+| Vùng mới đặt trước | 17.150 (+100) | 17.060 (+10), tự dừng ở 1550 | 17.260 (+60) | 17.260 (+60), tự dừng ở 1262 |
+| Vùng mới đặt cuối | 17.050, cùng TKB | 17.050, cùng TKB, tự dừng ở 1442 | 17.200, cùng TKB, tự dừng ở 1003 | 17.200, cùng TKB |
+
+- **Đặt cuối vòng:** vùng mới được giải 40 lần (trường mẫu) và 28 lần (file của trường; không kể các lần bỏ vì
+  trùng), **không lần nào giảm**, và lần nào CP-SAT cũng chứng minh xong ngay (tổng cộng 2–3 đơn vị). Nghiệm của cách
+  cũ đã tối ưu sẵn trong mọi vùng mới; TKB y hệt (mã băm nghiệm trùng với cách cũ).
+- **Đặt trước:** vùng mới giảm nhiều ở vòng 1 (file của trường: khối × 2 ngày 790, GV × 2 ngày 1.710), nhưng sau đó
+  vùng GV dùng chung chỉ còn giảm 2.470 thay vì 4.610, và LNS dừng ở một tối ưu cục bộ xấu hơn. Đi bước nhỏ trước
+  thì mất những thay đổi lớn mà chỉ vùng cả tuần mới làm được. Có thêm thời gian (2400) cũng không bù lại.
+- **Kết luận:** vùng mới không có ích. Chỗ kẹt của tối ưu cục bộ hiện tại không phải là "vùng lớn hết giờ nên bỏ
+  sót phần giao".
+
+### 8.2. Hướng B: nhiễu mạnh rồi LNS lại (`nhieu`)
+
+Kiểu tìm kiếm cục bộ lặp (iterated local search): chạy LNS như cũ tới khi dừng, rồi lặp tới khi hết ngân sách:
+1. chọn ngẫu nhiên (bộ sinh số tất định, mục 6) một vùng lớn của nghiệm tốt nhất: GV dùng chung, khối hoặc cặp ngày;
+2. **buộc đổi chỗ ít nhất 20% số tiết** trong vùng; CP-SAT tìm cách đổi rẻ nhất, có thể tệ hơn (giới hạn 30);
+3. chạy các vòng LNS như cũ từ nghiệm đó tới khi dừng; tốt hơn nghiệm tốt nhất thì giữ.
+
+| | Trường mẫu | File của trường |
+|---|---:|---:|
+| 1200 | 17.050, bằng: LNS dùng hết ngân sách, không còn chỗ để nhiễu (không chạy riêng, kết quả chắc chắn trùng cách cũ) | 17.200, bằng: 1 lần nhiễu, hết ngân sách giữa lúc LNS lại |
+| 2400 | 17.050, bằng: 3 lần nhiễu, không lần nào tốt hơn | **17.160 (−40, −0,23%)**: 4 lần nhiễu, 1 lần tốt hơn |
+
+Các lần nhiễu ở 2400 (chi phí: trước nhiễu → sau nhiễu → sau LNS lại):
+
+| Lần | Trường mẫu | File của trường |
+|---|---|---|
+| 1 | khối 5, đổi ≥ 32/160 tiết: 17.050 → 17.050 → 17.050 | khối 5, đổi ≥ 32/160 tiết: 17.200 → 17.200 → **17.160** |
+| 2 | GV dùng chung (khối 1), ≥ 32/160: 17.050 → 17.050 → 17.050 | GV dùng chung (4 lớp khối 4), ≥ 26/128: 17.160 → 17.160 → 17.160 |
+| 3 | GV dùng chung (khối 2–3), ≥ 38/192: 17.050 → 17.050 → 17.050 | GV dùng chung (khối 5), ≥ 32/160: 17.160 → 17.160 → 17.160 |
+| 4 | | GV dùng chung (khối 2–3), ≥ 45/224: 17.160 → 17.160 → 17.160 |
+
+- **Không lần nhiễu nào làm tăng chi phí.** Đổi chỗ 20% số tiết của một khối hay một nhóm lớp mà chi phí vẫn y
+  nguyên: TKB có những vùng phẳng rất rộng (mục 5.2 đã thấy điều này khi đổi 1 tiết). Vì vậy nhiễu thực chất là một
+  bước nhảy xa trên vùng phẳng, không phải một bước lùi.
+- **Chỉ hướng này biến thêm thời gian thành TKB tốt hơn**, nhưng ít: −40 (0,23%) trên file của trường, 0 trên
+  trường mẫu, khi gấp đôi thời gian. Mỗi bộ dữ liệu mới chạy một lần với một hạt giống, nên chưa nói được mức lợi
+  trung bình.
+- Mỗi lần nhiễu + LNS lại tốn 300–400 đơn vị (một vòng đầy đủ và một vòng không giảm), nên với 1200 gần như không
+  còn chỗ cho nó.
+
+### 8.3. So sánh chung
+
+| Hướng | So với cách cũ | Tốn thêm |
+|---|---|---|
+| ALNS (mục 5) | kém hơn 1,2–6% hoặc bằng | không |
+| A: vùng mới | đặt cuối vòng: bằng, cùng TKB; đặt trước: kém hơn 0,06–0,6% | đặt cuối: gần 0 |
+| B: nhiễu mạnh + LNS lại | 1200: bằng; 2400: file của trường tốt hơn 0,23%, trường mẫu bằng | gấp đôi thời gian |
+
+Tối ưu cục bộ mà LNS hiện tại đạt được rất "chắc": vùng mới không phá được, chỉ nhảy xa trên vùng phẳng rồi tối ưu
+lại mới đôi khi thấy nghiệm tốt hơn, và lợi ích nhỏ. Với mặc định 1200, cách cũ vẫn là lựa chọn tốt nhất.
+
+## 9. Tài liệu tham khảo
 
 - P. Shaw (1998). *Using Constraint Programming and Local Search Methods to Solve Vehicle Routing Problems.* CP-98,
   LNCS 1520. <https://link.springer.com/chapter/10.1007/3-540-49481-2_30>
