@@ -114,3 +114,5 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
 - `docs/Nghien_Cuu_ALNS.md`: research on the timetabling step: LNS measured per round/region kind, ALNS prototypes,
   new region kinds, strong perturbation + LNS (`tools/thu_alns.py <mau|truong> <lns|bo_trung|v1|v2|v3|vung_moi|
   vung_moi_sau|nhieu> [budget]`, results in `out/thu_alns/`), proposals.
+- `docs/Tong_Quan_Thuat_Toan_TKB.md`: survey of timetabling algorithms (MIP, column generation / day patterns, MaxSAT,
+  CP, SA/VNS/LAHC, decomposition) vs this project; ~8,640 of the cost is forced by hard rules; ranked proposals.
