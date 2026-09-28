@@ -115,16 +115,13 @@ def main(argv: list[str] | None = None) -> int:
         levels = Counter(overtime.values())
         if levels:
             print("  " + ", ".join(f"{levels[k]} người bù +{k}" for k in sorted(levels, reverse=True)))
-    late = sum(1 for les in solution.lessons
-               if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_LATE_PERIODS)
-    print(f"Môn nặng ở tiết {', '.join(map(str, sorted(config.HEAVY_LATE_PERIODS)))}: {late} tiết "
-          f"(mục tiêu mềm, càng ít càng tốt)")
-    core = [les for les in solution.lessons if les.subject in config.MORNING_SUBJECTS]
-    if core:
-        names = ", ".join(solution.problem.subject_label(s) for s in sorted(config.MORNING_SUBJECTS)
-                          if any(les.subject == s for les in core))
-        afternoon = sum(1 for les in core if les.period not in config.MORNING.periods)
-        print(f"{names} ở buổi chiều: {afternoon}/{len(core)} tiết (mục tiêu mềm: dành buổi sáng cho các môn này)")
+    if solution.costs:
+        core = sum(1 for les in solution.lessons if les.subject in config.MORNING_SUBJECTS)
+        print(f"Chi phí xếp giờ (mục tiêu mềm, càng thấp càng tốt): {sum(c[-1] for c in solution.costs)}")
+        for key, name, n, unit, points in solution.costs:
+            if n:
+                of = f"/{core}" if key == "morning_core" else ""
+                print(f"  {name}: {n}{of} {unit}, {points} điểm")
     for e in errors[:20]:
         print(f"  LỖI: {e}")
     print(f"Đã ghi: {output}")

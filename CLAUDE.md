@@ -56,9 +56,11 @@ Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` sh
 4. `timetable(fixed=...)`: `build_timetable` makes ONE global CP-SAT model over all lessons (`x[course, (day,
    period)]`, `z[course, teacher, slot]` booleans, hard constraints + soft objective weighted by `config.Weights`),
    then `lns.improve`: CP-SAT start with 20% of the budget (≤ 120), then rounds of QA (cost per class-day) and re-solving
-   regions (class, hot spot, shared-teacher classes, grade, day pair) with everything else fixed; stops on budget,
-   a round gaining < 0.3%, 10 rounds, or Ctrl+C. Budget is deterministic time ⇒ reproducible. `bu_gio` then
-   relabels hire lessons back to their owners (`_to_overtime`), so both modes place every lesson in the same cell.
+   regions (class, hot spot, shared-teacher classes, grade, day pair) with everything else fixed, skipping a region
+   already re-solved (same limit) on the unchanged solution; stops on budget, a round gaining < 0.3%, 10 rounds, or
+   Ctrl+C. Budget is deterministic time ⇒ reproducible. `solver.cost_breakdown` splits the cost by soft goal
+   (printed at the end). `bu_gio` then relabels hire lessons back to their owners (`_to_overtime`), so both modes
+   place every lesson in the same cell.
 5. If infeasible (`tuyen_them` only): integrated model (`_Allocation` + timetable, single CP-SAT solve) with +1, then
    +3 spare supplements.
 
@@ -76,7 +78,7 @@ afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names 
 | Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES` | `allocation.roles_for_subject`, `manager_allowed` |
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 | `OVERTIME_ROLES`, `OVERTIME_MAX`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
-| Soft: heavy subjects at p7, TV/Toán mornings, Toán TC right after Toán, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |
+| Soft: heavy subjects at p7, TV/Toán mornings, Toán TC right after Toán, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` (ranks regions) and `solver.cost_breakdown` (printed) mirror them: keep all three in sync |
 | Timetabling loop: start share (≤ `LNS_START_MAX`), region limits, stop rules | `LNS_*`, `Settings.time_limit` (1200) | `lns.improve`, `lns._Search.regions` |
 
 Glossary: GVCN/chủ nhiệm = homeroom teacher; bộ môn = general subject teacher; GV chuyên biệt = specialist (role
@@ -111,3 +113,9 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
   §6 student rules, §7 shortage modes, §8 objectives and weights, §9 solve process and reproducibility,
   §11 outputs, §13 reference results.
 - `docs/Tham_Khao_TKB_Truong_Khac.md`: how other schools arrange subjects; §5 proposals (5.1 done).
+- `docs/Nghien_Cuu_ALNS.md`: research on the timetabling step: LNS measured per round/region kind, ALNS prototypes,
+  new region kinds, strong perturbation + LNS (`tools/thu_alns.py <mau|truong> <lns|bo_trung|v1|v2|v3|vung_moi|
+  vung_moi_sau|nhieu> [budget]`, results in `out/thu_alns/`), proposals.
+- `docs/Tong_Quan_Thuat_Toan_TKB.md`: survey of timetabling algorithms (MIP, column generation / day patterns, MaxSAT,
+  CP, SA/VNS/LAHC, decomposition) vs this project, and a measured evaluation of the proposals (§7): per-class lower
+  bound 8,300–8,400 (`tools/thu_alns.py --can-duoi`), the rest comes from shared teachers (`--thanh-phan`).

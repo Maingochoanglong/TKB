@@ -15,6 +15,7 @@ import hashlib
 import json
 import math
 import time
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field, replace
 
 from ortools.sat.python import cp_model
@@ -54,6 +55,7 @@ class Solution:
     wall_time: float
     stage: str
     notes: list[str] = field(default_factory=list)
+    costs: list[tuple[str, str, int, str, int]] = field(default_factory=list)  # xem cost_breakdown
 
     def teacher_load(self) -> dict[str, int]:
         load = {t: 0 for t in self.problem.teachers}
@@ -612,6 +614,73 @@ def build_timetable(problem: Problem, settings: config.Settings,
     return TimetableModel(problem, m, x, z, dom, alloc.teachers_of, list(alloc.objective))
 
 
+def cost_breakdown(problem: Problem, lessons: list[Lesson],
+                   w: config.Weights) -> list[tuple[str, str, int, str, int]]:
+    """Chi phí xếp giờ theo thành phần mục tiêu mềm: (khoá, tên, số lượng, đơn vị, điểm), thứ tự cố định.
+
+    Tính lại trên TKB đã xếp theo đúng công thức các khối mục tiêu của build_timetable (và lns._Search.qa: sửa
+    một chỗ thì sửa cả ba). Tổng bằng chi phí xếp giờ in lúc giải; có thể thấp hơn chút nếu CP-SAT chưa đẩy hết
+    các biến phụ của mục tiêu xuống mức nhỏ nhất.
+    """
+    label = problem.subject_label
+    core = ", ".join(label(s) for s in sorted(config.MORNING_SUBJECTS))
+    extra = ", ".join(label(s) for s in sorted(config.AFTERNOON_SUBJECTS))
+    late = ", ".join(map(str, sorted(config.HEAVY_LATE_PERIODS)))
+    parts = [("morning_core", f"{core} ở buổi chiều", "tiết"),
+             ("heavy_late", f"Môn nặng ở tiết {late}", "tiết"),
+             ("extra_morning", f"{extra} ở buổi sáng", "tiết"),
+             ("hdtn_flex", f"{label(config.HDTN)} linh hoạt không ở cuối buổi", "tiết"),
+             ("spread", "Môn dồn nhiều tiết trong một ngày", "tiết dư"),
+             ("day_load", "Giáo viên dạy quá số tiết mong muốn của ngày", "tiết vượt"),
+             ("teacher_gap", "Tiết trống giữa buổi của giáo viên không chủ nhiệm", "tiết"),
+             ("extra_after_main", "Tiết tăng cường liền sau tiết chính, cùng người dạy (thưởng)", "lần")]
+    count, points = Counter(), Counter()
+
+    def add(key: str, n: int, p: int) -> None:
+        count[key] += n
+        points[key] += p
+
+    at = {(les.class_name, les.day, les.period): les for les in lessons}
+    session_at = session_of()
+    for les in lessons:
+        slot = les.day, les.period
+        if les.subject in config.MORNING_SUBJECTS and les.period not in config.MORNING.periods:
+            add("morning_core", 1, w.morning_core)
+        elif les.subject in config.AFTERNOON_SUBJECTS and les.period in config.MORNING.periods:
+            add("extra_morning", 1, w.extra_morning)
+        if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_LATE_PERIODS:
+            add("heavy_late", 1, w.heavy_late)
+        if problem.courses[les.course_id].flex_hdtn and distance_to_session_end(slot) > 0:
+            add("hdtn_flex", 1, w.hdtn_flex_distance * distance_to_session_end(slot))
+        prev = at.get((les.class_name, les.day, les.period - 1))
+        if (prev and prev.subject == config.SUBJECT_GROUPS.get(les.subject) and prev.teacher == les.teacher
+                and session_at.get((les.day, les.period - 1)) is session_at[slot]):
+            add("extra_after_main", 1, -w.extra_after_main)
+    days = sorted(config.DAY_SESSIONS)
+    total = Counter()
+    for c in problem.courses:
+        if c.subject != config.HDTN:
+            total[c.class_name, c.subject] += c.lessons
+    per_day = Counter((les.class_name, les.subject, les.day) for les in lessons if les.subject != config.HDTN)
+    for (cls, subject, _), k in sorted(per_day.items()):
+        over = max(0, k - math.ceil(total[cls, subject] / len(days)))
+        add("spread", over, over * (w.core_spread if subject in config.MORNING_SUBJECTS else w.subject_spread))
+    by_teacher_day: dict[tuple[str, int], list[int]] = defaultdict(list)
+    for les in lessons:
+        by_teacher_day[les.teacher, les.day].append(les.period)
+    for (g, d), periods in sorted(by_teacher_day.items()):
+        t = problem.teachers[g]
+        over = max(0, len(periods) - day_targets(t.max_lessons, problem.slots)[d])
+        add("day_load", over, w.day_over_preferred * over + w.day_over_buffer * max(0, over - 1))
+        if not t.class_name:
+            for sess in config.DAY_SESSIONS[d]:
+                ps = [p for p in periods if p in sess.periods]
+                if len(sess.periods) >= 3 and ps:
+                    gaps = (max(ps) - min(ps) + 1) - len(ps)
+                    add("teacher_gap", gaps, w.teacher_gap * gaps)
+    return [(key, name, count[key], unit, points[key]) for key, name, unit in parts]
+
+
 class ShortageError(SolveError):
     """Chế độ bù giờ: GVCN và bộ môn đã bù tối đa mà vẫn thiếu tiết (không tuyển thêm)."""
 
@@ -732,6 +801,7 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     log(f"Bước 2/2: xếp giờ ({budget}, {mode})...")
     solution = timetable(work, settings, fixed=fixed, log=log)
     if solution is not None:
+        solution.costs = cost_breakdown(work, solution.lessons, settings.weights)  # trước khi trả ô bù về người bù
         return solution if hire else _to_overtime(solution, base, owners)
     if not hire:
         raise SolveError("Không xếp được TKB với phân công đã dự toán. Thử tăng thời gian (THOI_GIAN_TOI_DA) hoặc "
@@ -742,6 +812,7 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         problem = build_problem(staff, curriculum, planned, overtime_max=0)
         solution = timetable(problem, settings, hint=fixed)
         if solution is not None:
+            solution.costs = cost_breakdown(problem, solution.lessons, settings.weights)
             solution.notes.append(f"Mô hình tích hợp (dự phòng {slack} GV bổ sung/chức vụ)")
             return solution
     raise SolveError("Không tìm được TKB hợp lệ. Thử tăng --time-limit hoặc tắt luật học sinh "
