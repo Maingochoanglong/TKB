@@ -5,6 +5,8 @@ Không đổi tkb/: mọi biến thể dùng lại lns._Search (khởi đầu, x
   python tools/thu_alns.py mau lns             trường mẫu tên giả (tests/du_lieu_mau.py), LNS hiện tại, 1200
   python tools/thu_alns.py truong v2 600       FILE_VAO của main.py (chỉ in chi phí và loại vùng, không in tên)
   python tools/thu_alns.py --tom-tat out/thu_alns/*.json      bảng theo loại vùng
+  python tools/thu_alns.py --can-duoi truong   cận dưới theo lớp (mỗi lớp giải riêng tới tối ưu)
+  python tools/thu_alns.py --thanh-phan out/thu_alns/truong_bo_trung_1200.json   chi phí theo thành phần
 
 Biến thể:
   lns       LNS hiện tại (lns.improve).
@@ -30,7 +32,8 @@ import json
 import math
 import sys
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,7 +45,8 @@ import main  # noqa: E402
 from tkb import config, lns  # noqa: E402
 from tkb.allocation import build_problem  # noqa: E402
 from tkb.phan_cong import phan_cong, tach_tiet_bu  # noqa: E402
-from tkb.solver import _hire_assignment, build_timetable  # noqa: E402
+from tkb.solver import (_configure, _hire_assignment, build_timetable, day_targets,  # noqa: E402
+                        distance_to_session_end, session_of)
 
 OUT = ROOT / "out" / "thu_alns"
 KINDS = ["lớp", "điểm nóng", "GV dùng chung", "khối", "cặp ngày"]
@@ -76,6 +80,12 @@ class Rng:
 
 def build_model(data: str, settings: config.Settings):
     """Mô hình xếp giờ với phân công cố định, như solver.solve dựng (chế độ bù giờ)."""
+    work, fixed = _work(data, settings)
+    return build_timetable(work, settings, fixed=fixed)
+
+
+def _work(data: str, settings: config.Settings):
+    """(bài toán xếp giờ, phân công cố định) như solver.solve dựng ở chế độ bù giờ."""
     if data == "mau":
         from tests.du_lieu_mau import CURRICULUM, sample_staff
         curriculum, staff = CURRICULUM, sample_staff()
@@ -90,7 +100,7 @@ def build_model(data: str, settings: config.Settings):
     split = tach_tiet_bu(base, plan, staff, include_missing=False)
     work = build_problem(staff, curriculum, {r: len(g) for r, g in split.items()}, overtime_max=0)
     fixed, _ = _hire_assignment(plan, work, split)
-    return build_timetable(work, settings, fixed=fixed)
+    return work, fixed
 
 
 def measuring_search(cache: Path, records: list, skip_repeats: bool = False, extra_regions: str = ""):
@@ -582,10 +592,123 @@ def run(data: str, variant: str, limit: float) -> Path:
     out.write_text(json.dumps(dict(
         data=data, variant=variant, limit=limit, history=res.history, used=res.used, stop=res.stop,
         wall=time.time() - start, logs=logs, records=records,
-        values=hashlib.sha1(repr(res.values).encode()).hexdigest()), ensure_ascii=False, indent=0))
+        values=hashlib.sha1(repr(res.values).encode()).hexdigest(), solution=res.values),
+        ensure_ascii=False, indent=0))
     print(f"{data} {variant} {limit:g}: chi phí {' -> '.join(map(str, res.history))}, dùng {res.used:.0f}, "
           f"{time.time() - start:.0f} giây. Ghi {out.relative_to(ROOT)}")
     return out
+
+
+COMPONENTS = ["TV/Toán buổi chiều", "môn nặng tiết 7", "Toán TC buổi sáng", "HĐTN xa cuối buổi", "rải đều",
+              "thưởng tiết TC liền sau", "tải ngày GV", "tiết trống GV"]
+
+
+def components(tm, values, w: config.Weights) -> Counter:
+    """Chi phí xếp giờ của một nghiệm theo từng thành phần, đúng công thức mục tiêu của solver.build_timetable."""
+    problem = tm.problem
+    lessons = tm.lessons(lambda v: values[v.Index()])
+    out = Counter({k: 0 for k in COMPONENTS})
+    at = {(les.class_name, les.day, les.period): les for les in lessons}
+    session = session_of()
+    for les in lessons:
+        slot = les.day, les.period
+        if les.subject in config.MORNING_SUBJECTS and les.period not in config.MORNING.periods:
+            out["TV/Toán buổi chiều"] += w.morning_core
+        elif les.subject in config.AFTERNOON_SUBJECTS and les.period in config.MORNING.periods:
+            out["Toán TC buổi sáng"] += w.extra_morning
+        if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_LATE_PERIODS:
+            out["môn nặng tiết 7"] += w.heavy_late
+        if problem.courses[les.course_id].flex_hdtn:
+            out["HĐTN xa cuối buổi"] += w.hdtn_flex_distance * distance_to_session_end(slot)
+        main_subject = config.SUBJECT_GROUPS.get(les.subject)
+        prev = at.get((les.class_name, les.day, les.period - 1))
+        if (main_subject and prev and prev.subject == main_subject and prev.teacher == les.teacher
+                and session.get((les.day, les.period - 1)) is session[slot]):
+            out["thưởng tiết TC liền sau"] -= w.extra_after_main
+    days = sorted(config.DAY_SESSIONS)
+    total = Counter((c.class_name, c.subject) for c in problem.courses for _ in range(c.lessons)
+                    if c.subject != config.HDTN)
+    per_day = Counter((les.class_name, les.subject, les.day) for les in lessons if les.subject != config.HDTN)
+    for (cls, subject, d), k in per_day.items():
+        over = max(0, k - math.ceil(total[cls, subject] / len(days)))
+        out["rải đều"] += over * (w.core_spread if subject in config.MORNING_SUBJECTS else w.subject_spread)
+    by_teacher_day = defaultdict(list)
+    for les in lessons:
+        by_teacher_day[les.teacher, les.day].append(les.period)
+    for (g, d), periods in by_teacher_day.items():
+        t = problem.teachers[g]
+        over = len(periods) - day_targets(t.max_lessons, problem.slots)[d]
+        out["tải ngày GV"] += w.day_over_preferred * max(0, over) + w.day_over_buffer * max(0, over - 1)
+        if not t.class_name:
+            for sess in config.DAY_SESSIONS[d]:
+                ps = [p for p in periods if p in sess.periods]
+                if len(sess.periods) >= 3 and ps:
+                    out["tiết trống GV"] += w.teacher_gap * ((max(ps) - min(ps) + 1) - len(ps))
+    return out
+
+
+def _settings(limit: float | None = 1200.0) -> config.Settings:
+    return config.Settings(time_limit=limit, workers=main.SO_LUONG, mode=config.MODE_OVERTIME,
+                           overtime_max=main.SO_TIET_BU_TOI_DA, student_rules=main.LUAT_HOC_SINH)
+
+
+def lower_bound(data: str, seconds: float = 60) -> Path:
+    """Cận dưới theo lớp: mỗi lớp một bài riêng (chỉ các môn của lớp, phân công giữ nguyên), giải tới tối ưu.
+
+    Bỏ ràng buộc giữa các lớp (GV không dạy 2 lớp cùng lúc) và phần tiết trống của GV (trọng số 0); giữ tải ngày
+    của GV tính riêng trong lớp đó (hàm phạt lồi, bằng 0 tại 0 nên tổng theo lớp không vượt phạt thật). Mọi
+    thành phần khác chỉ phụ thuộc một lớp. Vì vậy tổng tối ưu các lớp là cận dưới của chi phí xếp giờ.
+    """
+    settings = _settings(seconds)
+    settings.weights = replace(settings.weights, teacher_gap=0)
+    work, fixed = _work(data, settings)
+    rows, comp = [], Counter()
+    for cls in work.classes:
+        courses = [c for c in work.courses if c.class_name == cls]
+        ids = {c.id: i for i, c in enumerate(courses)}
+        sub = replace(work, classes=[cls], courses=[replace(c, id=ids[c.id]) for c in courses], manager_load={},
+                      supplement_roles={})
+        tm = build_timetable(sub, settings, fixed={(ids[cid], g): n for (cid, g), n in fixed.items() if cid in ids})
+        solver = cp_model.CpSolver()
+        _configure(solver, settings, seconds)
+        status = solver.Solve(tm.model)
+        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            raise SystemExit(f"lớp {cls}: không giải được ({solver.StatusName(status)})")
+        alloc = sum(tm.allocation_cost)
+        offset = alloc if isinstance(alloc, (int, float)) else solver.Value(alloc)
+        values = list(solver.ResponseProto().solution)
+        c = components(tm, values, settings.weights)
+        comp.update(c)  # không dùng +=: Counter bỏ giá trị âm (thưởng)
+        rows.append(dict(cls=cls, status=solver.StatusName(status), bound=round(solver.BestObjectiveBound() - offset),
+                         value=round(solver.ObjectiveValue() - offset), components=dict(c)))
+        print(f"  lớp {cls}: {rows[-1]['status']}, cận {rows[-1]['bound']}, tối ưu lớp {rows[-1]['value']}", flush=True)
+    bound = sum(r["bound"] for r in rows)
+    print(f"{data}: cận dưới theo lớp {bound} ({sum(r['status'] == 'OPTIMAL' for r in rows)}/{len(rows)} lớp chứng "
+          f"minh tối ưu)")
+    for k in COMPONENTS:
+        print(f"  {k:24} {comp[k]:7}")
+    out = OUT / f"can_duoi_{data}.json"
+    OUT.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(dict(data=data, bound=bound, components=dict(comp), classes=rows), ensure_ascii=False,
+                              indent=0))
+    return out
+
+
+def breakdown(path: str) -> None:
+    """Chi phí xếp giờ của nghiệm trong file kết quả theo thành phần; so với cận dưới theo lớp nếu đã tính."""
+    d = json.loads(Path(path).read_text())
+    settings = _settings(d["limit"])
+    tm = build_model(d["data"], settings)
+    comp = components(tm, d["solution"], settings.weights)
+    lb_path = OUT / f"can_duoi_{d['data']}.json"
+    lb = json.loads(lb_path.read_text()) if lb_path.exists() else None
+    print(f"{path}: chi phí xếp giờ {d['history'][-1]}, tổng theo thành phần {sum(comp.values())}")
+    print(f"  {'thành phần':24} {'nghiệm':>7}" + (f" {'cận theo lớp':>13} {'chênh':>6}" if lb else ""))
+    for k in COMPONENTS:
+        extra = f" {lb['components'].get(k, 0):13} {comp[k] - lb['components'].get(k, 0):6}" if lb else ""
+        print(f"  {k:24} {comp[k]:7}{extra}")
+    if lb:
+        print(f"  {'cộng':24} {sum(comp.values()):7} {lb['bound']:13} {sum(comp.values()) - lb['bound']:6}")
 
 
 def _start_cache(data: str, limit: float) -> Path:
@@ -628,8 +751,14 @@ if __name__ == "__main__":
                                                          "vung_moi_sau", "nhieu"])
     ap.add_argument("limit", nargs="?", type=float, default=1200.0)
     ap.add_argument("--tom-tat", nargs="+", metavar="JSON", help="in bảng theo loại vùng rồi thoát")
+    ap.add_argument("--can-duoi", choices=["mau", "truong"], help="cận dưới theo lớp rồi thoát")
+    ap.add_argument("--thanh-phan", metavar="JSON", help="chi phí của nghiệm trong file kết quả theo thành phần")
     args = ap.parse_args()
-    if args.tom_tat:
+    if args.can_duoi:
+        lower_bound(args.can_duoi)
+    elif args.thanh_phan:
+        breakdown(args.thanh_phan)
+    elif args.tom_tat:
         summary(args.tom_tat)
     elif args.data and args.variant:
         run(args.data, args.variant, args.limit)

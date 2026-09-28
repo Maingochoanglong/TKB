@@ -245,11 +245,12 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `run()`
 
 ## tools/thu_alns.py — Thử nghiệm bước xếp giờ (docs/Nghien_Cuu_ALNS.md): đo LNS hiện tại, so với ALNS, vùng mới, nhiễu mạnh.
-Hằng số: `ROOT`, `OUT`, `KINDS`, `EXTRA_KINDS`, `ALL_KINDS`, `MASK`
+Hằng số: `ROOT`, `OUT`, `KINDS`, `EXTRA_KINDS`, `ALL_KINDS`, `MASK`, `COMPONENTS`
 - `class Rng` — splitmix64 bằng số nguyên thuần: như nhau trên mọi máy, mọi bản Python (không dùng module random).
   - `.next()`
   - `.pick(weights)` — Bánh xe roulette với trọng số nguyên > 0.
 - `build_model(data, settings)` — Mô hình xếp giờ với phân công cố định, như solver.solve dựng (chế độ bù giờ).
+- `_work(data, settings)` — (bài toán xếp giờ, phân công cố định) như solver.solve dựng ở chế độ bù giờ.
 - `measuring_search(cache, records, skip_repeats, extra_regions)` — Lớp con của lns._Search ghi từng lần xếp lại vào `records` và lưu/đọc lại bước khởi đầu từ `cache`.
 - `_with_extra_regions(search, out, cost, where)` — Hướng A: thêm vùng "khối × 2 ngày" và "GV × 2 ngày", trước các vùng GV dùng chung hoặc cuối vòng.
 - `_start(search, tm, settings, log)` — Khởi đầu như lns.improve: (LnsResult, phần chi phí phân công) hoặc None.
@@ -261,6 +262,10 @@ Hằng số: `ROOT`, `OUT`, `KINDS`, `EXTRA_KINDS`, `ALL_KINDS`, `MASK`
 - `v3(tm, settings, log, Search, segment, reaction, w_floor, t_start, t_end, sigma)` — Vòng 1 như LNS hiện tại, rồi ALNS có mô phỏng luyện kim và buộc đổi.
 - `nhieu(tm, settings, log, Search, share, kick_limit, kick_min)` — Hướng B: LNS như hiện tại tới khi dừng, rồi lặp nhiễu mạnh -> LNS lại, giữ nghiệm tốt nhất.
 - `run(data, variant, limit)` — Chạy một biến thể, ghi out/thu_alns/<dữ liệu>_<biến thể>_<ngân sách>.json.
+- `components(tm, values, w)` — Chi phí xếp giờ của một nghiệm theo từng thành phần, đúng công thức mục tiêu của solver.build_timetable.
+- `_settings(limit)`
+- `lower_bound(data, seconds)` — Cận dưới theo lớp: mỗi lớp một bài riêng (chỉ các môn của lớp, phân công giữ nguyên), giải tới tối ưu.
+- `breakdown(path)` — Chi phí xếp giờ của nghiệm trong file kết quả theo thành phần; so với cận dưới theo lớp nếu đã tính.
 - `_start_cache(data, limit)` — File lưu bước khởi đầu: theo ngân sách khởi đầu (1200 và 2400 cùng khởi đầu 120).
 - `summary(paths)` — Bảng theo loại vùng: số lần, số lần giảm, tổng giảm, ngân sách, giảm/đơn vị, số vùng chứng minh xong.
 
