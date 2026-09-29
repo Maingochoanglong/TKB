@@ -87,8 +87,8 @@ Chạy test: `python -m pytest -q`
 
 | Hệ điều hành | Mã kết quả `data/INPUT_V8.xlsx` | Đã kiểm |
 |---|---|---|
-| Windows x86-64 | **`76B0-B1A7-A53C`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
-| Linux x86-64 | **`26B0-0E3A-F6C9`** | Python 3.11 |
+| Windows x86-64 | **`5F34-D6E9-1CA7`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
+| Linux x86-64 | **`81EC-DAD2-D3A1`** | Python 3.11 |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
 
@@ -254,7 +254,7 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
    - **các vòng xếp lại:** mỗi vòng chấm điểm từng lớp-ngày theo các mục tiêu mềm (QA), rồi lần lượt xếp lại từng vùng, vùng xấu trước: từng lớp, các "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên hôm đó), nhóm lớp của một giáo viên dùng chung, từng khối, từng cặp ngày. Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT tìm cách xếp tốt hơn trong vùng, chỉ nhận khi tốt hơn. Luật bắt buộc luôn đúng;
    - **dừng** khi hết thời gian, khi một vòng tốt lên chưa tới 0,3% (không giới hạn: khi vòng không tốt lên), sau 10 vòng, hoặc khi bấm Ctrl+C. Màn hình in chi phí xếp giờ (tổng điểm phạt mềm) sau mỗi vòng.
    - Với file của trường bản trước (chưa có hai cơ sở), cách này cho TKB tốt hơn cả khi để một lần CP-SAT chạy 110 phút, ngay với 600 (khoảng 4–6 phút), và mặc định 1200 ra đúng TKB của chế độ không giới hạn. Kết quả là tốt nhất tìm được, không chứng minh là tối ưu.
-   - File hiện tại có thêm hai cơ sở, thai sản, buổi nghỉ: chi phí xếp giờ 22.850 (Linux) / 21.320 (Windows), so với 17.200 / 17.260 khi chưa có các luật này. Môn nặng ở tiết 7 là 8 tiết, TV/Toán buổi chiều 45/408 (Linux) và 40/408 (Windows).
+   - File hiện tại có thêm hai cơ sở, thai sản, buổi nghỉ: chi phí xếp giờ 26.720 (Linux) / 27.760 (Windows), trong đó 3.000 là phạt cho 1 lần giáo viên dạy sáng một cơ sở, chiều cơ sở kia (trước khi có mục tiêu này: 21 lần). Không tính phần phạt đó là 23.720 / 24.760, so với 17.200 / 17.260 khi chưa có các luật này. Môn nặng ở tiết 7: 6 tiết (Linux), 8 tiết (Windows); TV/Toán buổi chiều 45/408.
 
    Chế độ tuyển: giữ người mới. Chế độ bù: trả các ô đó về đúng người bù. Hai chế độ cùng vị trí môn.
 4. **Dự phòng** (chỉ chế độ tuyển): nếu bước 3 không xếp được, giải một lần CP-SAT mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ) với thêm giáo viên bổ sung dự phòng.
