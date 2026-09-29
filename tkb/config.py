@@ -196,12 +196,21 @@ class Weights:
     supplement_order: int = 1  # dồn tiết cho GV bổ sung số thứ tự nhỏ trước
     # Chế độ bù giờ (thứ tự ưu tiên: ít tiết bù của bộ môn > ít tiết bù của GVCN > chia đều >
     # GVCN bù đúng thứ tự môn > hạn chế chia môn).
-    overtime_general: int = 200_000  # mỗi tiết bộ môn dạy bù (đắt hơn GVCN để GVCN bù trước)
-    overtime_homeroom: int = 100_000  # mỗi tiết GVCN dạy bù
+    # Ai bù trước: GVCN hợp đồng, GVCN khác, bộ môn hợp đồng, bộ môn khác (cột Hợp Đồng). Các mức cách nhau
+    # 200.000 > 3 × overtime_second: tiết bù thứ 4 của mức trước vẫn rẻ hơn tiết thứ nhất của mức sau (đúng khi
+    # bù tối đa đến +4); mức đắt nhất vẫn rẻ hơn một tiết thiếu (supplement_lesson).
+    overtime_general: int = 700_000  # mỗi tiết bộ môn dạy bù (đắt hơn GVCN để GVCN bù trước)
+    overtime_general_contract: int = 500_000  # mỗi tiết bộ môn hợp đồng dạy bù
+    overtime_homeroom: int = 300_000  # mỗi tiết GVCN dạy bù
+    overtime_homeroom_contract: int = 100_000  # mỗi tiết GVCN hợp đồng dạy bù
     overtime_second: int = 50_000  # mỗi tiết bù từ tiết thứ 2 của một người (ai cũng +1 rồi mới +2)
     overtime_subject_order: int = 3_000  # × hạng môn: môn ưu tiên (0) rồi HOMEROOM_FILL_ORDER (1, 2...)
     # Phân công (tkb/phan_cong.py, tìm kiếm cục bộ): gom lớp của một GV vào ít khối, ít lớp; môn ghép cặp
     # (PAIR_MIN_LESSONS) phải chia chẵn cho mỗi người.
+    # Giữ phân công của TKB cũ (cột Lớp Đang Dạy): sau số tiết thiếu/tiết bù và sau "không chia lớp-môn", nhưng
+    # trước gom lớp và cân bằng tải.
+    keep_grade: int = 60  # mỗi tiết GV dạy khối không nằm trong các khối đang dạy
+    keep_class: int = 10  # mỗi tiết GV dạy đúng khối cũ nhưng khác lớp cũ
     group_grade: int = 20  # mỗi khối một GV không chủ nhiệm dạy
     group_class: int = 5  # mỗi lớp một GV không chủ nhiệm dạy
     odd_pair_share: int = 100_000  # mỗi phần lẻ của một người trong nhóm môn ghép cặp

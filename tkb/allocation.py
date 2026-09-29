@@ -6,8 +6,8 @@ from dataclasses import dataclass, field, replace
 
 from . import config
 from .program import canonical_subject, missing_rule_subjects, subjects_in_order
-from .staff import (SPECIAL_ROLES, InputError, Teacher, class_sort_key, classes_from_staff, clean_name, normalize,
-                    role_errors, subject_key)
+from .staff import (SPECIAL_ROLES, InputError, Teacher, class_sort_key, classes_from_staff, clean_name, grade_of,
+                    normalize, role_errors, subject_key)
 
 
 @dataclass
@@ -40,6 +40,7 @@ class Problem:
     specialists: dict[str, str] = field(default_factory=dict)  # chức vụ chuyên biệt -> môn duy nhất được dạy
     subject_labels: dict[str, str] = field(default_factory=dict)  # môn -> tên như ghi trong file vào
     subject_order: list[str] = field(default_factory=list)  # các môn theo thứ tự dòng trong file vào
+    campus2: frozenset[str] = frozenset()  # các lớp ở cơ sở 2 (cột Cơ sở 2 trên dòng Chủ Nhiệm)
 
     def overtime_mode(self) -> bool:
         return self.overtime_max > 0
@@ -179,10 +180,28 @@ def make_supplements(role: str, count: int, teachers: list[Teacher], label: str 
 
 
 def overtime_allowance(t: Teacher, overtime_max: int) -> int:
-    """Số tiết bù tối đa của một GV ở chế độ bù giờ."""
-    if overtime_max <= 0 or t.supplementary or t.role not in config.OVERTIME_ROLES:
+    """Số tiết bù tối đa của một GV ở chế độ bù giờ. GV đang hưởng thai sản không dạy bù."""
+    if overtime_max <= 0 or t.supplementary or t.maternity or t.role not in config.OVERTIME_ROLES:
         return 0
     return overtime_max
+
+
+def overtime_cost(t: Teacher, w: config.Weights) -> int:
+    """Giá tiết bù thứ nhất của t (mỗi tiết sau đắt thêm w.overtime_second). Ai bù trước: GVCN hợp đồng, GVCN
+    khác, bộ môn hợp đồng, bộ môn khác; bốn mức cách nhau đủ xa để thứ tự này không đổi."""
+    if t.class_name:
+        return w.overtime_homeroom_contract if t.contract else w.overtime_homeroom
+    return w.overtime_general_contract if t.contract else w.overtime_general
+
+
+def keep_cost(t: Teacher, class_name: str, w: config.Weights) -> int:
+    """Giá mỗi tiết GV không chủ nhiệm t dạy lớp `class_name` khi lệch TKB cũ (cột Lớp Đang Dạy): khác mọi khối
+    đang dạy thì w.keep_grade, đúng khối nhưng khác lớp thì w.keep_class. GV không ghi Lớp Đang Dạy: 0."""
+    if not t.history or t.class_name:
+        return 0
+    if grade_of(class_name) not in {grade_of(c) for c in t.history}:
+        return w.keep_grade
+    return 0 if class_name in t.history else w.keep_class
 
 
 def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
@@ -213,10 +232,12 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     classes = classes_from_staff(staff)
     homeroom = {t.class_name: t for t in staff if t.class_name}
     managers = [t for t in staff if t.role == config.ROLE_MANAGER]
+    campus2 = frozenset(c for c, t in homeroom.items() if t.campus2)
 
-    for g in sorted({int(c.split("/")[0]) for c in classes}):
-        numbers = {int(c.split("/")[1]) for c in classes if int(c.split("/")[0]) == g}
-        missing = [f"{g}/{n}" for n in range(1, max(numbers)) if n not in numbers]
+    for g in sorted({grade_of(c) for c in classes}):
+        # Lớp ghi dạng khối/số thứ tự: báo số thứ tự bị bỏ trống.
+        numbers = {int(c.split("/")[1]) for c in classes if "/" in c and grade_of(c) == g}
+        missing = [f"{g}/{n}" for n in range(1, max(numbers, default=0)) if n not in numbers]
         if missing:
             warnings.append(f"Khối {g} không có lớp {', '.join(missing)} (không có Chủ Nhiệm nào ghi lớp này)")
         if g not in curriculum:
@@ -240,7 +261,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     homeroom_slots = [s for s in slots if s[1] in config.HOMEROOM_PERIODS]
 
     for cls in classes:
-        grade = int(cls.split("/")[0])
+        grade = grade_of(cls)
         req = curriculum[grade]
         cn = homeroom[cls]
         take = split_homeroom(cls, req, cn.max_lessons, reserved_by_grade.get(grade, set()), specialist)
@@ -298,11 +319,14 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     overtime = {t.title: n for t in staff if (n := overtime_allowance(t, overtime_max)) > 0}
     manager_pool_lessons: dict[str, int] = {m.title: 0 for m in managers}
     for cls, grade, subject, n in pool:
-        eligible = [t.title for r in roles_for_subject(subject, specialists) for t in by_role.get(r, [])]
+        # GV chỉ dạy cơ sở 2 (đánh dấu Cơ sở 2, hoặc thai sản) không dạy lớp ở cơ sở 1.
+        eligible = [t.title for r in roles_for_subject(subject, specialists) for t in by_role.get(r, [])
+                    if cls in campus2 or not t.campus2_only]
         if homeroom[cls].title in overtime and subject not in specialist:
             eligible.append(homeroom[cls].title)
         for m in managers:
-            if any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
+            if (cls in campus2 or not m.campus2_only) and \
+                    any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
                 eligible.append(m.title)
                 manager_pool_lessons[m.title] += n
         if not eligible:
@@ -331,4 +355,5 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         specialists=specialists,
         subject_labels=subject_labels,
         subject_order=subject_order,
+        campus2=campus2,
     )

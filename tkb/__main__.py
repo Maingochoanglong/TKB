@@ -10,7 +10,7 @@ from . import config
 from .checker import check
 from .program import read_program
 from .solver import ShortageError, SolveError, ortools_version, solve
-from .staff import InputError, read_staff
+from .staff import InputError, grade_of, read_staff
 from .style import Style
 from .writer import write_shortage, write_statistics, write_timetable, write_updated_staff
 
@@ -115,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         levels = Counter(overtime.values())
         if levels:
             print("  " + ", ".join(f"{levels[k]} người bù +{k}" for k in sorted(levels, reverse=True)))
+    print_teacher_rules(solution)
     late = sum(1 for les in solution.lessons
                if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_LATE_PERIODS)
     print(f"Môn nặng ở tiết {', '.join(map(str, sorted(config.HEAVY_LATE_PERIODS)))}: {late} tiết "
@@ -132,6 +133,33 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Đã ghi: {staff_out}")
     print(f"Đã ghi: {stats_out}")
     return 0 if not errors else 2
+
+
+def print_teacher_rules(solution) -> None:
+    """In số liệu các luật về GV: hai cơ sở, thai sản, buổi nghỉ, giữ phân công của TKB cũ (chỉ in khi file vào
+    có dùng các cột đó)."""
+    problem, lessons = solution.problem, solution.lessons
+    teachers = problem.teachers
+    if problem.campus2:
+        both = {les.teacher for les in lessons if les.class_name in problem.campus2} & \
+               {les.teacher for les in lessons if les.class_name not in problem.campus2}
+        print(f"Cơ sở 2: {len(problem.campus2)} lớp; {len(both)} GV dạy ở cả hai cơ sở, mỗi buổi chỉ ở một cơ sở")
+    maternity = [t for t in teachers.values() if t.maternity]
+    if maternity:
+        load = solution.teacher_load()
+        print(f"Thai sản: {len(maternity)} người, không dạy bù ("
+              + ", ".join(f"{t.title} {load[t.title]}/{t.max_lessons} tiết" for t in maternity) + "), chỉ dạy cơ sở 2")
+    off = [t for t in teachers.values() if t.off_sessions or t.off_any]
+    if off:
+        print(f"Buổi nghỉ theo nguyện vọng: {len(off)} người ({', '.join(t.title for t in off)})")
+    kept = [les for les in lessons if teachers[les.teacher].history and not teachers[les.teacher].class_name]
+    if kept:
+        grade = sum(1 for les in kept
+                    if grade_of(les.class_name) in {grade_of(c) for c in teachers[les.teacher].history})
+        same = sum(1 for les in kept if les.class_name in teachers[les.teacher].history)
+        people = len({les.teacher for les in kept})
+        print(f"Giữ phân công TKB cũ ({people} GV có Lớp Đang Dạy): đúng khối cũ {grade}/{len(kept)} tiết, "
+              f"đúng lớp cũ {same}/{len(kept)} tiết")
 
 
 if __name__ == "__main__":

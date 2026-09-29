@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from . import config
 from .allocation import Problem, all_slots, manager_allowed, paired_groups, subject_group
 from .solver import Lesson
+from .staff import grade_of
 
 
 def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -> list[str]:
@@ -31,7 +32,7 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
 
     # Lớp: mỗi slot đúng 1 tiết, đủ số tiết từng môn.
     for cls in problem.classes:
-        grade = int(cls.split("/")[0])
+        grade = grade_of(cls)
         req = {s: n for s, n in problem.curriculum[grade].items() if n > 0}
         full = sum(req.values()) == len(slots)
         for s in slots:
@@ -64,7 +65,7 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
         t = teachers.get(les.teacher)
         if t is None:
             continue
-        grade = int(les.class_name.split("/")[0])
+        grade = grade_of(les.class_name)
         at = f"{les.class_name} {where(les.day, les.period)}"
         if les.period in config.HOMEROOM_PERIODS and t.class_name != les.class_name:
             errors.append(f"{at}: tiết của GVCN nhưng giao cho {t.title}")
@@ -128,6 +129,7 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                 errors.append(f"Lớp {cls}: HĐTN linh hoạt ở {where(*s)} ngoài các ngày cho phép")
 
     errors.extend(_check_teacher_order(problem, lessons))
+    errors.extend(_check_teacher_sessions(problem, lessons))
     if student_rules:
         errors.extend(_check_student_rules(problem, lessons))
     return errors
@@ -161,12 +163,49 @@ def _check_teacher_order(problem: Problem, lessons: list[Lesson]) -> list[str]:
     return errors
 
 
+def _check_teacher_sessions(problem: Problem, lessons: list[Lesson]) -> list[str]:
+    """Cơ sở và buổi nghỉ: GV chỉ-cơ-sở-2 (cột Cơ sở 2, thai sản) không dạy lớp cơ sở 1; mỗi buổi một GV chỉ dạy ở
+    một cơ sở; buổi nghỉ cố định không có tiết; đủ số buổi nghỉ bất kỳ đã xin."""
+    errors = []
+    teachers = problem.teachers
+    periods = {p: s.name for ss in config.DAY_SESSIONS.values() for s in ss for p in s.periods}
+    campuses: dict[tuple[str, int, str], set[int]] = defaultdict(set)
+    busy: dict[str, set[tuple[int, str]]] = defaultdict(set)
+    for les in lessons:
+        t = teachers.get(les.teacher)
+        if t is None:
+            continue
+        key = (les.day, periods[les.period])
+        at2 = les.class_name in problem.campus2
+        if t.campus2_only and not at2:
+            errors.append(f"{les.class_name} {config.DAYS[les.day]} tiết {les.period}: {t.title} chỉ dạy ở cơ sở 2 "
+                          f"nhưng lớp ở cơ sở 1")
+        campuses[les.teacher, *key].add(2 if at2 else 1)
+        busy[les.teacher].add(key)
+        if key in t.off_sessions:
+            errors.append(f"{t.title} có tiết buổi nghỉ {key[1].lower()} {config.DAYS[key[0]]} ({les.class_name} "
+                          f"tiết {les.period})")
+    for (g, d, name), cs in sorted(campuses.items()):
+        if len(cs) > 1:
+            errors.append(f"{g} dạy cả hai cơ sở trong buổi {name.lower()} {config.DAYS[d]}")
+    sessions = [(d, s.name) for d, ss in config.DAY_SESSIONS.items() for s in ss]
+    for g, t in teachers.items():
+        free = [k for k in sessions if k not in t.off_sessions and k not in busy.get(g, set())]
+        for name, n in t.off_any:
+            need = sum(k for _, k in t.off_any) if name is None else n
+            got = sum(1 for k in free if name is None or k[1] == name)
+            if got < need:
+                kind = f"buổi {name.lower()}" if name else "buổi"
+                errors.append(f"{g} xin nghỉ {need} {kind} nhưng chỉ trống {got} {kind}")
+    return errors
+
+
 def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
     errors = []
     grid: dict[tuple[str, int, int], str] = {(l.class_name, l.day, l.period): l.subject for l in lessons}
     n_days = len(config.DAY_SESSIONS)
     for cls in problem.classes:
-        req = problem.curriculum[int(cls.split("/")[0])]
+        req = problem.curriculum[grade_of(cls)]
         pairs = paired_groups(req)
         for d, sessions in config.DAY_SESSIONS.items():
             day_subjects = [grid.get((cls, d, p)) for s in sessions for p in s.periods]

@@ -15,12 +15,13 @@ from openpyxl.utils import get_column_letter
 
 from . import config
 from .solver import Solution
-from .staff import Teacher, _find_columns, class_sort_key, normalize, staff_sheet
+from .staff import Teacher, _find_columns, class_sort_key, grade_of, normalize, staff_sheet
 from .style import CellStyle, Style
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
 LABEL_PAD = 4  # cột BUỔI, TIẾT của TKB: rộng thêm so với chữ dài nhất cho dễ nhìn
+CAMPUS2_LABEL = "CƠ SỞ 2"  # ghi sau tên lớp ở cơ sở 2 trong TKB
 HIRE_LABEL = "tuyển thêm"  # tên của người cần tuyển trong file thống kê
 CODE_HEADER = "Mã GV"
 LOAD_HEADER = "Số Tiết Thực Dạy"
@@ -88,10 +89,11 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
     texts = {line for les in solution.lessons
              for t in (problem.subject_label(les.subject), names[les.teacher]) for line in t.split("\n")}
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
-    for grade in sorted({int(c.split("/")[0]) for c in problem.classes}):
+    title = {c: f"LỚP {c}" + (f" ({CAMPUS2_LABEL})" if c in problem.campus2 else "") for c in problem.classes}
+    for grade in sorted({grade_of(c) for c in problem.classes}):
         ws = wb.create_sheet(f"Khối {grade}")
-        classes = sorted((c for c in problem.classes if int(c.split("/")[0]) == grade), key=class_sort_key)
-        widths = [max(style.text_width(t) for t in [header[0], *(f"LỚP {c}" for c in classes)]),
+        classes = sorted((c for c in problem.classes if grade_of(c) == grade), key=class_sort_key)
+        widths = [max(style.text_width(t) for t in [header[0], *(title[c] for c in classes)]),
                   max(style.text_width(t) for t in [header[1], *(s.name.upper() for s, _ in rows)]) + LABEL_PAD,
                   style.text_width(header[2]) + LABEL_PAD]
         for i, width in enumerate(widths + [day_width] * len(days), start=1):
@@ -107,7 +109,7 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
             for col, text in enumerate(header, start=1):
                 style.header_cell(ws, top, col, text)
             first = top + 1
-            _merge(ws, style, first, 1, first + len(rows) - 1, 1, f"LỚP {cls}")
+            _merge(ws, style, first, 1, first + len(rows) - 1, 1, title[cls])
             r = first
             for session in dict.fromkeys(s for s, _ in rows):
                 n = sum(1 for s, _ in rows if s is session)

@@ -28,6 +28,7 @@ from ortools.sat.python import cp_model
 
 from . import config
 from .solver import TimetableModel, _configure, day_targets, distance_to_session_end
+from .staff import class_sort_key, grade_of
 
 
 @dataclass
@@ -42,7 +43,7 @@ class LnsResult:
 
 
 def _class_key(cls: str) -> tuple:
-    return tuple(int(p) if p.isdigit() else p for p in cls.split("/"))
+    return class_sort_key(cls)
 
 
 class _Search:
@@ -162,9 +163,9 @@ class _Search:
         groups.sort(key=lambda s: (-round(sum(by_class[c] for c in s)), sorted(s, key=_class_key)))
         out += [("GV dùng chung", "lớp " + ",".join(sorted(s, key=_class_key)), self.free(s, days),
                  limits["GV dùng chung"]) for s in groups]
-        grade = {c: c.split("/")[0] for c in classes}
+        grade = {c: grade_of(c) for c in classes}
         grades = sorted(set(grade.values()), key=lambda g: (-round(sum(by_class[c] for c in classes if grade[c] == g)),
-                                                             _class_key(g)))
+                                                             g))
         out += [("khối", f"khối {g}", self.free([c for c in classes if grade[c] == g], days), limits["khối"])
                 for g in grades]
         pairs = sorted(itertools.combinations(days, 2), key=lambda p: (-round(by_day[p[0]] + by_day[p[1]]), p))

@@ -20,9 +20,10 @@ from dataclasses import dataclass, field, replace
 from ortools.sat.python import cp_model
 
 from . import config
-from .allocation import Course, Problem, build_problem, paired_groups, roles_for_subject, subject_group
+from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
+                         subject_group)
 from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
-from .staff import Teacher
+from .staff import Teacher, grade_of
 
 
 class SolveError(RuntimeError):
@@ -233,6 +234,8 @@ class _Allocation:
             c = problem.courses[cid]
             if c.subject in specialist and problem.teachers[g].role not in problem.specialists:
                 secondary.append(w.general_on_specialist * a)
+            if not isinstance(a, int) and (keep := keep_cost(problem.teachers[g], c.class_name, w)):
+                secondary.append(keep * a)  # giữ khối, lớp của TKB cũ
 
         # Cân bằng phần định mức chưa dùng giữa các GV cùng chức vụ.
         by_role: dict[str, list[Teacher]] = {}
@@ -261,7 +264,7 @@ class _Allocation:
             ot = m.NewIntVar(0, extra, f"ot_{title}")
             m.Add(ot >= self.load[title] - t.max_lessons)
             result[title] = ot
-            main.append((w.overtime_homeroom if t.class_name else w.overtime_general) * ot)
+            main.append(overtime_cost(t, w) * ot)
             if extra > 1:
                 second = m.NewIntVar(0, extra - 1, f"ot2_{title}")
                 m.Add(second >= ot - 1)
@@ -357,6 +360,45 @@ def timetable(problem: Problem, settings: config.Settings,
                     wall_time=wall, stage="phân công cố định" if fixed is not None else "mô hình tích hợp")
 
 
+def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, occ_campus: dict) -> None:
+    """Luật cứng theo buổi của từng GV: buổi nghỉ (cột Buổi Nghỉ) và mỗi buổi chỉ dạy ở một cơ sở (cột Cơ sở 2).
+
+    occ_terms[(GV, slot)]: các literal "GV dạy ở slot"; occ_campus[(GV, slot, lớp ở cơ sở 2?)]: như trên, tách
+    theo cơ sở của lớp."""
+    sess = session_of()
+    sessions = [(d, s) for d, ss in config.DAY_SESSIONS.items() for s in ss]
+    by_teacher: dict[str, dict[tuple[int, str], list]] = {}  # GV -> buổi -> literal
+    for (g, s), terms in sorted(occ_terms.items()):
+        by_teacher.setdefault(g, {}).setdefault((s[0], sess[s].name), []).extend(terms)
+    for g in sorted(by_teacher):
+        t, busy = problem.teachers[g], by_teacher[g]
+        for key in sorted(t.off_sessions):  # buổi nghỉ cố định
+            for v in busy.get(key, []):
+                m.Add(v == 0)
+        if t.off_any:  # nghỉ thêm n buổi bất kỳ (chương trình chọn buổi): off[buổi] = buổi đó trống
+            free = [(d, s.name) for d, s in sessions if (d, s.name) not in t.off_sessions]
+            off = {}
+            for key in free:
+                off[key] = m.NewBoolVar(f"off_{g}_{key[0]}_{key[1]}")
+                for v in busy.get(key, []):
+                    m.AddImplication(off[key], v.Not())
+            for name, n in t.off_any:
+                pool = [off[k] for k in free if name is None or k[1] == name]
+                need = sum(k for _, k in t.off_any) if name is None else n
+                m.Add(sum(pool) >= need)
+    # Mỗi buổi GV chỉ dạy ở một cơ sở: o2 = 1 là buổi đó ở cơ sở 2.
+    for g in sorted(by_teacher):
+        for d, session in sessions:
+            lits = {at2: [v for p in session.periods for v in occ_campus.get((g, (d, p), at2), [])]
+                    for at2 in (False, True)}
+            if lits[False] and lits[True]:
+                o2 = m.NewBoolVar(f"cs2_{g}_{d}_{session.name}")
+                for v in lits[True]:
+                    m.AddImplication(v, o2)
+                for v in lits[False]:
+                    m.AddImplication(v, o2.Not())
+
+
 def build_timetable(problem: Problem, settings: config.Settings,
                     fixed: dict[tuple[int, str], int] | None = None,
                     hint: dict[tuple[int, str], int] | None = None) -> TimetableModel:
@@ -392,12 +434,15 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # GV dạy course tại slot nào.
     occ_terms: dict[tuple[str, tuple[int, int]], list] = {}
+    occ_campus: dict[tuple[str, tuple[int, int], bool], list] = {}  # (GV, slot, lớp ở cơ sở 2?) -> literal
     z: dict[tuple[int, str, tuple[int, int]], cp_model.IntVar] = {}
     for c in problem.courses:
         cand = alloc.teachers_of[c.id]
+        at2 = c.class_name in problem.campus2
         if len(cand) == 1:
             for s in dom[c.id]:
                 occ_terms.setdefault((cand[0], s), []).append(x[c.id, s])
+                occ_campus.setdefault((cand[0], s, at2), []).append(x[c.id, s])
             continue
         for s in dom[c.id]:
             zs = []
@@ -406,6 +451,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 z[c.id, g, s] = v
                 zs.append(v)
                 occ_terms.setdefault((g, s), []).append(v)
+                occ_campus.setdefault((g, s, at2), []).append(v)
             m.Add(sum(zs) == x[c.id, s])
         for g in cand:
             m.Add(sum(z[c.id, g, s] for s in dom[c.id]) == alloc.a[c.id, g])
@@ -413,6 +459,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
     for terms in occ_terms.values():
         if len(terms) > 1:
             m.Add(sum(terms) <= 1)
+    _teacher_sessions(m, problem, occ_terms, occ_campus)
 
     # Biến "GV g dạy nhóm môn của lớp tại slot s" (và theo từng môn) cho các luật về người dạy.
     teach: dict[tuple[str, str], dict[str, dict[tuple[int, int], list]]] = {}
@@ -464,7 +511,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
         n_days = len(config.DAY_SESSIONS)
         for cls in problem.classes:
             courses = problem.class_courses(cls)
-            req = problem.curriculum[int(cls.split("/")[0])]
+            req = problem.curriculum[grade_of(cls)]
             pairs = paired_groups(req)
             by_subject: dict[str, list[Course]] = {}
             by_group: dict[str, list[Course]] = {}
@@ -638,7 +685,7 @@ def du_toan_lines(problem: Problem, plan: PhanCong) -> list[str]:
     """Dự toán in ra trước khi xếp giờ."""
     teachers = problem.teachers
     spec = problem.specialist_subjects()
-    total = sum(sum(problem.curriculum[int(cls.split("/")[0])].values()) for cls in problem.classes)
+    total = sum(sum(problem.curriculum[grade_of(cls)].values()) for cls in problem.classes)
     part = {"gvcn": 0, "spec": 0, "manager": 0, "general": 0, "general_spec": 0}
     for (cid, g), n in plan.lessons.items():
         t, c = teachers[g], problem.courses[cid]

@@ -145,3 +145,39 @@ def test_all_errors_at_once(tmp_path):
                                             ("B", "Tiếng Anh ", None, None, 23)])
     b = read_staff(ok, subjects=["Tiếng Việt", "Tiếng Anh"])[1]
     assert (b.title, b.label) == ("tiếng anh 1", "Tiếng Anh")
+
+
+# Mẫu của trường có thêm các cột không bắt buộc.
+EXTRA = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy", "Buổi Nghỉ")
+
+
+def test_named_classes_and_optional_columns(tmp_path):
+    path = _staff_file(tmp_path / "ns.xlsx", [
+        ("A", "Chủ Nhiệm", "1D15", 19, None, "Có", None, None, None),
+        ("B", "Chủ Nhiệm", "1d9", 15, "có", None, "x", None, "2 buổi chiều"),
+        ("C", "Chủ Nhiệm", "2D16", 19, None, None, None, None, None),
+        ("D", "Bộ Môn", None, 19, "Có", None, None, "1D15; 2D16", "Chiều thứ 5, sáng T6, chiều T6"),
+        ("E", "Tiếng Anh", None, 23, None, "Không", None, "2D16", None)], header=EXTRA)
+    ts = read_staff(path)
+    assert classes_from_staff(ts) == ["1D9", "1D15", "2D16"]  # sắp theo khối rồi số
+    a, b, c, d, e = ts
+    assert a.contract and not a.maternity and a.title == "chủ nhiệm 1D15" and a.grade == 1
+    assert b.maternity and b.campus2 and b.off_any == (("Chiều", 2),) and not b.campus2_only
+    assert d.maternity and d.campus2_only and d.history == {"1D15", "2D16"}
+    assert d.off_sessions == {(3, "Chiều"), (4, "Sáng")}  # chiều Thứ 6 vốn nghỉ nên bỏ qua
+    assert not e.contract and not e.campus2_only and e.history == {"2D16"} and not c.history
+
+
+@pytest.mark.parametrize("row, message", [
+    (("A", "Bộ Môn", None, 23, "không rõ", None, None, None, None), "chỉ ghi 'Có'"),
+    (("A", "Bộ Môn", None, 23, None, None, None, "9D1", None), "Lớp Đang Dạy có lớp không có Chủ Nhiệm nào: 9D1"),
+    (("A", "Bộ Môn", None, 23, None, None, None, None, "nghỉ cả tuần"), "Buổi Nghỉ ghi buổi cố định"),
+    (("A", "Bộ Môn", None, 23, None, None, None, None, "Chiều T5, 4 buổi chiều"), "chỉ còn 3 buổi chiều"),
+    (("A", "Chủ Nhiệm", "1D2", 19, None, None, None, None, "Sáng T2"), "không nghỉ buổi sáng"),
+    (("A", "Chủ Nhiệm", "1D2", 19, "Có", None, None, None, None), "không đánh dấu Cơ sở 2"),
+])
+def test_optional_column_errors(tmp_path, row, message):
+    path = _staff_file(tmp_path / "ns.xlsx", [("CN", "Chủ Nhiệm", "1D1", 19, None, None, "Có", None, None), row],
+                       header=EXTRA)
+    with pytest.raises(InputError, match=message):
+        read_staff(path)

@@ -9,7 +9,8 @@ from tkb.writer import write_updated_staff
 
 from .conftest import CURRICULUM, small_staff
 
-HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần")
+HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy", "Buổi Nghỉ")
+NONE5 = (None,) * 5  # 5 cột không bắt buộc để trống
 
 
 def _key(teachers):
@@ -35,14 +36,15 @@ def test_template_style_and_dropdowns(tmp_path, sample_staff):
     dvs = {str(dv.sqref): dv for dv in ws.data_validations.dataValidation}
     assert dvs["B2:B300"].type == "list" and not dvs["B2:B300"].showErrorMessage  # chỉ gợi ý
     assert dvs["C2:C300"].type == "custom" and dvs["D2:D300"].type == "whole"
-    assert len(dvs) == 3 and ws.max_column == 4
+    assert dvs["E2:G300"].type == "list" and dvs["E2:G300"].formula1 == '"Có"'
+    assert len(dvs) == 4 and ws.max_column == 9
     program = _rows(wb["CHƯƠNG TRÌNH HỌC"])
     assert program[0] == ("Môn học", "Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5")
     assert len(program) == 17
     assert [c.value for c in wb["Danh mục"]["A"] if c.value] == role_choices(sample_staff)
     assert role_choices(sample_staff) == ["Chủ Nhiệm", "Bộ Môn", "Tiếng Anh", "Thể Dục", "Âm Nhạc", "Mỹ Thuật",
                                         "Tin Học", "Quản Lý"]
-    assert ws["C2"].number_format == "@"  # Lớp là chữ để Excel không đổi thành ngày tháng
+    assert ws["C2"].number_format == ws["H2"].number_format == "@"  # chữ để Excel không đổi thành ngày tháng
     assert len(ws.conditional_formatting) >= 1
     assert _key(read_staff(path)) == _key(sample_staff)
     assert read_program(path) == CURRICULUM
@@ -65,16 +67,16 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     write_updated_staff(sol, src, dst)
     wb = openpyxl.load_workbook(dst)
     ws = wb["NHÂN SỰ"]
-    assert len(ws.data_validations.dataValidation) == 3  # vẫn còn danh sách thả xuống
+    assert len(ws.data_validations.dataValidation) == 4  # vẫn còn danh sách thả xuống
     rows = _rows(ws)
     assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy")
-    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, "Chủ Nhiệm 3/1", 19)
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
+    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, *NONE5, "Chủ Nhiệm 3/1", 19)
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *NONE5, "Bộ Môn 1", 8)
     # Dòng mới và cột mới cùng style với file vào.
     last = len(rows)
-    for cell in (ws.cell(last, 2), ws.cell(last, 5), ws.cell(1, 6)):
+    for cell in (ws.cell(last, 2), ws.cell(last, 10), ws.cell(1, 11)):
         assert cell.font.name == "Times New Roman" and cell.font.sz == 14 and cell.border.left.style == "thin"
-    assert ws.cell(1, 6).font.b and ws.row_dimensions[last].height == 25
+    assert ws.cell(1, 11).font.b and ws.row_dimensions[last].height == 25
     assert _rows(wb["CHƯƠNG TRÌNH HỌC"])[1:] == _rows(openpyxl.load_workbook(src)["CHƯƠNG TRÌNH HỌC"])[1:]
     again = read_staff(dst)
     assert again[-1].title == "bộ môn 1"  # tự đánh số khi đọc lại
@@ -90,3 +92,18 @@ def test_cli_writes_blank_template(tmp_path):
     out = tmp_path / "moi.xlsx"
     assert template_main([str(out)]) == 0
     assert _rows(openpyxl.load_workbook(out)["NHÂN SỰ"]) == [HEADER]
+
+
+def test_optional_columns_round_trip(tmp_path):
+    """Các cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ ghi ra file mẫu rồi đọc lại đúng."""
+    from dataclasses import replace
+    staff = small_staff()
+    staff = [replace(t, campus2=True, maternity=True, off_any=(("Chiều", 2),)) if t.class_name == "3/1" else
+             replace(t, contract=True, history=frozenset({"3/1"}), off_sessions=frozenset({(3, "Chiều"), (4, "Sáng")}))
+             if not t.class_name else t for t in staff]
+    path = tmp_path / "mau.xlsx"
+    write_staff_template(path, staff, CURRICULUM)
+    ws = openpyxl.load_workbook(path)["NHÂN SỰ"]
+    assert [c.value for c in ws[4]][4:] == [None, "Có", None, "3/1", "Chiều T5, Sáng T6"]  # dòng TA
+    fields = lambda ts: [(t.maternity, t.contract, t.campus2, t.history, t.off_sessions, t.off_any) for t in ts]
+    assert fields(read_staff(path)) == fields(staff)

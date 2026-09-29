@@ -1,9 +1,10 @@
 """File vào mẫu V8: một file Excel, hai sheet, style giống file của nhà trường.
 
-- Sheet "NHÂN SỰ": Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần
+- Sheet "NHÂN SỰ": Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy |
+  Buổi Nghỉ (5 cột sau không bắt buộc)
   - Chức Vụ: Chủ Nhiệm, Bộ Môn, Quản Lý hoặc tên một môn (GV chuyên biệt, vd "Tiếng Anh"); không ghi số
     thứ tự (chương trình tự đánh số theo thứ tự dòng).
-  - Lớp (khối/số thứ tự, vd 1/1) chỉ ghi cho Chủ Nhiệm.
+  - Lớp (khối/số thứ tự, vd 1/1, hoặc khối rồi tên lớp, vd 1D15) chỉ ghi cho Chủ Nhiệm.
 - Sheet "CHƯƠNG TRÌNH HỌC": Môn học | Khối 1 ... Khối n (số tiết/tuần).
 
 Chạy:
@@ -24,11 +25,13 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from . import config
-from .staff import Teacher
+from .staff import Teacher, class_sort_key, off_text
 
 LIST_SHEET = "Danh mục"
-STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"]
-STAFF_WIDTHS = (34, 16, 8, 17)
+STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
+                 "Buổi Nghỉ"]
+STAFF_WIDTHS = (34, 16, 8, 17, 12, 12, 11, 26, 24)
+YES = "Có"
 LAST_ROW = 300  # số dòng có sẵn danh sách thả xuống
 BLANK_ROWS = 10  # số dòng trống kẻ sẵn dưới danh sách
 MAX_LESSONS = 40
@@ -47,8 +50,17 @@ ERROR_STYLE = DifferentialStyle(fill=PatternFill(bgColor="FFC7CE"), font=Font(co
 NOTES = {
     "Chức Vụ": "Chủ Nhiệm, Bộ Môn, Quản Lý hoặc tên một môn trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên biệt). "
                "Không ghi số thứ tự: chương trình tự đánh số theo thứ tự dòng.",
-    "Lớp": "Chỉ ghi cho Chủ Nhiệm, dạng khối/số thứ tự, vd 1/1.",
+    "Lớp": "Chỉ ghi cho Chủ Nhiệm, dạng khối/số thứ tự (vd 1/1) hoặc khối rồi tên lớp (vd 1D15).",
     "Số Tiết/Tuần": "Số tiết tối đa mỗi tuần.",
+    "Thai Sản": "Ghi Có nếu đang hưởng chế độ thai sản: không dạy bù, chỉ dạy các lớp ở cơ sở 2.",
+    "Hợp Đồng": "Ghi Có nếu là GV hợp đồng: khi phải bù, GVCN hợp đồng bù trước GVCN khác, bộ môn hợp đồng "
+                "bù trước bộ môn khác.",
+    "Cơ sở 2": "Dòng Chủ Nhiệm: ghi Có nếu lớp học ở cơ sở 2. Dòng khác: ghi Có nếu GV chỉ dạy ở cơ sở 2. "
+               "Mỗi buổi, một GV chỉ dạy ở một cơ sở.",
+    "Lớp Đang Dạy": "GV bộ môn, chuyên biệt: các lớp đang dạy trong TKB cũ, cách nhau bằng dấu phẩy (vd 3D17, "
+                    "3D18). TKB mới ưu tiên giữ khối, rồi giữ lớp.",
+    "Buổi Nghỉ": "Buổi không xếp tiết: buổi cố định (vd Chiều T5, Sáng T6) hoặc số buổi bất kỳ (vd 2 buổi chiều), "
+                 "cách nhau bằng dấu phẩy. GVCN không nghỉ buổi sáng được (tiết 1 luôn là GVCN).",
 }
 
 
@@ -65,7 +77,10 @@ def role_choices(teachers: list[Teacher] = ()) -> list[str]:
 
 
 def staff_row(t: Teacher) -> list:
-    return [t.name or None, role_label(t), t.class_name, t.max_lessons]
+    flag = lambda on: YES if on else None
+    history = ", ".join(sorted(t.history, key=class_sort_key)) or None
+    return [t.name or None, role_label(t), t.class_name, t.max_lessons, flag(t.maternity), flag(t.contract),
+            flag(t.campus2), history, off_text(t) or None]
 
 
 def _style_rows(ws, first: int, last: int, n_cols: int, header: bool = False, name_col: int | None = None) -> None:
@@ -90,8 +105,9 @@ def _staff_sheet(wb, teachers: list[Teacher]) -> None:
         if cell.value in NOTES:
             cell.comment = Comment(NOTES[cell.value], "TKB")
     for r in range(2, LAST_ROW + 1):
-        ws.cell(r, 3).number_format = "@"  # Lớp là chữ, để Excel không đổi "1/1" thành ngày tháng
-    for col, width in zip("ABCD", STAFF_WIDTHS):
+        for c in (3, 8):  # Lớp, Lớp Đang Dạy là chữ, để Excel không đổi "1/1" thành ngày tháng
+            ws.cell(r, c).number_format = "@"
+    for col, width in zip("ABCDEFGHI", STAFF_WIDTHS):
         ws.column_dimensions[col].width = width
 
     n_roles = len(role_choices(teachers))
@@ -99,11 +115,12 @@ def _staff_sheet(wb, teachers: list[Teacher]) -> None:
     roles = DataValidation(type="list", formula1=f"'{LIST_SHEET}'!$A$1:$A${n_roles}", allow_blank=True,
                            showErrorMessage=False, sqref=f"B2:B{LAST_ROW}")
     classes = DataValidation(type="custom", allow_blank=True, showErrorMessage=True, errorTitle="Lớp không hợp lệ",
-                             error="Lớp ghi dạng khối/số thứ tự, vd 1/1.", sqref=f"C2:C{LAST_ROW}",
-                             formula1='AND(ISNUMBER(FIND("/",C2)),ISNUMBER(--LEFT(C2,FIND("/",C2)-1)),'
-                                      'ISNUMBER(--MID(C2,FIND("/",C2)+1,5)))')
+                             error="Lớp ghi dạng khối/số thứ tự (vd 1/1) hoặc khối rồi tên lớp (vd 1D15).",
+                             sqref=f"C2:C{LAST_ROW}", formula1="ISNUMBER(--LEFT(C2,1))")
     lessons = _whole(f"D2:D{LAST_ROW}")
-    for dv in (roles, classes, lessons):
+    yes = DataValidation(type="list", formula1=f'"{YES}"', allow_blank=True, showErrorMessage=True,
+                         errorTitle="Chỉ ghi Có", error="Ghi Có hoặc để trống.", sqref=f"E2:G{LAST_ROW}")
+    for dv in (roles, classes, lessons, yes):
         ws.add_data_validation(dv)
 
     # Tô đỏ: lớp có hai chủ nhiệm, Chủ Nhiệm thiếu Lớp, chức vụ khác lại ghi Lớp.
