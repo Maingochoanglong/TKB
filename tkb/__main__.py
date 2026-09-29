@@ -12,7 +12,7 @@ from .program import read_program
 from .solver import ShortageError, SolveError, ortools_version, solve
 from .staff import InputError, grade_of, read_staff
 from .style import Style
-from .writer import write_shortage, write_statistics, write_timetable, write_updated_staff
+from .writer import campus_paths, write_shortage, write_statistics, write_timetable, write_updated_staff
 
 
 def use_utf8_output() -> None:
@@ -27,12 +27,13 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tkb", description="Xếp thời khóa biểu tự động")
     ap.add_argument("staff", help="File vào: sheet NHÂN SỰ và sheet CHƯƠNG TRÌNH HỌC")
     ap.add_argument("-o", "--output", default="out/TKB.xlsx",
-                    help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx)")
+                    help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx). Trường có lớp ở cơ sở 2 "
+                         "thì tách thành <tên>_diem_chinh.xlsx (cơ sở 1) và <tên>_diem_phu.xlsx (cơ sở 2)")
     ap.add_argument("--staff-out", help="File nhân sự cập nhật (mặc định <thư mục output>/<tên input>_cap_nhat.xlsx)")
     ap.add_argument("--stats-out", help="File thống kê số tiết từng môn của mỗi giáo viên; chế độ bù giờ mà thiếu "
                                         "tiết thì là bảng tiết thiếu (mặc định <thư mục output>/Thong_Ke.xlsx)")
     ap.add_argument("--roles-out", help="File TKB ghi thêm chức vụ (Mã GV) trong mỗi ô "
-                                        "(mặc định <thư mục output>/TKB_chuc_vu.xlsx)")
+                                        "(mặc định <thư mục output>/TKB_chuc_vu.xlsx; hai cơ sở thì tách như -o)")
     ap.add_argument("--time-limit", type=float, default=1200,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 1200; 0 = không giới hạn: xếp "
                          "lại từng vùng đến khi hết cải thiện)")
@@ -90,8 +91,11 @@ def main(argv: list[str] | None = None) -> int:
 
     errors = check(solution.problem, solution.lessons, settings.student_rules)
     style = Style.from_file(args.staff)  # các file ra dùng style của file vào
-    write_timetable(solution, output, style)
-    write_timetable(solution, roles_out, style, with_codes=True)
+    timetables = []  # trường có hai cơ sở: mỗi loại TKB tách thành file điểm chính và file điểm phụ
+    for base, with_codes in ((output, False), (roles_out, True)):
+        for path, classes in campus_paths(base, solution.problem):
+            write_timetable(solution, path, style, with_codes=with_codes, classes=classes)
+            timetables.append(path)
     write_updated_staff(solution, args.staff, staff_out)
     write_statistics(solution, stats_out, style)
 
@@ -128,8 +132,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{names} ở buổi chiều: {afternoon}/{len(core)} tiết (mục tiêu mềm: dành buổi sáng cho các môn này)")
     for e in errors[:20]:
         print(f"  LỖI: {e}")
-    print(f"Đã ghi: {output}")
-    print(f"Đã ghi: {roles_out}")
+    for path in timetables:
+        print(f"Đã ghi: {path}")
     print(f"Đã ghi: {staff_out}")
     print(f"Đã ghi: {stats_out}")
     return 0 if not errors else 2

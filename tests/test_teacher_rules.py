@@ -155,3 +155,21 @@ def test_timetable_marks_campus_two_classes(campus_solution, tmp_path):
     write_timetable(campus_solution, out)
     titles = [c.value for c in openpyxl.load_workbook(out)["Khối 3"]["A"] if str(c.value).startswith("LỚP ")]
     assert titles == ["LỚP 3/1", "LỚP 3/2 (CƠ SỞ 2)"]
+
+
+def test_cli_splits_timetables_by_campus(tmp_path):
+    """Có lớp ở cơ sở 2: mỗi file TKB tách thành file điểm chính (cơ sở 1) và file điểm phụ (cơ sở 2)."""
+    import openpyxl
+
+    from tkb.__main__ import main
+    from tkb.template import write_staff_template
+    src = tmp_path / "vao.xlsx"
+    write_staff_template(src, _set(small_staff(), "chủ nhiệm 3/2", campus2=True), CURRICULUM)
+    out = tmp_path / "out"
+    assert main([str(src), "-o", str(out / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
+    assert sorted(p.name for p in out.glob("TKB*.xlsx")) == [
+        "TKB_chuc_vu_diem_chinh.xlsx", "TKB_chuc_vu_diem_phu.xlsx", "TKB_diem_chinh.xlsx", "TKB_diem_phu.xlsx"]
+    titles = lambda name: [c.value for c in openpyxl.load_workbook(out / name)["Khối 3"]["A"]  # noqa: E731
+                           if str(c.value).startswith("LỚP ")]
+    assert titles("TKB_diem_chinh.xlsx") == titles("TKB_chuc_vu_diem_chinh.xlsx") == ["LỚP 3/1"]
+    assert titles("TKB_diem_phu.xlsx") == titles("TKB_chuc_vu_diem_phu.xlsx") == ["LỚP 3/2 (CƠ SỞ 2)"]

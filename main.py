@@ -54,7 +54,8 @@ CHAY_TAI_LAP_DUOC = True
 # --- Ít khi phải sửa ---
 
 # Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_TKB_CHUC_VU là cùng TKB,
-# mỗi ô thêm dòng chức vụ (Mã GV) để theo dõi; FILE_THONG_KE là một bảng: mỗi giáo viên một dòng (tên, chức vụ), số
+# mỗi ô thêm dòng chức vụ (Mã GV) để theo dõi. Trường có lớp ở cơ sở 2 (cột Cơ sở 2) thì mỗi file TKB tách thành
+# hai: ..._diem_chinh (các lớp cơ sở 1) và ..._diem_phu (các lớp cơ sở 2), vd TKB_diem_chinh.xlsx, TKB_diem_phu.xlsx; FILE_THONG_KE là một bảng: mỗi giáo viên một dòng (tên, chức vụ), số
 # tiết từng môn người đó dạy và tổng số tiết. Dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển, dạy bù
 # chỉ in ra màn hình.
 FILE_TKB = "TKB.xlsx"

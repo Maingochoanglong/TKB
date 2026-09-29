@@ -4,8 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-SAT. Input: one Excel file with
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
-only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code), `Thong_Ke.xlsx` (one table: lessons per subject
-per teacher + total; in `bu_gio` with a shortage only the sheet `Thiếu tiết`), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
+only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code; both split into `*_diem_chinh`/`*_diem_phu` when
+the file has campus-2 classes, `writer.campus_paths`), `Thong_Ke.xlsx` (one table: lessons per subject
+per teacher + total; overtime rows yellow, their overtime subject cells orange with a comment (`Lesson.overtime`); in
+`bu_gio` with a shortage only the sheet `Thiếu tiết`), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
 docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules

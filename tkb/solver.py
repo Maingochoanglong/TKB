@@ -43,6 +43,7 @@ class Lesson:
     subject: str
     teacher: str
     course_id: int
+    overtime: bool = False  # tiết dạy bù (vượt định mức) của người bù, chỉ có ở chế độ bù giờ
 
 
 @dataclass
@@ -739,7 +740,8 @@ def _to_overtime(solution: Solution, problem: Problem, owners: dict[tuple[int, s
     for key, lessons in by_key.items():
         for les, owner in zip(sorted(lessons, key=lambda l: (l.day, l.period)), owners[key]):
             teacher_of[id(les)] = owner
-    lessons = [replace(les, teacher=teacher_of[id(les)]) if id(les) in teacher_of else les for les in solution.lessons]
+    lessons = [replace(les, teacher=teacher_of[id(les)], overtime=True) if id(les) in teacher_of else les
+               for les in solution.lessons]
     return replace(solution, problem=problem, lessons=lessons)
 
 

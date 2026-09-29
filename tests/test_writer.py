@@ -224,6 +224,15 @@ def test_statistics_file_overtime(tmp_path):
     # Dòng GVCN dạy bù tô vàng (cả dòng), chú thích dưới bảng.
     fills, legend = _fills(out)
     assert fills == [writer.OVERTIME_FILL] * 2 + [None] * (len(rows) - 3)
+    # Trong dòng đó, ô môn có tiết bù tô cam, ghi chú số tiết bù (mỗi GVCN bù 4 tiết: TNXH 2, KNS 1, Công nghệ 1).
     ws = openpyxl.load_workbook(out)["Thống kê"]
-    assert {ws.cell(2, c).fill.start_color.rgb[-6:] for c in range(1, len(rows[0]) + 1)} == {writer.OVERTIME_FILL}
-    assert legend == [(writer.OVERTIME_FILL, "Dạy bù (vượt định mức): 2 người, 8 tiết")]
+    for r in (2, 3):
+        colors = {c: ws.cell(r, c).fill.start_color.rgb[-6:] for c in range(1, len(rows[0]) + 1)}
+        extra = {rows[0][c - 1]: ws.cell(r, c).comment.text for c, col in colors.items()
+                 if col == writer.OVERTIME_CELL_FILL}
+        assert set(colors.values()) == {writer.OVERTIME_FILL, writer.OVERTIME_CELL_FILL} and len(extra) == 3
+        assert sum(int(text.split()[2]) for text in extra.values()) == 4
+        assert all(text.startswith(f"Dạy bù ") and text.endswith(head) for head, text in extra.items())
+    assert legend == [(writer.OVERTIME_FILL, "Dạy bù (vượt định mức): 2 người, 8 tiết"),
+                      (writer.OVERTIME_CELL_FILL, "Môn có tiết dạy bù: 6 ô, 8 tiết (ghi chú trong ô ghi số tiết bù "
+                                                  "của môn)")]

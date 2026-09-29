@@ -10,6 +10,7 @@ from copy import copy
 from pathlib import Path
 
 import openpyxl
+from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -34,6 +35,11 @@ OVERTIME_FILL = "FFEB9C"  # vàng nhạt
 HIRE_FILL = "C6EFCE"  # xanh lá nhạt
 OVERTIME_LEGEND = "Dạy bù (vượt định mức)"
 HIRE_LEGEND = "Cần tuyển thêm"
+# Trong dòng người dạy bù: ô môn có tiết bù tô màu riêng, kèm ghi chú số tiết bù của môn đó.
+OVERTIME_CELL_FILL = "F4B183"  # cam
+OVERTIME_CELL_LEGEND = "Môn có tiết dạy bù"
+# Trường có lớp ở cơ sở 2 (cột Cơ sở 2): TKB tách thành hai file, hậu tố tên file -> lớp ở cơ sở 2?
+CAMPUS_FILES = (("diem_chinh", False), ("diem_phu", True))
 
 
 def teacher_labels(teachers: dict[str, Teacher], with_codes: bool = False) -> dict[str, str]:
@@ -76,7 +82,8 @@ def _merge(ws, style: Style, r1: int, c1: int, r2: int, c2: int, value) -> None:
         ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
 
 
-def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False) -> None:
+def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False,
+                  classes: list[str] | None = None) -> None:
     grid = {(l.class_name, l.day, l.period): l for l in solution.lessons}
     days = sorted(config.DAY_SESSIONS)
     rows = session_rows()
@@ -90,9 +97,10 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
              for t in (problem.subject_label(les.subject), names[les.teacher]) for line in t.split("\n")}
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
     title = {c: f"LỚP {c}" + (f" ({CAMPUS2_LABEL})" if c in problem.campus2 else "") for c in problem.classes}
-    for grade in sorted({grade_of(c) for c in problem.classes}):
+    chosen = problem.classes if classes is None else classes
+    for grade in sorted({grade_of(c) for c in chosen}):
         ws = wb.create_sheet(f"Khối {grade}")
-        classes = sorted((c for c in problem.classes if grade_of(c) == grade), key=class_sort_key)
+        classes = sorted((c for c in chosen if grade_of(c) == grade), key=class_sort_key)
         widths = [max(style.text_width(t) for t in [header[0], *(title[c] for c in classes)]),
                   max(style.text_width(t) for t in [header[1], *(s.name.upper() for s, _ in rows)]) + LABEL_PAD,
                   style.text_width(header[2]) + LABEL_PAD]
@@ -138,14 +146,29 @@ def staff_rows(solution: Solution) -> list[Teacher]:
     return real + solution.used_supplements()
 
 
+def campus_paths(path: str | Path, problem) -> list[tuple[Path, list[str] | None]]:
+    """Các file TKB cần ghi: (đường dẫn, các lớp; None = cả trường). Trường có lớp ở cơ sở 2 thì tách thành
+    <tên>_diem_chinh (lớp cơ sở 1) và <tên>_diem_phu (lớp cơ sở 2); cơ sở nào không có lớp thì không có file."""
+    path = Path(path)
+    if not problem.campus2:
+        return [(path, None)]
+    out = []
+    for suffix, at2 in CAMPUS_FILES:
+        classes = [c for c in problem.classes if (c in problem.campus2) == at2]
+        if classes:
+            out.append((path.with_name(f"{path.stem}_{suffix}{path.suffix}"), classes))
+    return out
+
+
 def write_timetable(solution: Solution, path: str | Path, style: Style | None = None,
-                    with_codes: bool = False) -> None:
+                    with_codes: bool = False, classes: list[str] | None = None) -> None:
     """File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics).
-    with_codes: mỗi ô thêm dòng Mã GV (chức vụ) dưới tên giáo viên."""
+    with_codes: mỗi ô thêm dòng Mã GV (chức vụ) dưới tên giáo viên. classes: chỉ ghi các lớp này (vd các lớp
+    của một cơ sở, xem campus_paths); None = cả trường. Độ rộng cột ngày vẫn tính theo cả trường."""
     style = style or Style()
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
-    _grade_sheets(wb, solution, style, with_codes)
+    _grade_sheets(wb, solution, style, with_codes, classes)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
@@ -184,38 +207,60 @@ def row_marks(solution: Solution) -> dict[str, tuple[str, int]]:
     return marks
 
 
-def _mark_rows(ws, solution: Solution, width: int, top: int, style: Style) -> list[int]:
-    """Tô nền dòng người dạy bù và người cần tuyển (bảng bắt đầu ở dòng 1); dưới bảng, từ dòng `top`, ghi chú
-    thích màu kèm số người, số tiết. Trả về các dòng chú thích."""
+def overtime_cells(solution: Solution) -> Counter:
+    """(GV, môn) -> số tiết dạy bù (vượt định mức) của GV đó trong môn đó (chế độ bù giờ)."""
+    return Counter((les.teacher, les.subject) for les in solution.lessons if les.overtime)
+
+
+def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style) -> list[int]:
+    """Tô nền dòng người dạy bù và người cần tuyển (bảng bắt đầu ở dòng 1); trong dòng người dạy bù, ô môn có
+    tiết bù tô màu riêng, kèm ghi chú số tiết bù. Dưới bảng, từ dòng `top`, ghi chú thích màu kèm số người, số
+    tiết. Trả về các dòng chú thích."""
     marks = row_marks(solution)
+    width = len(header)
+    extra = overtime_cells(solution)
+    labels = {solution.problem.subject_label(s): s for s in {s for _, s in extra}}
+    n_cells = 0
     for r, t in enumerate(staff_rows(solution), start=2):
         if t.title in marks:
             for c in range(1, width + 1):
                 ws.cell(r, c).fill = _fill(marks[t.title][0])
-    legend = []
+        for c, head in enumerate(header, start=1):
+            n = extra.get((t.title, labels.get(head)), 0)
+            if n:
+                ws.cell(r, c).fill = _fill(OVERTIME_CELL_FILL)
+                ws.cell(r, c).comment = Comment(f"Dạy bù {n} tiết {head}", "TKB")
+                n_cells += 1
+    texts = []
     for color, label in ((OVERTIME_FILL, OVERTIME_LEGEND), (HIRE_FILL, HIRE_LEGEND)):
         lessons = [n for mark, n in marks.values() if mark == color]
         if lessons:
-            style.body_cell(ws, top, 1, None).fill = _fill(color)
-            cell = ws.cell(top, 2, f"{label}: {len(lessons)} người, {sum(lessons)} tiết")
-            cell.font = copy(style.body.font)
-            cell.alignment = Alignment(horizontal="left", vertical="center")
-            ws.row_dimensions[top].height = style.row_height
-            legend.append(top)
-            top += 1
+            texts.append((color, f"{label}: {len(lessons)} người, {sum(lessons)} tiết"))
+        if color == OVERTIME_FILL and n_cells:
+            texts.append((OVERTIME_CELL_FILL, f"{OVERTIME_CELL_LEGEND}: {n_cells} ô, {sum(extra.values())} tiết "
+                                              f"(ghi chú trong ô ghi số tiết bù của môn)"))
+    legend = []
+    for color, text in texts:
+        style.body_cell(ws, top, 1, None).fill = _fill(color)
+        cell = ws.cell(top, 2, text)
+        cell.font = copy(style.body.font)
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[top].height = style.row_height
+        legend.append(top)
+        top += 1
     return legend
 
 
 def write_statistics(solution: Solution, path: str | Path, style: Style | None = None) -> None:
     """File thống kê: một bảng số tiết từng môn của mỗi giáo viên (xem subject_table). Dòng người dạy bù tô
-    vàng, dòng người cần tuyển tô xanh, chú thích dưới bảng."""
+    vàng (ô môn có tiết bù tô cam, ghi chú số tiết bù), dòng người cần tuyển tô xanh, chú thích dưới bảng."""
     style = style or Style()
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = STATS_SHEET
     header, rows = subject_table(solution, style)
     last = style.table(ws, header, rows, bold_last=True)
-    legend = _mark_rows(ws, solution, len(header), last + 2, style)
+    legend = _mark_rows(ws, solution, header, last + 2, style)
     ws.freeze_panes = "C2"  # giữ cột tên, chức vụ và dòng tiêu đề khi cuộn
     style.fit_columns(ws, skip_rows=legend)  # chú thích tràn sang các ô trống bên phải, không nới cột
     Path(path).parent.mkdir(parents=True, exist_ok=True)
