@@ -11,7 +11,8 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 ## Working rules
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
-  sheet `CHƯƠNG TRÌNH HỌC` required). `data/` holds the school's real file `INPUT_V8.xlsx` and the output templates
+  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`). Class names
+  are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx` and the output templates
   `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tests/du_lieu_mau.py`
   (`CURRICULUM`, `sample_staff()`, `write_sample_input()`); `tests/conftest.py` writes it to a temp `INPUT_FILE`
   and has `small_staff()` plus `teacher(name, "bộ môn 1", lessons)` for hand-made staff.
@@ -77,11 +78,14 @@ afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names 
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 | `OVERTIME_ROLES`, `OVERTIME_MAX`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
 | Soft: heavy subjects at p7, TV/Toán mornings, Toán TC right after Toán, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |
+| Campuses: a teacher teaches at one campus per session (hard); maternity/`Cơ sở 2` non-homeroom teach only campus-2 classes; `Buổi Nghỉ` fixed and "n buổi" leave (hard) | columns → `Teacher.campus2/maternity/off_sessions/off_any`, `Problem.campus2` | `allocation.build_problem` (eligibility), `phan_cong.teacher_slots`, `solver._teacher_sessions`; `checker._check_teacher_sessions` |
+| Overtime order: homeroom contract → homeroom → general contract → general; maternity no overtime; keep old grade then class (`Lớp Đang Dạy`) | `Weights.overtime_*`, `keep_grade`, `keep_class` | `allocation.overtime_cost`, `keep_cost`, `overtime_allowance`; used in `phan_cong._flow`, `_Local._part`, `solver._Allocation` |
 | Timetabling loop: start share (≤ `LNS_START_MAX`), region limits, stop rules | `LNS_*`, `Settings.time_limit` (1200) | `lns.improve`, `lns._Search.regions` |
 
 Glossary: GVCN/chủ nhiệm = homeroom teacher; bộ môn = general subject teacher; GV chuyên biệt = specialist (role
 name = subject name); quản lý = manager; tuyển thêm = hire "chưa có"; bù giờ = overtime; tiết = period; buổi =
-session; khối = grade; TC/tăng cường = extra lessons (separate subjects); HĐTN, TNXH, TV = subject abbreviations.
+session; khối = grade; TC/tăng cường = extra lessons (separate subjects); HĐTN, TNXH, TV = subject abbreviations;
+cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; buổi nghỉ = requested day-part off.
 
 ## Reproducibility (read before changing the solver)
 - Default reproducible mode (`solver._configure`): deterministic time budget, `interleave_search`, clause and

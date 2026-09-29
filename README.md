@@ -94,16 +94,16 @@ Chạy test: `python -m pytest -q`
 
 ## Đầu vào
 
-**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet. Chương trình tìm sheet theo tên, không phân biệt hoa thường. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`.
+**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet. Chương trình tìm sheet theo tên, không phân biệt hoa thường. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 5 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`.
 
 **Sheet `NHÂN SỰ`:**
 
-| Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần |
-|---|---|---|---|
-| Nguyễn Văn A | Chủ Nhiệm | 1/1 | 19 |
-| Trần Thị B | Chủ Nhiệm | 5/5 | 16 |
-| Lê Văn C | Bộ Môn | | 19 |
-| Phạm D | Tiếng Anh | | 23 |
+| Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ |
+|---|---|---|---|---|---|---|---|---|
+| Nguyễn Văn A | Chủ Nhiệm | 1D15 | 19 | | Có | | | |
+| Trần Thị B | Chủ Nhiệm | 3D23 | 15 | Có | | Có | | 2 buổi chiều |
+| Lê Văn C | Bộ Môn | | 19 | Có | | | | Chiều T5, Sáng T6 |
+| Phạm D | Tiếng Anh | | 23 | | | | 3D17, 3D18 | |
 
 - **Họ và Tên** có thể để trống (vì bảo mật). Khi đó TKB ghi **Mã GV**, ví dụ `Chủ Nhiệm 1/1`, `Tiếng Anh 2`, `Bộ Môn 3`.
 - **Chức Vụ**:
@@ -111,8 +111,14 @@ Chạy test: `python -m pytest -q`
   - Không có danh sách chức vụ cố định trong code, nên trường có môn mới (ví dụ `Múa`) chỉ cần thêm dòng môn và giáo viên `Múa`.
   - **Không ghi số thứ tự**: chương trình tự đánh số theo thứ tự dòng (Bộ Môn thứ nhất là `Bộ Môn 1`, thứ hai là `Bộ Môn 2`…).
   - Chức vụ không khớp môn nào thì báo lỗi kèm số dòng.
-- **Lớp** chỉ ghi cho Chủ Nhiệm, dạng **khối/số thứ tự** (`1/1`, `5/5`). Nên định dạng cột là chữ (Text) để Excel không đổi `1/1` thành ngày tháng.
+- **Lớp** chỉ ghi cho Chủ Nhiệm, dạng **khối/số thứ tự** (`1/1`, `5/5`) hoặc **khối rồi tên lớp** (`1D15`, `2A`); khối là các chữ số đầu. Nên định dạng cột là chữ (Text) để Excel không đổi `1/1` thành ngày tháng.
 - **Số Tiết/Tuần** là mức tối đa mỗi tuần của từng người (ai được giảm tiết thì ghi mức đã giảm).
+- **Thai Sản**, **Hợp Đồng**, **Cơ sở 2**: ghi `Có` hoặc để trống.
+  - Thai sản: không dạy bù, và chỉ dạy các lớp ở cơ sở 2. GVCN thai sản thì lớp phải ở cơ sở 2.
+  - Hợp đồng: khi phải bù, GVCN hợp đồng bù trước GVCN khác, bộ môn hợp đồng bù trước bộ môn khác.
+  - Cơ sở 2: trên dòng Chủ Nhiệm nghĩa là lớp đó học ở cơ sở 2; trên dòng khác nghĩa là GV đó chỉ dạy ở cơ sở 2.
+- **Lớp Đang Dạy** (GV bộ môn, chuyên biệt): các lớp người đó dạy trong TKB cũ, cách nhau bằng dấu phẩy. TKB mới ưu tiên giữ người đó ở khối cũ, sau đó ở lớp cũ.
+- **Buổi Nghỉ**: buổi cố định (`Chiều T5`, `Sáng thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, có dấu hay không. Chương trình không xếp tiết vào các buổi đó; với "số buổi bất kỳ" thì chương trình tự chọn buổi. GVCN không nghỉ buổi sáng được, vì tiết 1 luôn do GVCN dạy.
 - Các cột khác (ví dụ cột STT, cột ghi chú) được bỏ qua, ghi gì cũng được.
 - Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN. Nếu dãy lớp của một khối bị hụt (ví dụ có 1/3, 1/5 mà không có 1/4) thì chương trình cảnh báo.
 - Khi file có lỗi, chương trình **liệt kê tất cả lỗi một lần** kèm số dòng (ví dụ `Lớp 1/1 có hai Chủ Nhiệm (dòng 11 và 26)`).
@@ -136,6 +142,7 @@ python -m tkb.template data/Mau_Input.xlsx
 |---|---|
 | Danh sách môn, tên môn, số tiết từng khối | Khung giờ: Thứ 2–5 sáng 4 + chiều 3, Thứ 6 chỉ buổi sáng |
 | Giáo viên, chức vụ, lớp chủ nhiệm, số tiết | HĐTN: Thứ 2 tiết 1, Thứ 6 tiết 4, tiết còn lại Thứ 3–5 |
+| Thai sản, hợp đồng, lớp ở cơ sở 2, lớp đang dạy (TKB cũ), buổi nghỉ | Mỗi buổi một cơ sở; thai sản không bù; thứ tự bù có hợp đồng; trọng số giữ phân công cũ |
 | Danh sách lớp (suy ra từ các dòng Chủ Nhiệm) | Tiết 1 mỗi ngày do GVCN dạy |
 | GV chuyên biệt (chức vụ trùng tên môn) | Môn ưu tiên GVCN, thứ tự cắt / nhận thêm của GVCN |
 | Định mức người cần tuyển (Số tiết lớn nhất của GV cùng chức vụ) | Bộ Môn không dạy Tiếng Anh, Tin học, HĐTN; Quản Lý dạy Kỹ năng sống khối 4 |
@@ -145,7 +152,7 @@ python -m tkb.template data/Mau_Input.xlsx
 
 1. **`TKB.xlsx`**: **chỉ có thời khóa biểu**, mỗi khối một sheet **Khối 1…5**.
    - Mẫu: `data/Output_Template_TKB_V8.xlsx` (TKB của trường mẫu tên giả). Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
-   - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày.
+   - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày. Lớp ở cơ sở 2 ghi thêm `(CƠ SỞ 2)`, ví dụ `LỚP 3D23 (CƠ SỞ 2)`.
    - Mỗi ô ghi môn và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Tên để trống hoặc người cần tuyển thì ghi Mã GV (`Bộ Môn 6`); hai người trùng tên thì kèm Mã GV. Chiều Thứ 6 ghi `Nghỉ`.
    - Các cột ngày ở mọi sheet cùng độ rộng, nới theo dòng dài nhất của cả trường (tối đa 30); tên dài hơn thì xuống dòng và hàng tự cao thêm. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
    - **`TKB_chuc_vu.xlsx`**: cùng TKB, mỗi ô thêm dòng thứ 3 là chức vụ (Mã GV), ví dụ `Tiếng Việt` / tên / `Bộ Môn 4`, để theo dõi ai dạy tiết nào.
@@ -153,7 +160,7 @@ python -m tkb.template data/Mau_Input.xlsx
    - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển (tên `tuyển thêm`).
    - Cột: **Họ và Tên | Chức Vụ** (Mã GV, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 2`) **| số tiết từng môn người đó dạy | Tổng Tiết**. Chỉ có cột cho các môn có người dạy, theo thứ tự trong chương trình học; ô trống là không dạy môn đó. Cuối bảng có dòng **Tổng**.
    - **Tô màu cả dòng** để biết ai bù, ai thêm: chế độ bù giờ tô **vàng** dòng người dạy bù (vượt định mức); chế độ tuyển thêm tô **xanh lá** dòng người cần tuyển. Dưới bảng có chú thích màu kèm số người, số tiết, ví dụ `Dạy bù (vượt định mức): 29 người, 56 tiết` hoặc `Cần tuyển thêm: 3 người, 56 tiết`.
-   - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển và dạy bù chỉ in ra màn hình.
+   - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển, dạy bù và số liệu cơ sở, thai sản, buổi nghỉ, giữ phân công cũ chỉ in ra màn hình.
    - **Chế độ bù giờ mà thiếu tiết:** không ra TKB; file này chỉ có sheet `Thiếu tiết`: **Lớp | Môn | Số Tiết Thiếu | Lý Do** và dòng Tổng.
 3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ cả 2 sheet). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (và **Số Tiết Bù**). File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File gốc không bị sửa.
 
@@ -180,6 +187,12 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 - **Thiếu định mức:** nhận thêm theo thứ tự TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ. Không bao giờ nhận môn của giáo viên chuyên biệt.
 - **GVCN trước:** môn ưu tiên mà có người khác cùng dạy (bộ môn, người mới) thì tiết đầu tuần là của GVCN, tiết của người khác không đứng trước tiết GVCN đầu tiên.
 
+**Hai cơ sở, thai sản, buổi nghỉ** (theo các cột không bắt buộc của file vào; luật cứng, bộ kiểm tra kiểm lại)
+- **Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở.** Ví dụ sáng Thứ 2 có tiết ở cơ sở 2 thì cả buổi sáng đó người ấy chỉ dạy các lớp cơ sở 2. Giữa buổi sáng và buổi chiều thì đổi cơ sở được. Áp dụng cho mọi người, kể cả người cần tuyển (để hai chế độ vẫn chung một TKB).
+- **Thai sản:** không dạy bù; chỉ dạy các lớp ở cơ sở 2.
+- **Buổi nghỉ:** không có tiết nào trong buổi nghỉ cố định; đủ số buổi trống đã xin.
+- Tiêu đề lớp ở cơ sở 2 trong TKB ghi thêm `(CƠ SỞ 2)`.
+
 **Các chức vụ khác**
 - **Giáo viên chuyên biệt** (chức vụ trùng tên một môn, ví dụ Tiếng Anh, Tin Học, Thể Dục): chỉ dạy đúng môn đó. Môn bộ môn không được dạy (Tiếng Anh, Tin học) mà trường chưa có ai thì chương trình tự thêm chức vụ trùng tên môn để tuyển (ví dụ `Tin Học 1`).
 - **Bộ môn:** dạy mọi môn trừ Tiếng Anh, Tin học và HĐTN. Nghĩa là bộ môn vẫn dạy thay được Thể dục, Âm nhạc, Mỹ thuật, nhưng chỉ phần vượt định mức của giáo viên chuyên biệt (dự toán in số tiết này).
@@ -193,7 +206,9 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 - Chỉ GVCN và bộ môn được dạy bù (vượt Số tiết định mức), mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần.
 - GVCN chỉ bù ở lớp mình, không bù môn của giáo viên chuyên biệt. Thứ tự môn: môn ưu tiên của GVCN (lấy lại tiết đã bị cắt) → TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ; ưu tiên nhận trọn một môn thay vì chia đôi.
 - GVCN bù trước; bộ môn chỉ bù khi GVCN đã bù hết mức. Bộ kiểm tra báo lỗi nếu bộ môn dạy bù ở một lớp mà GVCN lớp đó còn được bù và dạy được môn đó.
-- Chia đều: mọi người bù +1 rồi mới có người bù +2.
+- Có cột `Hợp Đồng` thì thứ tự bù là: **GVCN hợp đồng → GVCN khác → bộ môn hợp đồng → bộ môn khác** (`overtime_homeroom_contract`, `overtime_homeroom`, `overtime_general_contract`, `overtime_general`).
+- Chia đều trong từng nhóm trên: mọi người bù +1 rồi mới có người bù +2.
+- GV đang hưởng thai sản không dạy bù.
 - **Bù hết mức vẫn thiếu thì báo lỗi, không tuyển thêm, không ra TKB**: màn hình in từng lớp, môn, số tiết thiếu và cách sửa; `Thong_Ke.xlsx` có sheet `Thiếu tiết`; mã thoát 3.
 
 **Chế độ tuyển thêm** (`CHE_DO = "tuyen_them"`)
@@ -224,7 +239,7 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 - Cân bằng số tiết mỗi ngày của giáo viên.
 - Ít tiết trống giữa buổi.
 - Rải đều các môn trong tuần (`subject_spread` 40, TV/Toán `core_spread` 120). Khối 1 có 7 cặp TV trong 5 ngày nên luôn có 2 ngày học 4 tiết TV.
-- Phân công: hạn chế chia một lớp-môn cho hai giáo viên, gom lớp của một giáo viên vào ít khối, cân bằng tải.
+- Phân công: hạn chế chia một lớp-môn cho hai giáo viên; **giữ phân công của TKB cũ** (cột `Lớp Đang Dạy`: mỗi tiết dạy khác khối cũ phạt `keep_grade` 60, đúng khối nhưng khác lớp cũ phạt `keep_class` 10); gom lớp của một giáo viên vào ít khối; cân bằng tải. Giữ phân công cũ đứng sau số tiết thiếu, số tiết bù và "không chia lớp-môn", nhưng trước gom lớp và cân bằng tải. Màn hình in số tiết đúng khối cũ, đúng lớp cũ.
 
 ## Cách giải
 

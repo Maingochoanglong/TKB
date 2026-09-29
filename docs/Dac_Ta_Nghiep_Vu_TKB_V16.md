@@ -51,6 +51,12 @@
 | 33 | File thống kê | Không phân biệt người bù, người tuyển | Tô **vàng** dòng người dạy bù (chế độ bù giờ), tô **xanh lá** dòng người cần tuyển (chế độ tuyển thêm), chú thích dưới bảng (mục 11.3). Chỉ đổi cách ghi file, TKB và mã kết quả không đổi |
 | 34 | Bước xếp giờ | Một lần CP-SAT trong `THOI_GIAN_TOI_DA` (480); không giới hạn = chạy đến khi chứng minh tối ưu (gần như không dừng) | **CP-SAT khởi đầu rồi các vòng QA → xếp lại từng vùng** (mục 9); mặc định **600**; không giới hạn = xếp lại đến khi một vòng không còn cải thiện, vẫn tái lập. File của trường: chi phí xếp giờ 21.590 → 17.260 trong khoảng 4–6 phút (một lần CP-SAT chạy 110 phút chỉ được 18.270) |
 | 35 | Thời gian xếp giờ | Mặc định 600; khởi đầu 20% ngân sách (không giới hạn: 120) | Mặc định **1200**; khởi đầu 20% ngân sách nhưng **tối đa 120** (`LNS_START_MAX`, thay `LNS_START_UNLIMITED`), phần còn lại cho các vòng xếp lại (mục 9). Thử trên file của trường với 1200: khởi đầu 120 cho 17.200 (Linux) / 17.260 (Windows), khởi đầu 240 cho 17.580 / 17.150; khởi đầu 120 ra đúng TKB của chế độ không giới hạn. Đặt 600 thì vẫn ra đúng TKB như trước |
+| 36 | Tên lớp | Chỉ dạng khối/số thứ tự (`1/1`) | Nhận thêm dạng **khối rồi tên lớp** (`1D15`); file của trường đổi sang dạng này (mục 2.1.1) |
+| 37 | Hai cơ sở | Không có | Cột `Cơ sở 2`. **[Cứng] Mỗi buổi, một GV chỉ dạy ở một cơ sở** (mục 4.1). TKB cũ của trường có 1–4 buổi/tuần mỗi GV bộ môn, chuyên biệt phải chạy qua lại hai cơ sở |
+| 38 | Thai sản | Không có (đã bỏ ở bản trước) | Cột `Thai Sản`. **[Cứng]** không dạy bù, chỉ dạy các lớp ở cơ sở 2 (mục 4.1, 7.2) |
+| 39 | Hợp đồng | Không có | Cột `Hợp Đồng`. Thứ tự bù: **GVCN hợp đồng → GVCN khác → bộ môn hợp đồng → bộ môn khác** (mục 7.2, 8.1) |
+| 40 | Giữ phân công cũ | Không có | Cột `Lớp Đang Dạy` (các lớp dạy trong TKB cũ). GV bộ môn, chuyên biệt ưu tiên giữ **khối** cũ, rồi giữ **lớp** cũ: mục tiêu mềm, sau số tiết thiếu/bù và "không chia lớp–môn", trước gom lớp và cân bằng tải (mục 8.1) |
+| 41 | Buổi nghỉ | Không có | Cột `Buổi Nghỉ`: buổi cố định (`Chiều T5`) hoặc số buổi bất kỳ (`2 buổi chiều`). **[Cứng]** không xếp tiết vào buổi nghỉ (mục 4.1) |
 
 ---
 
@@ -95,8 +101,13 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 |---|---|---|
 | Họ và Tên | Có (cột) | Họ tên, tự do. **Có thể để trống** (bảo mật): TKB ghi Mã GV thay tên |
 | Chức Vụ | Có | `Chủ Nhiệm`, `Bộ Môn`, `Quản Lý`, hoặc **đúng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên biệt). **Không ghi số thứ tự**. So khớp không phân biệt hoa thường, dấu câu, khoảng trắng thừa |
-| Lớp | Với Chủ Nhiệm | Dạng **khối/số thứ tự** (`1/1`). Chỉ Chủ Nhiệm được ghi Lớp |
+| Lớp | Với Chủ Nhiệm | Dạng **khối/số thứ tự** (`1/1`) hoặc **khối rồi tên lớp** (`1D15`, `2A`); khối là các chữ số đầu. Chỉ Chủ Nhiệm được ghi Lớp |
 | Số Tiết/Tuần | Có | Số nguyên ≥ 0. Người được giảm tiết (ví dụ thai sản) ghi mức đã giảm |
+| Thai Sản | Không | `Có` hoặc để trống. Có: không dạy bù, chỉ dạy các lớp ở cơ sở 2 |
+| Hợp Đồng | Không | `Có` hoặc để trống. Có: nhận tiết bù trước người cùng loại (mục 7.2) |
+| Cơ sở 2 | Không | `Có` hoặc để trống. Dòng Chủ Nhiệm: lớp học ở cơ sở 2. Dòng khác: GV chỉ dạy ở cơ sở 2 |
+| Lớp Đang Dạy | Không | Các lớp GV dạy trong TKB cũ, cách nhau bằng dấu phẩy/chấm phẩy (vd `3D17, 3D18`). Chỉ dùng cho GV không chủ nhiệm (mục 8.1) |
+| Buổi Nghỉ | Không | Buổi cố định (`Chiều T5`, `Sáng thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, dấu. Buổi vốn nghỉ (chiều Thứ 6) bỏ qua. Số buổi bất kỳ tính thêm ngoài buổi cố định; `n buổi` (không ghi sáng/chiều) là tổng số buổi trống tối thiểu |
 | STT, cột khác | Không | Không dùng, ghi gì cũng được (ví dụ cột ghi chú) |
 
 - **Tự đánh số thứ tự (Mã GV):** mỗi chức vụ (trừ Chủ Nhiệm) được đánh số 1, 2, 3… theo thứ tự dòng trong file, ví dụ Bộ Môn thứ hai là `Bộ Môn 2`. Chủ Nhiệm được nhận diện theo Lớp (`Chủ Nhiệm 1/1`).
@@ -109,16 +120,19 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 - Số tiết trống, không phải số, âm hoặc không nguyên.
 - Một lớp có hai Chủ Nhiệm.
 - Không có Chủ Nhiệm nào.
+- Cột Thai Sản/Hợp Đồng/Cơ sở 2 ghi khác `Có`/`Không`/trống; Lớp Đang Dạy có lớp không có Chủ Nhiệm nào.
+- Buổi Nghỉ ghi sai dạng, xin nhiều buổi hơn số buổi trong tuần, hoặc GVCN xin nghỉ buổi sáng (tiết 1 luôn do GVCN dạy).
+- GVCN thai sản mà lớp không đánh dấu Cơ sở 2.
 
 Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối bị hụt, ví dụ có 1/3, 1/5 mà không có 1/4.
 
 **File mẫu V8** (tạo bằng `python -m tkb.template`), style giống file của nhà trường (Times New Roman 14, tiêu đề in đậm không tô nền, viền mảnh, căn giữa, dòng cao 25):
-- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải có dạng khối/số. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
+- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`, mỗi cột có chú thích. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải bắt đầu bằng số khối. Ba cột Có/Không có danh sách `Có`. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
 - Sheet CHƯƠNG TRÌNH HỌC: `Môn học | Khối 1 …`. File mẫu trống không có môn nào.
 
 ### 2.2. Danh sách lớp
 
-Lấy từ cột Lớp của các dòng Chủ Nhiệm, vì mỗi lớp luôn có đúng một GVCN. Lớp được sắp theo khối, rồi theo số thứ tự.
+Lấy từ cột Lớp của các dòng Chủ Nhiệm, vì mỗi lớp luôn có đúng một GVCN. Lớp được sắp theo khối, rồi theo phần chữ, rồi theo số (`1D9` trước `1D15`). Lớp ở cơ sở 2 là các lớp có `Cơ sở 2 = Có` trên dòng Chủ Nhiệm.
 
 ### 2.3. Chương trình học
 
@@ -201,6 +215,20 @@ Ví dụ (trường mẫu tên giả của test, `tests/du_lieu_mau.py`):
 - **[Cứng]** Quản lý dạy **đúng** bằng Số tiết của mình. Nếu số tiết phù hợp ít hơn thì dạy hết số đó và có cảnh báo. Chương trình tự chọn lớp; có thể cố định lớp trong `MANAGER_RULES`. Mỗi lớp chỉ có 1 tiết KNS, nên quản lý 4 tiết sẽ dạy ở 4 lớp khối 4.
 - Thể dục, Âm nhạc, Mỹ thuật do GV chuyên biệt dạy trước. Bộ môn chỉ dạy thay phần vượt năng lực của GV chuyên biệt; dự toán in số tiết này.
 - **[Mềm]** Hạn chế chia một lớp–môn cho nhiều giáo viên.
+
+### 4.1. Hai cơ sở, thai sản, buổi nghỉ
+
+Theo các cột không bắt buộc của sheet NHÂN SỰ (mục 2.1.1). File không có các cột này thì không có luật nào dưới đây.
+
+- **[Cứng] Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở.**
+  - Buổi là sáng hoặc chiều của một ngày. Ví dụ sáng Thứ 2 có tiết ở cơ sở 2 thì cả buổi sáng đó người ấy chỉ dạy các lớp cơ sở 2. Giữa buổi sáng và buổi chiều thì đổi cơ sở được.
+  - Áp dụng cho mọi người, kể cả người cần tuyển, để chế độ tuyển thêm vẫn dùng đúng TKB của chế độ bù. GVCN chỉ dạy lớp mình nên luôn thỏa.
+  - Cài đặt (`solver._teacher_sessions`): mỗi GV có tiết ở cả hai cơ sở, mỗi buổi có một biến "buổi này ở cơ sở 2"; mỗi tiết của người đó kéo theo biến này đúng hoặc sai tùy cơ sở của lớp.
+- **[Cứng] Thai sản:** không dạy bù (mục 7.2); chỉ dạy các lớp ở cơ sở 2. GV có `Cơ sở 2 = Có` trên dòng không phải Chủ Nhiệm cũng chỉ dạy các lớp ở cơ sở 2.
+- **[Cứng] Buổi nghỉ:**
+  - buổi nghỉ cố định không có tiết nào của người đó;
+  - "n buổi chiều/sáng bất kỳ": chương trình tự chọn, người đó có ít nhất n buổi loại đó trống (ngoài các buổi nghỉ cố định);
+  - khi phân công, số ô giờ một người dạy được trừ đi các buổi nghỉ (buổi cố định bỏ hẳn; n buổi bất kỳ bỏ n buổi có ít ô nhất).
 
 ---
 
@@ -300,7 +328,7 @@ Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi �
 
 ### 7.2. Chế độ bù giờ (`bu_gio`)
 
-- **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (mặc định 2).
+- **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (mặc định 2). **[Cứng]** GV đang hưởng thai sản không bù.
 - **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt.
 - **[Cứng]** GVCN được **ưu tiên bù lớp mình**: không được để bộ môn dạy bù ở lớp X một môn mà GVCN lớp X dạy được, trong khi GVCN lớp X chưa bù hết mức. Bộ kiểm tra báo lỗi.
 - **Thứ tự môn GVCN bù:**
@@ -310,8 +338,9 @@ Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi �
   1. Ít tiết không ai dạy nhất.
   2. Ít tiết bù của **bộ môn** nhất: **GVCN bù trước**, bộ môn chỉ bù khi GVCN đã bù hết mức.
   3. Ít tiết bù của GVCN nhất.
-  4. **Chia đều:** mọi người bù +1 rồi mới có người bù +2.
-  5. Đúng thứ tự môn ở trên. GVCN phải nhường môn ưu tiên vì chia chẵn thì đổi mức bù với một GVCN khác (tổng không đổi).
+  4. **Hợp đồng trước:** GVCN hợp đồng bù trước GVCN khác; bộ môn hợp đồng bù trước bộ môn khác. Thứ tự đầy đủ: GVCN hợp đồng → GVCN khác → bộ môn hợp đồng → bộ môn khác.
+  5. **Chia đều** trong từng nhóm trên: mọi người bù +1 rồi mới có người bù +2.
+  6. Đúng thứ tự môn ở trên. GVCN phải nhường môn ưu tiên vì chia chẵn thì đổi mức bù với một GVCN khác (tổng không đổi).
 - **Bù hết mức mà vẫn thiếu: báo lỗi, không tuyển, không ra TKB.** Màn hình in từng lớp, môn, số tiết thiếu, lý do và cách sửa (tăng mức bù, sửa định mức/nhân sự, hoặc chạy chế độ tuyển thêm); `Thong_Ke.xlsx` chỉ có sheet `Thiếu tiết` (mục 11.3); mã thoát 3.
 
 ---
@@ -324,7 +353,8 @@ Viết bằng Python thuần, số nguyên, duyệt theo thứ tự cố định
 
 1. **Dự toán:** luồng chi phí nhỏ nhất từ các lớp–môn ngoài phần GVCN sang các giáo viên được dạy. Mỗi giáo viên không nhận quá định mức (cộng mức bù) và không quá số ô giờ có thể dạy (ví dụ 26 với giáo viên không chủ nhiệm). Giá mỗi tiết:
    - không ai dạy: 1.000.000;
-   - bộ môn bù: 200.000, GVCN bù: 100.000; tiết bù thứ 2 của một người: thêm 50.000;
+   - tiết bù: GVCN hợp đồng 100.000, GVCN khác 300.000, bộ môn hợp đồng 500.000, bộ môn khác 700.000; mỗi tiết bù sau của một người thêm 50.000 (các mức cách nhau 200.000 nên thứ tự đúng đến +4);
+   - GV có `Lớp Đang Dạy` dạy khối không nằm trong các khối cũ: 60; đúng khối nhưng khác lớp cũ: 10 (`keep_grade`, `keep_class`);
    - GVCN bù: 3.000 × hạng môn (môn ưu tiên 0, rồi theo `HOMEROOM_FILL_ORDER`);
    - bộ môn dạy môn chuyên biệt: 1.000;
    - quản lý: dạy đúng số tiết.
@@ -333,6 +363,7 @@ Viết bằng Python thuần, số nguyên, duyệt theo thứ tự cố định
 3. **Phần còn lại:** luồng lần 2 cho bộ môn, GV chuyên biệt, quản lý; rồi **tìm kiếm cục bộ** (chuyển, đổi chéo, gộp phần bị chia) giảm tổng:
    - chia một lớp–môn cho nhiều người: 5.000 mỗi người thêm;
    - bộ môn dạy môn chuyên biệt: 1.000 mỗi tiết;
+   - giữ phân công cũ: 60 mỗi tiết khác khối cũ, 10 mỗi tiết đúng khối nhưng khác lớp cũ (lớn hơn mọi mục bên dưới);
    - chênh lệch phần định mức chưa dùng giữa người cùng chức vụ: 50;
    - gom lớp: 20 mỗi khối, 5 mỗi lớp một giáo viên dạy (`group_grade`, `group_class`);
    - phần lẻ của một người trong nhóm môn ghép cặp: 100.000 (`odd_pair_share`).
@@ -410,6 +441,7 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
 8. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
 9. Hai tiết liền nhau cùng nhóm môn do 1 người dạy; nhóm môn ưu tiên: người khác không dạy trước tiết GVCN đầu tuần (mục 5.7).
 10. Nếu bật luật học sinh: mỗi nhóm môn tối đa 2 tiết mỗi buổi; Toán tối đa 1 tiết mỗi ngày; nhóm ghép cặp mỗi buổi 0 hoặc 2 tiết liền; môn có từ 2 tiết trong buổi học liền nhau.
+11. Mục 4.1: mỗi GV mỗi buổi chỉ một cơ sở; GV thai sản hoặc chỉ-cơ-sở-2 không dạy lớp cơ sở 1 (và thai sản không bù, qua mục 3); buổi nghỉ cố định không có tiết; đủ số buổi trống đã xin.
 
 Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn hình.
 
@@ -430,7 +462,7 @@ Bốn file, ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: ch
 
 Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `data/Output_Template_TKB_V8.xlsx`:
 - Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
-  - Cột LỚP gộp 7 hàng (`LỚP 1/1`).
+  - Cột LỚP gộp 7 hàng (`LỚP 1/1`). Lớp ở cơ sở 2 ghi thêm `(CƠ SỞ 2)`, ví dụ `LỚP 3D23 (CƠ SỞ 2)`.
   - Cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày.
   - Giữa hai lớp có 2 dòng trống.
 - Mỗi ô ghi **môn** và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Chiều Thứ 6 ghi `Nghỉ`.
@@ -472,6 +504,7 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 ### 11.4. Màn hình và mã thoát
 
 - Màn hình in: các bước giải, **dự toán và biên bù**, cảnh báo, kết quả kiểm tra luật, **mã kết quả**, người cần bổ sung, tiết dạy bù (tổng, theo GVCN/bộ môn, số người +2/+1), số tiết môn nặng ở tiết 7, số tiết TV/Toán buổi chiều, lỗi kiểm tra.
+- Khi file vào có dùng các cột mục 4.1, 8.1 thì in thêm: số lớp ở cơ sở 2 và số GV dạy ở cả hai cơ sở; người thai sản và số tiết; người có buổi nghỉ; số tiết đúng khối cũ, đúng lớp cũ của các GV có `Lớp Đang Dạy`.
 - Mã thoát:
   - `0`: thành công (kể cả khi dừng sớm bằng Ctrl+C ở chế độ không giới hạn thời gian).
   - `1`: lỗi đầu vào, hoặc không xếp được.
@@ -510,8 +543,8 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS` | Môn ưu tiên buổi sáng (TV, Toán) và môn tăng cường ưu tiên buổi chiều (Toán tăng cường) (mục 8.2) |
 | `SUPPLEMENT_NAME` | Tên người bổ sung (mục 7.1) |
 | `ROLE_LABELS` | Cách ghi ba chức vụ Chủ Nhiệm, Bộ Môn, Quản Lý trong file ra |
-| `OVERTIME_ROLES`, `OVERTIME_MAX` | Bù giờ (mục 7.2) |
-| `Weights` | Trọng số mục tiêu (mục 8) |
+| `OVERTIME_ROLES`, `OVERTIME_MAX` | Bù giờ (mục 7.2); thứ tự bù có hợp đồng trong `Weights.overtime_*` |
+| `Weights` | Trọng số mục tiêu (mục 8), gồm `keep_grade`, `keep_class` (giữ phân công cũ) |
 | `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS` | Bước xếp giờ: phần khởi đầu, giới hạn mỗi loại vùng, điều kiện dừng (mục 9) |
 | `Settings` | Tham số chạy mặc định (thời gian 1200, tái lập, số luồng, mức bù) |
 
