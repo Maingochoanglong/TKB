@@ -189,7 +189,7 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 - **GVCN trước:** môn ưu tiên mà có người khác cùng dạy (bộ môn, người mới) thì tiết đầu tuần là của GVCN, tiết của người khác không đứng trước tiết GVCN đầu tiên.
 
 **Hai cơ sở, thai sản, buổi nghỉ** (theo các cột không bắt buộc của file vào; luật cứng, bộ kiểm tra kiểm lại)
-- **Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở.** Ví dụ sáng Thứ 2 có tiết ở cơ sở 2 thì cả buổi sáng đó người ấy chỉ dạy các lớp cơ sở 2. Giữa buổi sáng và buổi chiều thì đổi cơ sở được. Áp dụng cho mọi người, kể cả người cần tuyển (để hai chế độ vẫn chung một TKB).
+- **Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở.** Ví dụ sáng Thứ 2 có tiết ở cơ sở 2 thì cả buổi sáng đó người ấy chỉ dạy các lớp cơ sở 2. Giữa buổi sáng và buổi chiều thì đổi cơ sở được, nhưng bị hạn chế bằng mục tiêu mềm (xem dưới). Áp dụng cho mọi người, kể cả người cần tuyển (để hai chế độ vẫn chung một TKB).
 - **Thai sản:** không dạy bù; chỉ dạy các lớp ở cơ sở 2.
 - **Buổi nghỉ:** không có tiết nào trong buổi nghỉ cố định; đủ số buổi trống đã xin.
 - Tiêu đề lớp ở cơ sở 2 trong TKB ghi thêm `(CƠ SỞ 2)`.
@@ -239,6 +239,7 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 - Hạn chế môn nặng ở tiết 7 (Toán, Tiếng Việt, tiết tăng cường, Tiếng Anh, Khoa học, Tin học; đổi ở `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, trọng số `heavy_late` (400)).
 - Cân bằng số tiết mỗi ngày của giáo viên.
 - Ít tiết trống giữa buổi.
+- **Cả ngày ở một cơ sở:** mỗi lần một giáo viên dạy sáng ở cơ sở này, chiều ở cơ sở kia bị phạt `campus_day_switch` (3000, gấp 10 lần một tiết TV/Toán buổi chiều). Không để luật cứng vì với file của trường, luật cứng cả ngày không ra được TKB trong 1200. Màn hình in số lần còn phải đổi.
 - Rải đều các môn trong tuần (`subject_spread` 40, TV/Toán `core_spread` 120). Khối 1 có 7 cặp TV trong 5 ngày nên luôn có 2 ngày học 4 tiết TV.
 - Phân công: hạn chế chia một lớp-môn cho hai giáo viên; **giữ phân công của TKB cũ** (cột `Lớp Đang Dạy`: mỗi tiết dạy khác khối cũ phạt `keep_grade` 60, đúng khối nhưng khác lớp cũ phạt `keep_class` 10); gom lớp của một giáo viên vào ít khối; cân bằng tải. Giữ phân công cũ đứng sau số tiết thiếu, số tiết bù và "không chia lớp-môn", nhưng trước gom lớp và cân bằng tải. Màn hình in số tiết đúng khối cũ, đúng lớp cũ.
 

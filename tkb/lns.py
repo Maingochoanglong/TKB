@@ -119,6 +119,8 @@ class _Search:
             t = problem.teachers[g]
             over = len(items) - day_targets(t.max_lessons, problem.slots)[d]
             pen = w.day_over_preferred * max(0, over) + w.day_over_buffer * max(0, over - 1)
+            if len({l.class_name in problem.campus2 for l in items}) > 1:
+                pen += w.campus_day_switch
             if not t.class_name:
                 for morning in (True, False):
                     ps = [l.period for l in items if (l.period in config.MORNING.periods) == morning]

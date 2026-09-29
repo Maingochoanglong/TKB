@@ -400,6 +400,26 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
                     m.AddImplication(v, o2.Not())
 
 
+def _campus_day_switch(m: cp_model.CpModel, occ_campus: dict, weight: int) -> list:
+    """Mục tiêu mềm: phạt `weight` mỗi (GV, ngày) dạy ở cả hai cơ sở (sáng một nơi, chiều nơi kia)."""
+    by_day: dict[tuple[str, int, bool], list] = {}  # (GV, ngày, lớp ở cơ sở 2?) -> literal
+    for (g, s, at2), lits in sorted(occ_campus.items()):
+        by_day.setdefault((g, s[0], at2), []).extend(lits)
+    terms = []
+    for g, d in sorted({(g, d) for g, d, _ in by_day}):
+        one, two = by_day.get((g, d, False)), by_day.get((g, d, True))
+        if not one or not two:
+            continue
+        u1, u2, both = (m.NewBoolVar(f"{k}_{g}_{d}") for k in ("cs1", "cs2", "hai_cs"))
+        for v in one:
+            m.AddImplication(v, u1)
+        for v in two:
+            m.AddImplication(v, u2)
+        m.Add(both >= u1 + u2 - 1)
+        terms.append(weight * both)
+    return terms
+
+
 def build_timetable(problem: Problem, settings: config.Settings,
                     fixed: dict[tuple[int, str], int] | None = None,
                     hint: dict[tuple[int, str], int] | None = None) -> TimetableModel:
@@ -461,6 +481,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
         if len(terms) > 1:
             m.Add(sum(terms) <= 1)
     _teacher_sessions(m, problem, occ_terms, occ_campus)
+    objective.extend(_campus_day_switch(m, occ_campus, w.campus_day_switch))
 
     # Biến "GV g dạy nhóm môn của lớp tại slot s" (và theo từng môn) cho các luật về người dạy.
     teach: dict[tuple[str, str], dict[str, dict[tuple[int, int], list]]] = {}

@@ -100,12 +100,15 @@ def test_general_teachers_keep_their_old_class():
 # --------------------------------------------------------------------------
 # Xếp giờ: mỗi buổi một cơ sở, buổi nghỉ
 # --------------------------------------------------------------------------
-@pytest.fixture(scope="module")
-def campus_solution():
+def _campus_staff():
     staff = _set(small_staff(), "chủ nhiệm 3/2", campus2=True)
     staff = _set(staff, "tiếng anh 1", off_sessions=frozenset({(3, "Chiều"), (4, "Sáng")}))
-    staff = _set(staff, "chủ nhiệm 3/1", off_any=(("Chiều", 2),))
-    return solve(staff, CURRICULUM, FAST, log=lambda *_: None)
+    return _set(staff, "chủ nhiệm 3/1", off_any=(("Chiều", 2),))
+
+
+@pytest.fixture(scope="module")
+def campus_solution():
+    return solve(_campus_staff(), CURRICULUM, FAST, log=lambda *_: None)
 
 
 def test_one_campus_per_session_and_leave_are_kept(campus_solution):
@@ -122,6 +125,21 @@ def test_one_campus_per_session_and_leave_are_kept(campus_solution):
     assert not busy["tiếng anh 1"] & {(3, "Chiều"), (4, "Sáng")}
     afternoons = {(d, "Chiều") for d, ss in config.DAY_SESSIONS.items() if config.AFTERNOON in ss}
     assert len(afternoons - busy["chủ nhiệm 3/1"]) >= 2
+
+
+def _campus_day_switches(sol) -> list[tuple[str, int]]:
+    days = defaultdict(set)
+    for les in sol.lessons:
+        days[les.teacher, les.day].add(les.class_name in sol.problem.campus2)
+    return sorted(k for k, cs in days.items() if len(cs) > 1)
+
+
+def test_whole_day_at_one_campus_is_preferred(campus_solution):
+    """Mục tiêu mềm campus_day_switch: không phạt thì GV tiếng anh có ngày sáng một cơ sở, chiều cơ sở kia."""
+    assert _campus_day_switches(campus_solution) == []
+    settings = dataclasses.replace(FAST, weights=config.Weights(campus_day_switch=0))
+    free = solve(_campus_staff(), CURRICULUM, settings, log=lambda *_: None)
+    assert check(free.problem, free.lessons) == [] and _campus_day_switches(free)
 
 
 def test_checker_flags_campus_and_leave_violations(campus_solution):

@@ -147,7 +147,12 @@ def print_teacher_rules(solution) -> None:
     if problem.campus2:
         both = {les.teacher for les in lessons if les.class_name in problem.campus2} & \
                {les.teacher for les in lessons if les.class_name not in problem.campus2}
-        print(f"Cơ sở 2: {len(problem.campus2)} lớp; {len(both)} GV dạy ở cả hai cơ sở, mỗi buổi chỉ ở một cơ sở")
+        days = {}  # (GV, ngày) -> các cơ sở
+        for les in lessons:
+            days.setdefault((les.teacher, les.day), set()).add(les.class_name in problem.campus2)
+        switch = [g for (g, _), cs in days.items() if len(cs) > 1]
+        print(f"Cơ sở 2: {len(problem.campus2)} lớp; {len(both)} GV dạy ở cả hai cơ sở, mỗi buổi chỉ ở một cơ sở; "
+              f"sáng một cơ sở, chiều cơ sở kia: {len(switch)} lần ({len(set(switch))} GV)")
     maternity = [t for t in teachers.values() if t.maternity]
     if maternity:
         load = solution.teacher_load()

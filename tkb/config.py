@@ -190,6 +190,8 @@ class Weights:
     extra_after_main: int = 100  # thưởng mỗi tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy
     subject_spread: int = 40  # mỗi tiết vượt mức rải đều môn/ngày
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
+    campus_day_switch: int = 3_000  # mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia (luật cứng mỗi buổi
+                                    # một cơ sở vẫn giữ; cứng cả ngày thì file của trường không ra TKB)
     general_on_specialist: int = 1_000  # mỗi tiết bộ môn dạy thay môn chuyên biệt (chỉ khi GV chuyên biệt đã
                                        # hết định mức; lớn hơn điểm gom lớp để không bị đổi chỉ vì gom lớp)
     load_balance: int = 50  # mỗi tiết dư lớn nhất giữa các GV cùng chức vụ

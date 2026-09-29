@@ -58,6 +58,7 @@
 | 40 | Giữ phân công cũ | Không có | Cột `Lớp Đang Dạy` (các lớp dạy trong TKB cũ). GV bộ môn, chuyên biệt ưu tiên giữ **khối** cũ, rồi giữ **lớp** cũ: mục tiêu mềm, sau số tiết thiếu/bù và "không chia lớp–môn", trước gom lớp và cân bằng tải (mục 8.1) |
 | 41 | Buổi nghỉ | Không có | Cột `Buổi Nghỉ`: buổi cố định (`Chiều T5`) hoặc số buổi bất kỳ (`2 buổi chiều`). **[Cứng]** không xếp tiết vào buổi nghỉ (mục 4.1) |
 | 42 | File ra theo cơ sở; ô tăng tiết | Một file TKB cho cả trường; file thống kê chỉ tô cả dòng người dạy bù | Có lớp ở cơ sở 2 thì **tách TKB thành `..._diem_chinh.xlsx` (cơ sở 1) và `..._diem_phu.xlsx` (cơ sở 2)**, cả bản có chức vụ (mục 11). File thống kê tô **cam** các ô môn có tiết dạy bù, kèm ghi chú số tiết (mục 11.3). Chỉ đổi cách ghi file, mã kết quả không đổi |
+| 43 | Cả ngày một cơ sở | Chỉ cấm đổi cơ sở giữa buổi; file trường còn 21 lần GV dạy sáng một cơ sở, chiều cơ sở kia | **[Mềm]** phạt `campus_day_switch` = 3000 mỗi (GV, ngày) dạy cả hai cơ sở (mục 4.1, 8.2). Đã thử: luật cứng cả ngày không ra TKB trong 1200 (UNKNOWN); phạt 300 / 1000 / 3000 còn 8 / 4 / 4 lần, chọn 3000 |
 
 ---
 
@@ -225,6 +226,10 @@ Theo các cột không bắt buộc của sheet NHÂN SỰ (mục 2.1.1). File k
   - Buổi là sáng hoặc chiều của một ngày. Ví dụ sáng Thứ 2 có tiết ở cơ sở 2 thì cả buổi sáng đó người ấy chỉ dạy các lớp cơ sở 2. Giữa buổi sáng và buổi chiều thì đổi cơ sở được.
   - Áp dụng cho mọi người, kể cả người cần tuyển, để chế độ tuyển thêm vẫn dùng đúng TKB của chế độ bù. GVCN chỉ dạy lớp mình nên luôn thỏa.
   - Cài đặt (`solver._teacher_sessions`): mỗi GV có tiết ở cả hai cơ sở, mỗi buổi có một biến "buổi này ở cơ sở 2"; mỗi tiết của người đó kéo theo biến này đúng hoặc sai tùy cơ sở của lớp.
+- **[Mềm] Cả ngày ở một cơ sở:** mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia bị phạt `campus_day_switch` (3000, mục 8.2).
+  - Không để cứng: với file của trường, luật cứng cả ngày không tìm được TKB trong 1200 (trạng thái UNKNOWN).
+  - Thử mức phạt trên file của trường (chế độ bù, 1200, Linux): không phạt 21 lần; 300: 8 lần; 1000: 4 lần; 3000: 4 lần, chi phí các mục tiêu khác gần như bằng khi không phạt. Chọn 3000.
+  - Cài đặt (`solver._campus_day_switch`): mỗi (GV, ngày) có thể dạy cả hai cơ sở có hai biến "có dạy cơ sở 1", "có dạy cơ sở 2" và biến "cả hai" ≥ tổng − 1, phạt biến "cả hai". QA của các vòng xếp lại tính cùng mức phạt (mục 9). Màn hình in số lần còn lại.
 - **[Cứng] Thai sản:** không dạy bù (mục 7.2); chỉ dạy các lớp ở cơ sở 2. GV có `Cơ sở 2 = Có` trên dòng không phải Chủ Nhiệm cũng chỉ dạy các lớp ở cơ sở 2.
 - **[Cứng] Buổi nghỉ:**
   - buổi nghỉ cố định không có tiết nào của người đó;
@@ -381,6 +386,7 @@ Viết bằng Python thuần, số nguyên, duyệt theo thứ tự cố định
 | Tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy | thưởng 100 / tiết (`extra_after_main`) |
 | Rải đều môn (trừ HĐTN): số tiết một môn trong ngày vượt ⌈số tiết/tuần ÷ 5⌉ | 40 / tiết vượt; **TV, Toán 120** (`core_spread`). Khối 1 có 7 cặp TV trong 5 ngày nên luôn có 2 ngày vượt |
 | Tiết trống giữa buổi của giáo viên không chủ nhiệm | 10 / tiết trống |
+| Giáo viên dạy sáng ở cơ sở này, chiều ở cơ sở kia (mục 4.1) | 3000 / (GV, ngày) (`campus_day_switch`) |
 
 Các trọng số chọn qua thử nghiệm trên file của trường (lượng tính toán 480): với mọi luật cứng mới, TV/Toán buổi chiều 39 tiết (như trước khi có luật mới), môn nặng ở tiết 7: 7 tiết, vượt rải đều 19, tiết trống 1.
 
@@ -394,7 +400,7 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
 4. **Tiết bù → người mới:** các tiết bù (và ở chế độ tuyển, tiết thiếu) giao cho người tuyển mới (mục 7.1).
 5. **Bước 2 – Xếp giờ** với phân công cố định đó, tối ưu mục tiêu mềm ở mục 8.2 (`tkb/lns.py`):
    - **Khởi đầu:** CP-SAT trên toàn mô hình với 20% `THOI_GIAN_TOI_DA` nhưng không quá 120 (không giới hạn: 120). Nếu đã chứng minh tối ưu thì dừng (trường nhỏ của test).
-   - **Mỗi vòng:** QA chấm chi phí mềm của từng lớp-ngày theo đúng trọng số mục 8.2 (phạt tải ngày, tiết trống của một giáo viên chia đều cho các lớp người đó dạy hôm ấy). Rồi xếp lại lần lượt các vùng, vùng xấu trước: từng lớp (tối đa 5) → 5 "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên không chủ nhiệm hôm ấy, mở thêm ngày tốt nhất của lớp; 10) → nhóm lớp của một giáo viên dùng chung 2–8 lớp (15) → từng khối (20) → từng cặp ngày (30). Mỗi vùng: giữ nguyên mọi biến ngoài vùng, CP-SAT giải lại xuất phát từ nghiệm đang có, **chỉ nhận khi chi phí giảm**. Luật cứng luôn đúng vì vẫn giải trên toàn mô hình.
+   - **Mỗi vòng:** QA chấm chi phí mềm của từng lớp-ngày theo đúng trọng số mục 8.2 (phạt tải ngày, tiết trống, dạy cả hai cơ sở trong ngày của một giáo viên chia đều cho các lớp người đó dạy hôm ấy). Rồi xếp lại lần lượt các vùng, vùng xấu trước: từng lớp (tối đa 5) → 5 "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên không chủ nhiệm hôm ấy, mở thêm ngày tốt nhất của lớp; 10) → nhóm lớp của một giáo viên dùng chung 2–8 lớp (15) → từng khối (20) → từng cặp ngày (30). Mỗi vùng: giữ nguyên mọi biến ngoài vùng, CP-SAT giải lại xuất phát từ nghiệm đang có, **chỉ nhận khi chi phí giảm**. Luật cứng luôn đúng vì vẫn giải trên toàn mô hình.
    - **Dừng:** hết `THOI_GIAN_TOI_DA`; một vòng giảm chưa tới 0,3% chi phí (không giới hạn: vòng không giảm); đủ 10 vòng; hoặc Ctrl+C (dừng sau vùng đang xếp).
    - Tham số trong `config.py`: `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`.
    - Màn hình in "chi phí xếp giờ" (mục tiêu trừ phần của phân công, là hằng số) sau khởi đầu và sau mỗi vòng. Trạng thái là FEASIBLE: kết quả là tốt nhất tìm được (tối ưu cục bộ theo các vùng), không chứng minh tối ưu.
