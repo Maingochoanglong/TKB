@@ -118,4 +118,4 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
 - `docs/Dac_Ta_Nghiep_Vu_TKB_V16.md`: full spec. §0 change history (add a row per rule change), §5 homeroom,
   §6 student rules, §7 shortage modes, §8 objectives and weights, §9 solve process and reproducibility,
   §11 outputs, §13 reference results.
-- `docs/Tham_Khao_TKB_Truong_Khac.md`: how other schools arrange subjects; §5 proposals (5.1 done).
+- `docs/Tham_Khao_TKB_Truong_Khac.md`: how other schools arrange subjects; §5 proposals (5.1 done, 5.2 dropped); §6 not adopted (incl. the homeroom-gap trial).

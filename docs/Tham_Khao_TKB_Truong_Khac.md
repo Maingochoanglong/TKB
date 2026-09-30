@@ -122,7 +122,7 @@ Xếp theo mức ưu tiên.
   - tiết tăng cường/ôn (TV tăng cường, Toán tăng cường) ưu tiên buổi chiều.
 - **Giới hạn:** khối 1 có 14 tiết TV mà luật cứng chỉ cho tối đa 2 tiết TV mỗi buổi. Như vậy buổi sáng chứa tối đa 10 tiết TV, ít nhất 4 tiết vẫn phải sang buổi chiều. Mục tiêu này chỉ đẩy được hết mức có thể.
 
-### 5.2. Mỗi khối có một buổi chiều sinh hoạt tổ khối (nên cân nhắc)
+### 5.2. Mỗi khối có một buổi chiều sinh hoạt tổ khối (**không làm**: nhà trường bỏ hướng buổi rảnh cho GVCN)
 
 - **Cách làm:** trong `tkb/config.py` ghi ngày họp của từng khối, ví dụ khối 1 chiều Thứ 5, khối 2 chiều Thứ 2… Buổi chiều đó, mọi lớp của khối chỉ học môn do giáo viên khác dạy, mọi GVCN của khối đều rảnh.
 - **Khó khăn:**
@@ -167,6 +167,4 @@ Xếp theo mức ưu tiên.
     - Tổng giờ rảnh của mỗi GVCN cố định, bằng số tiết bộ môn của lớp mình. Gom chỉ chuyển tiết rảnh lẻ ra đầu hoặc cuối buổi, không làm các cô đều nhau hơn.
     - Tiết trống giữa buổi vẫn có ích: chấm vở, chuẩn bị tiết sau, nghỉ giọng.
     - Lợi ích nhỏ: mỗi cô bớt khoảng 1 tiết lẻ mỗi tuần, khoảng 3/4 tiết trống vẫn là so le.
-  - **Thay vào đó:**
-    - Cô cần nghỉ một buổi cụ thể thì ghi ở cột `Buổi Nghỉ` (luật cứng).
-    - Muốn GVCN có thời gian rảnh chung thì làm theo mục 5.2 (mỗi khối một buổi chiều sinh hoạt tổ khối), khi nhà trường chốt ngày họp của từng khối.
+  - **Thay vào đó:** cô cần nghỉ một buổi cụ thể thì ghi ở cột `Buổi Nghỉ` (luật cứng). Nhà trường bỏ cả hướng buổi rảnh chung cho GVCN (mục 5.2).
