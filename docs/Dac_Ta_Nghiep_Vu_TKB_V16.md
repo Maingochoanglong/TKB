@@ -59,6 +59,7 @@
 | 41 | Buổi nghỉ | Không có | Cột `Buổi Nghỉ`: buổi cố định (`Chiều T5`) hoặc số buổi bất kỳ (`2 buổi chiều`). **[Cứng]** không xếp tiết vào buổi nghỉ (mục 4.1) |
 | 42 | File ra theo cơ sở; ô tăng tiết | Một file TKB cho cả trường; file thống kê chỉ tô cả dòng người dạy bù | Có lớp ở cơ sở 2 thì **tách TKB thành `..._diem_chinh.xlsx` (cơ sở 1) và `..._diem_phu.xlsx` (cơ sở 2)**, cả bản có chức vụ (mục 11). File thống kê tô **cam** các ô môn có tiết dạy bù, kèm ghi chú số tiết (mục 11.3). Chỉ đổi cách ghi file, mã kết quả không đổi |
 | 43 | Cả ngày một cơ sở | Chỉ cấm đổi cơ sở giữa buổi; file trường còn 21 lần GV dạy sáng một cơ sở, chiều cơ sở kia | **[Mềm]** phạt `campus_day_switch` = 3000 mỗi (GV, ngày) dạy cả hai cơ sở (mục 4.1, 8.2). Đã thử: luật cứng cả ngày không ra TKB trong 1200 (UNKNOWN); phạt 300 / 1000 / 3000 còn 8 / 4 / 4 lần, chọn 3000 |
+| 44 | Bỏ dòng nhân sự trùng; bù tối đa +3 | File trường có 45 dòng nhân sự, trong đó dòng 34 (bộ môn 23 tiết) trùng người với dòng 46 (bộ môn thai sản); `main.py` bù tối đa 2 | Trường xác nhận trùng: **bỏ dòng 34** (còn 44 người). Mất 23 tiết định mức nên với +2 thiếu 17 tiết (Âm Nhạc 6, Mỹ Thuật 6, Công nghệ 4, KNS 1); trường chốt **`SO_TIET_BU_TOI_DA` = 3** trong `main.py`. Dự toán: bù 79 tiết, toàn GVCN (23 người +3, 5 người +2). `config.OVERTIME_MAX` (dòng lệnh, test) vẫn 2 |
 
 ---
 
@@ -334,7 +335,7 @@ Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi �
 
 ### 7.2. Chế độ bù giờ (`bu_gio`)
 
-- **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (mặc định 2). **[Cứng]** GV đang hưởng thai sản không bù.
+- **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (`main.py` mặc định 3 cho file của trường; dòng lệnh và `config.OVERTIME_MAX`: 2). **[Cứng]** GV đang hưởng thai sản không bù.
 - **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt.
 - **[Cứng]** GVCN được **ưu tiên bù lớp mình**: không được để bộ môn dạy bù ở lớp X một môn mà GVCN lớp X dạy được, trong khi GVCN lớp X chưa bù hết mức. Bộ kiểm tra báo lỗi.
 - **Thứ tự môn GVCN bù:**
@@ -530,7 +531,7 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | `FILE_VAO` | **Địa chỉ file vào** (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC), tương đối theo `main.py`. Để trống thì báo lỗi | `data/INPUT_V8.xlsx` (file của trường) |
 | `THU_MUC_OUT` | Thư mục ra. **Để trống thì ghi vào thư mục dự án** (thư mục chứa `main.py`); các file ra ở đó được `.gitignore` bỏ qua | `""` |
 | `CHE_DO` | `bu_gio` hoặc `tuyen_them` (cùng TKB, mục 7) | `bu_gio` |
-| `SO_TIET_BU_TOI_DA` | Mức bù tối đa mỗi người; chế độ tuyển: người mới nhận các tiết bù này | `2` |
+| `SO_TIET_BU_TOI_DA` | Mức bù tối đa mỗi người; chế độ tuyển: người mới nhận các tiết bù này | `3` (file của trường với 2 thì thiếu 17 tiết) |
 | `LUAT_HOC_SINH` | Áp dụng luật học sinh (mục 6) | `True` |
 | `THOI_GIAN_TOI_DA` | Tổng lượng tính toán cho bước xếp giờ (≈ giây): khởi đầu và các vòng xếp lại (mục 9). **Để trống hoặc 0 thì không giới hạn**: xếp lại đến khi một vòng không còn cải thiện; Ctrl+C dừng sớm và vẫn ghi TKB tốt nhất | `1200` |
 | `CHAY_TAI_LAP_DUOC` | Cùng dữ liệu luôn ra cùng một kết quả | `True` |

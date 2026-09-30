@@ -29,7 +29,8 @@ THU_MUC_OUT = ""
 CHE_DO = "bu_gio"
 
 # Số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần (ở chế độ tuyển: người mới nhận đúng các tiết bù này).
-SO_TIET_BU_TOI_DA = 2
+# File của trường hiện cần 3: với 2 thì thiếu 17 tiết (Âm Nhạc, Mỹ Thuật, Công nghệ, KNS).
+SO_TIET_BU_TOI_DA = 3
 
 # Áp dụng luật bảo vệ học sinh: mỗi nhóm môn (vd TV + TV tăng cường) tối đa 2 tiết mỗi buổi; Toán mỗi ngày
 # 1 tiết; TV khối có từ 6 tiết (tổng chẵn) học thành cặp 2 tiết liền; môn có từ 2 tiết trong một buổi thì các

@@ -5,7 +5,8 @@ thời khóa biểu tuần cho toàn trường bằng OR-Tools CP-SAT. Trước 
 thiếu, số tiết bù của từng người, số người cần tuyển và in ra màn hình. Khi trường thiếu người, có hai chế độ,
 **dùng chung một TKB**:
 
-- **Bù giờ** (`bu_gio`): GVCN và bộ môn dạy bù vượt định mức, mỗi người tối đa 2 tiết/tuần. Bù hết mức vẫn
+- **Bù giờ** (`bu_gio`): GVCN và bộ môn dạy bù vượt định mức, mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần
+  (`main.py`: 3, vì file của trường với 2 thì thiếu 17 tiết; dòng lệnh mặc định 2). Bù hết mức vẫn
   thiếu thì **báo lỗi**, không ra TKB, và ghi bảng tiết thiếu vào `Thong_Ke.xlsx`.
 - **Tuyển thêm** (`tuyen_them`): thêm giáo viên mới tên "chưa có" (ví dụ `chưa có | Bộ Môn | 23`, Mã GV
   `Bộ Môn 6`). **Người mới dạy đúng các ô mà ở chế độ bù là tiết bù** (và các tiết còn thiếu), mọi ô khác giữ
@@ -30,7 +31,7 @@ pip install -r requirements.txt
 | `FILE_VAO` | **Địa chỉ file vào** (mẫu V8: sheet `NHÂN SỰ` và `CHƯƠNG TRÌNH HỌC`) | `data/INPUT_V8.xlsx` (file của trường) |
 | `THU_MUC_OUT` | Thư mục ghi kết quả; tự tạo nếu chưa có. **Để trống `""` thì ghi vào thư mục dự án** (thư mục chứa `main.py`) | `""` |
 | `CHE_DO` | Khi thiếu người: `"bu_gio"` (GVCN/bộ môn dạy bù; không đủ thì báo lỗi) hoặc `"tuyen_them"` (thêm GV "chưa có" dạy các ô bù) | `"bu_gio"` |
-| `SO_TIET_BU_TOI_DA` | Số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần; chế độ tuyển: người mới nhận đúng các tiết bù này | `2` |
+| `SO_TIET_BU_TOI_DA` | Số tiết bù tối đa mỗi GVCN/bộ môn mỗi tuần; chế độ tuyển: người mới nhận đúng các tiết bù này. File của trường cần 3 (với 2 thì thiếu 17 tiết) | `3` |
 | `LUAT_HOC_SINH` | Áp dụng luật bảo vệ học sinh | `True` |
 | `THOI_GIAN_TOI_DA` | Thời gian cho bước xếp giờ, xấp xỉ giây: xếp nhanh một TKB rồi xếp lại từng vùng cho tốt dần (mục [Cách giải](#cách-giải)); tăng lên để TKB đẹp hơn. **Để trống (`None`/`""`) hoặc `0` thì không giới hạn**: xếp lại đến khi một vòng không còn cải thiện (thường 9–17 phút); bấm Ctrl+C để dừng sớm (sau vài giây), TKB tốt nhất vẫn được ghi ra. Cần nhanh thì đặt `600` (≈ 4–6 phút, TKB kém hơn một chút) | `1200` (≈ 9–13 phút) |
 | `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
