@@ -5,7 +5,7 @@ Style (phông, cỡ chữ, viền, căn lề, chiều cao dòng) chép từ file
 """
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from copy import copy
 from pathlib import Path
 
@@ -15,7 +15,7 @@ from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
 from . import config
-from .solver import Solution
+from .solver import Solution, session_of
 from .staff import Teacher, _find_columns, class_sort_key, grade_of, normalize, staff_sheet
 from .style import CellStyle, Style
 
@@ -30,6 +30,8 @@ SPARE_HEADER = "Số Tiết Dư"  # file vào cập nhật: định mức − th
 STATS_SHEET = "Thống kê"
 SHORTAGE_SHEET = "Thiếu tiết"
 TOTAL_HEADER = "Tổng Tiết"
+# File thống kê, trường có lớp ở cơ sở 2: ai dạy ở cả hai cơ sở (các buổi ở cơ sở 2), ai đổi cơ sở trong ngày.
+MOVE_HEADERS = ("Buổi Ở Cơ Sở 2", "Đổi Cơ Sở Trong Ngày")
 # File thống kê: tô nền cả dòng để biết ai dạy bù (chế độ bù giờ), ai là người cần tuyển (chế độ tuyển thêm).
 OVERTIME_FILL = "FFEB9C"  # vàng nhạt
 HIRE_FILL = "C6EFCE"  # xanh lá nhạt
@@ -180,13 +182,39 @@ def _stats_name(t: Teacher) -> str:
     return HIRE_LABEL if t.supplementary else t.name or None
 
 
+def campus_moves(solution: Solution) -> dict[str, tuple[list[str], list[str]]]:
+    """GV dạy ở cả hai cơ sở -> (các buổi ở cơ sở 2, vd "Sáng T3"; các ngày sáng một cơ sở, chiều cơ sở kia,
+    vd "T5: sáng cơ sở 1, chiều cơ sở 2"). Luật cứng: mỗi buổi chỉ một cơ sở."""
+    campus2 = solution.problem.campus2
+    sess = session_of()
+    where = defaultdict(set)  # (GV, ngày, buổi) -> {lớp ở cơ sở 2?}
+    for les in solution.lessons:
+        where[les.teacher, les.day, sess[les.day, les.period]].add(les.class_name in campus2)
+    campuses = defaultdict(set)
+    for (g, _, _), cs in where.items():
+        campuses[g] |= cs
+    day = lambda d: config.DAYS[d].replace("Thứ ", "T")  # noqa: E731
+    out = {}
+    for g in sorted(g for g, cs in campuses.items() if len(cs) > 1):
+        keys = sorted((d, config.DAY_SESSIONS[d].index(s), s) for (h, d, s) in where if h == g)
+        at2 = [f"{s.name} {day(d)}" for d, _, s in keys if True in where[g, d, s]]
+        switches = []
+        for d in sorted({d for d, _, _ in keys}):
+            parts = [(s.name.lower(), 2 if True in where[g, d, s] else 1) for dd, _, s in keys if dd == d]
+            if len({c for _, c in parts}) > 1:
+                switches.append(f"{day(d)}: " + ", ".join(f"{n} cơ sở {c}" for n, c in parts))
+        out[g] = (at2, switches)
+    return out
+
+
 def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[list]]:
     """Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết | Số Tiết/Tuần | Số Tiết Bù | Số Tiết Dư, mỗi
     giáo viên một dòng; cuối bảng có dòng Tổng.
 
     Chỉ có cột cho các môn có người dạy, theo thứ tự môn trong chương trình học; ô trống là không dạy môn đó.
     Số Tiết/Tuần là định mức (người cần tuyển: định mức tuyển); Số Tiết Bù là số tiết dạy bù vượt định mức
-    (chế độ bù giờ); Số Tiết Dư là định mức − Tổng Tiết khi dạy ít hơn định mức.
+    (chế độ bù giờ); Số Tiết Dư là định mức − Tổng Tiết khi dạy ít hơn định mức. Trường có lớp ở cơ sở 2: thêm hai
+    cột MOVE_HEADERS cho người dạy ở cả hai cơ sở (xem campus_moves).
     """
     problem = solution.problem
     count = Counter((les.teacher, les.subject) for les in solution.lessons)
@@ -194,6 +222,10 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
     subjects = sorted({s for _, s in count}, key=lambda s: (order.get(s, len(order)), s))
     header = [style.staff_headers["name"], "Chức Vụ", *(problem.subject_label(s) for s in subjects), TOTAL_HEADER,
               style.staff_headers["lessons"], OVERTIME_HEADER, SPARE_HEADER]
+    numeric = len(header)
+    moves = campus_moves(solution) if problem.campus2 else None
+    if moves is not None:
+        header += MOVE_HEADERS
     overtime = solution.overtime()
     rows = []
     for t in staff_rows(solution):
@@ -201,7 +233,13 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
         total = sum(per)
         rows.append([_stats_name(t), t.code, *(n or None for n in per), total, t.max_lessons,
                      overtime.get(t.title) or None, max(0, t.max_lessons - total) or None])
-    rows.append(["Tổng", None, *(sum(r[c] or 0 for r in rows) for c in range(2, len(header)))])
+        if moves is not None:
+            at2, switches = moves.get(t.title, ([], []))
+            rows[-1] += [", ".join(at2) or None, "; ".join(switches) or None]
+    total_row = ["Tổng", None, *(sum(r[c] or 0 for r in rows) for c in range(2, numeric))]
+    if moves is not None:
+        total_row += [f"{len(moves)} người", f"{sum(len(sw) for _, sw in moves.values())} lần"]
+    rows.append(total_row)
     return header, rows
 
 
@@ -254,9 +292,15 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
         if color == OVERTIME_FILL and n_cells:
             texts.append((OVERTIME_CELL_FILL, f"{OVERTIME_CELL_LEGEND}: {n_cells} ô, {sum(extra.values())} tiết "
                                               f"(ghi chú trong ô ghi số tiết bù của môn)"))
+    moves = campus_moves(solution) if solution.problem.campus2 else {}
+    if moves:
+        texts.append((None, f"Dạy ở cả hai cơ sở: {len(moves)} người (cột {MOVE_HEADERS[0]}); đổi cơ sở trong "
+                            f"ngày: {sum(len(sw) for _, sw in moves.values())} lần (cột {MOVE_HEADERS[1]})"))
     legend = []
     for color, text in texts:
-        style.body_cell(ws, top, 1, None).fill = _fill(color)
+        cell = style.body_cell(ws, top, 1, None)
+        if color:
+            cell.fill = _fill(color)
         cell = ws.cell(top, 2, text)
         cell.font = copy(style.body.font)
         cell.alignment = Alignment(horizontal="left", vertical="center")

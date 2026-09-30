@@ -175,6 +175,30 @@ def test_timetable_class_column_is_plain_name(campus_solution, tmp_path):
     assert titles == ["3/1", "3/2"]  # chỉ tên lớp, không thêm chữ LỚP hay CƠ SỞ 2
 
 
+def test_statistics_show_campus_moves(campus_solution, tmp_path):
+    """File thống kê: hai cột cho người dạy ở cả hai cơ sở (các buổi ở cơ sở 2, đổi cơ sở trong ngày)."""
+    import openpyxl
+
+    from tkb.writer import MOVE_HEADERS, write_statistics
+    out = tmp_path / "Thong_Ke.xlsx"
+    write_statistics(campus_solution, out)
+    rows = list(openpyxl.load_workbook(out)["Thống kê"].iter_rows(values_only=True))
+    assert rows[0][-2:] == MOVE_HEADERS
+    both = {g for g in {les.teacher for les in campus_solution.lessons}
+            if len({les.class_name in campus_solution.problem.campus2
+                    for les in campus_solution.lessons if les.teacher == g}) > 1}
+    codes = {campus_solution.problem.teachers[g].code for g in both}
+    table = rows[1:[r[0] for r in rows].index("Tổng")]
+    assert {r[1] for r in table if r[-2]} == codes and {"Tiếng Anh 1", "Thể dục 1"} <= codes
+    for r in table:
+        assert (r[-2] is None) == (r[1] not in codes)
+        assert all(part.split()[0] in ("Sáng", "Chiều") for part in (r[-2] or "Sáng T2").split(", "))
+        assert r[-1] is None  # có phạt: không ai sáng một cơ sở, chiều cơ sở kia
+    total = rows[[r[0] for r in rows].index("Tổng")]
+    assert total[-2:] == (f"{len(codes)} người", "0 lần")
+    assert any(r[1] and str(r[1]).startswith("Dạy ở cả hai cơ sở:") for r in rows)
+
+
 def test_cli_splits_timetables_by_campus(tmp_path):
     """Có lớp ở cơ sở 2: mỗi file TKB tách thành file điểm chính (cơ sở 1) và file điểm phụ (cơ sở 2)."""
     import openpyxl

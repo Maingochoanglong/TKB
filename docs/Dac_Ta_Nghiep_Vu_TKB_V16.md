@@ -62,6 +62,7 @@
 | 44 | Bỏ dòng nhân sự trùng; bù tối đa +3 | File trường có 45 dòng nhân sự, trong đó dòng 34 (bộ môn 23 tiết) trùng người với dòng 46 (bộ môn thai sản); `main.py` bù tối đa 2 | Trường xác nhận trùng và gửi lại file: **dòng 34 giờ là bộ môn thai sản** (19 tiết, `Cơ sở 2 = Có`), bỏ dòng 46; còn 44 người. Hai cột `Lớp Đang Dạy`, `Buổi Nghỉ` (file trường không có) chép sang theo họ tên. Mất 23 tiết định mức nên với +2 thiếu 17 tiết (Âm Nhạc 6, Mỹ Thuật 6, Công nghệ 4, KNS 1); trường chốt **`SO_TIET_BU_TOI_DA` = 3** trong `main.py`. Dự toán: bù 79 tiết, toàn GVCN (23 người +3, 5 người +2). `config.OVERTIME_MAX` (dòng lệnh, test) vẫn 2 |
 | 45 | Thống kê gọn ai dư, ai bù | File vào cập nhật có Mã GV, Số Tiết Thực Dạy, Số Tiết Bù; không thấy ai còn dư tiết | Thêm cột **Số Tiết Dư** và tô nền cả dòng: bù vàng, tuyển xanh lá, dư xanh dương (mục 11.2). Chỉ đổi file ra, mã kết quả không đổi |
 | 46 | Cột LỚP; tiết bù, tiết dư trong file thống kê | TKB ghi `LỚP 3D23 (CƠ SỞ 2)`; file thống kê chỉ có số tiết từng môn và Tổng Tiết | Cột LỚP **chỉ ghi tên lớp** (`3D23`). File thống kê thêm cột **Số Tiết/Tuần, Số Tiết Bù, Số Tiết Dư**, tô xanh dương dòng người còn dư tiết (mục 11.1, 11.3). Chỉ đổi file ra, mã kết quả không đổi |
+| 47 | Ai di chuyển giữa hai cơ sở | Chỉ in số người, số lần ra màn hình | File thống kê thêm cột **Buổi Ở Cơ Sở 2** và **Đổi Cơ Sở Trong Ngày** cho người dạy ở cả hai cơ sở, dòng Tổng và chú thích ghi số người, số lần (mục 11.3). Chỉ đổi file ra, mã kết quả không đổi |
 
 ---
 
@@ -510,6 +511,8 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | Số Tiết/Tuần | Định mức (người cần tuyển: định mức tuyển) |
 | Số Tiết Bù | Số tiết dạy bù vượt định mức (chế độ bù giờ); trống là không bù |
 | Số Tiết Dư | Định mức − Tổng Tiết khi dạy ít hơn định mức; trống là dạy đủ |
+| Buổi Ở Cơ Sở 2 | Chỉ khi trường có lớp ở cơ sở 2, cho người dạy ở cả hai cơ sở: các buổi người đó dạy ở cơ sở 2, vd `Sáng T3, Chiều T5`; dòng Tổng ghi số người |
+| Đổi Cơ Sở Trong Ngày | Như trên: các ngày sáng một cơ sở, chiều cơ sở kia, vd `T5: sáng cơ sở 1, chiều cơ sở 2`; dòng Tổng ghi số lần |
 
 - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển. Cuối bảng có dòng **Tổng** (tổng từng môn và tổng tiết toàn trường).
 - **Tô nền cả dòng:** chế độ bù giờ tô **vàng** (`FFEB9C`) dòng người dạy bù (tổng tiết vượt định mức); chế độ tuyển thêm tô **xanh lá** (`C6EFCE`) dòng người cần tuyển; người còn dư tiết tô **xanh dương** (`DDEBF7`). Trong dòng người dạy bù, **ô môn có tiết bù tô cam** (`F4B183`), kèm ghi chú (comment) `Dạy bù <n> tiết <môn>`: đó đúng là các tiết mà chế độ tuyển thêm giao cho người mới. Dưới bảng, cách một dòng, có chú thích: ô màu và dòng chữ `Dạy bù (vượt định mức): <số người> người, <số tiết bù> tiết`, `Môn có tiết dạy bù: <số ô> ô, <số tiết> tiết`, `Cần tuyển thêm: <số người> người, <số tiết> tiết`, `Dạy ít hơn định mức (còn dư tiết): <số người> người, <số tiết> tiết`. Không ai bù, không ai tuyển, không ai dư thì không tô, không chú thích.
