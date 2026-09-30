@@ -188,13 +188,14 @@ class Weights:
     day_over_preferred: int = 100  # mỗi tiết vượt tải ngày mong muốn
     day_over_buffer: int = 300  # mỗi tiết vượt tải ngày mong muốn + 1
     hdtn_flex_distance: int = 200  # mỗi tiết cách cuối buổi của HĐTN flex
-    heavy_late: int = 400  # mỗi tiết môn nặng ở tiết 7
+    heavy_late: int = 1_200  # mỗi tiết môn nặng ở tiết 7 (400 thì file của trường còn 8 tiết trên Windows; 1200: 6;
+                             # 3000 cũng 6 mà TV/Toán buổi chiều tăng)
     morning_core: int = 300  # mỗi tiết TV, Toán (MORNING_SUBJECTS) xếp vào buổi chiều
     core_spread: int = 120  # như subject_spread nhưng cho MORNING_SUBJECTS
     subject_spread: int = 40  # mỗi tiết vượt mức rải đều môn/ngày
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
-    campus_day_switch: int = 3_000  # mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia (luật cứng mỗi buổi
-                                    # một cơ sở vẫn giữ; cứng cả ngày thì file của trường không ra TKB)
+    campus_day_switch: int = 10_000  # mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia (luật cứng mỗi buổi
+                                     # một cơ sở vẫn giữ; cứng cả ngày thì file của trường không ra TKB)
     general_on_specialist: int = 1_000  # mỗi tiết bộ môn dạy thay môn chuyên biệt (chỉ khi GV chuyên biệt đã
                                        # hết định mức; lớn hơn điểm gom lớp để không bị đổi chỉ vì gom lớp)
     load_balance: int = 50  # mỗi tiết dư lớn nhất giữa các GV cùng chức vụ

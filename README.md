@@ -88,8 +88,8 @@ Chạy test: `python -m pytest -q`
 
 | Hệ điều hành | Mã kết quả `data/INPUT_V8.xlsx` | Đã kiểm |
 |---|---|---|
-| Windows x86-64 | **`BBEA-5C95-15D7`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
-| Linux x86-64 | **`2E60-3DEB-71C8`** | Python 3.11 |
+| Windows x86-64 | **`08F4-E2C6-3470`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
+| Linux x86-64 | **`5C2B-510F-5156`** | Python 3.11 |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
 
@@ -238,10 +238,10 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
   - đổi ở `MORNING_SUBJECTS`, trọng số `morning_core` (300), `core_spread`.
 
   Khối có nhiều tiết TV (vd khối 1: 14 tiết, mỗi buổi tối đa 2) vẫn phải có vài tiết TV buổi chiều. Mỗi lần chạy in ra số tiết TV, Toán còn ở buổi chiều.
-- Hạn chế môn nặng ở tiết 7 (Toán, Tiếng Việt, tiết tăng cường, Tiếng Anh, Khoa học, Tin học; đổi ở `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, trọng số `heavy_late` (400)).
+- Hạn chế môn nặng ở tiết 7 (Toán, Tiếng Việt, tiết tăng cường, Tiếng Anh, Khoa học, Tin học; đổi ở `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, trọng số `heavy_late` (1200)). Mỗi GV Tiếng Anh dạy 23 tiết trong 26 ô được dạy (4 ô là tiết 7), nên mỗi người còn ít nhất 1 tiết Tiếng Anh ở tiết 7.
 - Cân bằng số tiết mỗi ngày của giáo viên.
 - Ít tiết trống giữa buổi.
-- **Cả ngày ở một cơ sở:** mỗi lần một giáo viên dạy sáng ở cơ sở này, chiều ở cơ sở kia bị phạt `campus_day_switch` (3000, gấp 10 lần một tiết TV/Toán buổi chiều). Không để luật cứng vì với file của trường, luật cứng cả ngày không ra được TKB trong 1200. Màn hình in số lần còn phải đổi.
+- **Cả ngày ở một cơ sở:** mỗi lần một giáo viên dạy sáng ở cơ sở này, chiều ở cơ sở kia bị phạt `campus_day_switch` (10000, gấp hơn 30 lần một tiết TV/Toán buổi chiều). Không để luật cứng vì với file của trường, luật cứng cả ngày không ra được TKB trong 1200. Màn hình in số lần còn phải đổi.
 - Rải đều các môn trong tuần (`subject_spread` 40, TV/Toán `core_spread` 120). Khối 1 có 7 cặp TV trong 5 ngày nên luôn có 2 ngày học 4 tiết TV.
 - Phân công: hạn chế chia một lớp-môn cho hai giáo viên; **giữ phân công của TKB cũ** (cột `Lớp Đang Dạy`: mỗi tiết dạy khác khối cũ phạt `keep_grade` 60, đúng khối nhưng khác lớp cũ phạt `keep_class` 10); gom lớp của một giáo viên vào ít khối; cân bằng tải. Giữ phân công cũ đứng sau số tiết thiếu, số tiết bù và "không chia lớp-môn", nhưng trước gom lớp và cân bằng tải. Màn hình in số tiết đúng khối cũ, đúng lớp cũ.
 
@@ -256,7 +256,7 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
    - **các vòng xếp lại:** mỗi vòng chấm điểm từng lớp-ngày theo các mục tiêu mềm (QA), rồi lần lượt xếp lại từng vùng, vùng xấu trước: từng lớp, các "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên hôm đó), nhóm lớp của một giáo viên dùng chung, từng khối, từng cặp ngày. Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT tìm cách xếp tốt hơn trong vùng, chỉ nhận khi tốt hơn. Luật bắt buộc luôn đúng;
    - **dừng** khi hết thời gian, khi một vòng tốt lên chưa tới 0,3% (không giới hạn: khi vòng không tốt lên), sau 10 vòng, hoặc khi bấm Ctrl+C. Màn hình in chi phí xếp giờ (tổng điểm phạt mềm) sau mỗi vòng.
    - Với file của trường bản trước (chưa có hai cơ sở), cách này cho TKB tốt hơn cả khi để một lần CP-SAT chạy 110 phút, ngay với 600 (khoảng 4–6 phút), và mặc định 1200 ra đúng TKB của chế độ không giới hạn. Kết quả là tốt nhất tìm được, không chứng minh là tối ưu.
-   - File hiện tại có thêm hai cơ sở, thai sản, buổi nghỉ (44 nhân sự, bù tối đa +3): chi phí xếp giờ 25.900 (Linux) / 27.600 (Windows), trong đó 3.000 mỗi lần giáo viên dạy sáng một cơ sở, chiều cơ sở kia: 1 lần (Linux), 2 lần (Windows); trước khi có mục tiêu này: 21 lần. Không tính phần phạt đó là 22.900 / 21.600, so với 17.200 / 17.260 khi chưa có các luật này. Môn nặng ở tiết 7: 7 tiết (Linux), 6 tiết (Windows); TV/Toán buổi chiều 40/408 (Linux), 39/408 (Windows).
+   - File hiện tại có thêm hai cơ sở, thai sản, buổi nghỉ (44 nhân sự, bù tối đa +3), luật tiết tăng cường sau tiết chính và trọng số mới (môn nặng tiết 7: 1200, đổi cơ sở trong ngày: 10000): chi phí xếp giờ 28.220 (Linux) / 37.340 (Windows). Giáo viên dạy sáng một cơ sở, chiều cơ sở kia: 0 lần (Linux), 1 lần (Windows); trước khi có mục tiêu này: 21 lần. Môn nặng ở tiết 7: 6 tiết (đều là Tiếng Anh, thấp nhất có thể là 4); TV/Toán buổi chiều 38/408.
 
    Chế độ tuyển: giữ người mới. Chế độ bù: trả các ô đó về đúng người bù. Hai chế độ cùng vị trí môn.
 4. **Dự phòng** (chỉ chế độ tuyển): nếu bước 3 không xếp được, giải một lần CP-SAT mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ) với thêm giáo viên bổ sung dự phòng.

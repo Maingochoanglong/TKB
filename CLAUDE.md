@@ -102,10 +102,10 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table
   "Chạy trên máy khác" (codes of `python main.py`), the spec (§0 history row, §9), and the output templates
   (`python tools/mau_dau_ra.py`).
-- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `9F24-E7D6-97AE`/`5F21-66E2-12E3`, Windows `B56F-FDF6-789B`/`4519-A046-B527`
+- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `4CCD-C868-AF11`/`51DE-A8CB-6CB7`, Windows the same
   (the small school is proven optimal at the LNS start, so these did not change with LNS);
-  `python main.py` (school file as of now) Linux `2E60-3DEB-71C8`, Windows `BBEA-5C95-15D7`; fake school of
-  `tests/du_lieu_mau.py` with main.py constants Linux `6720-94C4-8538`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+  `python main.py` (school file as of now) Linux `5C2B-510F-5156`, Windows `08F4-E2C6-3470`; fake school of
+  `tests/du_lieu_mau.py` with main.py constants Linux `72C2-3315-CE24`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
