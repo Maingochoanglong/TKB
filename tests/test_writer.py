@@ -127,8 +127,10 @@ def test_updated_staff_file_is_reusable(tmp_path):
     dst = tmp_path / "staff_cap_nhat.xlsx"
     write_updated_staff(sol, src, dst)
     rows = list(openpyxl.load_workbook(dst).active.iter_rows(values_only=True))
-    assert rows[0] == ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Mã GV", "Số Tiết Thực Dạy")
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8)
+    assert rows[0] == ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Mã GV", "Số Tiết Thực Dạy", "Số Tiết Dư")
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, "Bộ Môn 1", 8, 15)
+    ws = openpyxl.load_workbook(dst).active
+    assert ws.cell(len(rows), 1).fill.start_color.rgb[-6:] == writer.HIRE_FILL  # người cần tuyển: xanh lá
     again = read_staff(dst)
     assert again[-1].name == "chưa có" and again[-1].title == "bộ môn 1"
     assert again[-1].max_lessons == 23

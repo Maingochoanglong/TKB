@@ -27,6 +27,7 @@ HIRE_LABEL = "tuyển thêm"  # tên của người cần tuyển trong file th�
 CODE_HEADER = "Mã GV"
 LOAD_HEADER = "Số Tiết Thực Dạy"
 OVERTIME_HEADER = "Số Tiết Bù"
+SPARE_HEADER = "Số Tiết Dư"  # file vào cập nhật: định mức − thực dạy (người dạy ít hơn định mức)
 STATS_SHEET = "Thống kê"
 SHORTAGE_SHEET = "Thiếu tiết"
 TOTAL_HEADER = "Tổng Tiết"
@@ -35,6 +36,9 @@ OVERTIME_FILL = "FFEB9C"  # vàng nhạt
 HIRE_FILL = "C6EFCE"  # xanh lá nhạt
 OVERTIME_LEGEND = "Dạy bù (vượt định mức)"
 HIRE_LEGEND = "Cần tuyển thêm"
+# File vào cập nhật: dòng người còn dư tiết (dạy ít hơn định mức).
+SPARE_FILL = "DDEBF7"  # xanh dương nhạt
+SPARE_LEGEND = "Dạy ít hơn định mức (còn dư tiết)"
 # Trong dòng người dạy bù: ô môn có tiết bù tô màu riêng, kèm ghi chú số tiết bù của môn đó.
 OVERTIME_CELL_FILL = "F4B183"  # cam
 OVERTIME_CELL_LEGEND = "Môn có tiết dạy bù"
@@ -288,7 +292,9 @@ def _copy_style(src, dst) -> None:
 
 def write_updated_staff(solution: Solution, source: str | Path, path: str | Path) -> None:
     """Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
-    (và số tiết bù). Dòng, cột mới chép style của file vào; đọc lại file này làm file vào vẫn được.
+    (số tiết bù ở chế độ bù giờ) và số tiết dư. Dòng, cột mới chép style của file vào; đọc lại file này làm file
+    vào vẫn được. Đây là bản thống kê gọn theo mẫu file vào: tô nền cả dòng người dạy bù (vàng), người cần tuyển
+    (xanh lá), người còn dư tiết (xanh dương); ghi chú ở ô tiêu đề Số Tiết Dư giải thích các màu.
 
     Mẫu V8 (có cột Lớp) ghi chức vụ không kèm số thứ tự, vd "Bộ Môn": khi đọc lại, chương trình tự
     đánh số tiếp theo (bộ môn 6, 7...). Mẫu cũ ghi đủ chức vụ, vd "bộ môn 6".
@@ -319,9 +325,11 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     # Cột kết quả: ghi đè nếu file đã có (chạy lại trên file cập nhật), không thì thêm vào bên phải.
     load = solution.teacher_load()
     overtime = solution.overtime()
+    spare = lambda t: max(0, t.max_lessons - load[t.title]) or None  # noqa: E731
     values = {CODE_HEADER: lambda t: t.code, LOAD_HEADER: lambda t: load[t.title],
-              OVERTIME_HEADER: lambda t: overtime.get(t.title)}
-    wanted = [CODE_HEADER, LOAD_HEADER, *([OVERTIME_HEADER] if solution.problem.overtime_mode() else [])]
+              OVERTIME_HEADER: lambda t: overtime.get(t.title), SPARE_HEADER: spare}
+    wanted = [CODE_HEADER, LOAD_HEADER, *([OVERTIME_HEADER] if solution.problem.overtime_mode() else []),
+              SPARE_HEADER]
     headers = {normalize(ws.cell(header_row, c).value): c for c in range(1, ws.max_column + 1)
                if ws.cell(header_row, c).value not in (None, "")}
     next_col = max(headers.values(), default=0) + 1
@@ -342,5 +350,21 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
         letter = get_column_letter(c)
         ws.column_dimensions[letter].width = max(ws.column_dimensions[letter].width or 0,
                                                  round(style.text_width(h), 1))
+        if h == SPARE_HEADER:
+            ws.cell(header_row, c).comment = Comment(
+                f"Màu dòng: vàng = {OVERTIME_LEGEND.lower()}; xanh lá = {HIRE_LEGEND.lower()}; "
+                f"xanh dương = {SPARE_LEGEND.lower()}.", "TKB")
+    # Tô nền cả dòng (đến cột tiêu đề cuối); chạy lại trên file cập nhật thì bỏ màu cũ của chương trình.
+    width = max(c for c in range(1, ws.max_column + 1) if ws.cell(header_row, c).value not in (None, ""))
+    marks = {g: color for g, (color, _) in row_marks(solution).items()}
+    ours = {OVERTIME_FILL, HIRE_FILL, SPARE_FILL}
+    for r, t in by_row.items():
+        color = marks.get(t.title) or (SPARE_FILL if spare(t) else None)
+        for c in range(1, width + 1):
+            cell = ws.cell(r, c)
+            if color:
+                cell.fill = _fill(color)
+            elif cell.fill.fill_type == "solid" and str(cell.fill.start_color.rgb)[-6:] in ours:
+                cell.fill = PatternFill()
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

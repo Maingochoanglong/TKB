@@ -60,6 +60,7 @@
 | 42 | File ra theo cơ sở; ô tăng tiết | Một file TKB cho cả trường; file thống kê chỉ tô cả dòng người dạy bù | Có lớp ở cơ sở 2 thì **tách TKB thành `..._diem_chinh.xlsx` (cơ sở 1) và `..._diem_phu.xlsx` (cơ sở 2)**, cả bản có chức vụ (mục 11). File thống kê tô **cam** các ô môn có tiết dạy bù, kèm ghi chú số tiết (mục 11.3). Chỉ đổi cách ghi file, mã kết quả không đổi |
 | 43 | Cả ngày một cơ sở | Chỉ cấm đổi cơ sở giữa buổi; file trường còn 21 lần GV dạy sáng một cơ sở, chiều cơ sở kia | **[Mềm]** phạt `campus_day_switch` = 3000 mỗi (GV, ngày) dạy cả hai cơ sở (mục 4.1, 8.2). Đã thử: luật cứng cả ngày không ra TKB trong 1200 (UNKNOWN); phạt 300 / 1000 / 3000 còn 8 / 4 / 4 lần, chọn 3000 |
 | 44 | Bỏ dòng nhân sự trùng; bù tối đa +3 | File trường có 45 dòng nhân sự, trong đó dòng 34 (bộ môn 23 tiết) trùng người với dòng 46 (bộ môn thai sản); `main.py` bù tối đa 2 | Trường xác nhận trùng: **bỏ dòng 34** (còn 44 người). Mất 23 tiết định mức nên với +2 thiếu 17 tiết (Âm Nhạc 6, Mỹ Thuật 6, Công nghệ 4, KNS 1); trường chốt **`SO_TIET_BU_TOI_DA` = 3** trong `main.py`. Dự toán: bù 79 tiết, toàn GVCN (23 người +3, 5 người +2). `config.OVERTIME_MAX` (dòng lệnh, test) vẫn 2 |
+| 45 | Thống kê gọn ai dư, ai bù | File vào cập nhật có Mã GV, Số Tiết Thực Dạy, Số Tiết Bù; không thấy ai còn dư tiết | Thêm cột **Số Tiết Dư** và tô nền cả dòng: bù vàng, tuyển xanh lá, dư xanh dương (mục 11.2). Chỉ đổi file ra, mã kết quả không đổi |
 
 ---
 
@@ -490,7 +491,8 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
 ### 11.2. File vào cập nhật `<tên file vào>_cap_nhat.xlsx`
 
 - Là bản chép của file vào (đủ các sheet), sheet NHÂN SỰ có thêm các dòng người bổ sung `chưa có` ở cuối với **định mức tuyển đầy đủ** (Chức Vụ ghi không kèm số, ví dụ `Bộ Môn`; STT điền tiếp nếu có). Dòng mới **chép style của dòng trên**.
-- Bên phải thêm các cột **Mã GV**, **Số Tiết Thực Dạy** và (chế độ bù giờ) **Số Tiết Bù**, cùng style với file. Chạy lại trên file này thì các cột được ghi đè, không thêm mới.
+- Bên phải thêm các cột **Mã GV**, **Số Tiết Thực Dạy**, (chế độ bù giờ) **Số Tiết Bù** và **Số Tiết Dư** (định mức − thực dạy, để trống khi dạy đủ), cùng style với file. Chạy lại trên file này thì các cột được ghi đè, không thêm mới.
+- **Thống kê gọn theo mẫu file vào:** tô nền cả dòng (đến cột tiêu đề cuối) người dạy bù (vàng, như file thống kê), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); ô tiêu đề Số Tiết Dư có ghi chú giải thích các màu. Không ghi chú thích dưới bảng, để file vẫn đọc lại được. Chạy lại trên file này thì màu cũ của chương trình được bỏ trước khi tô.
 - Giữ nguyên danh sách thả xuống của file mẫu.
 - Dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc). File gốc không bị sửa.
 

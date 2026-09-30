@@ -1,6 +1,7 @@
 import openpyxl
 
 import main
+from tkb import writer
 from tkb.template import write_staff_template
 
 from .conftest import CURRICULUM, small_staff
@@ -27,7 +28,7 @@ def test_run_writes_outputs(tmp_path):
     assert openpyxl.load_workbook(out_dir / "TKB.xlsx").sheetnames == ["Khối 3"]
     assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê"]
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *(None,) * 5, "Bộ Môn 1", 8)  # 5 cột không bắt buộc trống
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *(None,) * 5, "Bộ Môn 1", 8, 15)  # 5 cột không bắt buộc trống
     stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê")
     total = [r[0] for r in stats].index("Tổng")  # dưới dòng Tổng là chú thích màu
     assert stats[total - 1][:2] == ("tuyển thêm", "Bộ Môn 1") and stats[total - 1][-1] == 8
@@ -96,8 +97,15 @@ def test_run_overtime_mode_needs_no_hire(tmp_path):
     assert code == 0
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
     assert all(r[0] != "chưa có" for r in rows)
-    assert rows[0][-3:] == ("Mã GV", "Số Tiết Thực Dạy", "Số Tiết Bù")
-    assert rows[1][-3:] == ("Chủ Nhiệm 3/1", 23, 4)
+    assert rows[0][-4:] == ("Mã GV", "Số Tiết Thực Dạy", "Số Tiết Bù", "Số Tiết Dư")
+    assert rows[1][-4:] == ("Chủ Nhiệm 3/1", 23, 4, None)
+    # Bản thống kê gọn theo mẫu file vào: tô cả dòng người dạy bù (vàng) và người còn dư tiết (xanh dương).
+    ws = openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx").active
+    color = lambda cell: cell.fill.start_color.rgb[-6:] if cell.fill.fill_type else None  # noqa: E731
+    for r, row in enumerate(rows[1:], start=2):
+        colors = {color(ws.cell(r, c)) for c in range(1, len(row) + 1)}
+        assert colors == {writer.OVERTIME_FILL if row[-2] else writer.SPARE_FILL if row[-1] else None}
+    assert any(row[-1] for row in rows[1:]) and "xanh dương" in ws.cell(1, len(rows[0])).comment.text
 
 
 def test_run_rejects_bad_mode(tmp_path, capsys):

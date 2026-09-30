@@ -69,9 +69,9 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     ws = wb["NHÂN SỰ"]
     assert len(ws.data_validations.dataValidation) == 4  # vẫn còn danh sách thả xuống
     rows = _rows(ws)
-    assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy")
-    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, *NONE5, "Chủ Nhiệm 3/1", 19)
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *NONE5, "Bộ Môn 1", 8)
+    assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy", "Số Tiết Dư")
+    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, *NONE5, "Chủ Nhiệm 3/1", 19, None)
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *NONE5, "Bộ Môn 1", 8, 15)
     # Dòng mới và cột mới cùng style với file vào.
     last = len(rows)
     for cell in (ws.cell(last, 2), ws.cell(last, 10), ws.cell(1, 11)):
