@@ -65,6 +65,7 @@
 | 47 | Ai di chuyển giữa hai cơ sở | Chỉ in số người, số lần ra màn hình | File thống kê thêm cột **Buổi Ở Cơ Sở 2** và **Đổi Cơ Sở Trong Ngày** cho người dạy ở cả hai cơ sở, dòng Tổng và chú thích ghi số người, số lần (mục 11.3). Chỉ đổi file ra, mã kết quả không đổi |
 | 48 | File kết quả chỉ chữ thường | Ô tô cam trong file thống kê và tiêu đề Số Tiết Dư của file cập nhật có ghi chú (comment) | **Không ghi chú, không công thức** trong mọi file kết quả: số tiết bù từng môn ở cột chữ **Môn Dạy Bù**; giải thích màu ở sheet **Chú thích** của file cập nhật; công thức của file vào chép thành giá trị (mục 11.2, 11.3). Mã kết quả không đổi |
 | 49 | GVCN bù Âm nhạc, Mỹ thuật; tiết tăng cường sau tiết chính | GVCN không bù môn chuyên biệt; **[Mềm]** Toán tăng cường ưu tiên buổi chiều (10), thưởng tiết tăng cường liền sau tiết chính cùng người (100) | GVCN được **bù Âm nhạc, Mỹ thuật** ở lớp mình (`HOMEROOM_OVERTIME_SPECIALIST`; nhận sau cùng và chỉ phần dự toán giao, mục 7.2). Bỏ hai mục tiêu mềm của tiết tăng cường, thay bằng **[Cứng]** trong ngày tiết tăng cường đứng sau mọi tiết chính cùng nhóm và ngày đó có tiết chính (mục 6). TKB cũ đã gần đạt: Toán tăng cường 36/36, TV tăng cường 16/19. Với file của trường, GVCN chưa phải bù hai môn này (các môn khác xếp trước). Mã kết quả đổi (Linux `2E60-3DEB-71C8`, Windows `BBEA-5C95-15D7`) |
+| 50 | Thống kê đơn giản | File thống kê cố định cột tên, chức vụ và dòng tiêu đề khi cuộn; file vào cập nhật giữ danh sách thả xuống, định dạng theo điều kiện của file mẫu | Mọi file thống kê **chỉ chữ, số và màu**: không cố định dòng/cột, không ghi chú, không công thức, không danh sách thả xuống hay định dạng theo điều kiện (mục 11.2, 11.3). Mã kết quả không đổi |
 
 ---
 
@@ -496,7 +497,7 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
 - Là bản chép của file vào (đủ các sheet), sheet NHÂN SỰ có thêm các dòng người bổ sung `chưa có` ở cuối với **định mức tuyển đầy đủ** (Chức Vụ ghi không kèm số, ví dụ `Bộ Môn`; STT điền tiếp nếu có). Dòng mới **chép style của dòng trên**.
 - Bên phải thêm các cột **Mã GV**, **Số Tiết Thực Dạy**, (chế độ bù giờ) **Số Tiết Bù** và **Số Tiết Dư** (định mức − thực dạy, để trống khi dạy đủ), cùng style với file. Chạy lại trên file này thì các cột được ghi đè, không thêm mới.
 - **Thống kê gọn theo mẫu file vào:** tô nền cả dòng (đến cột tiêu đề cuối) người dạy bù (vàng, như file thống kê), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **Chú thích** (chữ thường) giải thích các cột kết quả và các màu. Không ghi chú thích dưới bảng, để file vẫn đọc lại được. Mọi ghi chú (comment) của file vào bị bỏ, mọi công thức đổi thành giá trị (STT `=ROW()-1` tự tính nếu file chưa lưu giá trị). Chạy lại trên file này thì màu cũ của chương trình được bỏ trước khi tô.
-- Giữ nguyên danh sách thả xuống của file mẫu.
+- Chỉ chữ, số và màu: bỏ cố định dòng/cột, danh sách thả xuống, định dạng theo điều kiện và sheet danh mục ẩn của file mẫu (các thứ này không cần để đọc lại file).
 - Dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc). File gốc không bị sửa.
 
 ### 11.3. File thống kê `Thong_Ke.xlsx`
@@ -517,6 +518,7 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | Đổi Cơ Sở Trong Ngày | Như trên: các ngày sáng một cơ sở, chiều cơ sở kia, vd `T5: sáng cơ sở 1, chiều cơ sở 2`; dòng Tổng ghi số lần |
 
 - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển. Cuối bảng có dòng **Tổng** (tổng từng môn và tổng tiết toàn trường).
+- Chỉ chữ, số và màu: không cố định dòng/cột, không ghi chú, không công thức (dòng Tổng là số đã tính sẵn).
 - **Tô nền cả dòng:** chế độ bù giờ tô **vàng** (`FFEB9C`) dòng người dạy bù (tổng tiết vượt định mức); chế độ tuyển thêm tô **xanh lá** (`C6EFCE`) dòng người cần tuyển; người còn dư tiết tô **xanh dương** (`DDEBF7`). Trong dòng người dạy bù, **ô môn có tiết bù tô cam** (`F4B183`); số tiết bù từng môn ghi bằng chữ ở cột **Môn Dạy Bù** (`<môn> <n>, …`): đó đúng là các tiết mà chế độ tuyển thêm giao cho người mới. Không có ghi chú (comment) trong ô. Dưới bảng, cách một dòng, có chú thích: ô màu và dòng chữ `Dạy bù (vượt định mức): <số người> người, <số tiết bù> tiết`, `Môn có tiết dạy bù: <số ô> ô, <số tiết> tiết (số tiết từng môn ở cột Môn Dạy Bù)`, `Cần tuyển thêm: <số người> người, <số tiết> tiết`, `Dạy ít hơn định mức (còn dư tiết): <số người> người, <số tiết> tiết`. Không ai bù, không ai tuyển, không ai dư thì không tô, không chú thích.
 - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển (số tiết thiếu), dạy bù và cảnh báo **chỉ in ra màn hình** (mục 11.4).
 - **Chế độ bù giờ mà thiếu tiết** (mục 7.2): file chỉ có sheet **`Thiếu tiết`**: **Lớp | Môn | Số Tiết Thiếu | Lý Do**, cuối bảng dòng Tổng.

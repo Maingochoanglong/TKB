@@ -13,12 +13,15 @@ import re
 
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill
+from openpyxl.formatting.formatting import ConditionalFormattingList
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidationList
 
 from . import config
 from .solver import Solution, session_of
 from .staff import Teacher, _find_columns, class_sort_key, grade_of, normalize, staff_sheet
 from .style import CellStyle, Style
+from .template import LIST_SHEET
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -321,8 +324,9 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
 
 def write_statistics(solution: Solution, path: str | Path, style: Style | None = None) -> None:
     """File thống kê: một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù, số tiết dư (xem
-    subject_table). Dòng người dạy bù tô vàng (ô môn có tiết bù tô cam, ghi chú số tiết bù), dòng người cần tuyển
-    tô xanh lá, dòng người còn dư tiết tô xanh dương; chú thích dưới bảng."""
+    subject_table). Dòng người dạy bù tô vàng (ô môn có tiết bù tô cam, số tiết bù từng môn ở cột Môn Dạy Bù),
+    dòng người cần tuyển tô xanh lá, dòng người còn dư tiết tô xanh dương; chú thích dưới bảng. Chỉ chữ, số và
+    màu: không cố định dòng/cột, không ghi chú, không công thức."""
     style = style or Style()
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -330,7 +334,6 @@ def write_statistics(solution: Solution, path: str | Path, style: Style | None =
     header, rows = subject_table(solution, style)
     last = style.table(ws, header, rows, bold_last=True)
     legend = _mark_rows(ws, solution, header, last + 2, style)
-    ws.freeze_panes = "C2"  # giữ cột tên, chức vụ và dòng tiêu đề khi cuộn
     style.fit_columns(ws, skip_rows=legend)  # chú thích tràn sang các ô trống bên phải, không nới cột
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
@@ -344,7 +347,6 @@ def write_shortage(rows: list[tuple[str, str, int, str]], path: str | Path, styl
     ws.title = SHORTAGE_SHEET
     body = [list(r) for r in rows] + [["Tổng", None, sum(r[2] for r in rows), None]]
     style.table(ws, ["Lớp", "Môn", "Số Tiết Thiếu", "Lý Do"], body, bold_last=True)
-    ws.freeze_panes = "A2"
     style.fit_columns(ws)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
@@ -360,10 +362,17 @@ _ROW_FORMULA = re.compile(r"^=\s*ROW\(\)\s*([+-])\s*(\d+)\s*$", re.IGNORECASE)
 
 
 def plain_values(wb, cached) -> None:
-    """Bỏ mọi ghi chú (comment) và đổi mọi công thức thành giá trị: giá trị Excel đã lưu trong file (`cached`: cùng
-    file mở với data_only=True); file chưa từng mở bằng Excel thì không có giá trị lưu sẵn, khi đó công thức dạng
-    =ROW()±k (hay dùng cho cột STT) được tự tính, công thức khác để trống."""
+    """Chỉ giữ chữ, số và màu: bỏ mọi ghi chú (comment), cố định dòng/cột, lọc, danh sách thả xuống, định dạng theo
+    điều kiện và sheet danh mục ẩn của file mẫu (LIST_SHEET); đổi mọi công thức thành giá trị: giá trị Excel đã lưu
+    trong file (`cached`: cùng file mở với data_only=True); file chưa từng mở bằng Excel thì không có giá trị lưu
+    sẵn, khi đó công thức dạng =ROW()±k (hay dùng cho cột STT) được tự tính, công thức khác để trống."""
+    if LIST_SHEET in wb.sheetnames and wb[LIST_SHEET].sheet_state != "visible":
+        del wb[LIST_SHEET]
     for ws in wb.worksheets:
+        ws.freeze_panes = None
+        ws.auto_filter.ref = None
+        ws.data_validations = DataValidationList()
+        ws.conditional_formatting = ConditionalFormattingList()
         for row in ws.iter_rows():
             for cell in row:
                 cell.comment = None
@@ -397,7 +406,8 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     (số tiết bù ở chế độ bù giờ) và số tiết dư. Dòng, cột mới chép style của file vào; đọc lại file này làm file
     vào vẫn được. Đây là bản thống kê gọn theo mẫu file vào: tô nền cả dòng người dạy bù (vàng), người cần tuyển
     (xanh lá), người còn dư tiết (xanh dương); sheet NOTES_SHEET giải thích các màu bằng chữ thường. File ra chỉ có
-    chữ và số: bỏ mọi ghi chú (comment) và đổi mọi công thức của file vào thành giá trị (plain_values).
+    chữ, số và màu (plain_values): không ghi chú, không công thức, không cố định dòng/cột, không danh sách thả
+    xuống.
 
     Mẫu V8 (có cột Lớp) ghi chức vụ không kèm số thứ tự, vd "Bộ Môn": khi đọc lại, chương trình tự
     đánh số tiếp theo (bộ môn 6, 7...). Mẫu cũ ghi đủ chức vụ, vd "bộ môn 6".

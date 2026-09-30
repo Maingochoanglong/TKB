@@ -67,8 +67,11 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     write_updated_staff(sol, src, dst)
     wb = openpyxl.load_workbook(dst)
     ws = wb["NHÂN SỰ"]
-    assert len(ws.data_validations.dataValidation) == 4  # vẫn còn danh sách thả xuống
-    # File mẫu có ghi chú hướng dẫn ở tiêu đề cột; file cập nhật (file kết quả) chỉ còn chữ thường.
+    # File mẫu có danh sách thả xuống, định dạng theo điều kiện, sheet danh mục ẩn và ghi chú hướng dẫn ở tiêu đề
+    # cột; file cập nhật (file kết quả) chỉ còn chữ, số và màu.
+    assert len(openpyxl.load_workbook(src)["NHÂN SỰ"].data_validations.dataValidation) == 4
+    assert not ws.data_validations.dataValidation and not len(ws.conditional_formatting)
+    assert "Danh mục" not in wb.sheetnames
     assert any(c.comment for c in openpyxl.load_workbook(src)["NHÂN SỰ"][1])
     assert not any(c.comment for sheet in wb.worksheets for row in sheet.iter_rows() for c in row)
     rows = _rows(ws)

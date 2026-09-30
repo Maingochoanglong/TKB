@@ -108,7 +108,7 @@ def test_supplement_in_statistics(tmp_path):
     ws = openpyxl.load_workbook(stats)["Thống kê"]
     assert ws["A1"].font.b and ws["A2"].font.sz == 14 and ws.row_dimensions[2].height == 25
     assert ws["A2"].font.name == "Times New Roman" and ws["A2"].border.left.style == "thin"
-    assert ws.cell(len(rows), 1).font.b and ws.freeze_panes == "C2"
+    assert ws.cell(len(rows), 1).font.b and ws.freeze_panes is None  # không cố định dòng/cột
     grid = [v for row in openpyxl.load_workbook(out)["Khối 3"].iter_rows(values_only=True) for v in row if v]
     assert any(isinstance(v, str) and v.endswith("\nBộ Môn 1") for v in grid)
     # Dòng người cần tuyển tô xanh lá, người còn dư tiết tô xanh dương, chú thích dưới bảng; không ai dạy bù.

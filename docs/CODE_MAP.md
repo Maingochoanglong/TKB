@@ -233,7 +233,7 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `write_statistics(solution, path, style)` — File thống kê: một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù, số tiết dư (xem
 - `write_shortage(rows, path, style)` — File thống kê khi chế độ bù giờ không đủ: sheet SHORTAGE_SHEET liệt kê các tiết không ai dạy được.
 - `_copy_style(src, dst)`
-- `plain_values(wb, cached)` — Bỏ mọi ghi chú (comment) và đổi mọi công thức thành giá trị: giá trị Excel đã lưu trong file (`cached`: cùng
+- `plain_values(wb, cached)` — Chỉ giữ chữ, số và màu: bỏ mọi ghi chú (comment), cố định dòng/cột, lọc, danh sách thả xuống, định dạng theo
 - `_write_notes(wb, overtime_mode)` — Sheet NOTES_SHEET: các cột kết quả và màu dòng của file vào cập nhật, mỗi dòng một câu chữ thường.
 - `write_updated_staff(solution, source, path)` — Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
   · Cột kết quả: ghi đè nếu file đã có (chạy lại trên file cập nhật), không thì thêm vào bên phải.
