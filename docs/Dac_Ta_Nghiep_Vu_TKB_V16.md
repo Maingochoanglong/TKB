@@ -61,6 +61,7 @@
 | 43 | Cả ngày một cơ sở | Chỉ cấm đổi cơ sở giữa buổi; file trường còn 21 lần GV dạy sáng một cơ sở, chiều cơ sở kia | **[Mềm]** phạt `campus_day_switch` = 3000 mỗi (GV, ngày) dạy cả hai cơ sở (mục 4.1, 8.2). Đã thử: luật cứng cả ngày không ra TKB trong 1200 (UNKNOWN); phạt 300 / 1000 / 3000 còn 8 / 4 / 4 lần, chọn 3000 |
 | 44 | Bỏ dòng nhân sự trùng; bù tối đa +3 | File trường có 45 dòng nhân sự, trong đó dòng 34 (bộ môn 23 tiết) trùng người với dòng 46 (bộ môn thai sản); `main.py` bù tối đa 2 | Trường xác nhận trùng và gửi lại file: **dòng 34 giờ là bộ môn thai sản** (19 tiết, `Cơ sở 2 = Có`), bỏ dòng 46; còn 44 người. Hai cột `Lớp Đang Dạy`, `Buổi Nghỉ` (file trường không có) chép sang theo họ tên. Mất 23 tiết định mức nên với +2 thiếu 17 tiết (Âm Nhạc 6, Mỹ Thuật 6, Công nghệ 4, KNS 1); trường chốt **`SO_TIET_BU_TOI_DA` = 3** trong `main.py`. Dự toán: bù 79 tiết, toàn GVCN (23 người +3, 5 người +2). `config.OVERTIME_MAX` (dòng lệnh, test) vẫn 2 |
 | 45 | Thống kê gọn ai dư, ai bù | File vào cập nhật có Mã GV, Số Tiết Thực Dạy, Số Tiết Bù; không thấy ai còn dư tiết | Thêm cột **Số Tiết Dư** và tô nền cả dòng: bù vàng, tuyển xanh lá, dư xanh dương (mục 11.2). Chỉ đổi file ra, mã kết quả không đổi |
+| 46 | Cột LỚP; tiết bù, tiết dư trong file thống kê | TKB ghi `LỚP 3D23 (CƠ SỞ 2)`; file thống kê chỉ có số tiết từng môn và Tổng Tiết | Cột LỚP **chỉ ghi tên lớp** (`3D23`). File thống kê thêm cột **Số Tiết/Tuần, Số Tiết Bù, Số Tiết Dư**, tô xanh dương dòng người còn dư tiết (mục 11.1, 11.3). Chỉ đổi file ra, mã kết quả không đổi |
 
 ---
 
@@ -472,7 +473,7 @@ Bốn file, ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: ch
 
 Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `data/Output_Template_TKB_V8.xlsx`:
 - Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
-  - Cột LỚP gộp 7 hàng (`LỚP 1/1`). Lớp ở cơ sở 2 ghi thêm `(CƠ SỞ 2)`, ví dụ `LỚP 3D23 (CƠ SỞ 2)`.
+  - Cột LỚP gộp 7 hàng, **chỉ ghi tên lớp** (`1/1`, `3D23`), không thêm chữ "LỚP" hay "CƠ SỞ 2"; lớp cơ sở 2 nằm ở file điểm phụ.
   - Cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày.
   - Giữa hai lớp có 2 dòng trống.
 - Mỗi ô ghi **môn** và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Chiều Thứ 6 ghi `Nghỉ`.
@@ -506,9 +507,12 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | Chức Vụ | Mã GV, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 2`, `Tiếng Anh 1` |
 | Một cột mỗi môn | Số tiết môn đó người này dạy trong tuần; ô trống là không dạy. Chỉ có cột cho các môn có người dạy, theo thứ tự trong chương trình học, tên môn như trong TKB |
 | Tổng Tiết | Tổng số tiết người này dạy (kể cả tiết bù ở chế độ bù giờ) |
+| Số Tiết/Tuần | Định mức (người cần tuyển: định mức tuyển) |
+| Số Tiết Bù | Số tiết dạy bù vượt định mức (chế độ bù giờ); trống là không bù |
+| Số Tiết Dư | Định mức − Tổng Tiết khi dạy ít hơn định mức; trống là dạy đủ |
 
 - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển. Cuối bảng có dòng **Tổng** (tổng từng môn và tổng tiết toàn trường).
-- **Tô nền cả dòng:** chế độ bù giờ tô **vàng** (`FFEB9C`) dòng người dạy bù (tổng tiết vượt định mức); chế độ tuyển thêm tô **xanh lá** (`C6EFCE`) dòng người cần tuyển. Trong dòng người dạy bù, **ô môn có tiết bù tô cam** (`F4B183`), kèm ghi chú (comment) `Dạy bù <n> tiết <môn>`: đó đúng là các tiết mà chế độ tuyển thêm giao cho người mới. Dưới bảng, cách một dòng, có chú thích: ô màu và dòng chữ `Dạy bù (vượt định mức): <số người> người, <số tiết bù> tiết`, `Môn có tiết dạy bù: <số ô> ô, <số tiết> tiết` hoặc `Cần tuyển thêm: <số người> người, <số tiết> tiết`. Không ai bù, không ai tuyển thì không tô, không chú thích.
+- **Tô nền cả dòng:** chế độ bù giờ tô **vàng** (`FFEB9C`) dòng người dạy bù (tổng tiết vượt định mức); chế độ tuyển thêm tô **xanh lá** (`C6EFCE`) dòng người cần tuyển; người còn dư tiết tô **xanh dương** (`DDEBF7`). Trong dòng người dạy bù, **ô môn có tiết bù tô cam** (`F4B183`), kèm ghi chú (comment) `Dạy bù <n> tiết <môn>`: đó đúng là các tiết mà chế độ tuyển thêm giao cho người mới. Dưới bảng, cách một dòng, có chú thích: ô màu và dòng chữ `Dạy bù (vượt định mức): <số người> người, <số tiết bù> tiết`, `Môn có tiết dạy bù: <số ô> ô, <số tiết> tiết`, `Cần tuyển thêm: <số người> người, <số tiết> tiết`, `Dạy ít hơn định mức (còn dư tiết): <số người> người, <số tiết> tiết`. Không ai bù, không ai tuyển, không ai dư thì không tô, không chú thích.
 - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển (số tiết thiếu), dạy bù và cảnh báo **chỉ in ra màn hình** (mục 11.4).
 - **Chế độ bù giờ mà thiếu tiết** (mục 7.2): file chỉ có sheet **`Thiếu tiết`**: **Lớp | Môn | Số Tiết Thiếu | Lý Do**, cuối bảng dòng Tổng.
 

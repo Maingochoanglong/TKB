@@ -165,14 +165,14 @@ def test_checker_flags_campus_and_leave_violations(campus_solution):
     assert any("thể dục 1 dạy cả hai cơ sở" in e for e in check(sol.problem, moved))
 
 
-def test_timetable_marks_campus_two_classes(campus_solution, tmp_path):
+def test_timetable_class_column_is_plain_name(campus_solution, tmp_path):
     import openpyxl
 
     from tkb.writer import write_timetable
     out = tmp_path / "TKB.xlsx"
     write_timetable(campus_solution, out)
-    titles = [c.value for c in openpyxl.load_workbook(out)["Khối 3"]["A"] if str(c.value).startswith("LỚP ")]
-    assert titles == ["LỚP 3/1", "LỚP 3/2 (CƠ SỞ 2)"]
+    titles = [c.value for c in openpyxl.load_workbook(out)["Khối 3"]["A"] if c.value not in (None, "LỚP")]
+    assert titles == ["3/1", "3/2"]  # chỉ tên lớp, không thêm chữ LỚP hay CƠ SỞ 2
 
 
 def test_cli_splits_timetables_by_campus(tmp_path):
@@ -188,6 +188,6 @@ def test_cli_splits_timetables_by_campus(tmp_path):
     assert sorted(p.name for p in out.glob("TKB*.xlsx")) == [
         "TKB_chuc_vu_diem_chinh.xlsx", "TKB_chuc_vu_diem_phu.xlsx", "TKB_diem_chinh.xlsx", "TKB_diem_phu.xlsx"]
     titles = lambda name: [c.value for c in openpyxl.load_workbook(out / name)["Khối 3"]["A"]  # noqa: E731
-                           if str(c.value).startswith("LỚP ")]
-    assert titles("TKB_diem_chinh.xlsx") == titles("TKB_chuc_vu_diem_chinh.xlsx") == ["LỚP 3/1"]
-    assert titles("TKB_diem_phu.xlsx") == titles("TKB_chuc_vu_diem_phu.xlsx") == ["LỚP 3/2 (CƠ SỞ 2)"]
+                           if c.value not in (None, "LỚP")]
+    assert titles("TKB_diem_chinh.xlsx") == titles("TKB_chuc_vu_diem_chinh.xlsx") == ["3/1"]
+    assert titles("TKB_diem_phu.xlsx") == titles("TKB_chuc_vu_diem_phu.xlsx") == ["3/2"]

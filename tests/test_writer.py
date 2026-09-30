@@ -35,7 +35,7 @@ def test_timetable_layout(tmp_path):
         "LỚP", "BUỔI", "TIẾT", "THỨ 2", "THỨ 3", "THỨ 4", "THỨ 5", "THỨ 6"]
     assert {str(r) for r in ws.merged_cells.ranges} == {
         "A2:A8", "B2:B5", "B6:B8", "A12:A18", "B12:B15", "B16:B18"}
-    assert ws["A2"].value == "LỚP 3/1" and ws["A12"].value == "LỚP 3/2"
+    assert ws["A2"].value == "3/1" and ws["A12"].value == "3/2"  # cột LỚP chỉ ghi tên lớp
     assert ws["A11"].value == "LỚP"
     assert ws["B2"].value == "SÁNG" and ws["B6"].value == "CHIỀU"
     assert [ws.cell(r, 3).value for r in range(2, 9)] == [1, 2, 3, 4, 5, 6, 7]  # tiết trong ngày: chiều là 5, 6, 7
@@ -83,15 +83,17 @@ def test_statistics_file_is_one_table(tmp_path):
     assert openpyxl.load_workbook(out).sheetnames == ["Thống kê"]
     rows = _stats(out)
     header = rows[0]
-    # Tên, chức vụ (Mã GV), số tiết từng môn (chỉ các môn có người dạy), tổng tiết.
-    assert header[:2] == ("Họ và Tên", "Chức Vụ") and header[-1] == "Tổng Tiết"
+    # Tên, chức vụ (Mã GV), số tiết từng môn (chỉ các môn có người dạy), tổng tiết, định mức, tiết bù, tiết dư.
+    assert header[:2] == ("Họ và Tên", "Chức Vụ")
+    assert header[-4:] == ("Tổng Tiết", "Số Tiết/Tuần", "Số Tiết Bù", "Số Tiết Dư")
     assert "HĐTN" in header and "Tiếng Việt" in header and "Mã GV" not in header
     load = sol.teacher_load()
     for r in rows[1:-1]:
-        assert sum(v or 0 for v in r[2:-1]) == r[-1]
-    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-1] == load["chủ nhiệm 3/1"]
+        total, quota, extra, spare = r[-4:]
+        assert sum(v or 0 for v in r[2:-4]) == total and (extra or 0) - (spare or 0) == total - quota
+    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-4] == load["chủ nhiệm 3/1"]
     assert rows[1][header.index("HĐTN")] == 3 and rows[1][header.index("Tiếng Anh")] is None  # ô trống: không dạy
-    assert rows[-1][0] == "Tổng" and rows[-1][-1] == 64  # 2 lớp × 32 tiết
+    assert rows[-1][0] == "Tổng" and rows[-1][-4] == 64  # 2 lớp × 32 tiết
 
 
 def test_supplement_in_statistics(tmp_path):
@@ -102,17 +104,20 @@ def test_supplement_in_statistics(tmp_path):
     writer.write_statistics(sol, stats, STYLE)
     rows = _stats(stats)
     # Người cần tuyển: tên "tuyển thêm", chức vụ là Mã GV, thực dạy 8 tiết.
-    assert rows[-2][:2] == ("tuyển thêm", "Bộ Môn 1") and rows[-2][-1] == 8
+    assert rows[-2][:2] == ("tuyển thêm", "Bộ Môn 1") and rows[-2][-4:] == (8, 23, None, 15)
     ws = openpyxl.load_workbook(stats)["Thống kê"]
     assert ws["A1"].font.b and ws["A2"].font.sz == 14 and ws.row_dimensions[2].height == 25
     assert ws["A2"].font.name == "Times New Roman" and ws["A2"].border.left.style == "thin"
     assert ws.cell(len(rows), 1).font.b and ws.freeze_panes == "C2"
     grid = [v for row in openpyxl.load_workbook(out)["Khối 3"].iter_rows(values_only=True) for v in row if v]
     assert any(isinstance(v, str) and v.endswith("\nBộ Môn 1") for v in grid)
-    # Dòng người cần tuyển tô xanh, chú thích dưới bảng; không ai dạy bù.
+    # Dòng người cần tuyển tô xanh lá, người còn dư tiết tô xanh dương, chú thích dưới bảng; không ai dạy bù.
     fills, legend = _fills(stats)
-    assert fills == [None] * (len(rows) - 3) + [writer.HIRE_FILL, None]
-    assert legend == [(writer.HIRE_FILL, "Cần tuyển thêm: 1 người, 8 tiết")]
+    spare = [r[-1] for r in rows[1:-1] if r[-1] and r[0] != "tuyển thêm"]
+    assert fills == [writer.HIRE_FILL if r[0] == "tuyển thêm" else writer.SPARE_FILL if r[-1] else None
+                     for r in rows[1:-1]] + [None] and spare
+    assert legend == [(writer.HIRE_FILL, "Cần tuyển thêm: 1 người, 8 tiết"),
+                      (writer.SPARE_FILL, f"Dạy ít hơn định mức (còn dư tiết): {len(spare)} người, {sum(spare)} tiết")]
 
 
 def test_updated_staff_file_is_reusable(tmp_path):
@@ -206,12 +211,12 @@ def test_statistics_file(tmp_path):
     writer.write_statistics(_solve_small(general=False), out, STYLE)
     rows = _stats(out)
     header = rows[0]
-    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-1] == 19
+    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-4:] == (19, 19, None, None)
     assert [r[1] for r in rows[1:-1]] == ["Chủ Nhiệm 3/1", "Chủ Nhiệm 3/2", "Tiếng Anh 1", "Thể dục 1", "Âm nhạc 1",
                                           "Mỹ thuật 1", "Tin học 1", "Bộ Môn 1"]
     ta = rows[3]  # GV Tiếng Anh chỉ dạy Tiếng Anh, 4 tiết mỗi lớp
-    assert ta[header.index("Tiếng Anh")] == 8 and ta[-1] == 8
-    assert rows[-1][0] == "Tổng" and rows[-1][header.index("Tiếng Anh")] == 8 and rows[-1][-1] == 64
+    assert ta[header.index("Tiếng Anh")] == 8 and ta[-4:] == (8, 23, None, 15)  # dư 15 tiết
+    assert rows[-1][0] == "Tổng" and rows[-1][header.index("Tiếng Anh")] == 8 and rows[-1][-4] == 64
 
 
 def test_statistics_file_overtime(tmp_path):
@@ -220,12 +225,13 @@ def test_statistics_file_overtime(tmp_path):
     out = tmp_path / "Thong_Ke.xlsx"
     writer.write_statistics(sol, out, STYLE)
     rows = _stats(out)
-    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-1] == 23  # 19 tiết + 4 tiết bù
+    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-4:] == (23, 19, 4, None)  # 19 tiết + 4 tiết bù
     assert all(r[0] != "tuyển thêm" for r in rows)
-    assert rows[-1][0] == "Tổng" and rows[-1][-1] == 64
-    # Dòng GVCN dạy bù tô vàng (cả dòng), chú thích dưới bảng.
+    assert rows[-1][0] == "Tổng" and rows[-1][-4] == 64 and rows[-1][-2] == 8
+    # Dòng GVCN dạy bù tô vàng (cả dòng), người còn dư tiết tô xanh dương, chú thích dưới bảng.
     fills, legend = _fills(out)
-    assert fills == [writer.OVERTIME_FILL] * 2 + [None] * (len(rows) - 3)
+    spare = [r[-1] for r in rows[1:-1] if r[-1]]
+    assert fills == [writer.OVERTIME_FILL] * 2 + [writer.SPARE_FILL if r[-1] else None for r in rows[3:-1]] + [None]
     # Trong dòng đó, ô môn có tiết bù tô cam, ghi chú số tiết bù (mỗi GVCN bù 4 tiết: TNXH 2, KNS 1, Công nghệ 1).
     ws = openpyxl.load_workbook(out)["Thống kê"]
     for r in (2, 3):
@@ -237,4 +243,5 @@ def test_statistics_file_overtime(tmp_path):
         assert all(text.startswith(f"Dạy bù ") and text.endswith(head) for head, text in extra.items())
     assert legend == [(writer.OVERTIME_FILL, "Dạy bù (vượt định mức): 2 người, 8 tiết"),
                       (writer.OVERTIME_CELL_FILL, "Môn có tiết dạy bù: 6 ô, 8 tiết (ghi chú trong ô ghi số tiết bù "
-                                                  "của môn)")]
+                                                  "của môn)"),
+                      (writer.SPARE_FILL, f"Dạy ít hơn định mức (còn dư tiết): {len(spare)} người, {sum(spare)} tiết")]

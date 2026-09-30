@@ -22,7 +22,6 @@ from .style import CellStyle, Style
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
 LABEL_PAD = 4  # cột BUỔI, TIẾT của TKB: rộng thêm so với chữ dài nhất cho dễ nhìn
-CAMPUS2_LABEL = "CƠ SỞ 2"  # ghi sau tên lớp ở cơ sở 2 trong TKB
 HIRE_LABEL = "tuyển thêm"  # tên của người cần tuyển trong file thống kê
 CODE_HEADER = "Mã GV"
 LOAD_HEADER = "Số Tiết Thực Dạy"
@@ -36,7 +35,7 @@ OVERTIME_FILL = "FFEB9C"  # vàng nhạt
 HIRE_FILL = "C6EFCE"  # xanh lá nhạt
 OVERTIME_LEGEND = "Dạy bù (vượt định mức)"
 HIRE_LEGEND = "Cần tuyển thêm"
-# File vào cập nhật: dòng người còn dư tiết (dạy ít hơn định mức).
+# File thống kê và file vào cập nhật: dòng người còn dư tiết (dạy ít hơn định mức).
 SPARE_FILL = "DDEBF7"  # xanh dương nhạt
 SPARE_LEGEND = "Dạy ít hơn định mức (còn dư tiết)"
 # Trong dòng người dạy bù: ô môn có tiết bù tô màu riêng, kèm ghi chú số tiết bù của môn đó.
@@ -100,7 +99,7 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
     texts = {line for les in solution.lessons
              for t in (problem.subject_label(les.subject), names[les.teacher]) for line in t.split("\n")}
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
-    title = {c: f"LỚP {c}" + (f" ({CAMPUS2_LABEL})" if c in problem.campus2 else "") for c in problem.classes}
+    title = {c: c for c in problem.classes}  # cột LỚP chỉ ghi tên lớp (cơ sở 2 đã tách file riêng)
     chosen = problem.classes if classes is None else classes
     for grade in sorted({grade_of(c) for c in chosen}):
         ws = wb.create_sheet(f"Khối {grade}")
@@ -182,19 +181,26 @@ def _stats_name(t: Teacher) -> str:
 
 
 def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[list]]:
-    """Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết, mỗi giáo viên một dòng; cuối bảng có dòng Tổng.
+    """Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết | Số Tiết/Tuần | Số Tiết Bù | Số Tiết Dư, mỗi
+    giáo viên một dòng; cuối bảng có dòng Tổng.
 
     Chỉ có cột cho các môn có người dạy, theo thứ tự môn trong chương trình học; ô trống là không dạy môn đó.
+    Số Tiết/Tuần là định mức (người cần tuyển: định mức tuyển); Số Tiết Bù là số tiết dạy bù vượt định mức
+    (chế độ bù giờ); Số Tiết Dư là định mức − Tổng Tiết khi dạy ít hơn định mức.
     """
     problem = solution.problem
     count = Counter((les.teacher, les.subject) for les in solution.lessons)
     order = {s: i for i, s in enumerate(problem.subject_order)}
     subjects = sorted({s for _, s in count}, key=lambda s: (order.get(s, len(order)), s))
-    header = [style.staff_headers["name"], "Chức Vụ", *(problem.subject_label(s) for s in subjects), TOTAL_HEADER]
+    header = [style.staff_headers["name"], "Chức Vụ", *(problem.subject_label(s) for s in subjects), TOTAL_HEADER,
+              style.staff_headers["lessons"], OVERTIME_HEADER, SPARE_HEADER]
+    overtime = solution.overtime()
     rows = []
     for t in staff_rows(solution):
         per = [count[t.title, s] for s in subjects]
-        rows.append([_stats_name(t), t.code, *(n or None for n in per), sum(per)])
+        total = sum(per)
+        rows.append([_stats_name(t), t.code, *(n or None for n in per), total, t.max_lessons,
+                     overtime.get(t.title) or None, max(0, t.max_lessons - total) or None])
     rows.append(["Tổng", None, *(sum(r[c] or 0 for r in rows) for c in range(2, len(header)))])
     return header, rows
 
@@ -203,10 +209,15 @@ def _fill(color: str) -> PatternFill:
     return PatternFill(fill_type="solid", start_color=color, end_color=color)
 
 
-def row_marks(solution: Solution) -> dict[str, tuple[str, int]]:
-    """GV -> (màu nền, số tiết): người dạy bù (số tiết bù) và người cần tuyển thêm (số tiết thực dạy)."""
+def row_marks(solution: Solution, spare: bool = False) -> dict[str, tuple[str, int]]:
+    """GV -> (màu nền, số tiết): người dạy bù (số tiết bù) và người cần tuyển thêm (số tiết thực dạy); spare: thêm
+    người còn dư tiết (số tiết dư), trừ hai nhóm trên."""
     load = solution.teacher_load()
-    marks = {g: (OVERTIME_FILL, n) for g, n in solution.overtime().items()}
+    marks = {}
+    if spare:
+        marks = {t.title: (SPARE_FILL, t.max_lessons - load[t.title]) for t in staff_rows(solution)
+                 if not t.supplementary and t.max_lessons > load[t.title]}
+    marks.update({g: (OVERTIME_FILL, n) for g, n in solution.overtime().items()})
     marks.update({t.title: (HIRE_FILL, load[t.title]) for t in solution.used_supplements()})
     return marks
 
@@ -217,10 +228,10 @@ def overtime_cells(solution: Solution) -> Counter:
 
 
 def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style) -> list[int]:
-    """Tô nền dòng người dạy bù và người cần tuyển (bảng bắt đầu ở dòng 1); trong dòng người dạy bù, ô môn có
-    tiết bù tô màu riêng, kèm ghi chú số tiết bù. Dưới bảng, từ dòng `top`, ghi chú thích màu kèm số người, số
-    tiết. Trả về các dòng chú thích."""
-    marks = row_marks(solution)
+    """Tô nền dòng người dạy bù, người cần tuyển và người còn dư tiết (bảng bắt đầu ở dòng 1); trong dòng người
+    dạy bù, ô môn có tiết bù tô màu riêng, kèm ghi chú số tiết bù. Dưới bảng, từ dòng `top`, ghi chú thích màu kèm
+    số người, số tiết. Trả về các dòng chú thích."""
+    marks = row_marks(solution, spare=True)
     width = len(header)
     extra = overtime_cells(solution)
     labels = {solution.problem.subject_label(s): s for s in {s for _, s in extra}}
@@ -236,7 +247,7 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
                 ws.cell(r, c).comment = Comment(f"Dạy bù {n} tiết {head}", "TKB")
                 n_cells += 1
     texts = []
-    for color, label in ((OVERTIME_FILL, OVERTIME_LEGEND), (HIRE_FILL, HIRE_LEGEND)):
+    for color, label in ((OVERTIME_FILL, OVERTIME_LEGEND), (HIRE_FILL, HIRE_LEGEND), (SPARE_FILL, SPARE_LEGEND)):
         lessons = [n for mark, n in marks.values() if mark == color]
         if lessons:
             texts.append((color, f"{label}: {len(lessons)} người, {sum(lessons)} tiết"))
@@ -256,8 +267,9 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
 
 
 def write_statistics(solution: Solution, path: str | Path, style: Style | None = None) -> None:
-    """File thống kê: một bảng số tiết từng môn của mỗi giáo viên (xem subject_table). Dòng người dạy bù tô
-    vàng (ô môn có tiết bù tô cam, ghi chú số tiết bù), dòng người cần tuyển tô xanh, chú thích dưới bảng."""
+    """File thống kê: một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù, số tiết dư (xem
+    subject_table). Dòng người dạy bù tô vàng (ô môn có tiết bù tô cam, ghi chú số tiết bù), dòng người cần tuyển
+    tô xanh lá, dòng người còn dư tiết tô xanh dương; chú thích dưới bảng."""
     style = style or Style()
     wb = openpyxl.Workbook()
     ws = wb.active
