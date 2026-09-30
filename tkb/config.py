@@ -27,6 +27,8 @@ TOAN_TC = "Toán tăng cường"
 TV_TC = "Tiếng Việt tăng cường"
 TIENG_ANH = "Tiếng Anh"
 TIN_HOC = "Tin học"
+AM_NHAC = "Âm nhạc"
+MY_THUAT = "Mỹ thuật"
 
 # Tên môn hiển thị trong ô TKB (viết tắt); môn không có ở đây giữ nguyên tên.
 DISPLAY_NAMES: dict[str, str] = {
@@ -132,9 +134,12 @@ SUPPLEMENT_NAME = "chưa có"
 MODE_HIRE = "tuyen_them"  # thêm GV bổ sung "chưa có": nhận các tiết bù và phần còn thiếu
 MODE_OVERTIME = "bu_gio"  # GVCN/bộ môn dạy bù vượt định mức; bù vẫn không đủ thì báo lỗi, không tuyển
 MODES = (MODE_HIRE, MODE_OVERTIME)
-# Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt; GVCN bù
-# trước, bộ môn chỉ bù khi GVCN đã bù hết mức.
+# Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt (trừ
+# HOMEROOM_OVERTIME_SPECIALIST); GVCN bù trước, bộ môn chỉ bù khi GVCN đã bù hết mức.
 OVERTIME_ROLES: set[str] = {ROLE_HOMEROOM, ROLE_GENERAL}
+# Môn của GV chuyên biệt mà GVCN vẫn được dạy bù ở lớp mình (nhận sau cùng, sau các môn trong
+# HOMEROOM_FILL_ORDER). Tin học, Tiếng Anh, Thể dục thì không.
+HOMEROOM_OVERTIME_SPECIALIST: set[str] = {AM_NHAC, MY_THUAT}
 OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức được duyệt)
 
 # --------------------------------------------------------------------------
@@ -144,12 +149,12 @@ OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức
 HEAVY_SUBJECTS: set[str] = {TOAN, TOAN_TC, TV, TV_TC, TIENG_ANH, KH, TIN_HOC}
 HEAVY_LATE_PERIODS: set[int] = {7}
 # Buổi sáng dành cho môn chính (mục tiêu mềm, như TKB các trường khác: docs/Tham_Khao_TKB_Truong_Khac.md):
-# mỗi tiết TV, Toán xếp vào buổi chiều bị phạt (Weights.morning_core); tiết tăng cường thì ngược lại, ưu tiên
-# buổi chiều để nhường buổi sáng cho tiết chính (Weights.extra_morning).
+# mỗi tiết TV, Toán xếp vào buổi chiều bị phạt (Weights.morning_core).
 MORNING_SUBJECTS: set[str] = {TV, TOAN}
-# TV tăng cường không ở đây: nó ghép cặp liền với tiết TV (SUBJECT_GROUPS, PAIR_MIN_LESSONS).
-AFTERNOON_SUBJECTS: set[str] = {TOAN_TC}
-# Nhóm môn: môn tăng cường tính chung với môn chính cho các luật liên tiết, số tiết mỗi buổi và ghép cặp.
+# Nhóm môn: môn tăng cường (khóa) tính chung với môn chính (giá trị) cho các luật liên tiết, số tiết mỗi buổi
+# và ghép cặp. Luật cứng đi kèm (luật bảo vệ học sinh): tiết tăng cường là tiết luyện bài vừa học nên trong một
+# ngày phải có tiết chính cùng nhóm đứng trước nó và không có tiết chính nào đứng sau nó (không cần liền, không
+# cần cùng người dạy, không cần buổi chiều).
 SUBJECT_GROUPS: dict[str, str] = {TV_TC: TV, TOAN_TC: TOAN}
 # Mỗi nhóm môn tối đa ngần ấy tiết mỗi buổi. Luật cứng đi kèm: môn nào có từ 2 tiết trong một buổi thì
 # các tiết đó phải liền nhau, vd sáng "TV, Toán, TV, Anh" là sai, phải là "Toán, TV, TV, Anh".
@@ -166,8 +171,8 @@ def rule_subjects() -> list[str]:
     """Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào)."""
     names = [HDTN, *HOMEROOM_PRIORITY, *HOMEROOM_CUT_ORDER, *HOMEROOM_FILL_ORDER, *HOMEROOM_ONLY_SUBJECTS,
              *GENERAL_FORBIDDEN_SUBJECTS, *(r.subject for r in MANAGER_RULES), *HEAVY_SUBJECTS,
-             *MORNING_SUBJECTS, *AFTERNOON_SUBJECTS, *SUBJECT_GROUPS, *SUBJECT_GROUPS.values(),
-             *DAILY_LIMITS, *DISPLAY_NAMES]
+             *MORNING_SUBJECTS, *SUBJECT_GROUPS, *SUBJECT_GROUPS.values(),
+             *DAILY_LIMITS, *DISPLAY_NAMES, *HOMEROOM_OVERTIME_SPECIALIST]
     return sorted(set(names))
 
 
@@ -186,8 +191,6 @@ class Weights:
     heavy_late: int = 400  # mỗi tiết môn nặng ở tiết 7
     morning_core: int = 300  # mỗi tiết TV, Toán (MORNING_SUBJECTS) xếp vào buổi chiều
     core_spread: int = 120  # như subject_spread nhưng cho MORNING_SUBJECTS
-    extra_morning: int = 10  # mỗi tiết tăng cường (AFTERNOON_SUBJECTS) xếp vào buổi sáng
-    extra_after_main: int = 100  # thưởng mỗi tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy
     subject_spread: int = 40  # mỗi tiết vượt mức rải đều môn/ngày
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
     campus_day_switch: int = 3_000  # mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia (luật cứng mỗi buổi

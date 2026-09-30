@@ -95,10 +95,13 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             errors.append(f"Lớp {cls}: GVCN dạy {dict(got)}, phân công là {take}")
         elif extra:
             allowed = problem.overtime.get(homeroom[cls], 0)
-            banned = sorted(s for s in extra if s in problem.specialist_subjects())
+            banned = sorted(s for s in extra if s in problem.specialist_subjects()
+                            and s not in config.HOMEROOM_OVERTIME_SPECIALIST)
             if sum(extra.values()) > allowed or banned:
+                allowed_spec = ", ".join(problem.subject_label(s) for s in sorted(problem.specialist_subjects())
+                                         if s in config.HOMEROOM_OVERTIME_SPECIALIST)
                 errors.append(f"Lớp {cls}: GVCN dạy bù {dict(extra)} không hợp lệ (tối đa {allowed} tiết, "
-                              f"không bù môn chuyên biệt)")
+                              f"không bù môn chuyên biệt" + (f" trừ {allowed_spec}" if allowed_spec else "") + ")")
 
     # Bù giờ: GVCN được ưu tiên bù lớp mình. Bộ môn đang dạy bù mà còn dạy ở lớp X một môn GVCN lớp X
     # được dạy, trong khi GVCN lớp X chưa bù hết mức, thì chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ
@@ -213,6 +216,18 @@ def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
                 n = day_subjects.count(subject)
                 if req.get(subject, 0) <= n_days and n > limit:
                     errors.append(f"Lớp {cls} {config.DAYS[d]}: {n} tiết {subject} (tối đa {limit} mỗi ngày)")
+            # Tiết tăng cường sau tiết chính: trong ngày có tiết chính cùng nhóm đứng trước, không có tiết chính
+            # nào đứng sau (khối không học môn chính thì không xét).
+            day_at = [(p, grid.get((cls, d, p))) for s in sessions for p in s.periods]
+            for extra, main in config.SUBJECT_GROUPS.items():
+                if not req.get(main, 0):
+                    continue
+                mains = [p for p, s in day_at if s == main]
+                for p in (p for p, s in day_at if s == extra):
+                    if not mains or max(mains) > p:
+                        where = f"tiết {', '.join(map(str, mains))}" if mains else "không có trong ngày"
+                        errors.append(f"Lớp {cls} {config.DAYS[d]}: {extra} ở tiết {p} phải sau các tiết {main} "
+                                      f"({where})")
             for session in sessions:
                 subjects = [grid.get((cls, d, p)) for p in session.periods]
                 groups = Counter(subject_group(s) for s in subjects if s)

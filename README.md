@@ -88,8 +88,8 @@ Chạy test: `python -m pytest -q`
 
 | Hệ điều hành | Mã kết quả `data/INPUT_V8.xlsx` | Đã kiểm |
 |---|---|---|
-| Windows x86-64 | **`248C-DA45-9FC1`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
-| Linux x86-64 | **`3828-B620-0E2A`** | Python 3.11 |
+| Windows x86-64 | **`BBEA-5C95-15D7`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
+| Linux x86-64 | **`2E60-3DEB-71C8`** | Python 3.11 |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
 
@@ -207,7 +207,7 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 
 **Chế độ bù giờ** (`CHE_DO = "bu_gio"`)
 - Chỉ GVCN và bộ môn được dạy bù (vượt Số tiết định mức), mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần.
-- GVCN chỉ bù ở lớp mình, không bù môn của giáo viên chuyên biệt. Thứ tự môn: môn ưu tiên của GVCN (lấy lại tiết đã bị cắt) → TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ; ưu tiên nhận trọn một môn thay vì chia đôi.
+- GVCN chỉ bù ở lớp mình, không bù môn của giáo viên chuyên biệt, **trừ Âm nhạc và Mỹ thuật** (`HOMEROOM_OVERTIME_SPECIALIST`; Tin học, Tiếng Anh, Thể dục thì không). Thứ tự môn: môn ưu tiên của GVCN (lấy lại tiết đã bị cắt) → TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ → Âm nhạc, Mỹ thuật; ưu tiên nhận trọn một môn thay vì chia đôi. Âm nhạc, Mỹ thuật GVCN chỉ nhận phần giáo viên chuyên biệt và bộ môn không dạy hết (theo dự toán).
 - GVCN bù trước; bộ môn chỉ bù khi GVCN đã bù hết mức. Bộ kiểm tra báo lỗi nếu bộ môn dạy bù ở một lớp mà GVCN lớp đó còn được bù và dạy được môn đó.
 - Có cột `Hợp Đồng` thì thứ tự bù là: **GVCN hợp đồng → GVCN khác → bộ môn hợp đồng → bộ môn khác** (`overtime_homeroom_contract`, `overtime_homeroom`, `overtime_general_contract`, `overtime_general`).
 - Chia đều trong từng nhóm trên: mọi người bù +1 rồi mới có người bù +2.
@@ -228,14 +228,14 @@ Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
 - **Toán mỗi ngày tối đa 1 tiết** (khi số tiết Toán/tuần không quá số ngày học; `DAILY_LIMITS`).
 - **Ghép cặp:** nhóm môn có từ 6 tiết/tuần và tổng chẵn (TV + TV tăng cường khối 1–3) học thành các **cặp 2 tiết liền nhau**, mỗi buổi 0 hoặc 2 tiết của nhóm (`PAIR_MIN_LESSONS`; trừ Toán và HĐTN: `PAIR_EXCLUDED`). Phần của mỗi người trong nhóm ghép cặp luôn chẵn.
 - **Môn có từ 2 tiết trong một buổi thì các tiết phải liền nhau**, không xếp so le. Ví dụ buổi sáng `TV, Toán, TV, Tiếng Anh` là sai, phải là `Toán, TV, TV, Tiếng Anh`. Áp dụng cho mọi môn, trong từng buổi (tiết 4 sáng và tiết 1 chiều không tính là liền).
+- **Tiết tăng cường sau tiết chính:** tiết tăng cường là tiết luyện bài vừa học, nên trong một ngày phải có tiết chính cùng môn đứng trước nó và không có tiết chính nào đứng sau nó (Toán tăng cường sau Toán, TV tăng cường sau TV; `SUBJECT_GROUPS`). Không cần liền, không cần cùng người dạy, không cần buổi chiều. Với TV ghép cặp thì cặp có tiết tăng cường là "TV rồi TV tăng cường".
 - Môn nặng ở tiết 7 không bị cấm, chỉ hạn chế bằng mục tiêu mềm (xem dưới).
 
 **Mục tiêu mềm**
 - **Buổi sáng dành cho Tiếng Việt và Toán**, như TKB của các trường khác (xem [`docs/Tham_Khao_TKB_Truong_Khac.md`](docs/Tham_Khao_TKB_Truong_Khac.md)):
   - mỗi tiết TV, Toán xếp vào buổi chiều bị phạt;
-  - Toán tăng cường ưu tiên buổi chiều; TV tăng cường thì ghép cặp với tiết TV nên không đẩy sang chiều;
-  - tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy được thưởng (`extra_after_main`);
-  - đổi ở `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, trọng số `morning_core` (300), `extra_morning`, `core_spread`.
+  - tiết tăng cường không có mục tiêu riêng: luật cứng "sau tiết chính" (xem trên) đã đặt nó sau TV, Toán;
+  - đổi ở `MORNING_SUBJECTS`, trọng số `morning_core` (300), `core_spread`.
 
   Khối có nhiều tiết TV (vd khối 1: 14 tiết, mỗi buổi tối đa 2) vẫn phải có vài tiết TV buổi chiều. Mỗi lần chạy in ra số tiết TV, Toán còn ở buổi chiều.
 - Hạn chế môn nặng ở tiết 7 (Toán, Tiếng Việt, tiết tăng cường, Tiếng Anh, Khoa học, Tin học; đổi ở `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, trọng số `heavy_late` (400)).

@@ -56,6 +56,18 @@ def test_homeroom_overtime_takes_whole_subjects():
         assert n == problem.courses[cid].lessons  # không chia môn
 
 
+def test_homeroom_overtime_takes_music_and_art():
+    # Không có bộ môn; GV Âm nhạc, Mỹ thuật mỗi người chỉ 1 tiết cho 2 lớp: tiết còn lại do GVCN dạy bù.
+    staff = [t for t in small_staff(general=False) if t.role not in ("âm nhạc", "mỹ thuật")]
+    staff += [teacher("AN", "âm nhạc 1", 1, row=20), teacher("MT", "mỹ thuật 1", 1, row=21)]
+    problem = _problem(staff, 5)
+    plan = phan_cong(problem, W)
+    assert plan.missing_total() == 0
+    extra = Counter(problem.courses[cid].subject for (cid, g) in plan.extra if problem.teachers[g].class_name)
+    assert extra[config.AM_NHAC] == 1 and extra[config.MY_THUAT] == 1
+    assert not {config.TIENG_ANH, config.TIN_HOC, "Thể dục"} & set(extra)
+
+
 def test_assignment_is_deterministic():
     a = phan_cong(_problem(small_staff()), W)
     b = phan_cong(_problem(small_staff()), W)

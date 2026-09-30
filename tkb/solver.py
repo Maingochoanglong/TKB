@@ -483,9 +483,8 @@ def build_timetable(problem: Problem, settings: config.Settings,
     _teacher_sessions(m, problem, occ_terms, occ_campus)
     objective.extend(_campus_day_switch(m, occ_campus, w.campus_day_switch))
 
-    # Biến "GV g dạy nhóm môn của lớp tại slot s" (và theo từng môn) cho các luật về người dạy.
+    # Biến "GV g dạy nhóm môn của lớp tại slot s" cho các luật về người dạy.
     teach: dict[tuple[str, str], dict[str, dict[tuple[int, int], list]]] = {}
-    teach_subject: dict[tuple[str, str], dict[str, dict[tuple[int, int], list]]] = {}
     for c in problem.courses:
         cand = alloc.teachers_of[c.id]
         for s in dom[c.id]:
@@ -493,7 +492,6 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 v = x[c.id, s] if len(cand) == 1 else z[c.id, g, s]
                 teach.setdefault((c.class_name, subject_group(c.subject)), {}).setdefault(g, {}) \
                     .setdefault(s, []).append(v)
-                teach_subject.setdefault((c.class_name, c.subject), {}).setdefault(g, {}).setdefault(s, []).append(v)
     sessions_all = [(d, session) for d, sessions in config.DAY_SESSIONS.items() for session in sessions]
 
     # Liên tiết: hai tiết liền nhau cùng lớp, cùng nhóm môn (vd TV và TV tăng cường) phải cùng người dạy.
@@ -528,7 +526,8 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # Luật bảo vệ học sinh: mỗi nhóm môn tối đa SESSION_GROUP_LIMIT tiết mỗi buổi; Toán mỗi ngày tối đa 1 tiết
     # (DAILY_LIMITS); nhóm môn ghép cặp (allocation.paired_groups) mỗi buổi 0 hoặc 2 tiết liền nhau; môn có từ 2
-    # tiết trong một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn").
+    # tiết trong một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn"); tiết tăng cường
+    # sau tiết chính cùng nhóm trong ngày (config.SUBJECT_GROUPS).
     if settings.student_rules:
         n_days = len(config.DAY_SESSIONS)
         for cls in problem.classes:
@@ -540,6 +539,20 @@ def build_timetable(problem: Problem, settings: config.Settings,
             for c in courses:
                 by_subject.setdefault(c.subject, []).append(c)
                 by_group.setdefault(subject_group(c.subject), []).append(c)
+            # Tiết tăng cường là tiết luyện bài vừa học: trong ngày phải có tiết chính cùng nhóm đứng trước và
+            # không có tiết chính nào đứng sau (không cần liền, không cần cùng người dạy, không cần buổi chiều).
+            for extra, main in config.SUBJECT_GROUPS.items():
+                for te in by_subject.get(extra, []):
+                    for mc in by_subject.get(main, []):
+                        for d, p in sorted(dom[te.id]):
+                            v = x[te.id, (d, p)]
+                            day_main = [(q, x[mc.id, (d, q)]) for session in config.DAY_SESSIONS[d]
+                                        for q in session.periods if (mc.id, (d, q)) in x]
+                            before = [u for q, u in day_main if q < p]
+                            m.Add(v <= sum(before)) if before else m.Add(v == 0)
+                            for q, u in day_main:
+                                if q > p:
+                                    m.Add(v + u <= 1)
             for d, sessions in config.DAY_SESSIONS.items():
                 for subject, limit in config.DAILY_LIMITS.items():
                     if req.get(subject, 0) > n_days:
@@ -573,22 +586,6 @@ def build_timetable(problem: Problem, settings: config.Settings,
                                 for j in range(i + 1, k):
                                     m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) - sum(y[ps[j]]) <= 1)
 
-    # Tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy (thưởng).
-    session_at = session_of()
-    for (cls, subject), by_g in teach_subject.items():
-        main = config.SUBJECT_GROUPS.get(subject)
-        if main is None:
-            continue
-        main_by_g = teach_subject.get((cls, main), {})
-        for g in sorted(by_g):
-            for (d, p), vs in sorted(by_g[g].items()):
-                prev = main_by_g.get(g, {}).get((d, p - 1))
-                if prev and session_at.get((d, p - 1)) is session_at[(d, p)]:
-                    r = m.NewBoolVar(f"after_{cls}_{subject}_{d}_{p}")
-                    m.Add(r <= sum(vs))
-                    m.Add(r <= sum(prev))
-                    objective.append(-w.extra_after_main * r)
-
     # HĐTN linh hoạt: càng gần cuối buổi càng tốt.
     for c in problem.courses:
         if c.flex_hdtn:
@@ -601,12 +598,10 @@ def build_timetable(problem: Problem, settings: config.Settings,
             objective.extend(w.heavy_late * x[c.id, s] for s in dom[c.id]
                              if s[1] in config.HEAVY_LATE_PERIODS)
 
-    # Buổi sáng dành cho TV, Toán; tiết tăng cường ưu tiên buổi chiều để nhường buổi sáng cho tiết chính.
+    # Buổi sáng dành cho TV, Toán.
     for c in problem.courses:
         if c.subject in config.MORNING_SUBJECTS:
             objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if s[1] not in config.MORNING.periods)
-        elif c.subject in config.AFTERNOON_SUBJECTS:
-            objective.extend(w.extra_morning * x[c.id, s] for s in dom[c.id] if s[1] in config.MORNING.periods)
 
     # Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
     days = sorted(config.DAY_SESSIONS)

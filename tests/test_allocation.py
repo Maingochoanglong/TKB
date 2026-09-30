@@ -94,6 +94,10 @@ def test_overtime_allowances_and_eligibility(sample_staff):
     assert "chủ nhiệm 1/1" in pool["1/1", C.TV].teachers
     assert "chủ nhiệm 1/1" in pool["1/1", C.TNXH].teachers
     assert "chủ nhiệm 1/1" not in pool["1/1", C.TIENG_ANH].teachers  # không bù môn chuyên biệt
+    assert "chủ nhiệm 1/1" not in pool["1/1", "Thể dục"].teachers
+    assert "chủ nhiệm 1/1" in pool["1/1", C.AM_NHAC].teachers  # trừ Âm nhạc, Mỹ thuật
+    assert "chủ nhiệm 1/1" in pool["1/1", C.MY_THUAT].teachers
+    assert "chủ nhiệm 3/1" not in pool["3/1", C.TIN_HOC].teachers
     assert "chủ nhiệm 1/2" not in pool["1/1", C.TV].teachers  # chỉ bù lớp mình
     hire = build_problem(sample_staff, CURRICULUM)
     assert hire.overtime == {} and not hire.overtime_mode()

@@ -164,11 +164,17 @@ def _flow(problem: Problem, w: config.Weights, demand: dict[int, int], base_load
 # GVCN nhận tiết bù ở lớp mình
 # --------------------------------------------------------------------------
 def _homeroom_extra(problem: Problem, g: str, x: int, rem: dict[int, int],
-                    order: dict[str, int]) -> tuple[dict[int, int], int]:
-    """Chọn x tiết bù cho GVCN g: (course -> số tiết, số tiết môn ưu tiên phải nhường vì chia chẵn)."""
+                    order: dict[str, int], spec_cap: dict[Key, int]) -> tuple[dict[int, int], int]:
+    """Chọn x tiết bù cho GVCN g: (course -> số tiết, số tiết môn ưu tiên phải nhường vì chia chẵn).
+
+    Môn của GV chuyên biệt (config.HOMEROOM_OVERTIME_SPECIALIST) GVCN chỉ nhận đúng phần dự toán giao cho mình
+    (`spec_cap`): phần còn lại là của GV chuyên biệt và bộ môn, dự toán đã chia cho khớp giữa các lớp."""
     t = problem.teachers[g]
     grade = grade_of(t.class_name)
     pairs = paired_groups(problem.curriculum[grade])
+    spec = problem.specialist_subjects()
+    rem = {c.id: min(rem.get(c.id, 0), spec_cap.get((c.id, g), 0)) if c.subject in spec else rem.get(c.id, 0)
+           for c in problem.courses if c.class_name == t.class_name}
     own = [c for c in problem.courses if c.class_name == t.class_name and not c.homeroom
            and g in c.teachers and rem.get(c.id, 0) > 0]
     held = Counter()  # nhóm môn -> số tiết GVCN đã dạy trong phần định mức
@@ -232,22 +238,24 @@ def _homeroom_extra(problem: Problem, g: str, x: int, rem: dict[int, int],
     return take, skipped
 
 
-def _balance_parity(problem: Problem, totals: dict[str, int], rem: dict[int, int], order: dict[str, int]) -> None:
+def _balance_parity(problem: Problem, totals: dict[str, int], rem: dict[int, int], order: dict[str, int],
+                    spec_cap: dict[Key, int]) -> None:
     """GVCN phải nhường môn ưu tiên vì chia chẵn (vd bù +1 vào nhóm TV ghép cặp) thì đổi mức bù với một GVCN
     khác không bị vướng: tổng tiết bù giữ nguyên."""
     for _ in range(len(totals)):
         stuck = [g for g in sorted(totals, key=lambda g: class_sort_key(problem.teachers[g].class_name))
-                 if _homeroom_extra(problem, g, totals[g], rem, order)[1] and totals[g] < problem.overtime.get(g, 0)]
+                 if _homeroom_extra(problem, g, totals[g], rem, order, spec_cap)[1]
+                 and totals[g] < problem.overtime.get(g, 0)]
         if not stuck:
             return
         g = stuck[0]
-        more, more_skipped = _homeroom_extra(problem, g, totals[g] + 1, rem, order)
+        more, more_skipped = _homeroom_extra(problem, g, totals[g] + 1, rem, order, spec_cap)
         if more_skipped or sum(more.values()) != totals[g] + 1:
             return
         for h in sorted(totals, key=lambda h: class_sort_key(problem.teachers[h].class_name)):
             if h == g or totals[h] <= 0:
                 continue
-            if not _homeroom_extra(problem, h, totals[h] - 1, rem, order)[1]:
+            if not _homeroom_extra(problem, h, totals[h] - 1, rem, order, spec_cap)[1]:
                 totals[h] -= 1
                 totals[g] += 1
                 break
@@ -417,11 +425,14 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
         if teachers[g].class_name:
             totals[g] += n
     totals = {g: totals[g] for g in sorted(totals, key=lambda g: class_sort_key(teachers[g].class_name))}
-    _balance_parity(problem, totals, demand, order)
+    spec = problem.specialist_subjects()
+    spec_cap = {(cid, g): n for (cid, g), n in first.items()
+                if teachers[g].class_name and problem.courses[cid].subject in spec}
+    _balance_parity(problem, totals, demand, order, spec_cap)
     # 2. GVCN nhận tiết bù ở lớp mình.
     rem = dict(demand)
     for g, x in totals.items():
-        take, _ = _homeroom_extra(problem, g, x, rem, order)
+        take, _ = _homeroom_extra(problem, g, x, rem, order, spec_cap)
         for cid, n in take.items():
             lessons[cid, g] = n
             rem[cid] -= n

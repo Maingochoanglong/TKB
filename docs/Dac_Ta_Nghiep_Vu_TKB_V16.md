@@ -64,6 +64,7 @@
 | 46 | Cột LỚP; tiết bù, tiết dư trong file thống kê | TKB ghi `LỚP 3D23 (CƠ SỞ 2)`; file thống kê chỉ có số tiết từng môn và Tổng Tiết | Cột LỚP **chỉ ghi tên lớp** (`3D23`). File thống kê thêm cột **Số Tiết/Tuần, Số Tiết Bù, Số Tiết Dư**, tô xanh dương dòng người còn dư tiết (mục 11.1, 11.3). Chỉ đổi file ra, mã kết quả không đổi |
 | 47 | Ai di chuyển giữa hai cơ sở | Chỉ in số người, số lần ra màn hình | File thống kê thêm cột **Buổi Ở Cơ Sở 2** và **Đổi Cơ Sở Trong Ngày** cho người dạy ở cả hai cơ sở, dòng Tổng và chú thích ghi số người, số lần (mục 11.3). Chỉ đổi file ra, mã kết quả không đổi |
 | 48 | File kết quả chỉ chữ thường | Ô tô cam trong file thống kê và tiêu đề Số Tiết Dư của file cập nhật có ghi chú (comment) | **Không ghi chú, không công thức** trong mọi file kết quả: số tiết bù từng môn ở cột chữ **Môn Dạy Bù**; giải thích màu ở sheet **Chú thích** của file cập nhật; công thức của file vào chép thành giá trị (mục 11.2, 11.3). Mã kết quả không đổi |
+| 49 | GVCN bù Âm nhạc, Mỹ thuật; tiết tăng cường sau tiết chính | GVCN không bù môn chuyên biệt; **[Mềm]** Toán tăng cường ưu tiên buổi chiều (10), thưởng tiết tăng cường liền sau tiết chính cùng người (100) | GVCN được **bù Âm nhạc, Mỹ thuật** ở lớp mình (`HOMEROOM_OVERTIME_SPECIALIST`; nhận sau cùng và chỉ phần dự toán giao, mục 7.2). Bỏ hai mục tiêu mềm của tiết tăng cường, thay bằng **[Cứng]** trong ngày tiết tăng cường đứng sau mọi tiết chính cùng nhóm và ngày đó có tiết chính (mục 6). TKB cũ đã gần đạt: Toán tăng cường 36/36, TV tăng cường 16/19. Với file của trường, GVCN chưa phải bù hai môn này (các môn khác xếp trước). Mã kết quả đổi (Linux `2E60-3DEB-71C8`, Windows `BBEA-5C95-15D7`) |
 
 ---
 
@@ -220,7 +221,7 @@ Ví dụ (trường mẫu tên giả của test, `tests/du_lieu_mau.py`):
 - **[Cứng]** HĐTN chỉ do GVCN của lớp dạy.
 - Môn bộ môn không được dạy (Tiếng Anh, Tin học) mà trường chưa có GV chuyên biệt: chương trình tự thêm chức vụ trùng tên môn để tuyển (ví dụ `Tin Học 1`).
 - **[Cứng]** Quản lý dạy **đúng** bằng Số tiết của mình. Nếu số tiết phù hợp ít hơn thì dạy hết số đó và có cảnh báo. Chương trình tự chọn lớp; có thể cố định lớp trong `MANAGER_RULES`. Mỗi lớp chỉ có 1 tiết KNS, nên quản lý 4 tiết sẽ dạy ở 4 lớp khối 4.
-- Thể dục, Âm nhạc, Mỹ thuật do GV chuyên biệt dạy trước. Bộ môn chỉ dạy thay phần vượt năng lực của GV chuyên biệt; dự toán in số tiết này.
+- Thể dục, Âm nhạc, Mỹ thuật do GV chuyên biệt dạy trước. Bộ môn chỉ dạy thay phần vượt năng lực của GV chuyên biệt; dự toán in số tiết này. Ở chế độ bù giờ, GVCN cũng được dạy bù Âm nhạc, Mỹ thuật ở lớp mình (mục 7.2).
 - **[Mềm]** Hạn chế chia một lớp–môn cho nhiều giáo viên.
 
 ### 4.1. Hai cơ sở, thai sản, buổi nghỉ
@@ -302,6 +303,7 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 | Toán mỗi ngày | **[Cứng]** | **Toán tối đa 1 tiết mỗi ngày** khi số tiết Toán/tuần không quá số ngày học (`DAILY_LIMITS`). Tắt cùng `LUAT_HOC_SINH` |
 | Ghép cặp | **[Cứng]** | Nhóm môn có **từ 6 tiết/tuần và tổng chẵn** (`PAIR_MIN_LESSONS`; trừ Toán và HĐTN, `PAIR_EXCLUDED`) học thành **cặp 2 tiết liền nhau**: mỗi buổi 0 hoặc 2 tiết của nhóm. Với chương trình hiện tại: TV + TV tăng cường khối 1 (14, 7 cặp), khối 2 (12, 6 cặp), khối 3 (8, 4 cặp). Phân công luôn chia chẵn phần của mỗi người trong nhóm. Tắt cùng `LUAT_HOC_SINH` |
 | Môn học liền trong buổi | **[Cứng]** | Môn nào có từ 2 tiết trong cùng một buổi thì các tiết đó phải **liền nhau**. Áp dụng cho mọi môn, không phân biệt giáo viên. Chỉ xét trong từng buổi (tiết 4 sáng và tiết 5 không tính là liền). Tắt cùng `LUAT_HOC_SINH = False` |
+| Tiết tăng cường sau tiết chính | **[Cứng]** | Tiết tăng cường là tiết luyện bài vừa học: trong một ngày, mỗi tiết tăng cường phải có **tiết chính cùng nhóm đứng trước** và **không có tiết chính nào đứng sau** (Toán tăng cường sau Toán, TV tăng cường sau TV; `SUBJECT_GROUPS`). Không cần liền, không cần cùng người dạy, không cần buổi chiều. Nhóm ghép cặp: cặp có tiết tăng cường là "TV rồi TV tăng cường". Tắt cùng `LUAT_HOC_SINH` |
 | Liên tiết do 1 người | **[Cứng]** | Hai tiết liền nhau trong một buổi, cùng lớp, **cùng nhóm môn** phải do **cùng một người** dạy. Luôn áp dụng |
 | Môn nặng ở tiết 7 | **[Mềm]** | Mỗi tiết môn nặng ở tiết 7 bị phạt 400 (`heavy_late`) |
 | Tiết nặng liên tiếp | Bỏ | Không còn giới hạn |
@@ -340,11 +342,11 @@ Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi �
 ### 7.2. Chế độ bù giờ (`bu_gio`)
 
 - **Người được bù:** chỉ **GVCN** và **bộ môn**. Mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần (`main.py` mặc định 3 cho file của trường; dòng lệnh và `config.OVERTIME_MAX`: 2). **[Cứng]** GV đang hưởng thai sản không bù.
-- **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt.
+- **[Cứng]** GVCN chỉ bù ở **lớp mình**, và không bù môn của GV chuyên biệt, **trừ Âm nhạc, Mỹ thuật** (`HOMEROOM_OVERTIME_SPECIALIST`; Tin học, Tiếng Anh, Thể dục thì không). Hai môn này GVCN chỉ nhận đúng phần dự toán (mục 8.1) giao cho mình, tức phần GV chuyên biệt và bộ môn không dạy hết.
 - **[Cứng]** GVCN được **ưu tiên bù lớp mình**: không được để bộ môn dạy bù ở lớp X một môn mà GVCN lớp X dạy được, trong khi GVCN lớp X chưa bù hết mức. Bộ kiểm tra báo lỗi.
 - **Thứ tự môn GVCN bù:**
   1. Môn ưu tiên (lấy lại tiết đã bị cắt ở mục 5.2), theo nhóm môn; nhóm ghép cặp giữ phần của GVCN chẵn.
-  2. Các môn còn lại theo thứ tự TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ, **ưu tiên nhận trọn môn** cho vừa số tiết bù (không chia đôi môn nếu tránh được).
+  2. Các môn còn lại theo thứ tự TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ → Âm nhạc, Mỹ thuật, **ưu tiên nhận trọn môn** cho vừa số tiết bù (không chia đôi môn nếu tránh được).
 - **Thứ tự ưu tiên khi quyết định ai bù:**
   1. Ít tiết không ai dạy nhất.
   2. Ít tiết bù của **bộ môn** nhất: **GVCN bù trước**, bộ môn chỉ bù khi GVCN đã bù hết mức.
@@ -366,7 +368,7 @@ Viết bằng Python thuần, số nguyên, duyệt theo thứ tự cố định
    - không ai dạy: 1.000.000;
    - tiết bù: GVCN hợp đồng 100.000, GVCN khác 300.000, bộ môn hợp đồng 500.000, bộ môn khác 700.000; mỗi tiết bù sau của một người thêm 50.000 (các mức cách nhau 200.000 nên thứ tự đúng đến +4);
    - GV có `Lớp Đang Dạy` dạy khối không nằm trong các khối cũ: 60; đúng khối nhưng khác lớp cũ: 10 (`keep_grade`, `keep_class`);
-   - GVCN bù: 3.000 × hạng môn (môn ưu tiên 0, rồi theo `HOMEROOM_FILL_ORDER`);
+   - GVCN bù: 3.000 × hạng môn (môn ưu tiên 0, rồi theo `HOMEROOM_FILL_ORDER`, Âm nhạc/Mỹ thuật sau cùng);
    - bộ môn dạy môn chuyên biệt: 1.000;
    - quản lý: dạy đúng số tiết.
    Luồng chi phí nhỏ nhất cho kết quả **tối ưu chính xác** với các giá trên.
@@ -387,8 +389,6 @@ Viết bằng Python thuần, số nguyên, duyệt theo thứ tự cố định
 | HĐTN tiết thứ ba cách cuối buổi | 200 / tiết cách |
 | Môn nặng ở tiết 7 | 400 / tiết (`heavy_late`) |
 | **Buổi sáng dành cho TV, Toán** (`MORNING_SUBJECTS`): mỗi tiết TV, Toán xếp vào buổi chiều | 300 / tiết (`morning_core`) |
-| Toán tăng cường (`AFTERNOON_SUBJECTS`) xếp vào buổi sáng | 10 / tiết (`extra_morning`). TV tăng cường không có ở đây: nó ghép cặp với TV |
-| Tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy | thưởng 100 / tiết (`extra_after_main`) |
 | Rải đều môn (trừ HĐTN): số tiết một môn trong ngày vượt ⌈số tiết/tuần ÷ 5⌉ | 40 / tiết vượt; **TV, Toán 120** (`core_spread`). Khối 1 có 7 cặp TV trong 5 ngày nên luôn có 2 ngày vượt |
 | Tiết trống giữa buổi của giáo viên không chủ nhiệm | 10 / tiết trống |
 | Giáo viên dạy sáng ở cơ sở này, chiều ở cơ sở kia (mục 4.1) | 3000 / (GV, ngày) (`campus_day_switch`) |
@@ -429,7 +429,7 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
   - Phiên bản Python (đã thử 3.10 đến 3.14), thư mục chạy, thứ tự băm của Python.
   - Thứ tự dựng mô hình cố định, không phụ thuộc thứ tự lặp của `set`. Thứ tự các vùng xếp lại cố định (điểm QA, hòa thì theo tên lớp, số ngày); ngân sách của mỗi lần xếp lại cũng tính theo thời gian tất định.
 - **Tham số bộ giải ở chế độ tái lập** (`_configure` trong `tkb/solver.py`): `interleave_search` (các luồng chạy xen kẽ theo thứ tự cố định), dừng theo `max_deterministic_time`, và **tắt chia sẻ giữa các luồng** (`share_binary_clauses`, kéo theo `share_glue_clauses`, và `share_level_zero_bounds`). Phần chia sẻ này của OR-Tools 9.15 không tất định: đo trên dữ liệu mẫu, cùng một mô hình giải 6 lần ra 3 TKB khác nhau, lệch từ khoảng 60–120 đơn vị tính toán trở đi. Tắt đi thì chạy lặp 8 lần (có lúc 2 tiến trình song song) ra 8 lần cùng mã, chất lượng không giảm.
-- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình. Cùng mã là cùng TKB. Với các hằng số mặc định của `main.py` (file của trường `data/INPUT_V8.xlsx` hiện tại), mã trên Linux là **`3828-B620-0E2A`**, trên Windows là **`248C-DA45-9FC1`** (máy ảo Windows Server 2022/2025, Python 3.12/3.14). Trường mẫu tên giả của test (`tests/du_lieu_mau.py`) cho `428A-3655-C110` trên Linux.
+- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình. Cùng mã là cùng TKB. Với các hằng số mặc định của `main.py` (file của trường `data/INPUT_V8.xlsx` hiện tại), mã trên Linux là **`2E60-3DEB-71C8`**, trên Windows là **`BBEA-5C95-15D7`** (máy ảo Windows Server 2022/2025, Python 3.12/3.14). Trường mẫu tên giả của test (`tests/du_lieu_mau.py`) cho `6720-94C4-8538` trên Linux.
 - **Theo hệ điều hành:** phân công (mục 8.1) giống nhau trên mọi máy. Bước xếp giờ: OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng phân công), vì bản dựng khác trình biên dịch và phép tính số thực. `.github/workflows/windows.yml` kiểm mỗi lần đổi code: 4 máy ảo Windows (Windows Server 2022 và 2025, Python 3.12 và 3.14) chạy `main.py` với các hằng số mặc định, mỗi máy 2 lần, mọi mã phải trùng nhau; chỉ mã kết quả được tải lên, không tải file ra. Chưa thử macOS, chip ARM.
 - Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
 - `tests/test_reproducible.py` kiểm tra:
@@ -449,11 +449,11 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
 3. Không ai vượt định mức, cộng mức bù được phép. Quản lý dạy đúng số tiết.
 4. Quyền dạy đúng mục 4.
 5. Tiết 1 buổi sáng do đúng GVCN của lớp dạy.
-6. GVCN dạy đủ phần được phân. Phần dạy thêm chỉ là tiết bù hợp lệ: đúng lớp mình, không phải môn chuyên biệt, không quá mức bù.
+6. GVCN dạy đủ phần được phân. Phần dạy thêm chỉ là tiết bù hợp lệ: đúng lớp mình, không phải môn chuyên biệt (trừ Âm nhạc, Mỹ thuật), không quá mức bù.
 7. GVCN được ưu tiên bù lớp mình: bộ môn không dạy bù ở lớp mà GVCN còn được bù và dạy được môn đó.
 8. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
 9. Hai tiết liền nhau cùng nhóm môn do 1 người dạy; nhóm môn ưu tiên: người khác không dạy trước tiết GVCN đầu tuần (mục 5.7).
-10. Nếu bật luật học sinh: mỗi nhóm môn tối đa 2 tiết mỗi buổi; Toán tối đa 1 tiết mỗi ngày; nhóm ghép cặp mỗi buổi 0 hoặc 2 tiết liền; môn có từ 2 tiết trong buổi học liền nhau.
+10. Nếu bật luật học sinh: mỗi nhóm môn tối đa 2 tiết mỗi buổi; Toán tối đa 1 tiết mỗi ngày; nhóm ghép cặp mỗi buổi 0 hoặc 2 tiết liền; môn có từ 2 tiết trong buổi học liền nhau; tiết tăng cường đứng sau mọi tiết chính cùng nhóm trong ngày và ngày đó có tiết chính.
 11. Mục 4.1: mỗi GV mỗi buổi chỉ một cơ sở; GV thai sản hoặc chỉ-cơ-sở-2 không dạy lớp cơ sở 1 (và thai sản không bù, qua mục 3); buổi nghỉ cố định không có tiết; đủ số buổi trống đã xin.
 
 Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn hình.
@@ -560,10 +560,10 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | Phân GVCN (mục 5) |
 | `HOMEROOM_PERIODS` | Tiết luôn do GVCN dạy (mục 5.5) |
 | `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | Luật học sinh, nhóm môn, ghép cặp (mục 6) |
-| `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS` | Môn ưu tiên buổi sáng (TV, Toán) và môn tăng cường ưu tiên buổi chiều (Toán tăng cường) (mục 8.2) |
+| `MORNING_SUBJECTS` | Môn ưu tiên buổi sáng (TV, Toán) (mục 8.2) |
 | `SUPPLEMENT_NAME` | Tên người bổ sung (mục 7.1) |
 | `ROLE_LABELS` | Cách ghi ba chức vụ Chủ Nhiệm, Bộ Môn, Quản Lý trong file ra |
-| `OVERTIME_ROLES`, `OVERTIME_MAX` | Bù giờ (mục 7.2); thứ tự bù có hợp đồng trong `Weights.overtime_*` |
+| `OVERTIME_ROLES`, `OVERTIME_MAX`, `HOMEROOM_OVERTIME_SPECIALIST` | Bù giờ (mục 7.2), môn chuyên biệt GVCN được bù (Âm nhạc, Mỹ thuật); thứ tự bù có hợp đồng trong `Weights.overtime_*` |
 | `Weights` | Trọng số mục tiêu (mục 8), gồm `keep_grade`, `keep_class` (giữ phân công cũ) |
 | `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS` | Bước xếp giờ: phần khởi đầu, giới hạn mỗi loại vùng, điều kiện dừng (mục 9) |
 | `Settings` | Tham số chạy mặc định (thời gian 1200, tái lập, số luồng, mức bù) |
@@ -591,14 +591,14 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 
 | Chế độ | Kết quả |
 |---|---|
-| Dự toán | `Bù: 52/68 tiết (GVCN 52/58, bộ môn 0/10), còn dư 16 tiết`, không thiếu tiết |
-| Bù giờ (+2) | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN, kể cả GVCN 5/5 chỉ có 16 tiết (29 người: 23 người +2, 6 người +1). Bộ môn không phải bù. Mã Linux `428A-3655-C110` |
+| Dự toán | `Bù: 52/102 tiết (GVCN 52/87, bộ môn 0/15), còn dư 50 tiết`, không thiếu tiết (bù tối đa +3 như `main.py`; thực cần tối đa +2) |
+| Bù giờ | **Không phải tuyển.** Bù 52 tiết, toàn bộ do GVCN, kể cả GVCN 5/5 chỉ có 16 tiết (29 người: 23 người +2, 6 người +1). Bộ môn không phải bù. Mã Linux `6720-94C4-8538` |
 | Tuyển thêm | Tuyển `Bộ Môn 6`, `Bộ Môn 7`, `Bộ Môn 8` (định mức 23; thực dạy 18/18/16 = 52 tiết bù). Cùng TKB với chế độ bù, người mới đứng đúng các ô bù |
-| Cả hai | 145/145 ô tiết 1 buổi sáng là GVCN của lớp. Môn nặng ở tiết 7: 4 tiết. TV/Toán buổi chiều: 37/408 tiết. Chi phí xếp giờ: khởi đầu 30.510, các vòng 17.360 → 17.260 → 17.050, khoảng 9 phút (một lần CP-SAT 480 trước đây: 20.550; 600: 17.360) |
+| Cả hai | 145/145 ô tiết 1 buổi sáng là GVCN của lớp. Mọi tiết tăng cường đứng sau tiết chính cùng ngày. Môn nặng ở tiết 7: 4 tiết. TV/Toán buổi chiều: 36/408 tiết. Chi phí xếp giờ: khởi đầu 24.430, các vòng 18.580 → 18.060 → 18.000 (trước luật tăng cường, chi phí còn trừ thưởng tiết tăng cường liền sau nên không so trực tiếp được: 17.050) |
 
 Số tiết thiếu và số tiết bù do luồng chi phí nhỏ nhất tính, nên là **nhỏ nhất**. Phần gom lớp (mục 8.1) dùng tìm kiếm cục bộ nên chỉ là tốt, không chứng minh tối ưu.
 
-Với file của trường (`data/INPUT_V8.xlsx` hiện tại, 44 nhân sự, `main.py` bù tối đa +3, Windows): bù 79 tiết (23 GVCN +3, 5 GVCN +2; mã `248C-DA45-9FC1`), hoặc tuyển 4 bộ môn (thực dạy 21/20/19/19; mã chế độ tuyển `4EDA-CBCB-02FD`). Hai TKB giống nhau từng ô, trừ đúng 79 ô bù. File vào cập nhật: 4 người còn dư tiết (Thể dục 1–3, Tin học 1: tổng 17 tiết; GV chuyên biệt chỉ dạy môn mình nên không đỡ được phần bù).
+Với file của trường (`data/INPUT_V8.xlsx` hiện tại, 44 nhân sự, `main.py` bù tối đa +3, Windows): bù 79 tiết (23 GVCN +3, 5 GVCN +2; mã `BBEA-5C95-15D7`), hoặc tuyển 4 bộ môn (thực dạy 21/20/19/19; mã chế độ tuyển `E32B-C73C-8AB2`). GVCN chưa phải bù Âm nhạc, Mỹ thuật: 12 tiết vượt định mức GV chuyên biệt vẫn do bộ môn dạy trong định mức. Tiết tăng cường: Toán tăng cường 36/36, TV tăng cường 19/19 đứng sau tiết chính cùng ngày. Hai TKB giống nhau từng ô, trừ đúng 79 ô bù. File vào cập nhật: 4 người còn dư tiết (Thể dục 1–3, Tin học 1: tổng 17 tiết; GV chuyên biệt chỉ dạy môn mình nên không đỡ được phần bù).
 
 ---
 

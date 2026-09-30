@@ -79,13 +79,27 @@ def test_core_subjects_in_the_morning(small_solution):
     # Khối 3 mỗi lớp TV 7 + Toán 5 = 12 tiết; buổi sáng còn 18 chỗ (trừ 2 tiết HĐTN cố định) nên xếp hết được.
     core = [l for l in small_solution.lessons if l.subject in config.MORNING_SUBJECTS]
     assert len(core) == 2 * 12 and all(l.period in config.MORNING.periods for l in core)
-    # Toán tăng cường: buổi chiều, hoặc liền sau tiết Toán của cùng người dạy.
-    grid = {(l.class_name, l.day, l.period): l for l in small_solution.lessons}
-    extra = [l for l in small_solution.lessons if l.subject in config.AFTERNOON_SUBJECTS]
+
+
+def test_extra_lessons_after_main_lessons(small_solution):
+    # Tiết tăng cường: trong ngày có tiết chính cùng nhóm đứng trước, không có tiết chính nào đứng sau.
+    lessons = small_solution.lessons
+    extra = [l for l in lessons if l.subject in config.SUBJECT_GROUPS]
+    assert len(extra) == 2 * (2 + 1)  # khối 3: Toán TC 2 + TV TC 1 mỗi lớp
     for l in extra:
-        prev = grid.get((l.class_name, l.day, l.period - 1))
-        after_main = prev is not None and prev.subject == config.TOAN and prev.teacher == l.teacher
-        assert l.period not in config.MORNING.periods or after_main
+        mains = [m.period for m in lessons if m.class_name == l.class_name and m.day == l.day
+                 and m.subject == config.SUBJECT_GROUPS[l.subject]]
+        assert mains and max(mains) < l.period
+
+
+def test_checker_flags_extra_lesson_before_main(small_solution):
+    sol = small_solution
+    lessons = sol.lessons
+    e = next(l for l in lessons if l.subject == config.TOAN_TC)
+    main = next(l for l in lessons if l.class_name == e.class_name and l.day == e.day and l.subject == config.TOAN)
+    swapped = [dataclasses.replace(l, period=main.period) if l is e
+               else dataclasses.replace(l, period=e.period) if l is main else l for l in lessons]
+    assert any("phải sau các tiết Toán" in err for err in check(sol.problem, swapped))
 
 
 def test_slot_capacity_limits_assignment():

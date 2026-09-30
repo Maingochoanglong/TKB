@@ -114,12 +114,12 @@ Số liệu đo trên TKB xếp cho file `data/INPUT_V8.xlsx`, với `main.py` m
 
 Xếp theo mức ưu tiên.
 
-### 5.1. Buổi sáng ưu tiên TV, Toán (**đã đưa vào chương trình**: `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS` trong `tkb/config.py`)
+### 5.1. Buổi sáng ưu tiên TV, Toán (**đã đưa vào chương trình**: `MORNING_SUBJECTS` trong `tkb/config.py`)
 
 - **Cách làm:**
   - phạt nhẹ mỗi tiết TV, Toán (tiết chính) xếp vào buổi chiều;
   - thưởng cho Toán có mặt mỗi ngày;
-  - tiết tăng cường/ôn (TV tăng cường, Toán tăng cường) ưu tiên buổi chiều.
+  - tiết tăng cường/ôn (TV tăng cường, Toán tăng cường): nay là luật cứng "trong ngày đứng sau tiết chính cùng môn" (không ép buổi chiều), xem README mục Luật bảo vệ học sinh.
 - **Giới hạn:** khối 1 có 14 tiết TV mà luật cứng chỉ cho tối đa 2 tiết TV mỗi buổi. Như vậy buổi sáng chứa tối đa 10 tiết TV, ít nhất 4 tiết vẫn phải sang buổi chiều. Mục tiêu này chỉ đẩy được hết mức có thể.
 
 ### 5.2. Mỗi khối có một buổi chiều sinh hoạt tổ khối (**không làm**: nhà trường bỏ hướng buổi rảnh cho GVCN)

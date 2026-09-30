@@ -211,7 +211,8 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     curriculum: chương trình học đọc từ file vào ({khối: {môn: số tiết}}).
     supplement_counts: số GV bổ sung dự kiến cho từng chức vụ; None = đủ lớn để luôn có nghiệm.
     overtime_max: > 0 là chế độ bù giờ: GVCN và bộ môn được dạy vượt
-    định mức tối đa ngần ấy tiết; GVCN bù các môn không thuộc GV chuyên biệt của lớp mình.
+    định mức tối đa ngần ấy tiết; GVCN bù các môn không thuộc GV chuyên biệt của lớp mình (và các môn
+    config.HOMEROOM_OVERTIME_SPECIALIST).
     """
     # Môn có luật trong config được gọi theo tên trong config; tên như trong file giữ lại để in ra.
     subject_labels = {canonical_subject(s): clean_name(s) for s in subjects_in_order(curriculum)}
@@ -322,7 +323,9 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         # GV chỉ dạy cơ sở 2 (đánh dấu Cơ sở 2, hoặc thai sản) không dạy lớp ở cơ sở 1.
         eligible = [t.title for r in roles_for_subject(subject, specialists) for t in by_role.get(r, [])
                     if cls in campus2 or not t.campus2_only]
-        if homeroom[cls].title in overtime and subject not in specialist:
+        # GVCN bù ở lớp mình: không bù môn của GV chuyên biệt, trừ HOMEROOM_OVERTIME_SPECIALIST.
+        if homeroom[cls].title in overtime and (subject not in specialist
+                                                or subject in config.HOMEROOM_OVERTIME_SPECIALIST):
             eligible.append(homeroom[cls].title)
         for m in managers:
             if (cls in campus2 or not m.campus2_only) and \

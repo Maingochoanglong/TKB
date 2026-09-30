@@ -102,8 +102,6 @@ class _Search:
                 cost[key] += w.heavy_late
             if les.subject in config.MORNING_SUBJECTS and les.period not in config.MORNING.periods:
                 cost[key] += w.morning_core
-            elif les.subject in config.AFTERNOON_SUBJECTS and les.period in config.MORNING.periods:
-                cost[key] += w.extra_morning
             if problem.courses[les.course_id].flex_hdtn:
                 cost[key] += w.hdtn_flex_distance * distance_to_session_end((les.day, les.period))
         days = len(config.DAY_SESSIONS)
