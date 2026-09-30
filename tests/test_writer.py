@@ -225,23 +225,27 @@ def test_statistics_file_overtime(tmp_path):
     out = tmp_path / "Thong_Ke.xlsx"
     writer.write_statistics(sol, out, STYLE)
     rows = _stats(out)
-    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-4:] == (23, 19, 4, None)  # 19 tiết + 4 tiết bù
+    header = rows[0]
+    assert header[-5:] == ("Tổng Tiết", "Số Tiết/Tuần", "Số Tiết Bù", "Môn Dạy Bù", "Số Tiết Dư")
+    assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1")
+    assert rows[1][-5:-2] == (23, 19, 4) and rows[1][-1] is None  # 19 tiết + 4 tiết bù
     assert all(r[0] != "tuyển thêm" for r in rows)
-    assert rows[-1][0] == "Tổng" and rows[-1][-4] == 64 and rows[-1][-2] == 8
+    assert rows[-1][0] == "Tổng" and rows[-1][-5] == 64 and rows[-1][-3] == 8 and rows[-1][-2] == "6 ô"
     # Dòng GVCN dạy bù tô vàng (cả dòng), người còn dư tiết tô xanh dương, chú thích dưới bảng.
     fills, legend = _fills(out)
     spare = [r[-1] for r in rows[1:-1] if r[-1]]
     assert fills == [writer.OVERTIME_FILL] * 2 + [writer.SPARE_FILL if r[-1] else None for r in rows[3:-1]] + [None]
-    # Trong dòng đó, ô môn có tiết bù tô cam, ghi chú số tiết bù (mỗi GVCN bù 4 tiết: TNXH 2, KNS 1, Công nghệ 1).
+    # Trong dòng đó, ô môn có tiết bù tô cam; số tiết bù từng môn ghi bằng chữ ở cột Môn Dạy Bù (mỗi GVCN bù
+    # 4 tiết: TNXH 2, KNS 1, Công nghệ 1). Không có ghi chú (comment) trong ô nào.
     ws = openpyxl.load_workbook(out)["Thống kê"]
+    assert not any(c.comment for row in ws.iter_rows() for c in row)
     for r in (2, 3):
         colors = {c: ws.cell(r, c).fill.start_color.rgb[-6:] for c in range(1, len(rows[0]) + 1)}
-        extra = {rows[0][c - 1]: ws.cell(r, c).comment.text for c, col in colors.items()
-                 if col == writer.OVERTIME_CELL_FILL}
-        assert set(colors.values()) == {writer.OVERTIME_FILL, writer.OVERTIME_CELL_FILL} and len(extra) == 3
-        assert sum(int(text.split()[2]) for text in extra.values()) == 4
-        assert all(text.startswith(f"Dạy bù ") and text.endswith(head) for head, text in extra.items())
+        orange = {rows[0][c - 1] for c, col in colors.items() if col == writer.OVERTIME_CELL_FILL}
+        assert set(colors.values()) == {writer.OVERTIME_FILL, writer.OVERTIME_CELL_FILL} and len(orange) == 3
+        detail = dict(part.rsplit(" ", 1) for part in rows[r - 1][-2].split(", "))
+        assert set(detail) == orange and sum(int(n) for n in detail.values()) == 4
     assert legend == [(writer.OVERTIME_FILL, "Dạy bù (vượt định mức): 2 người, 8 tiết"),
-                      (writer.OVERTIME_CELL_FILL, "Môn có tiết dạy bù: 6 ô, 8 tiết (ghi chú trong ô ghi số tiết bù "
-                                                  "của môn)"),
+                      (writer.OVERTIME_CELL_FILL, "Môn có tiết dạy bù: 6 ô, 8 tiết (số tiết từng môn ở cột "
+                                                  "Môn Dạy Bù)"),
                       (writer.SPARE_FILL, f"Dạy ít hơn định mức (còn dư tiết): {len(spare)} người, {sum(spare)} tiết")]

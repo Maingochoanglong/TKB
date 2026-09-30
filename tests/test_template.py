@@ -68,6 +68,9 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     wb = openpyxl.load_workbook(dst)
     ws = wb["NHÂN SỰ"]
     assert len(ws.data_validations.dataValidation) == 4  # vẫn còn danh sách thả xuống
+    # File mẫu có ghi chú hướng dẫn ở tiêu đề cột; file cập nhật (file kết quả) chỉ còn chữ thường.
+    assert any(c.comment for c in openpyxl.load_workbook(src)["NHÂN SỰ"][1])
+    assert not any(c.comment for sheet in wb.worksheets for row in sheet.iter_rows() for c in row)
     rows = _rows(ws)
     assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy", "Số Tiết Dư")
     assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, *NONE5, "Chủ Nhiệm 3/1", 19, None)
@@ -107,3 +110,26 @@ def test_optional_columns_round_trip(tmp_path):
     assert [c.value for c in ws[4]][4:] == [None, "Có", None, "3/1", "Chiều T5, Sáng T6"]  # dòng TA
     fields = lambda ts: [(t.maternity, t.contract, t.campus2, t.history, t.off_sessions, t.off_any) for t in ts]
     assert fields(read_staff(path)) == fields(staff)
+
+
+def test_updated_staff_turns_formulas_into_values(tmp_path):
+    """Cột STT ghi công thức =ROW()-1: file cập nhật ghi số, người cần tuyển nhận số tiếp theo."""
+    src = tmp_path / "stt.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "NHÂN SỰ"
+    ws.append(["STT", *HEADER[:4]])
+    for t in small_staff(general=False):
+        ws.append(["=ROW()-1", t.name, t.role.title(), t.class_name, t.max_lessons])
+    prog = wb.create_sheet("CHƯƠNG TRÌNH HỌC")
+    prog.append(["Môn học", "Khối 3"])
+    for subject, n in CURRICULUM[3].items():
+        prog.append([subject, n])
+    wb.save(src)
+    sol = solve(read_staff(src), CURRICULUM, config.Settings(time_limit=20, workers=4), log=lambda *_: None)
+    dst = tmp_path / "stt_cap_nhat.xlsx"
+    write_updated_staff(sol, src, dst)
+    out = openpyxl.load_workbook(dst)["NHÂN SỰ"]
+    stt = [out.cell(r, 1).value for r in range(2, out.max_row + 1) if out.cell(r, 2).value]
+    assert stt == list(range(1, len(stt) + 1)) and len(stt) == len(small_staff(general=False)) + 1
+    assert not any(c.data_type == "f" for row in out.iter_rows() for c in row)

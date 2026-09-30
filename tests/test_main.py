@@ -105,7 +105,14 @@ def test_run_overtime_mode_needs_no_hire(tmp_path):
     for r, row in enumerate(rows[1:], start=2):
         colors = {color(ws.cell(r, c)) for c in range(1, len(row) + 1)}
         assert colors == {writer.OVERTIME_FILL if row[-2] else writer.SPARE_FILL if row[-1] else None}
-    assert any(row[-1] for row in rows[1:]) and "xanh dương" in ws.cell(1, len(rows[0])).comment.text
+    assert any(row[-1] for row in rows[1:])
+    # Giải thích màu bằng chữ thường ở sheet Chú thích; mọi file ra không có ghi chú (comment) hay công thức.
+    notes = [c.value for c in openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")[writer.NOTES_SHEET]["A"]]
+    assert any("xanh dương" in n for n in notes) and any("vàng" in n for n in notes)
+    for path in out_dir.glob("*.xlsx"):
+        for sheet in openpyxl.load_workbook(path).worksheets:
+            cells = [c for row in sheet.iter_rows() for c in row]
+            assert not any(c.comment for c in cells) and not any(c.data_type == "f" for c in cells), path.name
 
 
 def test_run_rejects_bad_mode(tmp_path, capsys):

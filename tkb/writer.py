@@ -9,8 +9,9 @@ from collections import Counter, defaultdict
 from copy import copy
 from pathlib import Path
 
+import re
+
 import openpyxl
-from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -26,6 +27,7 @@ HIRE_LABEL = "tuyển thêm"  # tên của người cần tuyển trong file th�
 CODE_HEADER = "Mã GV"
 LOAD_HEADER = "Số Tiết Thực Dạy"
 OVERTIME_HEADER = "Số Tiết Bù"
+OVERTIME_DETAIL_HEADER = "Môn Dạy Bù"  # file thống kê: số tiết bù từng môn, vd "Tiếng Việt 1, TNXH 2"
 SPARE_HEADER = "Số Tiết Dư"  # file vào cập nhật: định mức − thực dạy (người dạy ít hơn định mức)
 STATS_SHEET = "Thống kê"
 SHORTAGE_SHEET = "Thiếu tiết"
@@ -40,7 +42,7 @@ HIRE_LEGEND = "Cần tuyển thêm"
 # File thống kê và file vào cập nhật: dòng người còn dư tiết (dạy ít hơn định mức).
 SPARE_FILL = "DDEBF7"  # xanh dương nhạt
 SPARE_LEGEND = "Dạy ít hơn định mức (còn dư tiết)"
-# Trong dòng người dạy bù: ô môn có tiết bù tô màu riêng, kèm ghi chú số tiết bù của môn đó.
+# Trong dòng người dạy bù: ô môn có tiết bù tô màu riêng; số tiết bù từng môn ghi ở cột OVERTIME_DETAIL_HEADER.
 OVERTIME_CELL_FILL = "F4B183"  # cam
 OVERTIME_CELL_LEGEND = "Môn có tiết dạy bù"
 # Trường có lớp ở cơ sở 2 (cột Cơ sở 2): TKB tách thành hai file, hậu tố tên file -> lớp ở cơ sở 2?
@@ -208,38 +210,46 @@ def campus_moves(solution: Solution) -> dict[str, tuple[list[str], list[str]]]:
 
 
 def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[list]]:
-    """Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết | Số Tiết/Tuần | Số Tiết Bù | Số Tiết Dư, mỗi
-    giáo viên một dòng; cuối bảng có dòng Tổng.
+    """Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết | Số Tiết/Tuần | Số Tiết Bù | (Môn Dạy Bù) |
+    Số Tiết Dư, mỗi giáo viên một dòng; cuối bảng có dòng Tổng. Chỉ chữ và số, không ghi chú, không công thức.
 
     Chỉ có cột cho các môn có người dạy, theo thứ tự môn trong chương trình học; ô trống là không dạy môn đó.
     Số Tiết/Tuần là định mức (người cần tuyển: định mức tuyển); Số Tiết Bù là số tiết dạy bù vượt định mức
-    (chế độ bù giờ); Số Tiết Dư là định mức − Tổng Tiết khi dạy ít hơn định mức. Trường có lớp ở cơ sở 2: thêm hai
+    (chế độ bù giờ); Môn Dạy Bù (chỉ khi có tiết bù) ghi số tiết bù từng môn; Số Tiết Dư là định mức − Tổng Tiết
+    khi dạy ít hơn định mức. Trường có lớp ở cơ sở 2: thêm hai
     cột MOVE_HEADERS cho người dạy ở cả hai cơ sở (xem campus_moves).
     """
     problem = solution.problem
     count = Counter((les.teacher, les.subject) for les in solution.lessons)
     order = {s: i for i, s in enumerate(problem.subject_order)}
     subjects = sorted({s for _, s in count}, key=lambda s: (order.get(s, len(order)), s))
+    extra = overtime_cells(solution)
+    detail = [OVERTIME_DETAIL_HEADER] if extra else []
     header = [style.staff_headers["name"], "Chức Vụ", *(problem.subject_label(s) for s in subjects), TOTAL_HEADER,
-              style.staff_headers["lessons"], OVERTIME_HEADER, SPARE_HEADER]
-    numeric = len(header)
+              style.staff_headers["lessons"], OVERTIME_HEADER, *detail, SPARE_HEADER]
     moves = campus_moves(solution) if problem.campus2 else None
     if moves is not None:
         header += MOVE_HEADERS
+    text = {OVERTIME_DETAIL_HEADER, *MOVE_HEADERS}  # cột chữ: dòng Tổng không cộng
     overtime = solution.overtime()
     rows = []
     for t in staff_rows(solution):
         per = [count[t.title, s] for s in subjects]
         total = sum(per)
+        subject_extra = ", ".join(f"{problem.subject_label(s)} {extra[t.title, s]}" for s in subjects
+                                  if extra.get((t.title, s)))
         rows.append([_stats_name(t), t.code, *(n or None for n in per), total, t.max_lessons,
-                     overtime.get(t.title) or None, max(0, t.max_lessons - total) or None])
+                     overtime.get(t.title) or None, *([subject_extra or None] if extra else []),
+                     max(0, t.max_lessons - total) or None])
         if moves is not None:
             at2, switches = moves.get(t.title, ([], []))
             rows[-1] += [", ".join(at2) or None, "; ".join(switches) or None]
-    total_row = ["Tổng", None, *(sum(r[c] or 0 for r in rows) for c in range(2, numeric))]
+    summary = {OVERTIME_DETAIL_HEADER: f"{len(extra)} ô"}
     if moves is not None:
-        total_row += [f"{len(moves)} người", f"{sum(len(sw) for _, sw in moves.values())} lần"]
-    rows.append(total_row)
+        summary.update({MOVE_HEADERS[0]: f"{len(moves)} người",
+                        MOVE_HEADERS[1]: f"{sum(len(sw) for _, sw in moves.values())} lần"})
+    rows.append(["Tổng", None, *(summary[h] if h in text else sum(r[c] or 0 for r in rows)
+                                 for c, h in enumerate(header) if c >= 2)])
     return header, rows
 
 
@@ -267,8 +277,8 @@ def overtime_cells(solution: Solution) -> Counter:
 
 def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style) -> list[int]:
     """Tô nền dòng người dạy bù, người cần tuyển và người còn dư tiết (bảng bắt đầu ở dòng 1); trong dòng người
-    dạy bù, ô môn có tiết bù tô màu riêng, kèm ghi chú số tiết bù. Dưới bảng, từ dòng `top`, ghi chú thích màu kèm
-    số người, số tiết. Trả về các dòng chú thích."""
+    dạy bù, ô môn có tiết bù tô màu riêng (số tiết ở cột Môn Dạy Bù). Dưới bảng, từ dòng `top`, ghi chú thích màu
+    kèm số người, số tiết (chữ thường, không dùng ghi chú trong ô). Trả về các dòng chú thích."""
     marks = row_marks(solution, spare=True)
     width = len(header)
     extra = overtime_cells(solution)
@@ -282,7 +292,6 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
             n = extra.get((t.title, labels.get(head)), 0)
             if n:
                 ws.cell(r, c).fill = _fill(OVERTIME_CELL_FILL)
-                ws.cell(r, c).comment = Comment(f"Dạy bù {n} tiết {head}", "TKB")
                 n_cells += 1
     texts = []
     for color, label in ((OVERTIME_FILL, OVERTIME_LEGEND), (HIRE_FILL, HIRE_LEGEND), (SPARE_FILL, SPARE_LEGEND)):
@@ -291,7 +300,7 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
             texts.append((color, f"{label}: {len(lessons)} người, {sum(lessons)} tiết"))
         if color == OVERTIME_FILL and n_cells:
             texts.append((OVERTIME_CELL_FILL, f"{OVERTIME_CELL_LEGEND}: {n_cells} ô, {sum(extra.values())} tiết "
-                                              f"(ghi chú trong ô ghi số tiết bù của môn)"))
+                                              f"(số tiết từng môn ở cột {OVERTIME_DETAIL_HEADER})"))
     moves = campus_moves(solution) if solution.problem.campus2 else {}
     if moves:
         texts.append((None, f"Dạy ở cả hai cơ sở: {len(moves)} người (cột {MOVE_HEADERS[0]}); đổi cơ sở trong "
@@ -346,16 +355,55 @@ def _copy_style(src, dst) -> None:
         dst._style = copy(src._style)
 
 
+NOTES_SHEET = "Chú thích"  # file vào cập nhật: giải thích các cột kết quả và màu dòng (chữ thường)
+_ROW_FORMULA = re.compile(r"^=\s*ROW\(\)\s*([+-])\s*(\d+)\s*$", re.IGNORECASE)
+
+
+def plain_values(wb, cached) -> None:
+    """Bỏ mọi ghi chú (comment) và đổi mọi công thức thành giá trị: giá trị Excel đã lưu trong file (`cached`: cùng
+    file mở với data_only=True); file chưa từng mở bằng Excel thì không có giá trị lưu sẵn, khi đó công thức dạng
+    =ROW()±k (hay dùng cho cột STT) được tự tính, công thức khác để trống."""
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                cell.comment = None
+                if cell.data_type != "f":
+                    continue
+                value = cached[ws.title][cell.coordinate].value
+                if value is None and (m := _ROW_FORMULA.match(str(cell.value))):
+                    value = cell.row + int(m.group(2)) * (1 if m.group(1) == "+" else -1)
+                cell.value = value
+
+
+def _write_notes(wb, overtime_mode: bool) -> None:
+    """Sheet NOTES_SHEET: các cột kết quả và màu dòng của file vào cập nhật, mỗi dòng một câu chữ thường."""
+    if NOTES_SHEET in wb.sheetnames:
+        del wb[NOTES_SHEET]
+    ws = wb.create_sheet(NOTES_SHEET)
+    lines = [f"{CODE_HEADER}: mã giáo viên dùng trong TKB và file thống kê.",
+             f"{LOAD_HEADER}: số tiết thực dạy trong tuần.",
+             *([f"{OVERTIME_HEADER}: số tiết dạy vượt định mức."] if overtime_mode else []),
+             f"{SPARE_HEADER}: định mức trừ số tiết thực dạy, khi dạy ít hơn định mức.",
+             f"Dòng tô vàng: {OVERTIME_LEGEND.lower()}.",
+             f"Dòng tô xanh lá: {HIRE_LEGEND.lower()}.",
+             f"Dòng tô xanh dương: {SPARE_LEGEND.lower()}."]
+    for i, text in enumerate(lines, start=1):
+        ws.cell(i, 1, text)
+    ws.column_dimensions["A"].width = max(len(t) for t in lines) + 2
+
+
 def write_updated_staff(solution: Solution, source: str | Path, path: str | Path) -> None:
     """Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
     (số tiết bù ở chế độ bù giờ) và số tiết dư. Dòng, cột mới chép style của file vào; đọc lại file này làm file
     vào vẫn được. Đây là bản thống kê gọn theo mẫu file vào: tô nền cả dòng người dạy bù (vàng), người cần tuyển
-    (xanh lá), người còn dư tiết (xanh dương); ghi chú ở ô tiêu đề Số Tiết Dư giải thích các màu.
+    (xanh lá), người còn dư tiết (xanh dương); sheet NOTES_SHEET giải thích các màu bằng chữ thường. File ra chỉ có
+    chữ và số: bỏ mọi ghi chú (comment) và đổi mọi công thức của file vào thành giá trị (plain_values).
 
     Mẫu V8 (có cột Lớp) ghi chức vụ không kèm số thứ tự, vd "Bộ Môn": khi đọc lại, chương trình tự
     đánh số tiếp theo (bộ môn 6, 7...). Mẫu cũ ghi đủ chức vụ, vd "bộ môn 6".
     """
     wb = openpyxl.load_workbook(source)
+    plain_values(wb, openpyxl.load_workbook(source, data_only=True))
     ws = staff_sheet(wb)
     header_row, cols = _find_columns(ws)
     title_col = cols["title"]
@@ -369,10 +417,9 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
             _copy_style(ws.cell(last, c), ws.cell(r, c))
         if ws.row_dimensions[last].height:
             ws.row_dimensions[r].height = ws.row_dimensions[last].height
-        if "stt" in cols:  # STT: chép công thức (vd =ROW()-1) hoặc tăng số của dòng trên
+        if "stt" in cols:  # STT: số của dòng trên + 1 (công thức đã đổi thành giá trị)
             above = ws.cell(r - 1, cols["stt"]).value
-            ws.cell(r, cols["stt"], above if isinstance(above, str) and above.startswith("=")
-                    else above + 1 if isinstance(above, int) else None)
+            ws.cell(r, cols["stt"], above + 1 if isinstance(above, int) else None)
         ws.cell(r, cols["name"], t.name)
         ws.cell(r, title_col, t.label if v8 else t.title)
         ws.cell(r, cols["lessons"], t.max_lessons)
@@ -406,10 +453,6 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
         letter = get_column_letter(c)
         ws.column_dimensions[letter].width = max(ws.column_dimensions[letter].width or 0,
                                                  round(style.text_width(h), 1))
-        if h == SPARE_HEADER:
-            ws.cell(header_row, c).comment = Comment(
-                f"Màu dòng: vàng = {OVERTIME_LEGEND.lower()}; xanh lá = {HIRE_LEGEND.lower()}; "
-                f"xanh dương = {SPARE_LEGEND.lower()}.", "TKB")
     # Tô nền cả dòng (đến cột tiêu đề cuối); chạy lại trên file cập nhật thì bỏ màu cũ của chương trình.
     width = max(c for c in range(1, ws.max_column + 1) if ws.cell(header_row, c).value not in (None, ""))
     marks = {g: color for g, (color, _) in row_marks(solution).items()}
@@ -422,5 +465,6 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
                 cell.fill = _fill(color)
             elif cell.fill.fill_type == "solid" and str(cell.fill.start_color.rgb)[-6:] in ours:
                 cell.fill = PatternFill()
+    _write_notes(wb, solution.problem.overtime_mode())
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

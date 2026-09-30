@@ -6,9 +6,10 @@ Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
 only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code; both split into `*_diem_chinh`/`*_diem_phu` when
 the file has campus-2 classes, `writer.campus_paths`), `Thong_Ke.xlsx` (one table: lessons per subject
-per teacher + total, quota, overtime, spare, and with campus 2 who moves between campuses (`campus_moves`); spare rows blue; overtime rows yellow, their overtime subject cells orange with a comment (`Lesson.overtime`); in
+per teacher + total, quota, overtime, spare, and with campus 2 who moves between campuses (`campus_moves`); spare rows blue; overtime rows yellow, their overtime subject cells orange, per-subject overtime in the text column `Môn Dạy Bù` (`Lesson.overtime`); in
 `bu_gio` with a shortage only the sheet `Thiếu tiết`), `<input>_cap_nhat.xlsx` (input + hires + result columns incl. `Số Tiết Dư`; rows coloured: overtime
-yellow, hire green, spare blue — the simple stats in input layout). Code comments,
+yellow, hire green, spare blue, explained in a `Chú thích` sheet — the simple stats in input layout). Output files hold
+plain values only: no cell comments, no formulas (`writer.plain_values`). Code comments,
 docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules
