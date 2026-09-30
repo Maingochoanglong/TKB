@@ -102,7 +102,7 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   (`python tools/mau_dau_ra.py`).
 - Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows `6E11-2445-E375`/`C9D3-264F-A5FD`
   (the small school is proven optimal at the LNS start, so these did not change with LNS);
-  `python main.py` (school file as of now) Linux `81EC-DAD2-D3A1`, Windows `5F34-D6E9-1CA7`; fake school of
+  `python main.py` (school file as of now) Linux `3D43-752C-E1B3`, Windows `801B-0289-6F38`; fake school of
   `tests/du_lieu_mau.py` with main.py constants Linux `428A-3655-C110`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
