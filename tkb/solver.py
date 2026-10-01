@@ -23,7 +23,7 @@ from . import config
 from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
                          subject_group)
 from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
-from .staff import Teacher, grade_of
+from .staff import Teacher, grade_of, normalize
 
 
 class SolveError(RuntimeError):
@@ -759,6 +759,82 @@ def _to_overtime(solution: Solution, problem: Problem, owners: dict[tuple[int, s
     lessons = [replace(les, teacher=teacher_of[id(les)], overtime=True) if id(les) in teacher_of else les
                for les in solution.lessons]
     return replace(solution, problem=problem, lessons=lessons)
+
+
+def reuse(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings: config.Settings,
+          rows: list[tuple]) -> tuple[Solution | None, list[str]]:
+    """Dùng lại TKB đã xếp (sheet config.SAVED_SHEET của file vào cập nhật, staff.read_saved_timetable) thay cho
+    xếp lại: (lời giải, []) nếu TKB đó khớp file vào và đúng mọi luật cứng (checker), không thì (None, các lý do).
+
+    Giáo viên khớp theo Mã GV (vd "Bộ Môn 5"), không theo tên: đổi tên người "chưa có" thành tên người mới tuyển thì
+    TKB giữ nguyên, mã kết quả cũng giữ nguyên (mã băm theo chức vụ, không theo tên)."""
+    from .checker import check  # checker nhập module này: nhập muộn để tránh vòng lặp
+    overtime_max = settings.overtime_max if settings.mode == config.MODE_OVERTIME else 0
+    problem = build_problem(staff, curriculum, {}, overtime_max=overtime_max)
+    if not rows:
+        return None, [f"sheet {config.SAVED_SHEET} trống hoặc thiếu cột ({', '.join(config.SAVED_HEADERS[:5])})"]
+    title_of = {normalize(t.code): t.title for t in problem.teachers.values()}
+    subject_of = {normalize(problem.subject_label(c.subject)): c.subject for c in problem.courses}
+    day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
+    classes = {normalize(c): c for c in problem.classes}
+    errors: list[str] = []
+    parsed = []
+    for i, (cls, day, period, subject, code, overtime) in enumerate(rows, start=2):
+        where = f"sheet {config.SAVED_SHEET} dòng {i}"
+        try:
+            slot = (day_of[normalize(day)], int(period))
+        except (KeyError, TypeError, ValueError):
+            errors.append(f"{where}: thứ/tiết không hợp lệ ({day!r}, {period!r})")
+            continue
+        missing = [what for what, ok in (("lớp", normalize(cls) in classes), ("môn", normalize(subject) in subject_of),
+                                          ("Mã GV", normalize(code) in title_of)) if not ok]
+        if missing:
+            errors.append(f"{where}: {', '.join(missing)} không có trong file vào ({cls}, {subject}, {code})")
+            continue
+        parsed.append((classes[normalize(cls)], slot, subject_of[normalize(subject)], title_of[normalize(code)],
+                       bool(overtime)))
+    if errors:
+        return None, errors
+    # Mỗi (lớp, môn) có thể có hai course: phần GVCN (homeroom) và phần còn lại; tiết của GVCN (trừ tiết bù) vào
+    # phần GVCN trước.
+    homeroom_of = {t.class_name: t.title for t in problem.teachers.values() if t.class_name}
+    courses: dict[tuple[str, str], list[Course]] = {}
+    for c in problem.courses:
+        courses.setdefault((c.class_name, c.subject), []).append(c)
+    groups: dict[tuple[str, str], list[tuple]] = {}
+    for item in parsed:
+        groups.setdefault((item[0], item[2]), []).append(item)
+    lessons: list[Lesson] = []
+    for key, items in sorted(groups.items()):
+        options = courses.get(key)
+        if not options:
+            errors.append(f"Lớp {key[0]}: môn {problem.subject_label(key[1])} không có trong chương trình học")
+            continue
+        room = {c.id: c.lessons for c in options}
+        for cls, slot, subject, teacher, overtime in sorted(items, key=lambda p: (p[4], p[1])):
+            own = [c for c in options if c.homeroom and room[c.id] > 0 and teacher == homeroom_of.get(cls)
+                   and not overtime]
+            other = [c for c in options if not c.homeroom and room[c.id] > 0]
+            course = (own or other or options)[0]
+            room[course.id] -= 1
+            lessons.append(Lesson(cls, slot[0], slot[1], subject, teacher, course.id,
+                                  overtime=overtime and teacher in problem.overtime))
+    errors += [f"Lớp {key[0]}: môn {problem.subject_label(key[1])} có {n} tiết, chương trình học cần {need}"
+               for key, need in sorted(_need(problem).items())
+               if (n := sum(1 for les in lessons if (les.class_name, les.subject) == key)) != need]
+    if not errors:
+        errors = check(problem, lessons, settings.student_rules)
+    if errors:
+        return None, errors
+    return Solution(problem, "Dùng lại TKB đã xếp", lessons, 0, 0, 0.0, "dùng lại TKB đã xếp"), []
+
+
+def _need(problem: Problem) -> dict[tuple[str, str], int]:
+    """(lớp, môn) -> số tiết theo chương trình học."""
+    need: dict[tuple[str, str], int] = {}
+    for c in problem.courses:
+        need[c.class_name, c.subject] = need.get((c.class_name, c.subject), 0) + c.lessons
+    return need
 
 
 def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],

@@ -37,6 +37,7 @@ pip install -r requirements.txt
 | `CHAY_TAI_LAP_DUOC` | `True`: chạy lại bao nhiêu lần, trên máy nào cùng hệ điều hành cũng ra đúng một kết quả, ở cả hai chế độ (xem điều kiện bên dưới); `False`: dừng theo giây thực, mỗi lần có thể khác | `True` |
 | `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE` | Tên file TKB (chỉ thời khóa biểu), TKB ghi thêm chức vụ (Mã GV) trong mỗi ô, và file thống kê số tiết từng môn của giáo viên | `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `Thong_Ke.xlsx` |
 | `SO_LUONG` | Số luồng tìm kiếm song song của bộ giải; nên ≥ số nhân CPU. Đổi số này thì TKB ra khác (vẫn đúng luật) | `8` |
+| `GIU_TKB_DA_XEP` | `FILE_VAO` là file vào cập nhật của lần chạy trước (`<tên file vào>_cap_nhat.xlsx`, có sheet **TKB đã xếp**): `True` thì dùng lại đúng TKB đó, không xếp lại, nếu vẫn đúng mọi luật (xem [Tuyển được người](#tuyển-được-người-giữ-nguyên-tkb)); `False` thì luôn xếp lại từ đầu | `True` |
 
    - Đường dẫn tương đối được tính từ thư mục chứa `main.py`.
    - **Chạy lại, hoặc chạy ở máy khác cùng hệ điều hành, ra đúng TKB cũ** khi `CHAY_TAI_LAP_DUOC = True` và giữ nguyên: file vào, các hằng số trong `main.py`, phiên bản thư viện (cài bằng `pip install -r requirements.txt`). Xem mục [Chạy trên máy khác](#chạy-trên-máy-khác).
@@ -68,6 +69,19 @@ Tuỳ chọn:
 Mã thoát: `0` đạt; `1` lỗi file vào hoặc không xếp được; `2` TKB sai luật bắt buộc; `3` chế độ bù giờ thiếu tiết.
 
 Chạy test: `python -m pytest -q`
+
+## Tuyển được người: giữ nguyên TKB
+
+File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã xếp ở sheet **TKB đã xếp** (mỗi tiết một dòng: Lớp, Thứ, Tiết, Môn, Mã GV, Tiết Bù; ô đầu cột Mã Kết Quả ghi mã kết quả).
+
+1. Chạy chế độ tuyển thêm. File vào cập nhật có thêm các dòng `chưa có` (vd Bộ Môn 5–8).
+2. Tuyển được người thì mở file vào cập nhật, **chỉ đổi chữ `chưa có` thành tên người mới**. Không đổi thứ tự dòng, vì giáo viên được khớp theo Mã GV (vd `Bộ Môn 5` là người thứ 5 trong chức vụ Bộ Môn).
+3. Đặt `FILE_VAO` là file đó, `GIU_TKB_DA_XEP = True` (mặc định), rồi chạy. Chương trình in `Dùng lại TKB đã xếp trong file vào`, không xếp lại (chạy vài giây). TKB giữ nguyên từng ô, **mã kết quả giữ nguyên**; TKB và file thống kê ghi tên người mới.
+
+- Chạy ở chế độ nào cũng được: người mới giờ là bộ môn thật, dạy trong định mức, nên không ai phải bù.
+- Trước khi dùng lại, chương trình kiểm tra TKB đó với file vào mới theo mọi luật bắt buộc. Nếu file bị sửa làm TKB cũ sai luật (vd hạ định mức của một người xuống dưới số tiết đang dạy, thêm buổi nghỉ trùng tiết đang dạy, sửa chương trình học), chương trình in lý do rồi **xếp lại từ đầu**.
+- Muốn xếp lại từ đầu dù TKB cũ vẫn đúng luật: đặt `GIU_TKB_DA_XEP = False` (dòng lệnh: `--xep-lai`).
+- Cũng dùng được để có lại đúng TKB của máy khác: lấy file vào cập nhật của bản chạy trên Linux, chạy trên máy Windows thì ra đúng TKB bản Linux (cùng mã kết quả), và ngược lại.
 
 ## Chạy trên máy khác
 
@@ -164,7 +178,7 @@ python -m tkb.template data/Mau_Input.xlsx
    - **Tô màu cả dòng** để biết ai bù, ai thêm: chế độ bù giờ tô **vàng** dòng người dạy bù (vượt định mức); chế độ tuyển thêm tô **xanh lá** dòng người cần tuyển; người còn dư tiết tô **xanh dương**. Trong dòng người dạy bù, **ô môn có tiết bù tô cam**; số tiết bù từng môn ghi bằng chữ ở cột **Môn Dạy Bù**, ví dụ `TV tăng cường 2, TNXH 1`. Dưới bảng có chú thích màu kèm số người, số tiết, ví dụ `Dạy bù (vượt định mức): 28 người, 56 tiết`, `Môn có tiết dạy bù: 40 ô, 56 tiết (số tiết từng môn ở cột Môn Dạy Bù)`, `Cần tuyển thêm: 3 người, 56 tiết`, `Dạy ít hơn định mức (còn dư tiết): 4 người, 17 tiết`.
    - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển, dạy bù và số liệu cơ sở, thai sản, buổi nghỉ, giữ phân công cũ chỉ in ra màn hình.
    - **Chế độ bù giờ mà thiếu tiết:** không ra TKB; file này chỉ có sheet `Thiếu tiết`: **Lớp | Môn | Số Tiết Thiếu | Lý Do** và dòng Tổng.
-3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ cả 2 sheet). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (chế độ bù: **Số Tiết Bù**) và **Số Tiết Dư** (định mức − thực dạy, khi dạy ít hơn định mức). Đây cũng là **bản thống kê gọn theo mẫu file vào**: tô nền cả dòng người dạy bù (vàng), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **Chú thích** giải thích các cột và màu bằng chữ thường. File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File gốc không bị sửa.
+3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ cả 2 sheet). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (chế độ bù: **Số Tiết Bù**) và **Số Tiết Dư** (định mức − thực dạy, khi dạy ít hơn định mức). Đây cũng là **bản thống kê gọn theo mẫu file vào**: tô nền cả dòng người dạy bù (vàng), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **Chú thích** giải thích các cột và màu bằng chữ thường. File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File còn có sheet **TKB đã xếp**: nạp lại file này thì TKB được giữ nguyên nếu vẫn đúng luật (mục [Tuyển được người](#tuyển-được-người-giữ-nguyên-tkb)). File gốc không bị sửa.
 4. **Mọi file kết quả chỉ có chữ, số và màu:** không có ghi chú (comment) trong ô, không có công thức, không cố định dòng/cột, không danh sách thả xuống hay định dạng theo điều kiện. Công thức trong file vào (ví dụ STT `=ROW()-1`) được chép sang file cập nhật dưới dạng giá trị.
 
 **Style:** mọi file ra chép style của sheet NHÂN SỰ trong file vào: phông, cỡ chữ, tiêu đề in đậm, viền, căn lề và chiều cao dòng (làm tròn, ví dụ 24,95 → 25). Bảng ghi tiêu đề cột ở dòng 1 như file vào. Riêng hàng tiết trong TKB cao đủ 2 dòng chữ (môn và giáo viên).

@@ -49,7 +49,11 @@ Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` sh
 `main.run()` validates the constants at the top of `main.py` and calls `tkb.__main__.main(argv)`:
 `program.read_program` + `staff.read_staff` → `solver.solve` → `checker.check` → `writer.write_timetable`,
 `write_timetable(with_codes=True)`, `write_updated_staff`, `write_statistics` (all output styles copied from the input via
-`style.Style.from_file`); `solver.ShortageError` → `writer.write_shortage`.
+`style.Style.from_file`, which skips the program's own row colours `style.MARK_FILLS`); `solver.ShortageError` →
+`writer.write_shortage`. The updated input stores the timetable in sheet `TKB đã xếp` (`config.SAVED_SHEET`); reloading
+it (`staff.read_saved_timetable` → `solver.reuse`, teachers matched by Mã GV, `checker.check` must pass) skips
+solving, so renaming "chưa có" hires keeps the timetable and the code; `main.py` `GIU_TKB_DA_XEP = False` /
+`--xep-lai` forces a re-solve.
 
 `solver.solve` (both modes share one timetable; only who teaches the overtime cells differs):
 1. `allocation.build_problem` → `Problem`: one `Course` per (class, subject) with lesson count, candidate

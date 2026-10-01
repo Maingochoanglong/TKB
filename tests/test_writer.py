@@ -249,3 +249,10 @@ def test_statistics_file_overtime(tmp_path):
                       (writer.OVERTIME_CELL_FILL, "Môn có tiết dạy bù: 6 ô, 8 tiết (số tiết từng môn ở cột "
                                                   "Môn Dạy Bù)"),
                       (writer.SPARE_FILL, f"Dạy ít hơn định mức (còn dư tiết): {len(spare)} người, {sum(spare)} tiết")]
+
+
+def test_mark_colours_are_not_copied_as_input_style():
+    # File vào cập nhật tô màu dòng bù/tuyển/dư: Style.from_file bỏ qua các màu này (tkb.style.MARK_FILLS).
+    from tkb import style as style_module
+    assert {writer.OVERTIME_FILL, writer.HIRE_FILL, writer.SPARE_FILL,
+            writer.OVERTIME_CELL_FILL} == style_module.MARK_FILLS

@@ -395,16 +395,39 @@ def _write_notes(wb, overtime_mode: bool) -> None:
              f"{SPARE_HEADER}: định mức trừ số tiết thực dạy, khi dạy ít hơn định mức.",
              f"Dòng tô vàng: {OVERTIME_LEGEND.lower()}.",
              f"Dòng tô xanh lá: {HIRE_LEGEND.lower()}.",
-             f"Dòng tô xanh dương: {SPARE_LEGEND.lower()}."]
+             f"Dòng tô xanh dương: {SPARE_LEGEND.lower()}.",
+             f"Sheet {config.SAVED_SHEET}: TKB đã xếp, mỗi tiết một dòng. Nạp lại file này làm file vào (vd chỉ đổi "
+             f"tên người \"chưa có\" thành tên người mới tuyển) thì chương trình giữ nguyên TKB nếu vẫn đúng mọi "
+             f"luật; muốn xếp lại từ đầu thì đặt GIU_TKB_DA_XEP = False trong main.py."]
     for i, text in enumerate(lines, start=1):
         ws.cell(i, 1, text)
     ws.column_dimensions["A"].width = max(len(t) for t in lines) + 2
 
 
+def _write_saved(wb, solution: Solution) -> None:
+    """Sheet config.SAVED_SHEET: TKB đã xếp, mỗi tiết một dòng (Lớp | Thứ | Tiết | Môn | Mã GV | Tiết Bù), cột cuối
+    ghi mã kết quả. Nạp lại file vào cập nhật thì chương trình dùng lại TKB này (solver.reuse)."""
+    if config.SAVED_SHEET in wb.sheetnames:
+        del wb[config.SAVED_SHEET]
+    ws = wb.create_sheet(config.SAVED_SHEET)
+    problem = solution.problem
+    ws.append([*config.SAVED_HEADERS, "Mã Kết Quả"])
+    lessons = sorted(solution.lessons, key=lambda l: (class_sort_key(l.class_name), l.day, l.period))
+    for r, les in enumerate(lessons, start=2):
+        row = [les.class_name, config.DAYS[les.day], les.period, problem.subject_label(les.subject),
+               problem.teachers[les.teacher].code, "Có" if les.overtime else None,
+               solution.fingerprint() if r == 2 else None]
+        for c, value in enumerate(row, start=1):
+            ws.cell(r, c, value)
+    for c, width in enumerate((8, 8, 6, 24, 18, 8, 16), start=1):
+        ws.column_dimensions[get_column_letter(c)].width = width
+
+
 def write_updated_staff(solution: Solution, source: str | Path, path: str | Path) -> None:
     """Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
     (số tiết bù ở chế độ bù giờ) và số tiết dư. Dòng, cột mới chép style của file vào; đọc lại file này làm file
-    vào vẫn được. Đây là bản thống kê gọn theo mẫu file vào: tô nền cả dòng người dạy bù (vàng), người cần tuyển
+    vào vẫn được, và sheet config.SAVED_SHEET lưu TKB đã xếp để lần nạp lại giữ nguyên TKB (solver.reuse). Đây là
+    bản thống kê gọn theo mẫu file vào: tô nền cả dòng người dạy bù (vàng), người cần tuyển
     (xanh lá), người còn dư tiết (xanh dương); sheet NOTES_SHEET giải thích các màu bằng chữ thường. File ra chỉ có
     chữ, số và màu (plain_values): không ghi chú, không công thức, không cố định dòng/cột, không danh sách thả
     xuống.
@@ -476,5 +499,6 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
             elif cell.fill.fill_type == "solid" and str(cell.fill.start_color.rgb)[-6:] in ours:
                 cell.fill = PatternFill()
     _write_notes(wb, solution.problem.overtime_mode())
+    _write_saved(wb, solution)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

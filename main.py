@@ -52,6 +52,14 @@ THOI_GIAN_TOI_DA = 1200
 # False: dừng đúng theo giây thực, mỗi lần chạy có thể ra TKB khác nhau.
 CHAY_TAI_LAP_DUOC = True
 
+# Khi FILE_VAO là file vào cập nhật của lần chạy trước (<file vào>_cap_nhat.xlsx, có sheet "TKB đã xếp"):
+# True : dùng lại đúng TKB đó, không xếp lại, nếu vẫn đúng mọi luật. Vd tuyển được người thì chỉ cần đổi chữ
+#        "chưa có" thành tên người mới rồi chạy: TKB và mã kết quả giữ nguyên, chỉ thêm tên. Cũng dùng được để in
+#        lại đúng TKB của máy khác (vd TKB chạy trên Linux) trên máy này. Sửa file làm TKB cũ sai luật (đổi định
+#        mức, buổi nghỉ...) thì chương trình in lý do rồi xếp lại từ đầu.
+# False: luôn xếp lại từ đầu.
+GIU_TKB_DA_XEP = True
+
 # --- Ít khi phải sửa ---
 
 # Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_TKB_CHUC_VU là cùng TKB,
@@ -89,7 +97,8 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MU
         file_tkb: str = FILE_TKB, thoi_gian_toi_da: float | None = THOI_GIAN_TOI_DA,
         luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC,
         so_luong: int = SO_LUONG, che_do: str = CHE_DO, so_tiet_bu_toi_da: int = SO_TIET_BU_TOI_DA,
-        file_thong_ke: str = FILE_THONG_KE, file_tkb_chuc_vu: str = FILE_TKB_CHUC_VU) -> int:
+        file_thong_ke: str = FILE_THONG_KE, file_tkb_chuc_vu: str = FILE_TKB_CHUC_VU,
+        giu_tkb_da_xep: bool = GIU_TKB_DA_XEP) -> int:
     """Chạy xếp TKB; trả về 0 nếu thành công, 3 nếu chế độ bù giờ thiếu tiết."""
     try:
         from tkb import config
@@ -137,6 +146,8 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MU
         argv.append("--no-student-rules")
     if not chay_tai_lap_duoc:
         argv.append("--non-reproducible")
+    if not giu_tkb_da_xep:
+        argv.append("--xep-lai")
 
     print(f"File vào   : {source}")
     print(f"Thư mục ra : {out_dir}")

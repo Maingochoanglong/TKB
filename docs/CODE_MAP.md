@@ -4,10 +4,10 @@ Sinh tự động bởi `python tools/code_map.py --write`, đừng sửa tay. B
 
 
 ## main.py — Xếp thời khóa biểu: chỉ cần sửa các hằng số bên dưới rồi bấm nút Run (▶) để chạy.
-Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `CHAY_TAI_LAP_DUOC`, `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE`, `SO_LUONG`, `BASE_DIR`
+Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `CHAY_TAI_LAP_DUOC`, `GIU_TKB_DA_XEP`, `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE`, `SO_LUONG`, `BASE_DIR`
 - `_blank(value)`
 - `_resolve(path)` — Đường dẫn tương đối tính từ thư mục dự án; để trống = chính thư mục dự án.
-- `run(file_vao, thu_muc_out, file_tkb, thoi_gian_toi_da, luat_hoc_sinh, chay_tai_lap_duoc, so_luong, che_do, so_tiet_bu_toi_da, file_thong_ke, file_tkb_chuc_vu)` — Chạy xếp TKB; trả về 0 nếu thành công, 3 nếu chế độ bù giờ thiếu tiết.
+- `run(file_vao, thu_muc_out, file_tkb, thoi_gian_toi_da, luat_hoc_sinh, chay_tai_lap_duoc, so_luong, che_do, so_tiet_bu_toi_da, file_thong_ke, file_tkb_chuc_vu, giu_tkb_da_xep)` — Chạy xếp TKB; trả về 0 nếu thành công, 3 nếu chế độ bù giờ thiếu tiết.
 
 ## tkb/__main__.py — Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] ...
 - `use_utf8_output()` — In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252).
@@ -54,7 +54,7 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 - `_check_student_rules(problem, lessons)`
 
 ## tkb/config.py — Các luật nghiệp vụ của hệ thống xếp TKB mà file vào không có.
-Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `DISPLAY_NAMES`, `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS`, `OFF_LABEL`, `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS`, `ROLE_HOMEROOM`, `ROLE_GENERAL`, `ROLE_MANAGER`, `ROLE_LABELS`, `STAFF_SHEET`, `PROGRAM_SHEET`, `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER`, `HOMEROOM_PERIODS`, `SUPPLEMENT_NAME`, `MODE_HIRE`, `MODE_OVERTIME`, `MODES`, `OVERTIME_ROLES`, `HOMEROOM_OVERTIME_SPECIALIST`, `OVERTIME_MAX`, `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `MORNING_SUBJECTS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED`, `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`, `ORTOOLS_VERSION`
+Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `DISPLAY_NAMES`, `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS`, `OFF_LABEL`, `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS`, `ROLE_HOMEROOM`, `ROLE_GENERAL`, `ROLE_MANAGER`, `ROLE_LABELS`, `STAFF_SHEET`, `PROGRAM_SHEET`, `SAVED_SHEET`, `SAVED_HEADERS`, `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER`, `HOMEROOM_PERIODS`, `SUPPLEMENT_NAME`, `MODE_HIRE`, `MODE_OVERTIME`, `MODES`, `OVERTIME_ROLES`, `HOMEROOM_OVERTIME_SPECIALIST`, `OVERTIME_MAX`, `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `MORNING_SUBJECTS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED`, `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`, `ORTOOLS_VERSION`
 - `class Session`
 - `class ManagerRule` — Quản lý chỉ dạy môn `subject` của khối `grade`.
 - `rule_subjects()` — Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào).
@@ -152,6 +152,9 @@ Hằng số: `MANAGER_BONUS`
 - `du_toan_lines(problem, plan)` — Dự toán in ra trước khi xếp giờ.
 - `_hire_assignment(plan, work, split)` — Phân công cố định khi tiết bù/tiết thiếu do người mới dạy; (course, người mới) -> người bù từng tiết.
 - `_to_overtime(solution, problem, owners)` — TKB chế độ bù: các ô của người mới trả về đúng người bù (cùng vị trí môn).
+- `reuse(staff, curriculum, settings, rows)` — Dùng lại TKB đã xếp (sheet config.SAVED_SHEET của file vào cập nhật, staff.read_saved_timetable) thay cho
+  · Mỗi (lớp, môn) có thể có hai course: phần GVCN (homeroom) và phần còn lại; tiết của GVCN (trừ tiết bù) vào phần GVCN trước.
+- `_need(problem)` — (lớp, môn) -> số tiết theo chương trình học.
 - `solve(staff, curriculum, settings, log)` — Dự toán, phân công → xếp giờ một lần → TKB chế độ bù hoặc chế độ tuyển (cùng vị trí môn).
 
 ## tkb/staff.py — Đọc và kiểm tra file Excel danh sách nhân sự.
@@ -176,6 +179,7 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_S
 - `parse_off(value)` — Cột Buổi Nghỉ: các mục cách nhau bằng dấu phẩy/chấm phẩy. Mỗi mục là buổi cố định ("Chiều T5",
 - `find_sheet(wb, name)` — Sheet có tên `name` (không phân biệt hoa thường), hoặc None.
 - `staff_sheet(wb)` — Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có, không thì sheet đầu tiên.
+- `read_saved_timetable(path)` — Sheet config.SAVED_SHEET của file vào (TKB đã xếp, ghi trong file vào cập nhật): các dòng (lớp, thứ, tiết,
 - `_blank(value)`
 - `_find_columns(ws)` — Dòng tiêu đề và vị trí các cột (mẫu V8). Bắt buộc: Họ và Tên, Chức Vụ, Số Tiết/Tuần; không bắt buộc: Lớp,
 - `_to_lessons(value, title)`
@@ -186,13 +190,13 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_S
 - `classes_from_staff(teachers)`
 
 ## tkb/style.py — Style của các file ra, chép từ sheet NHÂN SỰ của file vào (font, viền, căn lề, nền, chiều cao dòng).
-Hằng số: `DEFAULT_ROW_HEIGHT`, `MAX_COLUMN_WIDTH`, `STAFF_HEADERS`
+Hằng số: `DEFAULT_ROW_HEIGHT`, `MAX_COLUMN_WIDTH`, `STAFF_HEADERS`, `MARK_FILLS`
 - `with_bold(font, bold)`
 - `class CellStyle`
   - `.of(cell)`
   - `.apply(cell, bold, horizontal, wrap)`
 - `class Style`
-  - `.from_file(path)` — Style của ô tiêu đề và ô dữ liệu đầu tiên ở cột Chức Vụ của sheet nhân sự.
+  - `.from_file(path)` — Style của ô tiêu đề và ô dữ liệu đầu tiên ở cột Chức Vụ của sheet nhân sự (bỏ màu nền MARK_FILLS).
   - `.font_size()`
   - `.line_height()` — Chiều cao một dòng chữ (point).
   - `.text_width(text)` — Độ rộng ước lượng (đơn vị cột Excel) của một dòng chữ.
@@ -235,6 +239,7 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `_copy_style(src, dst)`
 - `plain_values(wb, cached)` — Chỉ giữ chữ, số và màu: bỏ mọi ghi chú (comment), cố định dòng/cột, lọc, danh sách thả xuống, định dạng theo
 - `_write_notes(wb, overtime_mode)` — Sheet NOTES_SHEET: các cột kết quả và màu dòng của file vào cập nhật, mỗi dòng một câu chữ thường.
+- `_write_saved(wb, solution)` — Sheet config.SAVED_SHEET: TKB đã xếp, mỗi tiết một dòng (Lớp | Thứ | Tiết | Môn | Mã GV | Tiết Bù), cột cuối
 - `write_updated_staff(solution, source, path)` — Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
   · Cột kết quả: ghi đè nếu file đã có (chạy lại trên file cập nhật), không thì thêm vào bên phải.
   · Tô nền cả dòng (đến cột tiêu đề cuối); chạy lại trên file cập nhật thì bỏ màu cũ của chương trình.
@@ -268,11 +273,11 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_allocation.py`: test_homeroom_split_sample, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
-- `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited
+- `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited, test_reloading_updated_file_keeps_timetable, test_reloading_falls_back_when_saved_timetable_breaks_rules, test_reloading_overtime_result_rewrites_the_same_files
 - `tests/test_phan_cong.py`: test_min_cost_flow_prefers_cheap_paths, test_estimate_overtime_then_missing, test_homeroom_overtime_before_general, test_homeroom_overtime_takes_whole_subjects, test_homeroom_overtime_takes_music_and_art, test_assignment_is_deterministic, test_hires_take_overtime_and_missing_lessons, test_hire_split_limits_pairs_and_orders_by_load
 - `tests/test_reproducible.py`: test_same_timetable_across_runs, test_reference_fingerprint, test_ortools_version_is_pinned, test_no_wall_clock_limit_in_reproducible_mode
 - `tests/test_solver.py`: test_small_school_solves_and_passes_checker, test_hdtn_fixed_and_flex, test_missing_general_teacher_becomes_supplement, test_checker_detects_violations, test_homeroom_teaches_first_period, test_heavy_subjects_avoid_last_period, test_core_subjects_in_the_morning, test_extra_lessons_after_main_lessons, test_checker_flags_extra_lesson_before_main, test_slot_capacity_limits_assignment, test_sample_school_hires_take_the_overtime_lessons, test_reproducible_mode_gives_identical_timetables, test_overtime_mode_covers_shortage_without_hiring, test_overtime_mode_never_hires_and_reports_the_shortage, test_hire_mode_uses_the_overtime_timetable, test_overtime_homeroom_before_general, test_checker_flags_invalid_overtime, test_sample_school_overtime_assignment, test_same_subject_lessons_are_contiguous, test_contiguous_when_a_subject_must_repeat_in_a_session, test_checker_detects_split_subject, test_checker_requires_homeroom_to_cover_own_class_first, test_checker_flags_new_teacher_rules, test_checker_flags_other_teacher_before_homeroom, test_vietnamese_is_paired_in_grade_one
 - `tests/test_staff.py`: test_bad_lessons, test_duplicates_rejected, test_read_sample_staff, test_program_file_is_read_as_written, test_subject_names_match_rules_loosely, test_columns_and_auto_numbering, test_numbered_titles_are_rejected, test_old_headers_are_rejected, test_class_errors, test_class_turned_into_date, test_program_sheet_aliases_and_total_row, test_missing_program_sheet_is_an_error, test_all_errors_at_once, test_named_classes_and_optional_columns, test_optional_column_errors
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_style_and_dropdowns, test_blank_template_has_only_headers, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
-- `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime
+- `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style

@@ -208,6 +208,26 @@ def staff_sheet(wb):
     return find_sheet(wb, config.STAFF_SHEET) or wb.worksheets[0]
 
 
+def read_saved_timetable(path: str | Path) -> list[tuple] | None:
+    """Sheet config.SAVED_SHEET của file vào (TKB đã xếp, ghi trong file vào cập nhật): các dòng (lớp, thứ, tiết,
+    môn, Mã GV, tiết bù?) như chữ trong file. File không có sheet này: None; thiếu cột: danh sách rỗng."""
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = find_sheet(wb, config.SAVED_SHEET)
+    if ws is None:
+        return None
+    head = {normalize(ws.cell(1, c).value): c for c in range(1, ws.max_column + 1) if not _blank(ws.cell(1, c).value)}
+    cols = [head.get(normalize(h)) for h in config.SAVED_HEADERS]
+    if any(c is None for c in cols[:5]):
+        return []
+    rows = []
+    for r in range(2, ws.max_row + 1):
+        values = [ws.cell(r, c).value if c else None for c in cols]
+        if all(_blank(v) for v in values[:5]):
+            continue
+        rows.append((*values[:5], not _blank(values[5]) and parse_yes(values[5], config.SAVED_HEADERS[5])))
+    return rows
+
+
 def _blank(value) -> bool:
     return value is None or str(value).strip() == ""
 

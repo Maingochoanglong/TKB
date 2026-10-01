@@ -197,3 +197,86 @@ def test_cli_time_limit_zero_is_unlimited():
     _configure(solver, config.Settings(time_limit=None), None)
     p = solver.parameters
     assert p.interleave_search and p.max_deterministic_time > 1e10 and p.max_time_in_seconds > 1e10
+
+
+def _code(out: str) -> str:
+    return next(line.split()[3] for line in out.splitlines() if line.startswith("Mã kết quả:"))
+
+
+def _subjects(path):
+    """Môn ở từng ô TKB (dòng đầu của ô), không tính tên người dạy."""
+    ws = openpyxl.load_workbook(path)["Khối 3"]
+    return [[str(v).split("\n")[0] if v else v for v in row] for row in ws.iter_rows(values_only=True)]
+
+
+def test_reloading_updated_file_keeps_timetable(tmp_path, capsys):
+    # Chạy chế độ tuyển; đổi "chưa có" thành tên người mới trong file vào cập nhật rồi chạy lại: TKB giữ nguyên.
+    in_dir, out_dir = tmp_path / "in", tmp_path / "out"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx", general=False)
+    assert main.run(in_dir / "nhan_su.xlsx", out_dir, "TKB.xlsx", thoi_gian_toi_da=20, che_do="tuyen_them") == 0
+    first = _code(capsys.readouterr().out)
+    saved = _rows(out_dir / "nhan_su_cap_nhat.xlsx", "TKB đã xếp")
+    assert saved[0][:6] == ("Lớp", "Thứ", "Tiết", "Môn", "Mã GV", "Tiết Bù") and saved[1][6] == first
+    assert len(saved) == 1 + 2 * 32
+    wb = openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")
+    ws = wb["NHÂN SỰ"]
+    hire = next(r for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == "chưa có")
+    ws.cell(hire, 1, "Cô Mới")
+    wb.save(in_dir / "da_tuyen.xlsx")
+    for mode, folder in (("tuyen_them", "lai"), ("bu_gio", "lai_bu")):
+        assert main.run(in_dir / "da_tuyen.xlsx", tmp_path / folder, "TKB.xlsx", thoi_gian_toi_da=20,
+                        che_do=mode, so_tiet_bu_toi_da=4) == 0
+        out = capsys.readouterr().out
+        assert "Dùng lại TKB đã xếp" in out and _code(out) == first, mode
+        assert _subjects(tmp_path / folder / "TKB.xlsx") == _subjects(out_dir / "TKB.xlsx")
+        cells = [v for row in openpyxl.load_workbook(tmp_path / folder / "TKB.xlsx")["Khối 3"].iter_rows(values_only=True)
+                 for v in row if v]
+        assert any(str(v).endswith("\nCô Mới") for v in cells)
+        stats = _rows(tmp_path / folder / "Thong_Ke.xlsx", "Thống kê")
+        assert any(r[:2] == ("Cô Mới", "Bộ Môn 1") for r in stats) and all(r[0] != "tuyển thêm" for r in stats)
+
+
+def test_reloading_falls_back_when_saved_timetable_breaks_rules(tmp_path, capsys):
+    in_dir, out_dir = tmp_path / "in", tmp_path / "out"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx", general=False)
+    assert main.run(in_dir / "nhan_su.xlsx", out_dir, "TKB.xlsx", thoi_gian_toi_da=20, che_do="tuyen_them") == 0
+    capsys.readouterr()
+    wb = openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")
+    ws = wb["NHÂN SỰ"]
+    hire = next(r for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == "chưa có")
+    ws.cell(hire, 4, 5)  # định mức 5 < 8 tiết đang dạy trong TKB đã xếp
+    wb.save(in_dir / "sua.xlsx")
+    assert main.run(in_dir / "sua.xlsx", tmp_path / "lai", "TKB.xlsx", thoi_gian_toi_da=20,
+                    che_do="tuyen_them") == 0
+    out = capsys.readouterr().out
+    assert "Không dùng lại được TKB đã xếp" in out and "vượt định mức" in out
+    assert "kiểm tra luật bắt buộc: ĐẠT" in out
+    # Muốn xếp lại từ đầu dù TKB đã xếp vẫn đúng luật: GIU_TKB_DA_XEP = False.
+    assert main.run(out_dir / "nhan_su_cap_nhat.xlsx", tmp_path / "lai2", "TKB.xlsx", thoi_gian_toi_da=20,
+                    che_do="tuyen_them", giu_tkb_da_xep=False) == 0
+    out = capsys.readouterr().out
+    assert "Dùng lại TKB đã xếp" not in out and "Không dùng lại" not in out
+
+
+def test_reloading_overtime_result_rewrites_the_same_files(tmp_path, capsys):
+    # Nạp lại nguyên file vào cập nhật của chế độ bù: TKB, tiết bù (ô tô cam), màu dòng và file thống kê y hệt.
+    # File vào cập nhật có dòng tô màu bù/dư: style chép từ file vào không được mang theo các màu đó.
+    in_dir = tmp_path / "in"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx", general=False)
+    for src, out in ((in_dir / "nhan_su.xlsx", "a"), (tmp_path / "a" / "nhan_su_cap_nhat.xlsx", "b")):
+        assert main.run(src, tmp_path / out, "TKB.xlsx", thoi_gian_toi_da=20, che_do="bu_gio",
+                        so_tiet_bu_toi_da=4) == 0
+    assert "Dùng lại TKB đã xếp" in capsys.readouterr().out
+
+    def cells(path, sheet=None):
+        wb = openpyxl.load_workbook(path)
+        ws = wb[sheet] if sheet else wb.active
+        return [[(c.value, c.fill.start_color.rgb if c.fill.fill_type else None) for c in row]
+                for row in ws.iter_rows()]
+    for name in ("TKB.xlsx", "TKB_chuc_vu.xlsx", "Thong_Ke.xlsx"):
+        assert cells(tmp_path / "a" / name) == cells(tmp_path / "b" / name), name
+    assert cells(tmp_path / "a" / "nhan_su_cap_nhat.xlsx", "NHÂN SỰ") == \
+        cells(tmp_path / "b" / "nhan_su_cap_nhat_cap_nhat.xlsx", "NHÂN SỰ")

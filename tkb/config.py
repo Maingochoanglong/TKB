@@ -85,6 +85,11 @@ ROLE_LABELS: dict[str, str] = {ROLE_HOMEROOM: "Chủ Nhiệm", ROLE_GENERAL: "B�
 # File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"
 PROGRAM_SHEET = "CHƯƠNG TRÌNH HỌC"
+# File vào cập nhật (<file vào>_cap_nhat.xlsx) lưu TKB đã xếp ở sheet này (Lớp | Thứ | Tiết | Môn | Mã GV | Tiết Bù).
+# Nạp lại file đó làm file vào thì chương trình dùng lại TKB này nếu vẫn đúng mọi luật (vd chỉ đổi tên người
+# "chưa có" thành tên người mới tuyển); main.py GIU_TKB_DA_XEP = False (dòng lệnh --xep-lai) thì xếp lại từ đầu.
+SAVED_SHEET = "TKB đã xếp"
+SAVED_HEADERS = ("Lớp", "Thứ", "Tiết", "Môn", "Mã GV", "Tiết Bù")
 
 # Môn chỉ GVCN của lớp được dạy.
 HOMEROOM_ONLY_SUBJECTS: set[str] = {HDTN}

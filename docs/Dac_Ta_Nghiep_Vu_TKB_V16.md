@@ -67,6 +67,7 @@
 | 49 | GVCN bù Âm nhạc, Mỹ thuật; tiết tăng cường sau tiết chính | GVCN không bù môn chuyên biệt; **[Mềm]** Toán tăng cường ưu tiên buổi chiều (10), thưởng tiết tăng cường liền sau tiết chính cùng người (100) | GVCN được **bù Âm nhạc, Mỹ thuật** ở lớp mình (`HOMEROOM_OVERTIME_SPECIALIST`; nhận sau cùng và chỉ phần dự toán giao, mục 7.2). Bỏ hai mục tiêu mềm của tiết tăng cường, thay bằng **[Cứng]** trong ngày tiết tăng cường đứng sau mọi tiết chính cùng nhóm và ngày đó có tiết chính (mục 6). TKB cũ đã gần đạt: Toán tăng cường 36/36, TV tăng cường 16/19. Với file của trường, GVCN chưa phải bù hai môn này (các môn khác xếp trước). Mã kết quả đổi |
 | 50 | Thống kê đơn giản | File thống kê cố định cột tên, chức vụ và dòng tiêu đề khi cuộn; file vào cập nhật giữ danh sách thả xuống, định dạng theo điều kiện của file mẫu | Mọi file thống kê **chỉ chữ, số và màu**: không cố định dòng/cột, không ghi chú, không công thức, không danh sách thả xuống hay định dạng theo điều kiện (mục 11.2, 11.3). Mã kết quả không đổi |
 | 51 | Giảm môn nặng tiết 7 và đổi cơ sở trong ngày | `heavy_late` 400, `campus_day_switch` 3000: file của trường (Windows) còn 8 tiết Tiếng Anh ở tiết 7, 4 lần GV dạy sáng một cơ sở, chiều cơ sở kia | **`heavy_late` 1200, `campus_day_switch` 10000** (mục 8.2). Thử trên Windows: phạt tiết 7 1200 → 6 tiết, 1 lần; thêm phạt đổi cơ sở 10000 → 6 tiết, 1 lần, TV/Toán buổi chiều 38 (trước 39); phạt tiết 7 3000 → vẫn 6 tiết, TV/Toán chiều 40; tăng thời gian lên 2400 không đổi gì. Linux: 6 tiết, 0 lần. Mỗi GV Tiếng Anh dạy 23 tiết trong 26 ô được dạy, 4 ô là tiết 7, nên ít nhất 4 tiết Tiếng Anh ở tiết 7. Mã kết quả đổi (Linux `5C2B-510F-5156`, Windows `08F4-E2C6-3470`) |
+| 52 | Nạp lại file vào cập nhật giữ nguyên TKB | Chạy lại trên file vào cập nhật (vd đã đổi "chưa có" thành tên người mới tuyển) thì xếp lại từ đầu: người mới thành bộ môn thật, phân công và TKB đổi | File vào cập nhật có sheet **TKB đã xếp** (mục 11.2). Nạp lại file đó thì chương trình **dùng lại TKB này**: GV khớp theo Mã GV, kiểm tra đủ tiết và mọi luật cứng bằng bộ kiểm tra; đạt thì không xếp lại, mã kết quả giữ nguyên (mã băm theo chức vụ, không theo tên), không đạt thì in lý do và xếp lại từ đầu. `main.py` `GIU_TKB_DA_XEP` (mặc định `True`; dòng lệnh `--xep-lai` để xếp lại). Dùng được để có lại TKB của máy khác (file cập nhật bản Linux chạy trên Windows ra đúng TKB Linux). Style chép từ file vào bỏ qua màu chương trình tô (dòng bù/tuyển/dư). Mã kết quả không đổi |
 
 ---
 
@@ -500,6 +501,14 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
 - **Thống kê gọn theo mẫu file vào:** tô nền cả dòng (đến cột tiêu đề cuối) người dạy bù (vàng, như file thống kê), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **Chú thích** (chữ thường) giải thích các cột kết quả và các màu. Không ghi chú thích dưới bảng, để file vẫn đọc lại được. Mọi ghi chú (comment) của file vào bị bỏ, mọi công thức đổi thành giá trị (STT `=ROW()-1` tự tính nếu file chưa lưu giá trị). Chạy lại trên file này thì màu cũ của chương trình được bỏ trước khi tô.
 - Chỉ chữ, số và màu: bỏ cố định dòng/cột, danh sách thả xuống, định dạng theo điều kiện và sheet danh mục ẩn của file mẫu (các thứ này không cần để đọc lại file).
 - Dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc). File gốc không bị sửa.
+- **Sheet TKB đã xếp** (`config.SAVED_SHEET`): mỗi tiết một dòng **Lớp | Thứ | Tiết | Môn | Mã GV | Tiết Bù** (Tiết Bù = "Có" với tiết dạy bù), ô đầu cột **Mã Kết Quả** ghi mã kết quả.
+  - Nạp lại file này làm file vào (`GIU_TKB_DA_XEP = True`, mặc định), chương trình dùng lại TKB đó thay vì xếp lại (`solver.reuse`), với điều kiện:
+    - mọi Lớp, Môn, Mã GV có trong file vào;
+    - mỗi lớp đủ số tiết từng môn;
+    - bộ kiểm tra (mục 10) báo đạt mọi luật cứng với file vào mới (định mức, buổi nghỉ, cơ sở, luật học sinh…).
+  - Không đạt thì in tối đa 10 lý do và xếp lại từ đầu.
+  - Giáo viên khớp theo **Mã GV** (chức vụ + số thứ tự, vd `Bộ Môn 5`), nên đổi tên người `chưa có` thành tên người mới tuyển thì TKB và mã kết quả giữ nguyên; không được đổi thứ tự dòng trong cùng chức vụ.
+  - Các file ra viết lại giống hệt; style chép từ file vào bỏ qua các màu chương trình tô (`style.MARK_FILLS`).
 
 ### 11.3. File thống kê `Thong_Ke.xlsx`
 
@@ -551,6 +560,7 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 | `CHAY_TAI_LAP_DUOC` | Cùng dữ liệu luôn ra cùng một kết quả | `True` |
 | `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE` | Tên file TKB, TKB có chức vụ, file thống kê số tiết từng môn của giáo viên | `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `Thong_Ke.xlsx` |
 | `SO_LUONG` | Số luồng tìm kiếm song song | `8` |
+| `GIU_TKB_DA_XEP` | File vào là file vào cập nhật (có sheet TKB đã xếp): `True` dùng lại TKB đó nếu vẫn đúng mọi luật (mục 11.2); `False` luôn xếp lại từ đầu (dòng lệnh `--xep-lai`) | `True` |
 
 ### 12.2. `tkb/config.py` (tham số nghiệp vụ)
 

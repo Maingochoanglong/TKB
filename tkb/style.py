@@ -18,6 +18,9 @@ from .staff import _find_columns, clean_name, staff_sheet
 DEFAULT_ROW_HEIGHT = 25  # file vào không đặt chiều cao dòng
 MAX_COLUMN_WIDTH = 60  # chữ dài hơn thì xuống dòng
 STAFF_HEADERS = {"name": "Họ và Tên", "title": "Chức Vụ", "class": "Lớp", "lessons": "Số Tiết/Tuần"}
+# Màu nền chương trình tô trong file ra (tkb/writer.py: dòng bù, tuyển, dư, ô môn bù). File vào là file vào cập nhật
+# của lần chạy trước thì dòng dữ liệu đầu có thể mang các màu này: không chép làm style.
+MARK_FILLS = frozenset({"FFEB9C", "C6EFCE", "DDEBF7", "F4B183"})
 
 
 def with_bold(font: Font, bold: bool) -> Font:
@@ -55,14 +58,17 @@ class Style:
 
     @classmethod
     def from_file(cls, path: str | Path) -> Style:
-        """Style của ô tiêu đề và ô dữ liệu đầu tiên ở cột Chức Vụ của sheet nhân sự."""
+        """Style của ô tiêu đề và ô dữ liệu đầu tiên ở cột Chức Vụ của sheet nhân sự (bỏ màu nền MARK_FILLS)."""
         ws = staff_sheet(openpyxl.load_workbook(path))
         header_row, cols = _find_columns(ws)
         col = cols["title"]
         height = ws.row_dimensions[header_row + 1].height or ws.row_dimensions[header_row].height
         headers = dict(STAFF_HEADERS)
         headers.update({k: clean_name(ws.cell(header_row, c).value) for k, c in cols.items() if k in headers})
-        return cls(header=CellStyle.of(ws.cell(header_row, col)), body=CellStyle.of(ws.cell(header_row + 1, col)),
+        body = CellStyle.of(ws.cell(header_row + 1, col))
+        if body.fill is not None and str(body.fill.start_color.rgb)[-6:] in MARK_FILLS:
+            body.fill = None  # màu chương trình tô ở file vào cập nhật, không phải style của trường
+        return cls(header=CellStyle.of(ws.cell(header_row, col)), body=body,
                    row_height=round(height) if height else DEFAULT_ROW_HEIGHT, staff_headers=headers)
 
     @property

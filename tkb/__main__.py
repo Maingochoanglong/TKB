@@ -9,8 +9,8 @@ from pathlib import Path
 from . import config
 from .checker import check
 from .program import read_program
-from .solver import ShortageError, SolveError, ortools_version, solve
-from .staff import InputError, grade_of, read_staff
+from .solver import ShortageError, SolveError, ortools_version, reuse, solve
+from .staff import InputError, grade_of, read_saved_timetable, read_staff
 from .style import Style
 from .writer import campus_paths, write_shortage, write_statistics, write_timetable, write_updated_staff
 
@@ -51,6 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-student-rules", action="store_true",
                     help="Tắt luật bảo vệ học sinh (mỗi nhóm môn tối đa 2 tiết mỗi buổi; Toán mỗi ngày 1 tiết; "
                          "TV ghép cặp 2 tiết liền; môn có từ 2 tiết trong buổi phải học liền nhau)")
+    ap.add_argument("--xep-lai", action="store_true",
+                    help=f"File vào có sheet {config.SAVED_SHEET} (file vào cập nhật của lần chạy trước): bỏ qua TKB "
+                         f"đó, xếp lại từ đầu. Mặc định dùng lại TKB đó nếu vẫn đúng mọi luật")
     args = ap.parse_args(argv)
 
     if args.max_overtime < 0:
@@ -74,7 +77,21 @@ def main(argv: list[str] | None = None) -> int:
         n_subjects = len({s for req in curriculum.values() for s in req})
         print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp; "
               f"chương trình học: {n_subjects} môn (sheet {config.PROGRAM_SHEET}).")
-        solution = solve(staff, curriculum, settings)
+        solution = None
+        saved = None if args.xep_lai else read_saved_timetable(args.staff)
+        if saved is not None:
+            solution, why = reuse(staff, curriculum, settings, saved)
+            if solution is not None:
+                print(f"Dùng lại TKB đã xếp trong file vào (sheet {config.SAVED_SHEET}), không xếp lại. Muốn xếp lại "
+                      f"từ đầu: đặt GIU_TKB_DA_XEP = False trong main.py (dòng lệnh: --xep-lai).")
+            else:
+                print(f"Không dùng lại được TKB đã xếp trong file vào (sheet {config.SAVED_SHEET}), xếp lại từ đầu:")
+                for reason in why[:10]:
+                    print(f"  {reason}")
+                if len(why) > 10:
+                    print(f"  ... và {len(why) - 10} lý do khác")
+        if solution is None:
+            solution = solve(staff, curriculum, settings)
     except ShortageError as exc:
         rows = exc.rows()
         print(f"LỖI: {exc}. Không xếp TKB. Các tiết không ai dạy được:", file=sys.stderr)
