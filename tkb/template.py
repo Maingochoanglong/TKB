@@ -7,13 +7,14 @@ cột nằm ở sheet HƯỚNG DẪN.
   - Chức Vụ: Chủ Nhiệm, Bộ Môn, Quản Lý hoặc tên một môn (GV chuyên biệt, vd "Tiếng Anh"); không ghi số
     thứ tự (chương trình tự đánh số theo thứ tự dòng).
   - Lớp (khối/số thứ tự, vd 1/1, hoặc khối rồi tên lớp, vd 1D15) chỉ ghi cho Chủ Nhiệm.
-- Sheet "CHƯƠNG TRÌNH HỌC": Môn học | Khối 1 ... Khối n (số tiết/tuần).
-- Các sheet "QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "QUY ĐỊNH MÔN": các luật đang dùng, mỗi quy định
-  một cột, mỗi ô ghi Có, Không hoặc số (tkb/rules.py).
+- Sheet "CHƯƠNG TRÌNH HỌC": Môn học | Khối 1 ... Khối n (số tiết/tuần) | các cột quy định của môn (Có, Không
+  hoặc số; tkb/rules.py).
+- Sheet "QUY ĐỊNH": ba bảng (quy định chung, ngày, tiết), mỗi ô ghi Có, Không hoặc số.
 - Sheet "HƯỚNG DẪN": cách ghi từng sheet, từng cột.
 
 Chạy:
-    python -m tkb.template <file mới.xlsx>    tạo file mẫu trống (các sheet QUY ĐỊNH điền sẵn giá trị mặc định)
+    python -m tkb.template <file mới.xlsx>    tạo file mẫu trống (các môn và quy định điền sẵn giá trị mặc định,
+                                              số tiết để trống)
 """
 from __future__ import annotations
 
@@ -26,13 +27,13 @@ from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.utils import get_column_letter
 
 from . import config
-from .rules import notes as rule_notes, tables as rule_tables
-from .staff import Teacher, class_sort_key, normalize, off_text
+from .rules import default_subjects, notes as rule_notes, rule_tables, subject_columns
+from .staff import Teacher, class_sort_key, off_text
 
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
                  "Buổi Nghỉ"]
 STAFF_WIDTHS = (34, 16, 8, 17, 12, 12, 11, 26, 24)
-RULE_KEY_WIDTHS = (44, 10, 10, 28)  # cột đầu của các sheet quy định: Quy định, Ngày, Tiết, Môn học
+RULES_WIDTHS = (40, 16, 16, 20, 24)  # sheet QUY ĐỊNH: cột đầu (Quy định, Ngày, Tiết) và các cột giá trị
 GUIDE_SHEET = "HƯỚNG DẪN"
 GUIDE_HEADERS = ("Mục", "Cách ghi")
 GUIDE_WIDTHS = (36, 160)
@@ -66,26 +67,21 @@ NOTES = {
     "Lớp Đang Dạy": "GV bộ môn, chuyên biệt: các lớp đang dạy trong TKB cũ, cách nhau bằng dấu phẩy (vd 3D17, "
                     "3D18). TKB mới ưu tiên giữ khối, rồi giữ lớp.",
     "Buổi Nghỉ": "Buổi không xếp tiết: buổi cố định (vd Chiều T5, Sáng T6) hoặc số buổi bất kỳ (vd 2 buổi chiều), "
-                 "cách nhau bằng dấu phẩy. GVCN không nghỉ buổi sáng được (tiết Luôn do GVCN dạy ở sheet QUY ĐỊNH "
-                 "TIẾT).",
+                 "cách nhau bằng dấu phẩy. GVCN không nghỉ buổi sáng được (tiết Luôn do GVCN dạy ở sheet QUY ĐỊNH).",
 }
 GUIDE = [
     (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Năm cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ "
                          "không bắt buộc (để trống hoặc xóa cột)."),
     *((f"{config.STAFF_SHEET}: {head}", note) for head, note in NOTES.items()),
-    (config.PROGRAM_SHEET, "Mỗi môn một dòng: cột Môn học ghi tên môn, cột Khối k ghi số tiết/tuần của môn ở khối k "
-                           "(0 hoặc để trống: khối đó không học). Dùng lại đúng tên môn này ở cột Chức Vụ và sheet "
-                           f"{config.RULES_SHEETS[3]}."),
-    ("Các sheet QUY ĐỊNH", "Các luật nghiệp vụ, mỗi quy định một cột (sheet QUY ĐỊNH CHUNG: một dòng). Mỗi ô chỉ ghi "
-                           "Có, Không hoặc một số nguyên dương; ô trống là Không. Riêng cột Tên trong TKB ghi chữ. Xóa "
-                           "một cột (một dòng của sheet chung, hoặc cả sheet) thì quy định đó dùng giá trị mặc định "
-                           "của chương trình."),
-    (config.RULES_SHEETS[0], "Mỗi dòng một quy định, ghi ở cột Giá trị; cột Ghi chú giải thích."),
-    (config.RULES_SHEETS[1], "Mỗi ngày Thứ 2 … Thứ 7 một dòng."),
-    (config.RULES_SHEETS[2], "Mỗi tiết một dòng; buổi chiều đánh số nối tiếp buổi sáng (sáng 4 tiết thì chiều từ tiết "
-                             "5). Thêm tiết thì thêm dòng."),
-    (config.RULES_SHEETS[3], "Mỗi môn một dòng, tên như trong sheet CHƯƠNG TRÌNH HỌC (không phân biệt hoa thường). "
-                             "Môn không có dòng thì mọi cột là Không."),
+    (config.PROGRAM_SHEET, "Mỗi môn một dòng: cột Môn học ghi tên môn (dùng đúng tên này ở cột Chức Vụ của GV chuyên "
+                           "biệt), cột Khối k ghi số tiết/tuần của môn ở khối k (0 hoặc để trống: khối đó không học), "
+                           "các cột sau là quy định của môn."),
+    ("Quy ước các ô quy định", "Mỗi quy định là một cột (bảng Quy định chung: một dòng). Mỗi ô chỉ ghi Có, Không hoặc "
+                               "một số nguyên dương; ô trống là Không. Riêng cột Tên trong TKB ghi chữ. Xóa một cột "
+                               "(một dòng của bảng chung, một bảng, hoặc cả sheet QUY ĐỊNH) thì quy định đó dùng giá "
+                               "trị mặc định của chương trình."),
+    (config.RULES_SHEET, "Ba bảng cách nhau một dòng trống: Quy định | Giá trị; Ngày (Thứ 2 … Thứ 7); Tiết (buổi chiều "
+                         "đánh số nối tiếp buổi sáng, sáng 4 tiết thì chiều từ tiết 5; thêm tiết thì thêm dòng)."),
     *rule_notes(),
     ("Kiểu chữ", "Các file kết quả chép kiểu chữ, cỡ chữ, viền của sheet NHÂN SỰ. Chỉ cần chữ và số: không cần "
                  "công thức, màu nền, ghi chú trong ô hay danh sách thả xuống."),
@@ -134,57 +130,62 @@ def _staff_sheet(wb, teachers: list[Teacher]) -> None:
 
 
 def _program_sheet(wb, curriculum: dict[int, dict[str, int]] | None, teachers: list[Teacher]) -> None:
+    """Sheet CHƯƠNG TRÌNH HỌC: các môn của `curriculum` (không có thì các môn có quy định mặc định, số tiết để trống)
+    với số tiết từng khối và các cột quy định của môn."""
     ws = wb.create_sheet(config.PROGRAM_SHEET)
     grades = (sorted(curriculum) if curriculum
               else sorted({t.grade for t in teachers if t.grade}) or list(BLANK_GRADES))
-    ws.append(["Môn học", *[f"Khối {g}" for g in grades]])
     subjects = list(dict.fromkeys(s for g in grades for s in (curriculum or {}).get(g, {})))
-    for s in subjects:
-        ws.append([s, *[curriculum[g].get(s, 0) for g in grades]])
-    n_cols = 1 + len(grades)
+    heads, rules, rest = subject_columns(subjects or default_subjects())
+    ws.append(["Môn học", *[f"Khối {g}" for g in grades], *heads])
+    for s, values in rules.items():
+        counts = [curriculum[g].get(s, 0) for g in grades] if s in subjects else [None] * len(grades)
+        ws.append([s, *counts, *values])
+    n_cols = 1 + len(grades) + len(heads)
     _style_rows(ws, 1, 1, n_cols, header=True)
-    _style_rows(ws, 2, len(subjects) + 1 + (0 if subjects else BLANK_ROWS), n_cols)
-    _widths(ws, (28, *[10] * len(grades)))
+    _style_rows(ws, 2, len(rules) + 1 + BLANK_ROWS, n_cols, left=(1,))
+    _widths(ws, (28, *[10] * len(grades), *(max(10, len(h) + 4) for h in heads)))
 
 
-def write_rules_sheets(wb, subjects=(), index: int | None = None) -> None:
-    """Các sheet quy định (tkb/rules.py) ghi các luật đang dùng, từ vị trí `index`; sheet nào file đã có thì giữ
-    nguyên. `subjects`: các môn của chương trình học, tên như trong file vào (dòng của sheet QUY ĐỊNH MÔN)."""
-    for (name, headers, rows), key_width in zip(rule_tables(subjects), RULE_KEY_WIDTHS):
-        if any(normalize(ws.title) == normalize(name) for ws in wb.worksheets):
-            continue
-        ws = wb.create_sheet(name, index)
-        index = None if index is None else index + 1
-        ws.append(headers)
-        for row in rows:
-            ws.append(row)
-        general = name == config.RULES_SHEETS[0]
-        _style_rows(ws, 1, 1, len(headers), header=True)
-        _style_rows(ws, 2, len(rows) + 1, len(headers), left=(1, 3) if general else (1,))
-        widths = (key_width, 10, 110) if general else (key_width, *(max(10, len(h) + 4) for h in headers[1:]))
-        _widths(ws, widths)
+def write_rules_sheet(wb, index: int | None = None) -> None:
+    """Sheet QUY ĐỊNH ở vị trí `index`: ba bảng (quy định chung, ngày, tiết) theo các luật đang dùng, cách nhau một
+    dòng trống."""
+    ws = wb.create_sheet(config.RULES_SHEET, index)
+    r = 1
+    for headers, rows in rule_tables():
+        for c, value in enumerate(headers, start=1):
+            ws.cell(r, c, value)
+        for i, row in enumerate(rows, start=1):
+            for c, value in enumerate(row, start=1):
+                ws.cell(r + i, c, value)
+        _style_rows(ws, r, r, len(headers), header=True)
+        _style_rows(ws, r + 1, r + len(rows), len(headers), left=(1,))
+        r += len(rows) + 2
+    _widths(ws, RULES_WIDTHS)
 
 
-def _guide_sheet(wb) -> None:
-    ws = wb.create_sheet(GUIDE_SHEET)
+def write_guide(wb, extra=(), index: int | None = None) -> None:
+    """Sheet HƯỚNG DẪN: cách ghi từng sheet, từng cột, rồi các dòng `extra` (vd giải thích kết quả)."""
+    rows = [*GUIDE, *extra]
+    ws = wb.create_sheet(GUIDE_SHEET, index)
     ws.append(list(GUIDE_HEADERS))
-    for row in GUIDE:
+    for row in rows:
         ws.append(list(row))
     _style_rows(ws, 1, 1, len(GUIDE_HEADERS), header=True)
-    _style_rows(ws, 2, len(GUIDE) + 1, len(GUIDE_HEADERS), left=(1, 2))
+    _style_rows(ws, 2, len(rows) + 1, len(GUIDE_HEADERS), left=(1, 2))
     _widths(ws, GUIDE_WIDTHS)
 
 
 def write_staff_template(path: str | Path, teachers: list[Teacher] = (),
                          curriculum: dict[int, dict[str, int]] | None = None) -> None:
-    """Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC, các sheet QUY ĐỊNH (các luật đang dùng) và HƯỚNG
-    DẪN."""
+    """Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), QUY ĐỊNH (các luật đang
+    dùng) và HƯỚNG DẪN."""
     teachers = list(teachers)
     wb = openpyxl.Workbook()
     _staff_sheet(wb, teachers)
     _program_sheet(wb, curriculum, teachers)
-    write_rules_sheets(wb, list(dict.fromkeys(s for g in sorted(curriculum or {}) for s in curriculum[g])))
-    _guide_sheet(wb)
+    write_rules_sheet(wb)
+    write_guide(wb)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 

@@ -106,10 +106,12 @@ def test_run_overtime_mode_needs_no_hire(tmp_path):
         colors = {color(ws.cell(r, c)) for c in range(1, len(row) + 1)}
         assert colors == {writer.OVERTIME_FILL if row[-2] else writer.SPARE_FILL if row[-1] else None}
     assert any(row[-1] for row in rows[1:])
-    # Giải thích màu bằng chữ thường ở sheet Chú thích; mọi file ra chỉ có chữ, số và màu: không ghi chú (comment),
-    # công thức, cố định dòng/cột, danh sách thả xuống hay định dạng theo điều kiện.
-    notes = [c.value for c in openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")[writer.NOTES_SHEET]["A"]]
-    assert any("xanh dương" in n for n in notes) and any("vàng" in n for n in notes)
+    # Giải thích cột kết quả và màu bằng chữ thường ở sheet HƯỚNG DẪN; mọi file ra chỉ có chữ, số và màu: không ghi
+    # chú (comment), công thức, cố định dòng/cột, danh sách thả xuống hay định dạng theo điều kiện.
+    wb = openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")
+    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN", "TKB đã xếp"]
+    notes = [c.value or "" for c in wb["HƯỚNG DẪN"]["B"]]
+    assert any("xanh dương" in n for n in notes) and any("số tiết dạy vượt định mức" in n for n in notes)
     for path in out_dir.glob("*.xlsx"):
         for sheet in openpyxl.load_workbook(path).worksheets:
             cells = [c for row in sheet.iter_rows() for c in row]
@@ -216,9 +218,12 @@ def test_reloading_updated_file_keeps_timetable(tmp_path, capsys):
     _write_staff(in_dir / "nhan_su.xlsx", general=False)
     assert main.run(in_dir / "nhan_su.xlsx", out_dir, "TKB.xlsx", thoi_gian_toi_da=20, che_do="tuyen_them") == 0
     first = _code(capsys.readouterr().out)
+    # TKB đã xếp dạng lưới như TKB: dòng đầu ghi mã kết quả, mỗi ô "môn" xuống dòng "Mã GV".
     saved = _rows(out_dir / "nhan_su_cap_nhat.xlsx", "TKB đã xếp")
-    assert saved[0][:6] == ("Lớp", "Thứ", "Tiết", "Môn", "Mã GV", "Tiết Bù") and saved[1][6] == first
-    assert len(saved) == 1 + 2 * 32
+    assert saved[0][:2] == ("Mã kết quả", first) and saved[0][2] == "Mã quy định"
+    assert saved[1] == ("Lớp", "Tiết", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6")
+    assert len(saved) == 2 + 2 * 7 and saved[2][:3] == ("3/1", 1, "HĐTN\nChủ Nhiệm 3/1")
+    assert saved[6][-1] == "Nghỉ"  # chiều Thứ 6
     wb = openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")
     ws = wb["NHÂN SỰ"]
     hire = next(r for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == "chưa có")

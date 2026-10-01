@@ -9,7 +9,7 @@ from pathlib import Path
 from . import config
 from .checker import check
 from .program import read_program
-from .rules import applied, changed, read_rules, saved_code
+from .rules import applied, changed, read_rules
 from .rules import code as rules_code
 from .solver import ShortageError, SolveError, ortools_version, reuse, solve
 from .staff import InputError, grade_of, read_saved_timetable, read_staff
@@ -27,7 +27,7 @@ def use_utf8_output() -> None:
 def main(argv: list[str] | None = None) -> int:
     use_utf8_output()
     ap = argparse.ArgumentParser(prog="python -m tkb", description="Xếp thời khóa biểu tự động")
-    ap.add_argument("staff", help="File vào: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC và (không bắt buộc) các sheet QUY ĐỊNH")
+    ap.add_argument("staff", help="File vào: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm cột quy định của môn) và (không bắt buộc) QUY ĐỊNH")
     ap.add_argument("-o", "--output", default="out/TKB.xlsx",
                     help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx). Trường có lớp ở cơ sở 2 "
                          "thì tách thành <tên>_diem_chinh.xlsx (cơ sở 1) và <tên>_diem_phu.xlsx (cơ sở 2)")
@@ -70,16 +70,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"CẢNH BÁO: đang dùng OR-Tools {ortools_version()}, khác bản {config.ORTOOLS_VERSION} đã ghim; kết quả "
               f"có thể khác máy khác. Cài đúng bản bằng:  pip install -r requirements.txt", file=sys.stderr)
     try:
-        rules = read_rules(args.staff)
+        rules = read_rules(args.staff, warn=lambda text: print(f"Cảnh báo: {text}"))
     except InputError as exc:
         print(f"LỖI: {exc}", file=sys.stderr)
         return 1
     if rules is None:
-        print("Quy định: mặc định của chương trình (file vào không có các sheet QUY ĐỊNH).")
+        print(f"Quy định: mặc định của chương trình (file vào không có cột quy định ở sheet {config.PROGRAM_SHEET}, "
+              f"không có sheet {config.RULES_SHEET}).")
     else:
         diff = changed(rules)
-        print("Quy định: các sheet QUY ĐỊNH" + (f", khác mặc định: {', '.join(diff)}." if diff else ", giống mặc định."))
-    with applied(rules):  # các luật trong các sheet QUY ĐỊNH thay giá trị mặc định trong tkb/config.py
+        print("Quy định: đọc từ file vào" + (f", khác mặc định: {', '.join(diff)}." if diff else ", giống mặc định."))
+    with applied(rules):  # quy định trong file vào thay giá trị mặc định trong tkb/config.py
         return _run(args, settings)
 
 
@@ -96,12 +97,12 @@ def _run(args, settings: config.Settings) -> int:
               f"chương trình học: {n_subjects} môn (sheet {config.PROGRAM_SHEET}).")
         solution = None
         saved = None if args.xep_lai else read_saved_timetable(args.staff)
-        if saved is not None and saved_code(args.staff) not in (None, rules_code()):
-            print(f"Các sheet QUY ĐỊNH đã sửa so với lúc xếp TKB lưu trong file vào (sheet {config.SAVED_SHEET}): "
-                  f"xếp lại từ đầu theo quy định mới.")
+        if saved is not None and saved.rules_code not in (None, rules_code()):
+            print(f"Quy định đã sửa so với lúc xếp TKB lưu trong file vào (sheet {config.SAVED_SHEET}): xếp lại từ "
+                  f"đầu theo quy định mới.")
             saved = None
         if saved is not None:
-            solution, why = reuse(staff, curriculum, settings, saved)
+            solution, why = reuse(staff, curriculum, settings, saved.rows)
             if solution is not None:
                 print(f"Dùng lại TKB đã xếp trong file vào (sheet {config.SAVED_SHEET}), không xếp lại. Muốn xếp lại "
                       f"từ đầu: đặt GIU_TKB_DA_XEP = False trong main.py (dòng lệnh: --xep-lai).")

@@ -1,4 +1,5 @@
-"""Các sheet QUY ĐỊNH của file vào (tkb/rules.py): đọc, kiểm tra, dùng thay giá trị mặc định trong tkb/config.py."""
+"""Quy định trong file vào (tkb/rules.py): các cột quy định của sheet CHƯƠNG TRÌNH HỌC và ba bảng của sheet QUY ĐỊNH;
+đọc, kiểm tra, dùng thay giá trị mặc định trong tkb/config.py."""
 import shutil
 
 import openpyxl
@@ -12,42 +13,65 @@ from tkb.template import write_staff_template
 
 from .conftest import CURRICULUM, small_staff
 
-CHUNG, NGAY, TIET, MON = config.RULES_SHEETS
+MON, CHUNG, NGAY, TIET = "MÔN", "Quy định", "Ngày", "Tiết"  # nơi sửa: sheet chương trình học, ba bảng
+
+
+def _locate(ws, table):
+    """Dòng tiêu đề và dòng cuối của bảng `table` (ô đầu dòng tiêu đề) trong sheet QUY ĐỊNH."""
+    top = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == table)
+    end = top
+    while end + 1 <= ws.max_row and ws.cell(end + 1, 1).value is not None:
+        end += 1
+    return top, end
 
 
 def _input(tmp_path, edits=(), name="vao.xlsx"):
-    """File vào trường nhỏ (các sheet quy định ghi mặc định). `edits`: (sheet, ô cột đầu, tiêu đề cột, giá trị); ô cột
-    đầu chưa có thì thêm dòng, cột chưa có thì thêm cột; sheet CHUNG ghi vào cột Giá trị."""
+    """File vào trường nhỏ (quy định ghi mặc định). `edits`: (nơi, ô đầu dòng, tiêu đề cột, giá trị); nơi là MON
+    (sheet CHƯƠNG TRÌNH HỌC) hoặc tên bảng của sheet QUY ĐỊNH; bảng chung ghi vào cột Giá trị. Dòng chưa có thì thêm
+    (bảng của sheet QUY ĐỊNH: thêm vào cuối bảng), cột chưa có thì thêm."""
     path = tmp_path / name
     write_staff_template(path, small_staff(general=False), CURRICULUM)
-    if edits:
-        wb = openpyxl.load_workbook(path)
-        for sheet, key, header, value in edits:
-            ws = wb[sheet]
-            heads = {c.value: c.column for c in ws[1]}
-            header = "Giá trị" if sheet == CHUNG else header
-            if header not in heads:  # cột mới
-                heads[header] = ws.max_column + 1
-                ws.cell(1, heads[header], header)
-            row = next((r for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == key), ws.max_row + 1)
+    wb = openpyxl.load_workbook(path)
+    for where, key, header, value in edits:
+        ws = wb[config.PROGRAM_SHEET] if where == MON else wb[config.RULES_SHEET]
+        top, end = (1, ws.max_row) if where == MON else _locate(ws, where)
+        heads = {ws.cell(top, c).value: c for c in range(1, ws.max_column + 1) if ws.cell(top, c).value}
+        header = "Giá trị" if where == CHUNG else header
+        if header not in heads:
+            heads[header] = max(heads.values()) + 1
+            ws.cell(top, heads[header], header)
+        row = next((r for r in range(top + 1, end + 1) if ws.cell(r, 1).value == key), None)
+        if row is None:
+            if where != MON and end < ws.max_row:
+                ws.insert_rows(end + 1)
+            row = end + 1
             ws.cell(row, 1, key)
-            ws.cell(row, heads[header]).value = value
-        wb.save(path)
+        ws.cell(row, heads[header]).value = value
+    wb.save(path)
     return path
 
 
-def _drop(path, sheet, header=None):
-    """Xóa cả sheet, hoặc một cột của sheet."""
+def _drop(path, where, header=None):
+    """Xóa sheet QUY ĐỊNH (where = None), hoặc một cột quy định của sheet CHƯƠNG TRÌNH HỌC."""
     wb = openpyxl.load_workbook(path)
-    if header is None:
-        del wb[sheet]
+    if where is None:
+        del wb[config.RULES_SHEET]
     else:
-        ws = wb[sheet]
+        ws = wb[config.PROGRAM_SHEET]
         ws.delete_cols(next(c.column for c in ws[1] if c.value == header))
     wb.save(path)
 
 
-def test_default_sheets_equal_config(tmp_path):
+def _drop_all_rule_columns(path):
+    wb = openpyxl.load_workbook(path)
+    ws = wb[config.PROGRAM_SHEET]
+    keep = sum(1 for c in ws[1] if c.value == "Môn học" or str(c.value).startswith("Khối"))
+    ws.delete_cols(keep + 1, ws.max_column - keep)
+    del wb[config.RULES_SHEET]
+    wb.save(path)
+
+
+def test_default_rules_equal_config(tmp_path):
     rules = read_rules(_input(tmp_path))
     assert rules == DEFAULTS and changed(rules) == []
     # Cùng thứ tự (thứ tự dựng mô hình): nhóm môn, môn GVCN, ô HĐTN.
@@ -55,41 +79,42 @@ def test_default_sheets_equal_config(tmp_path):
         assert list(rules[attr]) == list(DEFAULTS[attr])
 
 
-def test_file_without_rule_sheets_uses_defaults(tmp_path):
+def test_file_without_rules_uses_defaults(tmp_path):
     path = _input(tmp_path)
-    for sheet in config.RULES_SHEETS:
-        _drop(path, sheet)
+    _drop_all_rule_columns(path)
     assert read_rules(path) is None
 
 
 def test_missing_sheet_or_column_keeps_defaults(tmp_path):
     path = _input(tmp_path)
-    _drop(path, TIET)
+    _drop(path, None)
     _drop(path, MON, "Môn nặng")
     rules = read_rules(path)
-    assert "HEAVY_SUBJECTS" not in rules and "HOMEROOM_PERIODS" not in rules and "HEAVY_LATE_PERIODS" not in rules
-    assert rules["DAY_SESSIONS"] == DEFAULTS["DAY_SESSIONS"] and rules["MORNING_SUBJECTS"] == DEFAULTS["MORNING_SUBJECTS"]
+    assert "HEAVY_SUBJECTS" not in rules and "HOMEROOM_PERIODS" not in rules and "DAY_SESSIONS" not in rules
+    assert rules["MORNING_SUBJECTS"] == DEFAULTS["MORNING_SUBJECTS"]
 
 
-def test_subject_table(tmp_path):
-    """Có/Không viết kiểu nào cũng được (x, không, trống); tên môn khớp không phân biệt hoa thường, chữ "và"."""
-    rules = read_rules(_input(tmp_path, [
+def test_subject_columns(tmp_path):
+    """Có/Không viết kiểu nào cũng được (x, không, trống); GVCN nhận trọn theo thứ tự dòng."""
+    warnings = []
+    path = _input(tmp_path, [
         (MON, "Tiếng Việt", "Môn nặng", None), (MON, "Thể dục", "Môn nặng", "x"), (MON, "Toán", "Môn nặng", "có"),
         (MON, "Khoa học", "Môn nặng", "không"),
-        (MON, "Lịch sử - Địa lý", "Môn học", "Lịch Sử và Địa Lý"),
-        (MON, "Đạo đức", "GVCN nhận trọn", 7), (MON, "Tiếng Việt", "GVCN nhận trọn", 9),
+        (MON, "Tiếng Việt", "GVCN nhận trọn", "Không"),
         (MON, "Đạo đức", "Quản lý dạy khối", 5),
         (MON, "Tiếng Anh", "Tối đa tiết mỗi ngày", 2),
         (MON, "Thể dục", "Tên trong TKB", "TD"),
-    ]))
+        (MON, "Tiếng Việt", "Môn khó", "Có"),  # cột lạ ở sheet chương trình học: cảnh báo, bỏ qua
+    ])
+    rules = read_rules(path, warn=warnings.append)
     assert rules["HEAVY_SUBJECTS"] == {config.TOAN, config.TOAN_TC, config.TV_TC, config.TIENG_ANH, config.TIN_HOC,
                                        "Thể dục"}
-    assert rules["HOMEROOM_PRIORITY"] == [config.TOAN, config.HDTN, config.KH, config.LSDL, config.DD, config.TV]
+    assert rules["HOMEROOM_PRIORITY"] == [config.TOAN, config.HDTN, config.KH, config.LSDL, config.DD]
     assert rules["MANAGER_RULES"] == [config.ManagerRule(config.DD, 5), config.ManagerRule(config.KNS, 4)]  # thứ tự dòng
     assert rules["DAILY_LIMITS"] == {config.TOAN: 1, config.TIENG_ANH: 2}
     assert rules["DISPLAY_NAMES"]["Thể dục"] == "TD"
-    assert changed(rules) == ["Tên trong TKB", "GVCN nhận trọn", "Quản lý dạy khối", "Tối đa tiết mỗi ngày",
-                              "Môn nặng"]
+    assert changed(rules) == ["Tên trong TKB", "GVCN nhận trọn", "Quản lý dạy khối", "Tối đa tiết mỗi ngày", "Môn nặng"]
+    assert len(warnings) == 1 and "'Môn khó' không phải quy định nào" in warnings[0]
 
 
 def test_subject_groups(tmp_path):
@@ -122,32 +147,32 @@ def test_all_errors_at_once(tmp_path):
             (NGAY, "Thứ 4", "Học buổi sáng", "Không"),  # ngày học không liền nhau
             (NGAY, "Thứ 2", "Tiết HĐTN cố định", 9),
             (TIET, 1, "Luôn do GVCN dạy", "Chắc"),
-            (MON, "Toán", "GVCN nhận trọn", 1),  # trùng số với Tiếng Việt
+            (TIET, 1, "Môn khó", "Có"),  # cột lạ ở sheet QUY ĐỊNH là lỗi
+            (MON, "Toán", "GVCN cắt bớt", 1),  # trùng số với Tiếng Việt
             (MON, "Tin học", "Môn HĐTN", "Có"),  # hai môn HĐTN
             (MON, "Thể dục", "Môn tăng cường", "Có"),  # chưa có Nhóm môn
-            (MON, "Tiếng Việt", "Môn khó", "Có"),  # cột lạ (thêm vào dòng tiêu đề bên dưới)
         ]))
     text = str(err.value)
-    for part in ("QUY ĐỊNH CHUNG, dòng 2: cột Số tiết buổi sáng ghi một số nguyên dương, đang ghi 0",
-                 "cột Chủ Nhiệm được dạy bù chỉ ghi Có hoặc Không, đang ghi 'Có lẽ'",
-                 "QUY ĐỊNH NGÀY: các ngày Học buổi sáng phải liền nhau từ Thứ 2",
-                 "Xếp tiết HĐTN còn lại vào Thứ 4 nhưng ngày đó không học",
-                 "Tiết HĐTN cố định Thứ 2 tiết 9 không có trong khung giờ",
-                 "QUY ĐỊNH TIẾT, dòng 2: cột Luôn do GVCN dạy chỉ ghi Có hoặc Không",
-                 "cột GVCN nhận trọn: số thứ tự 1 bị lặp (Tiếng Việt)",
-                 "cột Môn HĐTN chỉ ghi Có ở một môn (đã có Hoạt động trải nghiệm)",
-                 "môn tăng cường Thể dục chưa ghi Nhóm môn",
-                 "không có quy định nào tên 'Môn khó'"):
+    parts = ("CHƯƠNG TRÌNH HỌC, dòng 3: cột GVCN cắt bớt: số thứ tự 1 bị lặp (Tiếng Việt)",
+             "cột Môn HĐTN chỉ ghi Có ở một môn (đã có Hoạt động trải nghiệm)",
+             "môn tăng cường Thể dục chưa ghi Nhóm môn",
+             "QUY ĐỊNH, dòng 2: cột Số tiết buổi sáng ghi một số nguyên dương, đang ghi 0",
+             "cột Chủ Nhiệm được dạy bù chỉ ghi Có hoặc Không, đang ghi 'Có lẽ'",
+             "cột Luôn do GVCN dạy chỉ ghi Có hoặc Không",
+             "không có quy định nào tên 'Môn khó'",
+             "QUY ĐỊNH: các ngày Học buổi sáng phải liền nhau từ Thứ 2",
+             "Xếp tiết HĐTN còn lại vào Thứ 4 nhưng ngày đó không học",
+             "Tiết HĐTN cố định Thứ 2 tiết 9 không có trong khung giờ")
+    for part in parts:
         assert part in text, part
-    assert text.startswith("Các sheet quy định có 10 lỗi")
+    assert text.startswith(f"Quy định trong file vào có {len(parts)} lỗi")
+    assert text.index("CHƯƠNG TRÌNH HỌC") < text.index("QUY ĐỊNH, dòng")  # sắp theo sheet rồi theo dòng
 
 
-def test_old_rules_sheet_is_reported(tmp_path):
+def test_old_rule_sheets_are_reported(tmp_path):
     path = _input(tmp_path)
     wb = openpyxl.load_workbook(path)
-    ws = wb.create_sheet("QUY ĐỊNH")
-    ws.append(["Quy định", "Giá trị", "Ghi chú"])
-    ws.append(["Môn nặng", "Toán"])
+    wb.create_sheet("QUY ĐỊNH MÔN").append(["Môn học", "Môn nặng"])
     wb.save(path)
     with pytest.raises(InputError, match="mẫu cũ"):
         read_rules(path)
@@ -170,25 +195,27 @@ def _code(text):
     return next(line.split()[3] for line in text.splitlines() if line.startswith("Mã kết quả"))
 
 
-def test_default_sheets_give_the_same_timetable(tmp_path, capsys):
-    """Có các sheet quy định (giá trị mặc định) hay không có thì TKB như nhau."""
-    with_sheets = _input(tmp_path)
+def test_default_rules_give_the_same_timetable(tmp_path, capsys):
+    """Có quy định (giá trị mặc định) hay không có thì TKB như nhau."""
+    with_rules = _input(tmp_path)
     without = tmp_path / "khong_quy_dinh.xlsx"
-    shutil.copy(with_sheets, without)
-    for sheet in config.RULES_SHEETS:
-        _drop(without, sheet)
+    shutil.copy(with_rules, without)
+    _drop_all_rule_columns(without)
     codes = []
-    for path, note in ((with_sheets, "giống mặc định"), (without, "mặc định của chương trình")):
+    for path, note in ((with_rules, "giống mặc định"), (without, "mặc định của chương trình")):
         assert main.run(path, tmp_path / path.stem, thoi_gian_toi_da=10, che_do="tuyen_them") == 0
         out = capsys.readouterr().out
         assert note in out
         codes.append(_code(out))
     assert codes[0] == codes[1]
-    # File cập nhật của file vào không có các sheet quy định thì có thêm các sheet đó (các quy định đã dùng).
-    assert read_rules(tmp_path / without.stem / "khong_quy_dinh_cap_nhat.xlsx") == DEFAULTS
+    # File cập nhật của file vào không ghi quy định thì có thêm các quy định đã dùng.
+    updated = tmp_path / without.stem / "khong_quy_dinh_cap_nhat.xlsx"
+    assert read_rules(updated) == DEFAULTS
+    assert openpyxl.load_workbook(updated).sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN",
+                                                          "TKB đã xếp"]
 
 
-def test_rules_from_the_sheets_are_used(tmp_path, capsys):
+def test_rules_from_the_file_are_used(tmp_path, capsys):
     """Thêm sáng Thứ 7, chiều 4 tiết: TKB có cột Thứ 7, kiểm tra luật đạt; chạy xong config trở lại mặc định."""
     path = _input(tmp_path, [(NGAY, "Thứ 7", "Học buổi sáng", "Có"), (CHUNG, "Số tiết buổi chiều", None, 4),
                              (TIET, 7, "Hạn chế môn nặng", "Không"), (TIET, 8, "Hạn chế môn nặng", "Có")])
@@ -210,12 +237,12 @@ def test_changed_rules_in_updated_file_solve_again(tmp_path, capsys):
     assert main.run(path, tmp_path / "lan1", thoi_gian_toi_da=10, che_do="tuyen_them") == 0
     updated = tmp_path / "lan1" / "vao_cap_nhat.xlsx"
     ws = openpyxl.load_workbook(updated)["TKB đã xếp"]
-    assert (ws["G1"].value, ws["H1"].value, ws["H2"].value) == ("Mã Kết Quả", "Mã Quy Định", code())
+    assert (ws["C1"].value, ws["D1"].value) == ("Mã quy định", code())
     wb = openpyxl.load_workbook(updated)
-    rules = wb[MON]
-    row = next(r for r in range(2, rules.max_row + 1) if rules.cell(r, 1).value == "Tiếng Việt")
-    col = next(c.column for c in rules[1] if c.value == "Môn nặng")
-    rules.cell(row, col, "Không")
+    program = wb[config.PROGRAM_SHEET]
+    row = next(r for r in range(2, program.max_row + 1) if program.cell(r, 1).value == "Tiếng Việt")
+    col = next(c.column for c in program[1] if c.value == "Môn nặng")
+    program.cell(row, col, "Không")
     wb.save(updated)
     capsys.readouterr()
     assert main.run(updated, tmp_path / "lan2", thoi_gian_toi_da=10, che_do="tuyen_them") == 0

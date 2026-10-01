@@ -1,14 +1,15 @@
-"""Các sheet QUY ĐỊNH của file vào: luật nghiệp vụ nhà trường tự sửa trong Excel, không cần sửa mã nguồn.
+"""Quy định nghiệp vụ trong file vào: nhà trường tự sửa trong Excel, không cần sửa mã nguồn.
 
-Bốn sheet, mỗi quy định là một cột (sheet chung: một dòng); mỗi ô chỉ ghi Có, Không hoặc một số nguyên dương, ô
-trống là Không (hoặc không áp dụng). Riêng cột Tên trong TKB ghi chữ.
-- QUY ĐỊNH CHUNG: Quy định | Giá trị | Ghi chú (số tiết mỗi buổi, giới hạn nhóm môn, ghép cặp, ai được dạy bù).
-- QUY ĐỊNH NGÀY: Ngày | Học buổi sáng | Học buổi chiều | Tiết HĐTN cố định | Xếp tiết HĐTN còn lại.
-- QUY ĐỊNH TIẾT: Tiết | Luôn do GVCN dạy | Hạn chế môn nặng.
-- QUY ĐỊNH MÔN: Môn học | Tên trong TKB | Môn HĐTN | GVCN nhận trọn | ... (mỗi môn một dòng, tên như trong sheet
-  CHƯƠNG TRÌNH HỌC).
+Một quy ước cho mọi ô: mỗi quy định là một cột (bảng quy định chung: một dòng), mỗi ô chỉ ghi Có, Không hoặc một
+số nguyên dương; ô trống là Không (hoặc không áp dụng). Riêng cột Tên trong TKB ghi chữ.
+- Sheet CHƯƠNG TRÌNH HỌC: sau các cột Khối là các cột quy định của môn (Tên trong TKB, Môn HĐTN, GVCN nhận trọn...),
+  nên tên môn chỉ ghi một chỗ.
+- Sheet QUY ĐỊNH: ba bảng xếp chồng, cách nhau một dòng trống:
+  Quy định | Giá trị (số tiết mỗi buổi, giới hạn nhóm môn, ghép cặp, ai được dạy bù);
+  Ngày | Học buổi sáng | Học buổi chiều | Tiết HĐTN cố định | Xếp tiết HĐTN còn lại (Thứ 2 … Thứ 7);
+  Tiết | Luôn do GVCN dạy | Hạn chế môn nặng.
 
-Sheet, cột (hoặc dòng của sheet chung) nào không có thì quy định đó dùng giá trị mặc định trong tkb/config.py, nên
+Cột, bảng (hoặc dòng của bảng chung) nào không có thì quy định đó dùng giá trị mặc định trong tkb/config.py, nên
 file vào cũ vẫn chạy như trước. Cột đã có thì là đủ: môn, ngày, tiết không có dòng tính là Không. Trọng số mục tiêu,
 tham số xếp giờ và số tiết bù tối đa (main.py) vẫn ở mã nguồn.
 """
@@ -26,22 +27,22 @@ import openpyxl
 from . import config
 from .staff import _NO, _YES, InputError, _fold, clean_name, find_sheet, normalize, subject_key
 
-GENERAL_SHEET, DAY_SHEET, PERIOD_SHEET, SUBJECT_SHEET = config.RULES_SHEETS
-OLD_SHEET = "QUY ĐỊNH"  # mẫu cũ (Quy định | Giá trị, giá trị ghi chữ), không còn đọc
 YES, NO = "Có", "Không"
-CODE_HEADER = "Mã Quy Định"  # cột của sheet TKB đã xếp (config.SAVED_SHEET) ghi mã các quy định lúc xếp
 MAX_DAYS = 6  # Thứ 2 – Thứ 7
-NOTE = "Ghi chú"
+NOTE = "Ghi chú"  # cột ghi chú (nếu có) được bỏ qua
+# Mẫu cũ không còn đọc: bốn sheet quy định riêng.
+OLD_SHEETS = ("QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "QUY ĐỊNH MÔN")
 
 
 @dataclass(frozen=True)
 class Col:
-    header: str  # tiêu đề cột (sheet chung: chữ ở cột Quy định)
+    header: str  # tiêu đề cột (bảng chung: chữ ở cột Quy định)
     key: str  # hằng số trong tkb/config.py, hoặc phần của quy định ghép từ nhiều cột (chữ thường)
     kind: str  # "yes": Có/Không; "int": số nguyên dương; "order": số thứ tự 1, 2...; "text": chữ
     note: str
 
 
+GENERAL_KEY, VALUE = "Quy định", "Giá trị"
 GENERAL = (
     Col("Số tiết buổi sáng", "morning_periods", "int", "Buổi sáng là tiết 1 đến tiết này."),
     Col("Số tiết buổi chiều", "afternoon_periods", "int",
@@ -50,7 +51,7 @@ GENERAL = (
         "Luật cứng; môn có từ 2 tiết trong một buổi thì các tiết đó phải liền nhau."),
     Col("Ghép cặp khi nhóm môn có từ (tiết/tuần)", "PAIR_MIN_LESSONS", "int",
         "Luật cứng: nhóm môn có từ ngần ấy tiết/tuần và tổng số tiết chẵn thì xếp thành các cặp 2 tiết liền, cùng "
-        "người dạy (trừ nhóm ghi Có ở cột Không ghép cặp, sheet QUY ĐỊNH MÔN)."),
+        "người dạy (trừ môn ghi Có ở cột Không ghép cặp)."),
     Col("Chủ Nhiệm được dạy bù", "overtime_homeroom", "yes", "GVCN chỉ bù ở lớp mình và bù trước bộ môn."),
     Col("Bộ Môn được dạy bù", "overtime_general", "yes", "Bộ môn bù khi GVCN đã bù hết mức."),
 )
@@ -72,17 +73,18 @@ SUBJECT_KEY = "Môn học"
 SUBJECT_COLS = (
     Col("Tên trong TKB", "DISPLAY_NAMES", "text", "Chữ ghi trong ô TKB (cột duy nhất ghi chữ); trống: ghi đúng tên môn."),
     Col("Môn HĐTN", "HDTN", "yes",
-        "Có ở một môn: môn chào cờ, sinh hoạt lớp, có tiết cố định ở sheet QUY ĐỊNH NGÀY."),
-    Col("GVCN nhận trọn", "HOMEROOM_PRIORITY", "order",
-        "Số thứ tự 1, 2...: GVCN nhận hết các môn này của lớp mình; luật cứng: môn nào phải chia cho người khác thì "
-        "tiết đầu tiên trong tuần do GVCN dạy."),
+        "Có ở một môn: môn chào cờ, sinh hoạt lớp, có tiết cố định ở bảng ngày của sheet QUY ĐỊNH."),
+    Col("GVCN nhận trọn", "HOMEROOM_PRIORITY", "yes",
+        "GVCN nhận hết các môn này của lớp mình; luật cứng: môn nào phải chia cho người khác thì tiết đầu tiên trong "
+        "tuần do GVCN dạy."),
     Col("GVCN cắt bớt", "HOMEROOM_CUT_ORDER", "order",
-        "Số thứ tự cắt khi các môn nhận trọn vượt định mức GVCN; mỗi môn GVCN giữ ít nhất 1 tiết."),
+        "Số thứ tự 1, 2...: môn cắt trước khi các môn nhận trọn vượt định mức GVCN; mỗi môn GVCN giữ ít nhất 1 tiết."),
     Col("GVCN nhận thêm", "HOMEROOM_FILL_ORDER", "order",
-        "Số thứ tự nhận thêm cho đủ định mức GVCN (không nhận môn của GV chuyên biệt)."),
+        "Số thứ tự 1, 2...: môn GVCN nhận thêm trước cho đủ định mức (không nhận môn của GV chuyên biệt)."),
     Col("Chỉ GVCN dạy", "HOMEROOM_ONLY_SUBJECTS", "yes", "Luật cứng: chỉ GVCN của lớp được dạy."),
     Col("Bộ Môn không dạy", "GENERAL_FORBIDDEN_SUBJECTS", "yes",
-        "GV bộ môn không dạy môn này; trường chưa có GV chuyên biệt của môn thì chương trình tuyển thêm."),
+        "GV bộ môn không dạy môn này; trường chưa có GV chuyên biệt của môn thì chương trình tuyển thêm. Ghi theo "
+        "ngoại lệ để môn mới (ô trống) mặc nhiên bộ môn dạy được."),
     Col("Quản lý dạy khối", "MANAGER_RULES", "int", "Khối mà Quản Lý được dạy môn này, vd Kỹ năng sống: 4."),
     Col("GVCN bù môn chuyên biệt", "HOMEROOM_OVERTIME_SPECIALIST", "yes",
         "Môn có GV chuyên biệt mà GVCN vẫn được dạy bù ở lớp mình (nhận sau cùng)."),
@@ -93,8 +95,9 @@ SUBJECT_COLS = (
         "phải có tiết môn chính; cả nhóm tính chung cho giới hạn mỗi buổi và ghép cặp."),
     Col("Tối đa tiết mỗi ngày", "DAILY_LIMITS", "int",
         "Luật cứng, vd Toán: 1; chỉ áp dụng khi số tiết/tuần của môn không quá số ngày học."),
-    Col("Không ghép cặp", "PAIR_EXCLUDED", "yes", "Nhóm môn (ghi ở môn chính) không xếp thành cặp 2 tiết liền."),
-    Col("Môn nặng", "HEAVY_SUBJECTS", "yes", "Mục tiêu mềm: hạn chế xếp vào các tiết Hạn chế môn nặng (QUY ĐỊNH TIẾT)."),
+    Col("Không ghép cặp", "PAIR_EXCLUDED", "yes",
+        "Nhóm môn (ghi ở môn chính) không xếp thành cặp 2 tiết liền. Ghi theo ngoại lệ như cột Bộ Môn không dạy."),
+    Col("Môn nặng", "HEAVY_SUBJECTS", "yes", "Mục tiêu mềm: hạn chế xếp vào các tiết Hạn chế môn nặng (sheet QUY ĐỊNH)."),
     Col("Ưu tiên buổi sáng", "MORNING_SUBJECTS", "yes",
         "Mục tiêu mềm: mỗi tiết ở buổi chiều bị trừ điểm, và môn được rải đều hơn trong tuần."),
 )
@@ -109,7 +112,7 @@ LABELS = {**{c.key: c.header for c in (*GENERAL, *DAY_COLS, *PERIOD_COLS, *SUBJE
           **{a: "Khung giờ" for a in FRAME_ATTRS}, "OVERTIME_ROLES": "Được dạy bù",
           "SUBJECT_GROUPS": "Nhóm môn, Môn tăng cường"}
 DEFAULTS = {attr: copy.deepcopy(getattr(config, attr)) for attr in ATTRS}  # giá trị mặc định trong tkb/config.py
-# Tên môn trong tkb/config.py (và chữ viết tắt mặc định), để khớp tên môn ghi trong sheet QUY ĐỊNH MÔN.
+# Tên môn trong tkb/config.py (và chữ viết tắt mặc định), để khớp tên môn ghi trong sheet CHƯƠNG TRÌNH HỌC.
 _KNOWN = {**{subject_key(label): s for s, label in config.DISPLAY_NAMES.items()},
           **{subject_key(s): s for s in config.rule_subjects()}}
 _ROLES = {"overtime_homeroom": config.ROLE_HOMEROOM, "overtime_general": config.ROLE_GENERAL}
@@ -142,18 +145,30 @@ def _blank(value) -> bool:
     return value is None or str(value).strip() == ""
 
 
-class _Reader:
-    """Đọc bốn sheet QUY ĐỊNH; gom mọi lỗi (sheet, dòng, lỗi) để báo cùng lúc."""
+def _row(ws, r: int) -> dict[int, object]:
+    """Các ô có chữ của dòng r: {cột: giá trị}."""
+    return {c: ws.cell(r, c).value for c in range(1, ws.max_column + 1) if not _blank(ws.cell(r, c).value)}
 
-    def __init__(self):
+
+def _is_grade(head: str) -> bool:
+    return re.fullmatch(r"khối \d+", head) is not None
+
+
+class _Reader:
+    """Đọc các cột quy định của sheet CHƯƠNG TRÌNH HỌC và ba bảng của sheet QUY ĐỊNH; gom mọi lỗi để báo cùng
+    lúc, sắp theo sheet rồi theo dòng."""
+
+    def __init__(self, warn):
         self.frame = _frame_now()
         self.frame_given = False
         self.values: dict[str, object] = {}
         self.errors: list[tuple[int, int, str]] = []
+        self.warn = warn
 
     def error(self, sheet: str, row: int | None, text: str) -> None:
         where = f"{sheet}, dòng {row}" if row else sheet
-        self.errors.append((config.RULES_SHEETS.index(sheet), row or 10 ** 6, f"{where}: {text}"))
+        order = 0 if normalize(sheet) == normalize(config.PROGRAM_SHEET) else 1
+        self.errors.append((order, row or 10 ** 6, f"{where}: {text}"))
 
     def yes(self, sheet: str, row: int, header: str, value) -> bool:
         if isinstance(value, bool):
@@ -185,63 +200,85 @@ class _Reader:
             return self.number(sheet, row, col.header, value)
         return None if _blank(value) else clean_name(value)
 
-    def header(self, ws, *names: str) -> tuple[int, dict[str, int]] | None:
-        """Dòng tiêu đề (trong 20 dòng đầu) có đủ các cột `names`: (dòng, {tiêu đề chuẩn hóa: cột})."""
-        for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
-            heads = {normalize(c.value): c.column for c in row if not _blank(c.value)}
-            if all(normalize(n) in heads for n in names):
-                return row[0].row, heads
-        self.error(ws.title, None, f"không có dòng tiêu đề có cột {', '.join(names)}")
-        return None
-
-    def table(self, ws, key_header: str, cols: tuple[Col, ...]):
-        """Bảng có cột khóa `key_header`: ({khóa của cột: số cột}, [(dòng, ô khóa, {khóa của cột: giá trị})])."""
+    def table(self, ws, header_row: int, end_row: int, key_col: int, cols: tuple[Col, ...], strict: bool):
+        """Bảng có dòng tiêu đề `header_row`, khóa ở cột `key_col`, các dòng đến `end_row`: ({khóa của cột: số
+        cột}, [(dòng, ô khóa, {khóa của cột: giá trị})]). `strict`: cột lạ là lỗi; không thì chỉ cảnh báo."""
         sheet = ws.title
-        found_header = self.header(ws, key_header)
-        if found_header is None:
-            return {}, []
-        header_row, heads = found_header
-        key_col = heads[normalize(key_header)]
         wanted = {normalize(c.header): c for c in cols}
         found: dict[str, int] = {}
-        for head, c in heads.items():
+        for c, value in _row(ws, header_row).items():
+            head = normalize(value)
             if c == key_col or head == normalize(NOTE):
                 continue
             col = wanted.get(head)
-            if col is None:
-                self.error(sheet, header_row, f"không có quy định nào tên '{ws.cell(header_row, c).value}' "
-                                              f"(các cột: {', '.join(x.header for x in cols)})")
-            else:
+            if col is not None:
                 found[col.key] = c
+            elif strict:
+                self.error(sheet, header_row, f"không có quy định nào tên '{value}' (các cột: "
+                                              f"{', '.join(x.header for x in cols)})")
+            elif not _is_grade(head) and head not in ("stt", "tổng"):
+                self.warn(f"Sheet {sheet}: cột '{clean_name(value)}' không phải quy định nào, bỏ qua (các cột "
+                          f"quy định: {', '.join(x.header for x in cols)})")
         by_key = {c.key: c for c in cols}
         rows = []
-        for r in range(header_row + 1, ws.max_row + 1):
+        for r in range(header_row + 1, end_row + 1):
             key = ws.cell(r, key_col).value
             values = {k: ws.cell(r, c).value for k, c in found.items()}
             if _blank(key):
                 if any(not _blank(v) for v in values.values()):
-                    self.error(sheet, r, f"thiếu {key_header}")
+                    self.error(sheet, r, "dòng có quy định nhưng thiếu ô đầu dòng")
                 continue
             rows.append((r, key, {k: self.cell(sheet, r, by_key[k], v) for k, v in values.items()}))
         return found, rows
 
-    def general(self, ws) -> None:
+    # ---- sheet QUY ĐỊNH: ba bảng ----
+    def rules_sheet(self, ws) -> None:
+        """Tìm các bảng theo ô tiêu đề đầu bảng (Quy định, Ngày, Tiết); mỗi bảng đến dòng trống kế tiếp."""
+        kinds = {normalize(GENERAL_KEY): (self.general, GENERAL), normalize(DAY_KEY): (self.days, DAY_COLS),
+                 normalize(PERIOD_KEY): (self.periods, PERIOD_COLS)}
+        seen: dict[str, int] = {}
+        r = 1
+        while r <= ws.max_row:
+            cells = _row(ws, r)
+            first = next(iter(cells.items()), None)
+            kind = kinds.get(normalize(first[1])) if first else None
+            others = {normalize(v) for c, v in cells.items() if c != (first[0] if first else None)}
+            if kind is None or not others & ({normalize(c.header) for c in kind[1]} | {normalize(VALUE)}):
+                r += 1
+                continue
+            end = r
+            while end + 1 <= ws.max_row and _row(ws, end + 1) and \
+                    normalize(next(iter(_row(ws, end + 1).values()))) not in kinds:
+                end += 1
+            name = normalize(first[1])
+            if name in seen:
+                self.error(ws.title, r, f"bảng {first[1]} bị lặp với dòng {seen[name]}")
+            else:
+                seen[name] = r
+                kind[0](ws, r, end, first[0])
+            r = end + 1
+        if not seen:
+            self.error(ws.title, None, f"không có bảng nào (dòng tiêu đề bắt đầu bằng {GENERAL_KEY}, {DAY_KEY} "
+                                       f"hoặc {PERIOD_KEY})")
+
+    def general(self, ws, header_row: int, end_row: int, label_col: int) -> None:
         sheet = ws.title
-        found_header = self.header(ws, "Quy định", "Giá trị")
-        if found_header is None:
+        heads = {normalize(v): c for c, v in _row(ws, header_row).items()}
+        if normalize(VALUE) not in heads:
+            self.error(sheet, header_row, f"bảng {GENERAL_KEY} phải có cột {VALUE}")
             return
-        header_row, heads = found_header
-        label_col, value_col = heads[normalize("Quy định")], heads[normalize("Giá trị")]
+        value_col = heads[normalize(VALUE)]
         by_label = {subject_key(c.header): c for c in GENERAL}
         seen: dict[str, int] = {}
         roles = set(config.OVERTIME_ROLES)
-        for r in range(header_row + 1, ws.max_row + 1):
+        for r in range(header_row + 1, end_row + 1):
             label = ws.cell(r, label_col).value
             if _blank(label):
                 continue
             col = by_label.get(subject_key(label))
             if col is None:
-                self.error(sheet, r, f"không có quy định '{clean_name(label)}'")
+                self.error(sheet, r, f"không có quy định '{clean_name(label)}' (các quy định: "
+                                     f"{', '.join(c.header for c in GENERAL)})")
                 continue
             if col.key in seen:
                 self.error(sheet, r, f"quy định '{col.header}' bị lặp với dòng {seen[col.key]}")
@@ -251,7 +288,7 @@ class _Reader:
             value = self.cell(sheet, r, col, raw)
             if col.kind == "int" and value is None:
                 if _blank(raw):
-                    self.error(sheet, r, f"chưa ghi số ở cột Giá trị ({col.header})")
+                    self.error(sheet, r, f"chưa ghi số ở cột {VALUE} ({col.header})")
                 continue
             if col.key in _ROLES:
                 roles = roles | {_ROLES[col.key]} if value else roles - {_ROLES[col.key]}
@@ -262,9 +299,9 @@ class _Reader:
             else:
                 self.values[col.key] = value
 
-    def days(self, ws) -> None:
+    def days(self, ws, header_row: int, end_row: int, key_col: int) -> None:
         sheet = ws.title
-        found, rows = self.table(ws, DAY_KEY, DAY_COLS)
+        found, rows = self.table(ws, header_row, end_row, key_col, DAY_COLS, strict=True)
         by_day: dict[int, dict] = {}
         for r, key, values in rows:
             m = re.fullmatch(r"(?:thu|t)?\s*(\d)", _fold(key))
@@ -286,9 +323,9 @@ class _Reader:
         if "HDTN_FLEX_DAYS" in found:
             self.values["HDTN_FLEX_DAYS"] = [d for d in days if by_day[d]["HDTN_FLEX_DAYS"]]
 
-    def periods(self, ws) -> None:
+    def periods(self, ws, header_row: int, end_row: int, key_col: int) -> None:
         sheet = ws.title
-        found, rows = self.table(ws, PERIOD_KEY, PERIOD_COLS)
+        found, rows = self.table(ws, header_row, end_row, key_col, PERIOD_COLS, strict=True)
         seen: dict[int, dict] = {}
         for r, key, values in rows:
             p = self.number(sheet, r, PERIOD_KEY, key)
@@ -299,9 +336,24 @@ class _Reader:
         for key in found:
             self.values[key] = {p for p, values in seen.items() if values[key]}
 
-    def subjects(self, ws) -> None:
+    # ---- sheet CHƯƠNG TRÌNH HỌC: các cột quy định của môn ----
+    def subjects(self, ws) -> bool:
+        """Đọc các cột quy định sau các cột Khối; trả về True nếu sheet có ít nhất một cột quy định."""
         sheet = ws.title
-        found, rows = self.table(ws, SUBJECT_KEY, SUBJECT_COLS)
+        header_row = key_col = None
+        for r in range(1, min(ws.max_row, 20) + 1):
+            for c, value in _row(ws, r).items():
+                if normalize(value) == normalize(SUBJECT_KEY):
+                    header_row, key_col = r, c
+                    break
+            if header_row:
+                break
+        if header_row is None:
+            return False  # read_program báo lỗi thiếu cột Môn học
+        found, rows = self.table(ws, header_row, ws.max_row, key_col, SUBJECT_COLS, strict=False)
+        if not found:
+            return False
+        rows = [(r, k, v) for r, k, v in rows if normalize(k) not in ("tổng", "tổng cộng")]
         labels = {subject_key(v["DISPLAY_NAMES"]): clean_name(k) for _, k, v in rows if v.get("DISPLAY_NAMES")}
         names: list[tuple[int, str, dict]] = []
         seen: dict[str, int] = {}
@@ -309,8 +361,7 @@ class _Reader:
             k = subject_key(key)
             name = _KNOWN.get(k) or _KNOWN.get(subject_key(labels.get(k, ""))) or clean_name(key)
             if name in seen:
-                self.error(sheet, r, f"môn {clean_name(key)} bị lặp với dòng {seen[name]}")
-                continue
+                continue  # read_program báo lỗi môn lặp
             seen[name] = r
             names.append((r, name, values))
         v = self.values
@@ -325,6 +376,8 @@ class _Reader:
                 for r, s in chosen[1:]:
                     self.error(sheet, r, f"cột {col.header} chỉ ghi {YES} ở một môn (đã có {chosen[0][1]})")
                 v[col.key] = chosen[0][1] if chosen else ""
+            elif col.key == "HOMEROOM_PRIORITY":
+                v[col.key] = [s for _, s, x in cells if x]  # theo thứ tự dòng
             elif col.kind == "order":
                 order: dict[int, str] = {}
                 for r, s, x in cells:
@@ -340,7 +393,7 @@ class _Reader:
             else:
                 v[col.key] = {s for _, s, x in cells if x}
         if ("group" in found) != ("extra" in found):
-            self.error(sheet, None, "cột Nhóm môn và cột Môn tăng cường phải có cùng nhau")
+            self.error(sheet, header_row, "cột Nhóm môn và cột Môn tăng cường phải có cùng nhau")
         elif "group" in found:
             groups: dict[int, list[tuple[int, str, bool]]] = {}
             for r, s, values in names:
@@ -357,14 +410,16 @@ class _Reader:
                     continue
                 pairs.update({s: mains[0] for _, s, extra in groups[n] if extra})
             v["SUBJECT_GROUPS"] = pairs
+        return True
 
     def finish(self) -> dict[str, object]:
         f = self.frame
+        sheet = config.RULES_SHEET
         morning = f["morning_days"]
         if not morning or morning != list(range(len(morning))):
-            self.error(DAY_SHEET, None, "các ngày Học buổi sáng phải liền nhau từ Thứ 2")
+            self.error(sheet, None, "các ngày Học buổi sáng phải liền nhau từ Thứ 2")
         elif any(d not in morning for d in f["afternoon_days"]):
-            self.error(DAY_SHEET, None, "ngày Học buổi chiều phải là ngày Học buổi sáng")
+            self.error(sheet, None, "ngày Học buổi chiều phải là ngày Học buổi sáng")
         if self.frame_given:
             self.values.update(_build_frame(f))
         # Ngày, tiết các quy định nhắc tới (kể cả giá trị mặc định) phải có trong khung giờ.
@@ -373,40 +428,45 @@ class _Reader:
         n_periods = lambda d: f["morning_periods"] + (f["afternoon_periods"] if d in afternoon else 0)  # noqa: E731
         for d, p in get("HDTN_FIXED_SLOTS"):
             if d not in morning or p > n_periods(d):
-                self.error(DAY_SHEET, None, f"Tiết HĐTN cố định {_day_name(d)} tiết {p} không có trong khung giờ")
+                self.error(sheet, None, f"Tiết HĐTN cố định {_day_name(d)} tiết {p} không có trong khung giờ")
         for d in get("HDTN_FLEX_DAYS"):
             if d not in morning:
-                self.error(DAY_SHEET, None, f"Xếp tiết HĐTN còn lại vào {_day_name(d)} nhưng ngày đó không học")
+                self.error(sheet, None, f"Xếp tiết HĐTN còn lại vào {_day_name(d)} nhưng ngày đó không học")
         total = f["morning_periods"] + f["afternoon_periods"]
         for attr in ("HOMEROOM_PERIODS", "HEAVY_LATE_PERIODS"):
             for p in sorted(get(attr)):
                 if p > total:
-                    self.error(PERIOD_SHEET, None, f"{LABELS[attr]}: không có tiết {p} trong khung giờ (mỗi ngày tối "
-                                                   f"đa {total} tiết)")
+                    self.error(sheet, None, f"{LABELS[attr]}: không có tiết {p} trong khung giờ (mỗi ngày tối đa "
+                                            f"{total} tiết)")
         return self.values
 
 
-def read_rules(path: str | Path) -> dict[str, object] | None:
-    """Đọc các sheet QUY ĐỊNH của file vào. Trả về {hằng số trong config: giá trị} của các quy định có trong file
-    (khung giờ gộp thành DAYS, MORNING, AFTERNOON, DAY_SESSIONS); None nếu file không có sheet quy định nào. Báo mọi
-    lỗi cùng lúc (InputError)."""
+def read_rules(path: str | Path, warn=lambda text: None) -> dict[str, object] | None:
+    """Đọc quy định của file vào: các cột quy định của sheet CHƯƠNG TRÌNH HỌC và sheet QUY ĐỊNH. Trả về {hằng số
+    trong config: giá trị} của các quy định có trong file (khung giờ gộp thành DAYS, MORNING, AFTERNOON,
+    DAY_SESSIONS); None nếu file không ghi quy định nào. Báo mọi lỗi cùng lúc (InputError); `warn` nhận các cảnh báo
+    (vd cột lạ ở sheet chương trình học)."""
     wb = openpyxl.load_workbook(path, data_only=True)
-    if find_sheet(wb, OLD_SHEET) is not None:
-        raise InputError(f"Sheet {OLD_SHEET} theo mẫu cũ (Quy định | Giá trị) không còn đọc: nay quy định nằm ở các "
-                         f"sheet {', '.join(config.RULES_SHEETS)}, mỗi ô ghi Có, Không hoặc số. Tạo file mẫu mới "
-                         f"(python -m tkb.template) rồi chép các quy định sang, hoặc xóa sheet {OLD_SHEET} để dùng "
-                         f"giá trị mặc định")
-    sheets = [find_sheet(wb, name) for name in config.RULES_SHEETS]
-    if all(ws is None for ws in sheets):
+    old = [name for name in OLD_SHEETS if find_sheet(wb, name) is not None]
+    if old:
+        raise InputError(f"File vào theo mẫu cũ (sheet {', '.join(old)}): nay quy định của môn là các cột của sheet "
+                         f"{config.PROGRAM_SHEET}, các quy định khác ở sheet {config.RULES_SHEET}. Tạo file mẫu mới "
+                         f"(python -m tkb.template) rồi chép sang, hoặc xóa các sheet đó để dùng giá trị mặc định")
+    reader = _Reader(warn)
+    found = False
+    program = find_sheet(wb, config.PROGRAM_SHEET)
+    if program is not None:
+        found = reader.subjects(program)
+    ws = find_sheet(wb, config.RULES_SHEET)
+    if ws is not None:
+        reader.rules_sheet(ws)
+        found = True
+    if not found:
         return None
-    reader = _Reader()
-    for ws, read in zip(sheets, (reader.general, reader.days, reader.periods, reader.subjects)):
-        if ws is not None:
-            read(ws)
     values = reader.finish()
     if reader.errors:
         lines = list(dict.fromkeys(text for *_, text in sorted(reader.errors)))
-        raise InputError(f"Các sheet quy định có {len(lines)} lỗi:\n  " + "\n  ".join(lines))
+        raise InputError(f"Quy định trong file vào có {len(lines)} lỗi:\n  " + "\n  ".join(lines))
     return values
 
 
@@ -444,65 +504,61 @@ def code() -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12].upper()
 
 
-def saved_code(path: str | Path) -> str | None:
-    """Mã quy định lưu cùng TKB đã xếp (sheet config.SAVED_SHEET, cột CODE_HEADER) của file vào cập nhật; None nếu
-    không có (file của bản trước chưa lưu mã này)."""
-    wb = openpyxl.load_workbook(path, data_only=True)
-    ws = find_sheet(wb, config.SAVED_SHEET)
-    if ws is None:
-        return None
-    for c in range(1, ws.max_column + 1):
-        if ws.cell(1, c).value is not None and normalize(ws.cell(1, c).value) == normalize(CODE_HEADER):
-            value = ws.cell(2, c).value
-            return str(value).strip() if value is not None else None
-    return None
+def _yn(on: bool) -> str:
+    return YES if on else NO
 
 
-def tables(subjects=()) -> list[tuple[str, list[str], list[list]]]:
-    """Bốn bảng quy định theo config hiện tại: [(tên sheet, tiêu đề, các dòng)], để ghi file mẫu và file vào cập
-    nhật. `subjects`: các môn của chương trình học, tên như trong file vào (dòng sheet QUY ĐỊNH MÔN theo thứ tự này,
-    rồi đến các môn có quy định mà chương trình học không có)."""
-    from .program import canonical_subject
-
-    yn = lambda on: YES if on else NO  # noqa: E731
+def rule_tables() -> list[tuple[list[str], list[list]]]:
+    """Ba bảng của sheet QUY ĐỊNH theo config hiện tại: [(tiêu đề, các dòng)]."""
     f = _frame_now()
     general = {"morning_periods": f["morning_periods"], "afternoon_periods": f["afternoon_periods"],
                "SESSION_GROUP_LIMIT": config.SESSION_GROUP_LIMIT, "PAIR_MIN_LESSONS": config.PAIR_MIN_LESSONS,
-               **{k: yn(role in config.OVERTIME_ROLES) for k, role in _ROLES.items()}}
-    out = [(GENERAL_SHEET, ["Quy định", "Giá trị", NOTE], [[c.header, general[c.key], c.note] for c in GENERAL])]
-
+               **{k: _yn(role in config.OVERTIME_ROLES) for k, role in _ROLES.items()}}
     fixed = dict(config.HDTN_FIXED_SLOTS)
     flex = set(config.HDTN_FLEX_DAYS)
-    days = [[_day_name(d), yn(d in f["morning_days"]), yn(d in f["afternoon_days"]), fixed.get(d), yn(d in flex)]
+    days = [[_day_name(d), _yn(d in f["morning_days"]), _yn(d in f["afternoon_days"]), fixed.get(d), _yn(d in flex)]
             for d in range(MAX_DAYS)]
-    out.append((DAY_SHEET, [DAY_KEY, *(c.header for c in DAY_COLS)], days))
-
     total = f["morning_periods"] + f["afternoon_periods"]
-    periods = [[p, yn(p in config.HOMEROOM_PERIODS), yn(p in config.HEAVY_LATE_PERIODS)] for p in range(1, total + 1)]
-    out.append((PERIOD_SHEET, [PERIOD_KEY, *(c.header for c in PERIOD_COLS)], periods))
+    periods = [[p, _yn(p in config.HOMEROOM_PERIODS), _yn(p in config.HEAVY_LATE_PERIODS)]
+               for p in range(1, total + 1)]
+    return [([GENERAL_KEY, VALUE], [[c.header, general[c.key]] for c in GENERAL]),
+            ([DAY_KEY, *(c.header for c in DAY_COLS)], days),
+            ([PERIOD_KEY, *(c.header for c in PERIOD_COLS)], periods)]
+
+
+def default_subjects() -> list[str]:
+    """Các môn có quy định, theo thứ tự tự nhiên (môn GVCN nhận trọn, môn nhận thêm, rồi các môn khác)."""
+    order = [*config.HOMEROOM_PRIORITY, *config.HOMEROOM_FILL_ORDER,
+             *sorted(config.rule_subjects(), key=subject_key)]
+    return list(dict.fromkeys(s for s in order if s))
+
+
+def subject_columns(subjects=()) -> tuple[list[str], dict[str, list], list[str]]:
+    """Các cột quy định của sheet CHƯƠNG TRÌNH HỌC theo config hiện tại: (tiêu đề, {môn: giá trị các cột}, các môn có
+    quy định mà `subjects` không có). `subjects`: tên môn như trong file vào; khóa của kết quả là tên đó."""
+    from .program import canonical_subject
 
     names = {canonical_subject(s): clean_name(s) for s in subjects}
-    rest = sorted((s for s in config.rule_subjects() if s not in names), key=subject_key)
+    rest = [s for s in default_subjects() if s not in names]
     groups: dict[str, int] = {}
     for extra, main in config.SUBJECT_GROUPS.items():
         groups.setdefault(main, len(set(groups.values())) + 1)
         groups[extra] = groups[main]
     rank = lambda attr, s: (getattr(config, attr).index(s) + 1 if s in getattr(config, attr) else None)  # noqa: E731
     managers = {r.subject: r.grade for r in config.MANAGER_RULES}
-    rows = []
+    values = {}
     for s in [*names, *rest]:
-        rows.append([names.get(s, s), config.DISPLAY_NAMES.get(s), yn(s == config.HDTN),
-                     rank("HOMEROOM_PRIORITY", s), rank("HOMEROOM_CUT_ORDER", s), rank("HOMEROOM_FILL_ORDER", s),
-                     yn(s in config.HOMEROOM_ONLY_SUBJECTS), yn(s in config.GENERAL_FORBIDDEN_SUBJECTS),
-                     managers.get(s), yn(s in config.HOMEROOM_OVERTIME_SPECIALIST), groups.get(s),
-                     yn(s in config.SUBJECT_GROUPS), config.DAILY_LIMITS.get(s), yn(s in config.PAIR_EXCLUDED),
-                     yn(s in config.HEAVY_SUBJECTS), yn(s in config.MORNING_SUBJECTS)])
-    out.append((SUBJECT_SHEET, [SUBJECT_KEY, *(c.header for c in SUBJECT_COLS)], rows))
-    return out
+        values[names.get(s, s)] = [
+            config.DISPLAY_NAMES.get(s), _yn(s == config.HDTN), _yn(s in config.HOMEROOM_PRIORITY),
+            rank("HOMEROOM_CUT_ORDER", s), rank("HOMEROOM_FILL_ORDER", s),
+            _yn(s in config.HOMEROOM_ONLY_SUBJECTS), _yn(s in config.GENERAL_FORBIDDEN_SUBJECTS),
+            managers.get(s), _yn(s in config.HOMEROOM_OVERTIME_SPECIALIST), groups.get(s),
+            _yn(s in config.SUBJECT_GROUPS), config.DAILY_LIMITS.get(s), _yn(s in config.PAIR_EXCLUDED),
+            _yn(s in config.HEAVY_SUBJECTS), _yn(s in config.MORNING_SUBJECTS)]
+    return [c.header for c in SUBJECT_COLS], values, rest
 
 
 def notes() -> list[tuple[str, str]]:
-    """Giải thích từng cột của các sheet quy định (cho sheet HƯỚNG DẪN): [(sheet: cột, cách ghi)]."""
-    return [(f"{sheet}: {c.header}", c.note)
-            for sheet, cols in ((DAY_SHEET, DAY_COLS), (PERIOD_SHEET, PERIOD_COLS), (SUBJECT_SHEET, SUBJECT_COLS))
-            for c in cols]
+    """Giải thích từng quy định (cho sheet HƯỚNG DẪN): [(sheet: cột/quy định, cách ghi)]."""
+    return [*((f"{config.PROGRAM_SHEET}: {c.header}", c.note) for c in SUBJECT_COLS),
+            *((f"{config.RULES_SHEET}: {c.header}", c.note) for c in (*GENERAL, *DAY_COLS, *PERIOD_COLS))]

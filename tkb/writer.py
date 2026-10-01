@@ -19,10 +19,10 @@ from openpyxl.worksheet.datavalidation import DataValidationList
 
 from . import config
 from .solver import Solution, session_of
-from .staff import Teacher, _find_columns, class_sort_key, find_sheet, grade_of, normalize, staff_sheet
+from .staff import Teacher, _find_columns, class_sort_key, clean_name, find_sheet, grade_of, normalize, staff_sheet
 from .style import CellStyle, Style
-from .rules import CODE_HEADER as RULES_CODE_HEADER, code as rules_code
-from .template import write_rules_sheets
+from .rules import code as rules_code, subject_columns
+from .template import GUIDE_SHEET, write_guide, write_rules_sheet
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -358,7 +358,7 @@ def _copy_style(src, dst) -> None:
         dst._style = copy(src._style)
 
 
-NOTES_SHEET = "Chú thích"  # file vào cập nhật: giải thích các cột kết quả và màu dòng (chữ thường)
+OLD_NOTES_SHEET = "Chú thích"  # sheet giải thích của bản trước, nay gộp vào sheet HƯỚNG DẪN
 LIST_SHEET = "Danh mục"  # sheet danh mục ẩn của file mẫu cũ (danh sách thả xuống), bỏ khi chép file vào
 _ROW_FORMULA = re.compile(r"^=\s*ROW\(\)\s*([+-])\s*(\d+)\s*$", re.IGNORECASE)
 
@@ -386,46 +386,107 @@ def plain_values(wb, cached) -> None:
                 cell.value = value
 
 
-def _write_notes(wb, overtime_mode: bool) -> None:
-    """Sheet NOTES_SHEET: các cột kết quả và màu dòng của file vào cập nhật, mỗi dòng một câu chữ thường."""
-    if NOTES_SHEET in wb.sheetnames:
-        del wb[NOTES_SHEET]
-    ws = wb.create_sheet(NOTES_SHEET)
-    lines = [f"{CODE_HEADER}: mã giáo viên dùng trong TKB và file thống kê.",
-             f"{LOAD_HEADER}: số tiết thực dạy trong tuần.",
-             *([f"{OVERTIME_HEADER}: số tiết dạy vượt định mức."] if overtime_mode else []),
-             f"{SPARE_HEADER}: định mức trừ số tiết thực dạy, khi dạy ít hơn định mức.",
-             f"Dòng tô vàng: {OVERTIME_LEGEND.lower()}.",
-             f"Dòng tô xanh lá: {HIRE_LEGEND.lower()}.",
-             f"Dòng tô xanh dương: {SPARE_LEGEND.lower()}.",
-             f"Các sheet {', '.join(config.RULES_SHEETS)}: các luật nghiệp vụ đã dùng (khung giờ, HĐTN, GVCN, quyền "
-             f"dạy, bù giờ, luật bảo vệ học sinh...), mỗi ô ghi Có, Không hoặc số; sửa rồi nạp lại file này thì "
-             f"chương trình xếp lại theo luật mới.",
-             f"Sheet {config.SAVED_SHEET}: TKB đã xếp, mỗi tiết một dòng. Nạp lại file này làm file vào (vd chỉ đổi "
-             f"tên người \"chưa có\" thành tên người mới tuyển) thì chương trình giữ nguyên TKB nếu vẫn đúng mọi "
-             f"luật; muốn xếp lại từ đầu thì đặt GIU_TKB_DA_XEP = False trong main.py."]
-    for i, text in enumerate(lines, start=1):
-        ws.cell(i, 1, text)
-    ws.column_dimensions["A"].width = max(len(t) for t in lines) + 2
+def _result_notes(overtime_mode: bool) -> list[tuple[str, str]]:
+    """Các dòng sheet HƯỚNG DẪN giải thích phần kết quả của file vào cập nhật."""
+    sheet = config.STAFF_SHEET
+    return [(f"{sheet}: {CODE_HEADER}", "Kết quả: mã giáo viên dùng trong TKB và file thống kê."),
+            (f"{sheet}: {LOAD_HEADER}", "Kết quả: số tiết thực dạy trong tuần."),
+            *([(f"{sheet}: {OVERTIME_HEADER}", "Kết quả: số tiết dạy vượt định mức.")] if overtime_mode else []),
+            (f"{sheet}: {SPARE_HEADER}", "Kết quả: định mức trừ số tiết thực dạy, khi dạy ít hơn định mức."),
+            (f"{sheet}: màu dòng", f"Kết quả: vàng là {OVERTIME_LEGEND.lower()}; xanh lá là {HIRE_LEGEND.lower()}; "
+                                   f"xanh dương là {SPARE_LEGEND.lower()}. Các cột kết quả và màu được ghi lại mỗi "
+                                   f"lần chạy, không cần xóa."),
+            (config.SAVED_SHEET, f"Kết quả: TKB đã xếp, dạng lưới như TKB; mỗi ô ghi môn, xuống dòng ghi Mã GV (thêm "
+                                 f"{config.SAVED_OVERTIME} ở tiết dạy bù); dòng đầu ghi mã kết quả và mã quy định. Nạp "
+                                 f"lại file này làm file vào (vd chỉ đổi tên người \"chưa có\" thành tên người mới "
+                                 f"tuyển) thì chương trình giữ nguyên TKB nếu vẫn đúng mọi luật và quy định không đổi; "
+                                 f"muốn xếp lại từ đầu thì đặt GIU_TKB_DA_XEP = False trong main.py.")]
 
 
-def _write_saved(wb, solution: Solution) -> None:
-    """Sheet config.SAVED_SHEET: TKB đã xếp, mỗi tiết một dòng (Lớp | Thứ | Tiết | Môn | Mã GV | Tiết Bù), hai cột
-    cuối ghi mã kết quả và mã các quy định đã dùng. Nạp lại file vào cập nhật thì chương trình dùng lại TKB này
-    (solver.reuse) nếu quy định không đổi."""
+def _add_subject_rules(wb) -> None:
+    """Sheet CHƯƠNG TRÌNH HỌC của file vào cập nhật ghi đủ các quy định của môn đã dùng: thêm các cột quy định còn
+    thiếu, và các môn có quy định mà sheet chưa có (số tiết để trống). Dòng, cột mới chép style của file vào."""
+    ws = find_sheet(wb, config.PROGRAM_SHEET)
+    if ws is None:
+        return
+    found = next(((r, c) for r in range(1, min(ws.max_row, 20) + 1) for c in range(1, ws.max_column + 1)
+                  if normalize(ws.cell(r, c).value or "") == "môn học"), None)
+    if found is None:
+        return
+    header_row, key_col = found
+    rows = {r: str(ws.cell(r, key_col).value) for r in range(header_row + 1, ws.max_row + 1)
+            if ws.cell(r, key_col).value not in (None, "")
+            and normalize(ws.cell(r, key_col).value) not in ("tổng", "tổng cộng")}
+    heads, values, rest = subject_columns(list(rows.values()))
+    existing = {normalize(ws.cell(header_row, c).value): c for c in range(1, ws.max_column + 1)
+                if ws.cell(header_row, c).value not in (None, "")}
+    new_cols = []
+    for h in heads:
+        if normalize(h) not in existing:
+            c = ws.max_column + 1
+            existing[normalize(h)] = c
+            new_cols.append(c)
+            ws.cell(header_row, c, h)
+            _copy_style(ws.cell(header_row, key_col), ws.cell(header_row, c))
+            ws.column_dimensions[get_column_letter(c)].width = max(10, len(h) + 4)
+    last = max(rows, default=header_row)
+    new_rows = []
+    for s in rest:
+        last += 1
+        new_rows.append(last)
+        rows[last] = s
+        ws.cell(last, key_col, s)
+    src = max((r for r in rows if r not in new_rows), default=header_row)  # dòng mẫu để chép style
+    for r, name in rows.items():
+        for i, h in enumerate(heads):
+            c = existing[normalize(h)]
+            if r in new_rows or c in new_cols:
+                ws.cell(r, c).value = values[clean_name(name)][i]
+                _copy_style(ws.cell(src, key_col + 1 if c in new_cols else c), ws.cell(r, c))
+        if r in new_rows:
+            for c in range(1, ws.max_column + 1):
+                if c == key_col or c not in existing.values():
+                    _copy_style(ws.cell(src, c), ws.cell(r, c))
+            if ws.row_dimensions[src].height:
+                ws.row_dimensions[r].height = ws.row_dimensions[src].height
+
+
+def _write_saved(wb, solution: Solution, style: Style) -> None:
+    """Sheet config.SAVED_SHEET: TKB đã xếp dạng lưới như TKB (Lớp | Tiết | Thứ 2 …), mỗi ô ghi môn, xuống dòng ghi Mã
+    GV (thêm config.SAVED_OVERTIME ở tiết dạy bù); dòng đầu ghi mã kết quả và mã các quy định đã dùng. Nạp lại file
+    vào cập nhật thì chương trình dùng lại TKB này (solver.reuse) nếu quy định không đổi."""
     if config.SAVED_SHEET in wb.sheetnames:
         del wb[config.SAVED_SHEET]
     ws = wb.create_sheet(config.SAVED_SHEET)
     problem = solution.problem
-    ws.append([*config.SAVED_HEADERS, "Mã Kết Quả", RULES_CODE_HEADER])
-    lessons = sorted(solution.lessons, key=lambda l: (class_sort_key(l.class_name), l.day, l.period))
-    for r, les in enumerate(lessons, start=2):
-        row = [les.class_name, config.DAYS[les.day], les.period, problem.subject_label(les.subject),
-               problem.teachers[les.teacher].code, "Có" if les.overtime else None,
-               *((solution.fingerprint(), rules_code()) if r == 2 else ())]
-        for c, value in enumerate(row, start=1):
-            ws.cell(r, c, value)
-    for c, width in enumerate((8, 8, 6, 24, 18, 8, 16, 16), start=1):
+    result, rules = config.SAVED_CODES
+    for c, value in enumerate((result, solution.fingerprint(), rules, rules_code()), start=1):
+        ws.cell(1, c, value).font = copy(style.body.font)
+    days = sorted(config.DAY_SESSIONS)
+    periods = [p for _, p in session_rows()]
+    day_periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
+    header = ["Lớp", "Tiết", *[config.DAYS[d] for d in days]]
+    top = 3
+    for c, text in enumerate(header, start=1):
+        style.header_cell(ws, top, c, text)
+    grid = {(l.class_name, l.day, l.period): l for l in solution.lessons}
+    r = top
+    for cls in sorted(problem.classes, key=class_sort_key):
+        for i, p in enumerate(periods):
+            r += 1
+            style.body_cell(ws, r, 1, cls if i == 0 else None)
+            style.body_cell(ws, r, 2, p)
+            for j, d in enumerate(days, start=3):
+                les = grid.get((cls, d, p))
+                value = config.OFF_LABEL if p not in day_periods[d] else None
+                if les is not None:
+                    code = problem.teachers[les.teacher].code
+                    value = f"{problem.subject_label(les.subject)}\n{code}" + \
+                        (f" {config.SAVED_OVERTIME}" if les.overtime else "")
+                cell = style.body_cell(ws, r, j, value)
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            ws.row_dimensions[r].height = style.line_height * 2 + 4
+    for c, width in enumerate((10, 6, *[24] * len(days)), start=1):
         ws.column_dimensions[get_column_letter(c)].width = width
 
 
@@ -434,8 +495,9 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     (số tiết bù ở chế độ bù giờ) và số tiết dư. Dòng, cột mới chép style của file vào; đọc lại file này làm file
     vào vẫn được, và sheet config.SAVED_SHEET lưu TKB đã xếp để lần nạp lại giữ nguyên TKB (solver.reuse). Đây là
     bản thống kê gọn theo mẫu file vào: tô nền cả dòng người dạy bù (vàng), người cần tuyển
-    (xanh lá), người còn dư tiết (xanh dương); sheet NOTES_SHEET giải thích các màu bằng chữ thường. File ra chỉ có
-    chữ, số và màu (plain_values): không ghi chú, không công thức, không cố định dòng/cột, không danh sách thả
+    (xanh lá), người còn dư tiết (xanh dương); sheet HƯỚNG DẪN (ghi lại mỗi lần) giải thích cả các cột kết quả và
+    màu. File cũng ghi đủ các quy định đã dùng (cột quy định của sheet CHƯƠNG TRÌNH HỌC, sheet QUY ĐỊNH). File ra chỉ
+    có chữ, số và màu (plain_values): không ghi chú, không công thức, không cố định dòng/cột, không danh sách thả
     xuống.
 
     Mẫu V8 (có cột Lớp) ghi chức vụ không kèm số thứ tự, vd "Bộ Môn": khi đọc lại, chương trình tự
@@ -504,11 +566,17 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
                 cell.fill = _fill(color)
             elif cell.fill.fill_type == "solid" and str(cell.fill.start_color.rgb)[-6:] in ours:
                 cell.fill = PatternFill()
-    # File vào thiếu sheet quy định nào thì ghi sheet đó với các luật đã dùng, sau sheet chương trình học.
-    program = find_sheet(wb, config.PROGRAM_SHEET)
-    write_rules_sheets(wb, list(solution.problem.subject_labels.values()),
-                       wb.worksheets.index(program) + 1 if program is not None else None)
-    _write_notes(wb, solution.problem.overtime_mode())
-    _write_saved(wb, solution)
+    # Ghi đủ các quy định đã dùng: cột quy định của môn, sheet QUY ĐỊNH (nếu file vào chưa có, sau sheet chương
+    # trình học); sheet HƯỚNG DẪN viết lại, kèm giải thích phần kết quả; cuối cùng là TKB đã xếp.
+    _add_subject_rules(wb)
+    if find_sheet(wb, config.RULES_SHEET) is None:
+        program = find_sheet(wb, config.PROGRAM_SHEET)
+        write_rules_sheet(wb, wb.worksheets.index(program) + 1 if program is not None else None)
+    for name in (GUIDE_SHEET, OLD_NOTES_SHEET):
+        old = find_sheet(wb, name)
+        if old is not None:
+            del wb[old.title]
+    write_guide(wb, _result_notes(solution.problem.overtime_mode()))
+    _write_saved(wb, solution, Style.from_file(source))
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

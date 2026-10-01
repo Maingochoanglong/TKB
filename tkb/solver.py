@@ -772,15 +772,15 @@ def reuse(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings:
     overtime_max = settings.overtime_max if settings.mode == config.MODE_OVERTIME else 0
     problem = build_problem(staff, curriculum, {}, overtime_max=overtime_max)
     if not rows:
-        return None, [f"sheet {config.SAVED_SHEET} trống hoặc thiếu cột ({', '.join(config.SAVED_HEADERS[:5])})"]
+        return None, [f"sheet {config.SAVED_SHEET} không có bảng TKB (dòng tiêu đề Lớp | Tiết | Thứ 2 …)"]
     title_of = {normalize(t.code): t.title for t in problem.teachers.values()}
     subject_of = {normalize(problem.subject_label(c.subject)): c.subject for c in problem.courses}
     day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
     classes = {normalize(c): c for c in problem.classes}
     errors: list[str] = []
     parsed = []
-    for i, (cls, day, period, subject, code, overtime) in enumerate(rows, start=2):
-        where = f"sheet {config.SAVED_SHEET} dòng {i}"
+    for cls, day, period, subject, code, overtime, at in rows:
+        where = f"sheet {config.SAVED_SHEET} {at}"
         try:
             slot = (day_of[normalize(day)], int(period))
         except (KeyError, TypeError, ValueError):

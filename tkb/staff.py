@@ -208,24 +208,52 @@ def staff_sheet(wb):
     return find_sheet(wb, config.STAFF_SHEET) or wb.worksheets[0]
 
 
-def read_saved_timetable(path: str | Path) -> list[tuple] | None:
-    """Sheet config.SAVED_SHEET của file vào (TKB đã xếp, ghi trong file vào cập nhật): các dòng (lớp, thứ, tiết,
-    môn, Mã GV, tiết bù?) như chữ trong file. File không có sheet này: None; thiếu cột: danh sách rỗng."""
+@dataclass
+class SavedTimetable:
+    """TKB đã xếp đọc từ file vào cập nhật (sheet config.SAVED_SHEET)."""
+    rows: list[tuple]  # (lớp, thứ, tiết, môn, Mã GV, tiết bù?, vị trí trong sheet) như chữ trong file
+    result_code: str | None  # mã kết quả lúc xếp
+    rules_code: str | None  # mã các quy định lúc xếp (rules.code)
+
+
+def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
+    """Sheet config.SAVED_SHEET của file vào (TKB đã xếp dạng lưới Lớp | Tiết | Thứ 2 …, mỗi ô "môn" xuống dòng
+    "Mã GV", thêm config.SAVED_OVERTIME ở tiết bù). File không có sheet này: None; không có bảng: không có dòng nào."""
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = find_sheet(wb, config.SAVED_SHEET)
     if ws is None:
         return None
-    head = {normalize(ws.cell(1, c).value): c for c in range(1, ws.max_column + 1) if not _blank(ws.cell(1, c).value)}
-    cols = [head.get(normalize(h)) for h in config.SAVED_HEADERS]
-    if any(c is None for c in cols[:5]):
-        return []
-    rows = []
-    for r in range(2, ws.max_row + 1):
-        values = [ws.cell(r, c).value if c else None for c in cols]
-        if all(_blank(v) for v in values[:5]):
-            continue
-        rows.append((*values[:5], not _blank(values[5]) and parse_yes(values[5], config.SAVED_HEADERS[5])))
-    return rows
+    codes: dict[str, str] = {}
+    header = None
+    for r in range(1, min(ws.max_row, 10) + 1):
+        cells = {c: ws.cell(r, c).value for c in range(1, ws.max_column + 1) if not _blank(ws.cell(r, c).value)}
+        for c, value in cells.items():
+            if normalize(value) in map(normalize, config.SAVED_CODES) and not _blank(ws.cell(r, c + 1).value):
+                codes[normalize(value)] = str(ws.cell(r, c + 1).value).strip()
+        heads = {normalize(v): c for c, v in cells.items()}
+        if header is None and "lớp" in heads and "tiết" in heads:
+            header = r, heads["lớp"], heads["tiết"], {c: str(v) for c, v in cells.items() if _fold(v).startswith("thu")}
+    result_code, rules_code = (codes.get(normalize(k)) for k in config.SAVED_CODES)
+    if header is None:
+        return SavedTimetable([], result_code, rules_code)
+    header_row, class_col, period_col, day_cols = header
+    rows, cls = [], None
+    for r in range(header_row + 1, ws.max_row + 1):
+        if not _blank(ws.cell(r, class_col).value):
+            cls = clean_name(ws.cell(r, class_col).value)
+        period = ws.cell(r, period_col).value
+        for c, day in day_cols.items():
+            value = ws.cell(r, c).value
+            if _blank(value) or normalize(value) == normalize(config.OFF_LABEL):
+                continue
+            lines = [line.strip() for line in str(value).splitlines() if line.strip()]
+            code = lines[-1]
+            overtime = code.endswith(config.SAVED_OVERTIME)
+            if overtime:
+                code = code[:-len(config.SAVED_OVERTIME)].strip()
+            rows.append((cls, day, period, lines[0], code if len(lines) > 1 else "", overtime,
+                         f"dòng {r}, {clean_name(day)}"))
+    return SavedTimetable(rows, result_code, rules_code)
 
 
 def _blank(value) -> bool:
