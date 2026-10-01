@@ -3,8 +3,8 @@
 Dữ liệu của trường (danh sách môn, số tiết từng khối, giáo viên, chức vụ, lớp, định mức) chỉ lấy từ
 file vào, không ghi ở đây. Solver không hard-code số lớp, số tiết hay quyền dạy.
 Các luật nghiệp vụ (khung giờ, HĐTN, GVCN, quyền dạy, bù giờ, luật bảo vệ học sinh, môn nặng, tên viết tắt) nhà
-trường sửa ở sheet QUY ĐỊNH của file vào (tkb/rules.py); giá trị dưới đây chỉ dùng cho quy định không có trong
-sheet đó (hoặc file vào không có sheet đó).
+trường sửa ở các sheet QUY ĐỊNH CHUNG, NGÀY, TIẾT, MÔN của file vào (tkb/rules.py); giá trị dưới đây chỉ dùng cho
+quy định không có trong các sheet đó (hoặc file vào không có các sheet đó).
 """
 from __future__ import annotations
 
@@ -88,7 +88,8 @@ ROLE_LABELS: dict[str, str] = {ROLE_HOMEROOM: "Chủ Nhiệm", ROLE_GENERAL: "B�
 # File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"
 PROGRAM_SHEET = "CHƯƠNG TRÌNH HỌC"
-RULES_SHEET = "QUY ĐỊNH"  # không bắt buộc: Quy định | Giá trị | Ghi chú (tkb/rules.py)
+# Không bắt buộc: các luật nghiệp vụ, mỗi ô ghi Có, Không hoặc số (tkb/rules.py); thiếu thì dùng giá trị dưới đây.
+RULES_SHEETS = ("QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "QUY ĐỊNH MÔN")
 # File vào cập nhật (<file vào>_cap_nhat.xlsx) lưu TKB đã xếp ở sheet này (Lớp | Thứ | Tiết | Môn | Mã GV | Tiết Bù).
 # Nạp lại file đó làm file vào thì chương trình dùng lại TKB này nếu vẫn đúng mọi luật (vd chỉ đổi tên người
 # "chưa có" thành tên người mới tuyển); main.py GIU_TKB_DA_XEP = False (dòng lệnh --xep-lai) thì xếp lại từ đầu.
@@ -182,7 +183,7 @@ def rule_subjects() -> list[str]:
              *GENERAL_FORBIDDEN_SUBJECTS, *(r.subject for r in MANAGER_RULES), *HEAVY_SUBJECTS,
              *MORNING_SUBJECTS, *SUBJECT_GROUPS, *SUBJECT_GROUPS.values(),
              *DAILY_LIMITS, *DISPLAY_NAMES, *HOMEROOM_OVERTIME_SPECIALIST]
-    return sorted(set(names))
+    return sorted({n for n in names if n})  # HDTN = "": trường không có môn HĐTN (sheet QUY ĐỊNH MÔN)
 
 
 # --------------------------------------------------------------------------

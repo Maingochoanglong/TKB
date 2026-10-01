@@ -29,7 +29,7 @@ def test_template_is_plain(tmp_path, sample_staff):
     path = tmp_path / "mau.xlsx"
     write_staff_template(path, sample_staff, CURRICULUM)
     wb = openpyxl.load_workbook(path)
-    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN"]
+    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "QUY ĐỊNH MÔN", "HƯỚNG DẪN"]
     ws = wb["NHÂN SỰ"]
     # Style như file của nhà trường: Times New Roman 14 chữ đen, tiêu đề đậm, không tô nền, viền mảnh, dòng cao 25.
     assert ws["A1"].font.name == "Times New Roman" and ws["A1"].font.sz == 14 and ws["A1"].font.b
@@ -49,10 +49,17 @@ def test_template_is_plain(tmp_path, sample_staff):
     program = _rows(wb["CHƯƠNG TRÌNH HỌC"])
     assert program[0] == ("Môn học", "Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5")
     assert len(program) == 17
-    rules = _rows(wb["QUY ĐỊNH"])
-    assert rules[0] == ("Quy định", "Giá trị", "Ghi chú") and len(rules) == 26
-    assert ("Tiết HĐTN cố định", "Thứ 2 tiết 1, Thứ 6 tiết 4") == rules[6][:2]
-    assert read_rules(path) == DEFAULTS  # sheet QUY ĐỊNH điền sẵn đúng giá trị mặc định
+    assert _rows(wb["QUY ĐỊNH CHUNG"])[0] == ("Quy định", "Giá trị", "Ghi chú")
+    assert _rows(wb["QUY ĐỊNH NGÀY"])[1] == ("Thứ 2", "Có", "Có", 1, "Không")
+    assert len(_rows(wb["QUY ĐỊNH TIẾT"])) == 8 and len(_rows(wb["QUY ĐỊNH MÔN"])) == 17
+    # Mỗi ô quy định chỉ là Có, Không hoặc số nguyên dương (trừ cột đầu, cột Ghi chú và cột Tên trong TKB).
+    for name in ("QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "QUY ĐỊNH MÔN"):
+        header, *rows = _rows(wb[name])
+        for row in rows:
+            for head, value in list(zip(header, row))[1:]:
+                if head not in ("Ghi chú", "Tên trong TKB"):
+                    assert value in ("Có", "Không", None) or (isinstance(value, int) and value > 0), (name, head, value)
+    assert read_rules(path) == DEFAULTS  # các sheet quy định điền sẵn đúng giá trị mặc định
     assert _rows(wb["HƯỚNG DẪN"])[0] == ("Mục", "Cách ghi")
     assert _key(read_staff(path)) == _key(sample_staff)
     assert read_program(path) == CURRICULUM
@@ -90,7 +97,8 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     # File vào theo mẫu cũ có danh sách thả xuống, định dạng theo điều kiện, sheet danh mục ẩn, ghi chú ở tiêu đề
     # cột và cố định dòng; file cập nhật (file kết quả) chỉ còn chữ, số và màu.
     assert not ws.data_validations.dataValidation and not len(ws.conditional_formatting) and ws.freeze_panes is None
-    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN", "Chú thích", "TKB đã xếp"]
+    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "QUY ĐỊNH MÔN", "HƯỚNG DẪN", "Chú thích",
+                             "TKB đã xếp"]
     assert not any(c.comment for sheet in wb.worksheets for row in sheet.iter_rows() for c in row)
     rows = _rows(ws)
     assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy", "Số Tiết Dư")
@@ -173,7 +181,7 @@ def test_updated_staff_turns_formulas_into_values(tmp_path):
     stt = [out.cell(r, 1).value for r in range(2, out.max_row + 1) if out.cell(r, 2).value]
     assert stt == list(range(1, len(stt) + 1)) and len(stt) == len(small_staff(general=False)) + 1
     assert not any(c.data_type == "f" for row in out.iter_rows() for c in row)
-    # File vào không có sheet QUY ĐỊNH: file cập nhật ghi các quy định đã dùng, sau sheet chương trình học.
-    assert openpyxl.load_workbook(dst).sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "Chú thích",
+    # File vào không có các sheet quy định: file cập nhật ghi các quy định đã dùng, sau sheet chương trình học.
+    assert openpyxl.load_workbook(dst).sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "QUY ĐỊNH MÔN", "Chú thích",
                                                       "TKB đã xếp"]
     assert read_rules(dst) == DEFAULTS

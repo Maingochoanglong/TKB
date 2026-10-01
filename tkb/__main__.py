@@ -27,7 +27,7 @@ def use_utf8_output() -> None:
 def main(argv: list[str] | None = None) -> int:
     use_utf8_output()
     ap = argparse.ArgumentParser(prog="python -m tkb", description="Xếp thời khóa biểu tự động")
-    ap.add_argument("staff", help="File vào: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC và (không bắt buộc) QUY ĐỊNH")
+    ap.add_argument("staff", help="File vào: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC và (không bắt buộc) các sheet QUY ĐỊNH")
     ap.add_argument("-o", "--output", default="out/TKB.xlsx",
                     help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx). Trường có lớp ở cơ sở 2 "
                          "thì tách thành <tên>_diem_chinh.xlsx (cơ sở 1) và <tên>_diem_phu.xlsx (cơ sở 2)")
@@ -75,12 +75,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"LỖI: {exc}", file=sys.stderr)
         return 1
     if rules is None:
-        print(f"Quy định: mặc định của chương trình (file vào không có sheet {config.RULES_SHEET}).")
+        print("Quy định: mặc định của chương trình (file vào không có các sheet QUY ĐỊNH).")
     else:
         diff = changed(rules)
-        print(f"Quy định: sheet {config.RULES_SHEET}" + (f", khác mặc định: {', '.join(diff)}." if diff else
-                                                          ", giống mặc định."))
-    with applied(rules):  # các luật trong sheet QUY ĐỊNH thay giá trị mặc định trong tkb/config.py
+        print("Quy định: các sheet QUY ĐỊNH" + (f", khác mặc định: {', '.join(diff)}." if diff else ", giống mặc định."))
+    with applied(rules):  # các luật trong các sheet QUY ĐỊNH thay giá trị mặc định trong tkb/config.py
         return _run(args, settings)
 
 
@@ -98,7 +97,7 @@ def _run(args, settings: config.Settings) -> int:
         solution = None
         saved = None if args.xep_lai else read_saved_timetable(args.staff)
         if saved is not None and saved_code(args.staff) not in (None, rules_code()):
-            print(f"Sheet {config.RULES_SHEET} đã sửa so với lúc xếp TKB lưu trong file vào (sheet {config.SAVED_SHEET}): "
+            print(f"Các sheet QUY ĐỊNH đã sửa so với lúc xếp TKB lưu trong file vào (sheet {config.SAVED_SHEET}): "
                   f"xếp lại từ đầu theo quy định mới.")
             saved = None
         if saved is not None:

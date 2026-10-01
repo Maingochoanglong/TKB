@@ -22,7 +22,7 @@ from .solver import Solution, session_of
 from .staff import Teacher, _find_columns, class_sort_key, find_sheet, grade_of, normalize, staff_sheet
 from .style import CellStyle, Style
 from .rules import CODE_HEADER as RULES_CODE_HEADER, code as rules_code
-from .template import write_rules_sheet
+from .template import write_rules_sheets
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -398,8 +398,9 @@ def _write_notes(wb, overtime_mode: bool) -> None:
              f"Dòng tô vàng: {OVERTIME_LEGEND.lower()}.",
              f"Dòng tô xanh lá: {HIRE_LEGEND.lower()}.",
              f"Dòng tô xanh dương: {SPARE_LEGEND.lower()}.",
-             f"Sheet {config.RULES_SHEET}: các luật nghiệp vụ đã dùng (khung giờ, HĐTN, GVCN, quyền dạy, bù giờ, luật "
-             f"bảo vệ học sinh...); sửa cột Giá trị rồi nạp lại file này để dùng luật mới.",
+             f"Các sheet {', '.join(config.RULES_SHEETS)}: các luật nghiệp vụ đã dùng (khung giờ, HĐTN, GVCN, quyền "
+             f"dạy, bù giờ, luật bảo vệ học sinh...), mỗi ô ghi Có, Không hoặc số; sửa rồi nạp lại file này thì "
+             f"chương trình xếp lại theo luật mới.",
              f"Sheet {config.SAVED_SHEET}: TKB đã xếp, mỗi tiết một dòng. Nạp lại file này làm file vào (vd chỉ đổi "
              f"tên người \"chưa có\" thành tên người mới tuyển) thì chương trình giữ nguyên TKB nếu vẫn đúng mọi "
              f"luật; muốn xếp lại từ đầu thì đặt GIU_TKB_DA_XEP = False trong main.py."]
@@ -503,10 +504,10 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
                 cell.fill = _fill(color)
             elif cell.fill.fill_type == "solid" and str(cell.fill.start_color.rgb)[-6:] in ours:
                 cell.fill = PatternFill()
-    if find_sheet(wb, config.RULES_SHEET) is None:  # file vào chưa có sheet QUY ĐỊNH: ghi các luật đã dùng
-        program = find_sheet(wb, config.PROGRAM_SHEET)
-        write_rules_sheet(wb, list(solution.problem.subject_labels.values()),
-                          wb.worksheets.index(program) + 1 if program is not None else None)
+    # File vào thiếu sheet quy định nào thì ghi sheet đó với các luật đã dùng, sau sheet chương trình học.
+    program = find_sheet(wb, config.PROGRAM_SHEET)
+    write_rules_sheets(wb, list(solution.problem.subject_labels.values()),
+                       wb.worksheets.index(program) + 1 if program is not None else None)
     _write_notes(wb, solution.problem.overtime_mode())
     _write_saved(wb, solution)
     Path(path).parent.mkdir(parents=True, exist_ok=True)

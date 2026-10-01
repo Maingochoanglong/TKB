@@ -220,9 +220,9 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     warnings: list[str] = []
     missing = missing_rule_subjects(curriculum)
     if missing:
-        warnings.append(f"Các môn có trong quy định (sheet {config.RULES_SHEET}, hoặc mặc định trong tkb/config.py) "
-                        f"nhưng không có trong chương trình học: {', '.join(missing)} (nếu trường có dạy, kiểm tra "
-                        f"lại tên môn)")
+        warnings.append(f"Các môn có trong quy định (sheet {config.RULES_SHEETS[-1]}, hoặc mặc định trong "
+                        f"tkb/config.py) nhưng không có trong chương trình học: {', '.join(missing)} (nếu trường có "
+                        f"dạy, kiểm tra lại tên môn)")
     # Sắp môn theo tên: đổi thứ tự dòng trong file chương trình học không làm đổi TKB.
     curriculum = {g: dict(sorted(((canonical_subject(s), n) for s, n in req.items()),
                                  key=lambda kv: subject_key(kv[0])))
