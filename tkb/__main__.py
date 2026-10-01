@@ -9,6 +9,8 @@ from pathlib import Path
 from . import config
 from .checker import check
 from .program import read_program
+from .rules import applied, changed, read_rules, saved_code
+from .rules import code as rules_code
 from .solver import ShortageError, SolveError, ortools_version, reuse, solve
 from .staff import InputError, grade_of, read_saved_timetable, read_staff
 from .style import Style
@@ -25,7 +27,7 @@ def use_utf8_output() -> None:
 def main(argv: list[str] | None = None) -> int:
     use_utf8_output()
     ap = argparse.ArgumentParser(prog="python -m tkb", description="Xếp thời khóa biểu tự động")
-    ap.add_argument("staff", help="File vào: sheet NHÂN SỰ và sheet CHƯƠNG TRÌNH HỌC")
+    ap.add_argument("staff", help="File vào: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC và (không bắt buộc) QUY ĐỊNH")
     ap.add_argument("-o", "--output", default="out/TKB.xlsx",
                     help="File TKB xuất ra, chỉ gồm các sheet Khối (mặc định out/TKB.xlsx). Trường có lớp ở cơ sở 2 "
                          "thì tách thành <tên>_diem_chinh.xlsx (cơ sở 1) và <tên>_diem_phu.xlsx (cơ sở 2)")
@@ -67,6 +69,22 @@ def main(argv: list[str] | None = None) -> int:
     if settings.reproducible and ortools_version() != config.ORTOOLS_VERSION:
         print(f"CẢNH BÁO: đang dùng OR-Tools {ortools_version()}, khác bản {config.ORTOOLS_VERSION} đã ghim; kết quả "
               f"có thể khác máy khác. Cài đúng bản bằng:  pip install -r requirements.txt", file=sys.stderr)
+    try:
+        rules = read_rules(args.staff)
+    except InputError as exc:
+        print(f"LỖI: {exc}", file=sys.stderr)
+        return 1
+    if rules is None:
+        print(f"Quy định: mặc định của chương trình (file vào không có sheet {config.RULES_SHEET}).")
+    else:
+        diff = changed(rules)
+        print(f"Quy định: sheet {config.RULES_SHEET}" + (f", khác mặc định: {', '.join(diff)}." if diff else
+                                                          ", giống mặc định."))
+    with applied(rules):  # các luật trong sheet QUY ĐỊNH thay giá trị mặc định trong tkb/config.py
+        return _run(args, settings)
+
+
+def _run(args, settings: config.Settings) -> int:
     output = Path(args.output)
     staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
     stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
@@ -79,6 +97,10 @@ def main(argv: list[str] | None = None) -> int:
               f"chương trình học: {n_subjects} môn (sheet {config.PROGRAM_SHEET}).")
         solution = None
         saved = None if args.xep_lai else read_saved_timetable(args.staff)
+        if saved is not None and saved_code(args.staff) not in (None, rules_code()):
+            print(f"Sheet {config.RULES_SHEET} đã sửa so với lúc xếp TKB lưu trong file vào (sheet {config.SAVED_SHEET}): "
+                  f"xếp lại từ đầu theo quy định mới.")
+            saved = None
         if saved is not None:
             solution, why = reuse(staff, curriculum, settings, saved)
             if solution is not None:

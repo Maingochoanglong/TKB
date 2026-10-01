@@ -1,8 +1,8 @@
 """Đọc chương trình học: cột 'Môn học' và các cột 'Khối k'.
 
 Chương trình học nằm ở sheet "CHƯƠNG TRÌNH HỌC" của file vào (mẫu V8).
-Danh sách môn và tên môn lấy nguyên từ file. Khi dựng bài toán, môn nào trùng tên một môn có luật trong
-tkb/config.py (xem `canonical_subject`) thì nhận luật đó, môn khác vẫn được xếp bình thường.
+Danh sách môn và tên môn lấy nguyên từ file. Khi dựng bài toán, môn nào trùng tên một môn có luật (sheet QUY ĐỊNH
+hoặc mặc định trong tkb/config.py, xem `canonical_subject`) thì nhận luật đó, môn khác vẫn được xếp bình thường.
 """
 from __future__ import annotations
 
@@ -87,6 +87,6 @@ def subjects_in_order(curriculum: dict[int, dict[str, int]]) -> list[str]:
 
 
 def missing_rule_subjects(curriculum: dict[int, dict[str, int]]) -> list[str]:
-    """Môn có luật trong config nhưng không có trong chương trình học (thường do gõ khác tên)."""
+    """Môn có luật (sheet QUY ĐỊNH hoặc config) nhưng không có trong chương trình học (thường do gõ khác tên)."""
     present = {canonical_subject(s) for req in curriculum.values() for s in req}
     return [s for s in config.rule_subjects() if s not in present]

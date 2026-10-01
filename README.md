@@ -72,7 +72,7 @@ Chạy test: `python -m pytest -q`
 
 ## Tuyển được người: giữ nguyên TKB
 
-File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã xếp ở sheet **TKB đã xếp** (mỗi tiết một dòng: Lớp, Thứ, Tiết, Môn, Mã GV, Tiết Bù; ô đầu cột Mã Kết Quả ghi mã kết quả).
+File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã xếp ở sheet **TKB đã xếp** (mỗi tiết một dòng: Lớp, Thứ, Tiết, Môn, Mã GV, Tiết Bù; ô đầu cột Mã Kết Quả ghi mã kết quả, ô đầu cột Mã Quy Định ghi mã các quy định đã dùng).
 
 1. Chạy chế độ tuyển thêm. File vào cập nhật có thêm các dòng `chưa có` (vd Bộ Môn 5–8).
 2. Tuyển được người thì mở file vào cập nhật, **chỉ đổi chữ `chưa có` thành tên người mới**. Không đổi thứ tự dòng, vì giáo viên được khớp theo Mã GV (vd `Bộ Môn 5` là người thứ 5 trong chức vụ Bộ Môn).
@@ -80,6 +80,7 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 
 - Chạy ở chế độ nào cũng được: người mới giờ là bộ môn thật, dạy trong định mức, nên không ai phải bù.
 - Trước khi dùng lại, chương trình kiểm tra TKB đó với file vào mới theo mọi luật bắt buộc. Nếu file bị sửa làm TKB cũ sai luật (vd hạ định mức của một người xuống dưới số tiết đang dạy, thêm buổi nghỉ trùng tiết đang dạy, sửa chương trình học), chương trình in lý do rồi **xếp lại từ đầu**.
+- Sửa sheet `QUY ĐỊNH` của file đó (vd thêm môn nặng) thì chương trình biết quy định đã đổi (mã quy định khác) và **xếp lại từ đầu** theo quy định mới.
 - Muốn xếp lại từ đầu dù TKB cũ vẫn đúng luật: đặt `GIU_TKB_DA_XEP = False` (dòng lệnh: `--xep-lai`).
 - Cũng dùng được để có lại đúng TKB của máy khác: lấy file vào cập nhật của bản chạy trên Linux, chạy trên máy Windows thì ra đúng TKB bản Linux (cùng mã kết quả), và ngược lại.
 
@@ -109,7 +110,7 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 
 ## Đầu vào
 
-**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet. Chương trình tìm sheet theo tên, không phân biệt hoa thường. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 5 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`.
+**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet bắt buộc `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` và sheet `QUY ĐỊNH` không bắt buộc (các luật nghiệp vụ). Chương trình tìm sheet theo tên, không phân biệt hoa thường; các sheet khác (ví dụ `HƯỚNG DẪN`) được bỏ qua. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 5 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`.
 
 **Sheet `NHÂN SỰ`:**
 
@@ -139,29 +140,65 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 - Khi file có lỗi, chương trình **liệt kê tất cả lỗi một lần** kèm số dòng (ví dụ `Lớp 1/1 có hai Chủ Nhiệm (dòng 11 và 26)`).
 
 **Sheet `CHƯƠNG TRÌNH HỌC` (bắt buộc):** Môn học | Khối 1 … Khối n (số tiết/tuần). Dòng `Tổng` (nếu có) được bỏ qua.
-- Danh sách môn và tên môn lấy nguyên từ file, TKB in đúng tên trong file. Riêng HĐTN, TNXH, TV tăng cường được viết tắt trong ô TKB.
-- Môn nào trùng tên một môn có luật trong `tkb/config.py` thì nhận luật đó. So khớp không phân biệt hoa thường, dấu câu và chữ "và": `Lịch Sử và Địa Lý` khớp `Lịch sử - Địa lý`.
-- Nếu luật trong config nhắc một môn mà file không có (thường do gõ khác tên), chương trình cảnh báo.
+- Danh sách môn và tên môn lấy nguyên từ file, TKB in đúng tên trong file. Riêng các môn ở quy định `Tên môn viết tắt trong TKB` (mặc định HĐTN, TNXH, TV tăng cường) được viết tắt trong ô TKB.
+- Môn nào trùng tên một môn có trong quy định (sheet `QUY ĐỊNH`) thì nhận luật đó. So khớp không phân biệt hoa thường, dấu câu và chữ "và": `Lịch Sử và Địa Lý` khớp `Lịch sử - Địa lý`.
+- Nếu quy định nhắc một môn mà chương trình học không có (thường do gõ khác tên), chương trình cảnh báo.
+
+**Sheet `QUY ĐỊNH` (không bắt buộc):** các luật nghiệp vụ, nhà trường sửa trong Excel, không cần sửa code. Cột `Quy định | Giá trị | Ghi chú`, mỗi dòng một quy định; chương trình chỉ đọc hai cột đầu.
+- Quy định nào không có dòng, hoặc file không có sheet này, thì dùng giá trị mặc định trong `tkb/config.py` (cột Mặc định dưới đây). File có sheet ghi đúng giá trị mặc định cho cùng TKB, cùng mã kết quả như file không có sheet.
+- Tên môn ghi như trong sheet `CHƯƠNG TRÌNH HỌC`; nhiều môn cách nhau bằng dấu phẩy; ô để trống là "không có môn nào". Ngày ghi `Thứ 2` … `Thứ 7` (hoặc `T2`); tiết ghi số, buổi chiều đánh số nối tiếp buổi sáng; ô cố định ghi `Thứ 2 tiết 1`. Các mục dạng `A = B` cách nhau bằng dấu chấm phẩy.
+- Ghi sai (tên quy định lạ, ngày/tiết không có trong khung giờ, chức vụ bù khác Chủ Nhiệm/Bộ Môn…) thì chương trình liệt kê mọi lỗi một lần kèm số dòng, không xếp.
+- Màn hình in `Quy định: sheet QUY ĐỊNH, khác mặc định: …` để biết quy định nào đang khác mặc định.
+- File vào cập nhật (`_cap_nhat`) luôn có sheet này: file vào chưa có thì chương trình ghi thêm các quy định đã dùng.
+- Trọng số mục tiêu, tham số xếp giờ vẫn ở `tkb/config.py`; số tiết bù tối đa ở `main.py` (`SO_TIET_BU_TOI_DA`).
+
+| Quy định | Mặc định | Ý nghĩa |
+|---|---|---|
+| Ngày học | Thứ 2, Thứ 3, Thứ 4, Thứ 5, Thứ 6 | Các ngày học, liền nhau từ Thứ 2 (có thể thêm Thứ 7). Ngày nào cũng học buổi sáng. |
+| Ngày học buổi chiều | Thứ 2, Thứ 3, Thứ 4, Thứ 5 | Các ngày có buổi chiều; để trống là không học buổi chiều. |
+| Số tiết buổi sáng | 4 | Buổi sáng là tiết 1 đến tiết này. |
+| Số tiết buổi chiều | 3 | Buổi chiều là các tiết tiếp theo, vd sáng 4 tiết, chiều 3 tiết thì chiều là tiết 5, 6, 7. |
+| Môn HĐTN | Hoạt động trải nghiệm | Môn chào cờ, sinh hoạt lớp: có các tiết cố định dưới đây. |
+| Tiết HĐTN cố định | Thứ 2 tiết 1, Thứ 6 tiết 4 | Luật cứng: mọi lớp học môn HĐTN đúng các ô này, vd Thứ 2 tiết 1, Thứ 6 tiết 4. |
+| Ngày xếp tiết HĐTN còn lại | Thứ 3, Thứ 4, Thứ 5 | Luật cứng: các tiết HĐTN còn lại chỉ xếp vào các ngày này (mục tiêu mềm: gần cuối buổi). |
+| Tiết luôn do GVCN dạy | 1 | Luật cứng: tiết này ở mọi ngày do GVCN của lớp dạy; để trống là không có. |
+| Môn GVCN nhận trọn | Tiếng Việt, Toán, Hoạt động trải nghiệm, Khoa học, Lịch sử - Địa lý, Đạo đức | GVCN nhận hết các môn này của lớp mình; luật cứng: môn nào phải chia cho người khác thì tiết đầu tiên trong tuần do GVCN dạy. |
+| Thứ tự cắt khi GVCN vượt định mức | Tiếng Việt, Toán, Khoa học, Lịch sử - Địa lý | Các môn trên vượt định mức thì cắt bớt theo thứ tự này, mỗi môn GVCN giữ ít nhất 1 tiết. |
+| Thứ tự nhận thêm khi GVCN thiếu định mức | Tiếng Việt tăng cường, Toán tăng cường, Tự nhiên xã hội, Kỹ năng sống, Công nghệ | GVCN nhận thêm các môn này theo thứ tự cho đủ định mức (không nhận môn của GV chuyên biệt). |
+| Môn chỉ GVCN dạy | Hoạt động trải nghiệm | Luật cứng: chỉ GVCN của lớp được dạy. |
+| Môn GV bộ môn không dạy | Tiếng Anh, Tin học, Hoạt động trải nghiệm | GV bộ môn dạy được mọi môn trừ các môn này; môn chưa có GV chuyên biệt thì chương trình tuyển thêm. |
+| Quản lý dạy | Kỹ năng sống khối 4 | Môn và khối quản lý được dạy, vd Kỹ năng sống khối 4; chỉ vài lớp: Kỹ năng sống khối 4 lớp 4/1, 4/2. Nhiều mục cách nhau bằng dấu chấm phẩy. |
+| Chức vụ được dạy bù | Chủ Nhiệm, Bộ Môn | Chỉ ghi Chủ Nhiệm, Bộ Môn. GVCN chỉ bù ở lớp mình và bù trước; bộ môn bù khi GVCN đã bù hết mức. |
+| Môn chuyên biệt GVCN được bù | Âm nhạc, Mỹ thuật | Môn của GV chuyên biệt mà GVCN vẫn được dạy bù ở lớp mình (nhận sau cùng). |
+| Môn tăng cường đi với môn chính | Tiếng Việt tăng cường = Tiếng Việt; Toán tăng cường = Toán | Mỗi mục: môn tăng cường = môn chính, cách nhau bằng dấu chấm phẩy. Hai môn tính chung một nhóm môn; luật cứng: tiết tăng cường đứng sau mọi tiết chính trong ngày và ngày đó phải có tiết chính. |
+| Số tiết tối đa một nhóm môn mỗi buổi | 2 | Luật cứng; môn có từ 2 tiết trong một buổi thì các tiết đó phải liền nhau. |
+| Số tiết tối đa mỗi ngày của môn | Toán = 1 | Luật cứng, vd Toán = 1; chỉ áp dụng khi số tiết/tuần của môn không quá số ngày học. |
+| Ghép cặp 2 tiết liền khi nhóm môn có từ | 6 | Luật cứng: nhóm môn có từ ngần ấy tiết/tuần và tổng số tiết chẵn thì xếp thành các cặp 2 tiết liền, cùng người dạy. |
+| Nhóm môn không ghép cặp | Toán, Hoạt động trải nghiệm | Các nhóm môn (ghi môn chính) không áp dụng luật ghép cặp ở trên. |
+| Môn nặng | Tiếng Việt, Toán, Tiếng Việt tăng cường, Toán tăng cường, Tiếng Anh, Khoa học, Tin học | Mục tiêu mềm: hạn chế xếp các môn này vào các tiết ở dòng dưới. |
+| Tiết hạn chế môn nặng | 7 | Mục tiêu mềm: mỗi tiết môn nặng ở các tiết này bị trừ điểm. |
+| Môn ưu tiên buổi sáng | Tiếng Việt, Toán | Mục tiêu mềm: mỗi tiết các môn này ở buổi chiều bị trừ điểm, và các môn này được rải đều hơn. |
+| Tên môn viết tắt trong TKB | Hoạt động trải nghiệm = HĐTN; Tự nhiên xã hội = TNXH; Tiếng Việt tăng cường = TV tăng cường | Mỗi mục: tên môn = chữ ghi trong ô TKB, cách nhau bằng dấu chấm phẩy; môn khác ghi đúng tên. |
 
 Chỉ đọc mẫu V8. File mẫu cũ (V5–V7: chức vụ ghi kèm số như `bộ môn 5`, chương trình học ở file riêng) không còn đọc được: tạo file mẫu trống rồi chép dữ liệu sang, bỏ số thứ tự ở cột Chức Vụ.
 
-Tạo file vào mẫu V8 trống:
+File vào mẫu trống có sẵn: **`data/Input_Template_V8.xlsx`**. Tạo lại (hoặc tạo ở chỗ khác):
 
 ```bash
 python -m tkb.template data/Mau_Input.xlsx
 ```
 
+File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền mảnh, không cố định dòng/cột, không danh sách thả xuống, không ghi chú trong ô, không sheet ẩn. Gồm 4 sheet: `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC`, `QUY ĐỊNH` (điền sẵn giá trị mặc định) và `HƯỚNG DẪN` (cách ghi từng cột, từng sheet). Cột Lớp, Lớp Đang Dạy định dạng chữ để Excel không đổi `1/1` thành ngày tháng.
+
 ## Cái gì nằm trong file vào, cái gì nằm trong code
 
-| Nằm trong file vào (code không ghi) | Nằm trong `tkb/config.py` (file vào không có) |
+| Nằm trong file vào | Nằm trong code |
 |---|---|
-| Danh sách môn, tên môn, số tiết từng khối | Khung giờ: Thứ 2–5 sáng 4 + chiều 3, Thứ 6 chỉ buổi sáng |
-| Giáo viên, chức vụ, lớp chủ nhiệm, số tiết | HĐTN: Thứ 2 tiết 1, Thứ 6 tiết 4, tiết còn lại Thứ 3–5 |
-| Thai sản, hợp đồng, lớp ở cơ sở 2, lớp đang dạy (TKB cũ), buổi nghỉ | Mỗi buổi một cơ sở; thai sản không bù; thứ tự bù có hợp đồng; trọng số giữ phân công cũ |
-| Danh sách lớp (suy ra từ các dòng Chủ Nhiệm) | Tiết 1 mỗi ngày do GVCN dạy |
-| GV chuyên biệt (chức vụ trùng tên môn) | Môn ưu tiên GVCN, thứ tự cắt / nhận thêm của GVCN |
-| Định mức người cần tuyển (Số tiết lớn nhất của GV cùng chức vụ) | Bộ Môn không dạy Tiếng Anh, Tin học, HĐTN; Quản Lý dạy Kỹ năng sống khối 4 |
-| Style của các file ra (phông, cỡ chữ, viền, chiều cao dòng) | Luật bù giờ, môn nặng, tối đa 2 tiết TV/Toán mỗi buổi, trọng số |
+| Danh sách môn, tên môn, số tiết từng khối (`CHƯƠNG TRÌNH HỌC`) | Giá trị mặc định của các quy định (`tkb/config.py`), dùng khi file không ghi |
+| Giáo viên, chức vụ, lớp chủ nhiệm, số tiết, thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ (`NHÂN SỰ`) | Trọng số mục tiêu mềm (`config.Weights`) và tham số xếp giờ (`LNS_*`) |
+| Danh sách lớp (suy ra từ các dòng Chủ Nhiệm), GV chuyên biệt (chức vụ trùng tên môn) | Định mức người cần tuyển (Số tiết lớn nhất của GV cùng chức vụ), luật mỗi buổi một cơ sở, thai sản không bù |
+| Khung giờ, HĐTN, tiết của GVCN, môn GVCN nhận/cắt/nhận thêm, quyền dạy, ai được bù, luật bảo vệ học sinh, môn nặng, môn buổi sáng, tên viết tắt (`QUY ĐỊNH`) | Chế độ, số tiết bù tối đa, thời gian (`main.py`) |
+| Style của các file ra (phông, cỡ chữ, viền, chiều cao dòng) | |
 
 ## Đầu ra
 
@@ -178,14 +215,14 @@ python -m tkb.template data/Mau_Input.xlsx
    - **Tô màu cả dòng** để biết ai bù, ai thêm: chế độ bù giờ tô **vàng** dòng người dạy bù (vượt định mức); chế độ tuyển thêm tô **xanh lá** dòng người cần tuyển; người còn dư tiết tô **xanh dương**. Trong dòng người dạy bù, **ô môn có tiết bù tô cam**; số tiết bù từng môn ghi bằng chữ ở cột **Môn Dạy Bù**, ví dụ `TV tăng cường 2, TNXH 1`. Dưới bảng có chú thích màu kèm số người, số tiết, ví dụ `Dạy bù (vượt định mức): 28 người, 56 tiết`, `Môn có tiết dạy bù: 40 ô, 56 tiết (số tiết từng môn ở cột Môn Dạy Bù)`, `Cần tuyển thêm: 3 người, 56 tiết`, `Dạy ít hơn định mức (còn dư tiết): 4 người, 17 tiết`.
    - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển, dạy bù và số liệu cơ sở, thai sản, buổi nghỉ, giữ phân công cũ chỉ in ra màn hình.
    - **Chế độ bù giờ mà thiếu tiết:** không ra TKB; file này chỉ có sheet `Thiếu tiết`: **Lớp | Môn | Số Tiết Thiếu | Lý Do** và dòng Tổng.
-3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ cả 2 sheet). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (chế độ bù: **Số Tiết Bù**) và **Số Tiết Dư** (định mức − thực dạy, khi dạy ít hơn định mức). Đây cũng là **bản thống kê gọn theo mẫu file vào**: tô nền cả dòng người dạy bù (vàng), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **Chú thích** giải thích các cột và màu bằng chữ thường. File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File còn có sheet **TKB đã xếp**: nạp lại file này thì TKB được giữ nguyên nếu vẫn đúng luật (mục [Tuyển được người](#tuyển-được-người-giữ-nguyên-tkb)). File gốc không bị sửa.
+3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ các sheet; file vào chưa có sheet `QUY ĐỊNH` thì thêm sheet này với các quy định đã dùng). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (chế độ bù: **Số Tiết Bù**) và **Số Tiết Dư** (định mức − thực dạy, khi dạy ít hơn định mức). Đây cũng là **bản thống kê gọn theo mẫu file vào**: tô nền cả dòng người dạy bù (vàng), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **Chú thích** giải thích các cột và màu bằng chữ thường. File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File còn có sheet **TKB đã xếp**: nạp lại file này thì TKB được giữ nguyên nếu vẫn đúng luật (mục [Tuyển được người](#tuyển-được-người-giữ-nguyên-tkb)). File gốc không bị sửa.
 4. **Mọi file kết quả chỉ có chữ, số và màu:** không có ghi chú (comment) trong ô, không có công thức, không cố định dòng/cột, không danh sách thả xuống hay định dạng theo điều kiện. Công thức trong file vào (ví dụ STT `=ROW()-1`) được chép sang file cập nhật dưới dạng giá trị.
 
 **Style:** mọi file ra chép style của sheet NHÂN SỰ trong file vào: phông, cỡ chữ, tiêu đề in đậm, viền, căn lề và chiều cao dòng (làm tròn, ví dụ 24,95 → 25). Bảng ghi tiêu đề cột ở dòng 1 như file vào. Riêng hàng tiết trong TKB cao đủ 2 dòng chữ (môn và giáo viên).
 
 ## Quy tắc nghiệp vụ
 
-Các quy tắc không có trong file vào nằm trong `tkb/config.py`.
+Dưới đây là các quy tắc với giá trị mặc định. Phần lớn sửa được ở sheet `QUY ĐỊNH` của file vào (mục [Đầu vào](#đầu-vào)); giá trị mặc định nằm trong `tkb/config.py`.
 
 **Khung giờ**
 - Thứ 2–Thứ 5: sáng 4 tiết, chiều 3 tiết.
@@ -282,10 +319,11 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | File | Nội dung |
 |---|---|
 | `main.py` | File chạy nhanh: sửa hằng số (file vào, thư mục ra, chế độ, luật học sinh, thời gian, tái lập) rồi bấm Run |
-| `tkb/config.py` | Luật nghiệp vụ không có trong file vào: khung giờ, quyền dạy, thứ tự cắt/bù, luật học sinh, trọng số |
+| `tkb/config.py` | Giá trị mặc định của các quy định (khi file vào không ghi), trọng số mục tiêu, tham số xếp giờ |
+| `tkb/rules.py` | Đọc và kiểm tra sheet QUY ĐỊNH, dùng thay giá trị mặc định trong lúc chạy |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |
-| `tkb/template.py` | Tạo file vào mẫu V8 trống (NHÂN SỰ + CHƯƠNG TRÌNH HỌC) |
-| `tkb/program.py` | Đọc sheet chương trình học, so khớp tên môn với luật trong config |
+| `tkb/template.py` | Tạo file vào mẫu V8 trống, đơn giản (NHÂN SỰ, CHƯƠNG TRÌNH HỌC, QUY ĐỊNH, HƯỚNG DẪN) |
+| `tkb/program.py` | Đọc sheet chương trình học, so khớp tên môn với các quy định |
 | `tkb/style.py` | Chép style của file vào cho các file ra |
 | `tkb/allocation.py` | Phân phần GVCN, sinh lớp-môn và danh sách giáo viên được dạy, sinh giáo viên bổ sung, nhóm môn ghép cặp |
 | `tkb/phan_cong.py` | Dự toán và phân công giáo viên (luồng chi phí nhỏ nhất, tìm kiếm cục bộ), chia tiết bù cho người mới |

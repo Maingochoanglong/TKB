@@ -16,8 +16,11 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 ## Working rules
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
-  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`). Class names
-  are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx` and the output templates
+  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`; optional
+  sheet `QUY ĐỊNH` = business rules, see Architecture). `python -m tkb.template` writes a plain template (black
+  text, no fill/freeze/dropdowns/comments/hidden sheets) with sheets NHÂN SỰ, CHƯƠNG TRÌNH HỌC, QUY ĐỊNH, HƯỚNG DẪN. Class names
+  are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
+  `Input_Template_V8.xlsx` (`python -m tkb.template`, a test checks it is current) and the output templates
   `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tests/du_lieu_mau.py`
   (`CURRICULUM`, `sample_staff()`, `write_sample_input()`); `tests/conftest.py` writes it to a temp `INPUT_FILE`
   and has `small_staff()` plus `teacher(name, "bộ môn 1", lessons)` for hand-made staff.
@@ -26,7 +29,8 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   are git-ignored). When analysing its output, read subject names only. CI runs this file but uploads only the
   result-code line, never `out/`.
 - Never hard-code school data (classes, subjects, lesson counts, teachers) in code: it all comes from the input
-  file. `tkb/config.py` holds only rules the file does not contain.
+  file. `tkb/config.py` holds the defaults of the rules (overridden by sheet `QUY ĐỊNH`), weights and LNS params.
+  A new business rule the school may want to change gets a row in `tkb/rules.py` `RULES` (parse + write).
 - Hard rules are the school's decisions: do not loosen or tighten one without asking.
 
 ## Commands
@@ -47,11 +51,16 @@ Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` sh
 
 ## Architecture
 `main.run()` validates the constants at the top of `main.py` and calls `tkb.__main__.main(argv)`:
-`program.read_program` + `staff.read_staff` → `solver.solve` → `checker.check` → `writer.write_timetable`,
-`write_timetable(with_codes=True)`, `write_updated_staff`, `write_statistics` (all output styles copied from the input via
+`rules.read_rules` (sheet `QUY ĐỊNH`, 25 rows → config attribute values; all errors at once) then everything runs
+inside `with rules.applied(values)`, which sets those `config.*` module attributes and restores them afterwards (code
+reads `config.X` at call time, never copies it at import). A sheet with the defaults gives the same codes as no
+sheet. `program.read_program` + `staff.read_staff` → `solver.solve` → `checker.check` → `writer.write_timetable`,
+`write_timetable(with_codes=True)`, `write_updated_staff` (adds sheet `QUY ĐỊNH` with the rules used if the input
+has none), `write_statistics` (all output styles copied from the input via
 `style.Style.from_file`, which skips the program's own row colours `style.MARK_FILLS`); `solver.ShortageError` →
 `writer.write_shortage`. The updated input stores the timetable in sheet `TKB đã xếp` (`config.SAVED_SHEET`); reloading
-it (`staff.read_saved_timetable` → `solver.reuse`, teachers matched by Mã GV, `checker.check` must pass) skips
+it (`staff.read_saved_timetable` → `solver.reuse`, teachers matched by Mã GV, `checker.check` must pass, and the
+saved `Mã Quy Định` must equal `rules.code()`, else re-solve) skips
 solving, so renaming "chưa có" hires keeps the timetable and the code; `main.py` `GIU_TKB_DA_XEP = False` /
 `--xep-lai` forces a re-solve.
 
@@ -77,7 +86,7 @@ solving, so renaming "chưa có" hires keeps the timetable and the code; `main.p
 afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names loosely via
 `staff.subject_key` → `program.canonical_subject`.
 
-| Rule | `tkb/config.py` | Implemented in |
+| Rule | `tkb/config.py` default (sheet `QUY ĐỊNH` overrides) | Implemented in |
 |---|---|---|
 | Subject group (TV+TV TC, Toán+Toán TC) ≤ 2 per session; Toán ≤ 1 per day; groups ≥ 6 lessons with even total in consecutive pairs; same subject contiguous in a session; TC lesson after every main lesson of its group that day, and the day has one (hard) | `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `solver.timetable` "Luật bảo vệ học sinh" block; `checker._check_student_rules`; `allocation.paired_groups` |
 | Consecutive lessons of a group by one teacher; homeroom priority group: GVCN's lesson first in the week (hard, always) | `SUBJECT_GROUPS`, `HOMEROOM_PRIORITY` | `solver.timetable` "Liên tiết", "GVCN trước"; `checker._check_teacher_order` |

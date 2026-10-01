@@ -19,9 +19,10 @@ from openpyxl.worksheet.datavalidation import DataValidationList
 
 from . import config
 from .solver import Solution, session_of
-from .staff import Teacher, _find_columns, class_sort_key, grade_of, normalize, staff_sheet
+from .staff import Teacher, _find_columns, class_sort_key, find_sheet, grade_of, normalize, staff_sheet
 from .style import CellStyle, Style
-from .template import LIST_SHEET
+from .rules import CODE_HEADER as RULES_CODE_HEADER, code as rules_code
+from .template import write_rules_sheet
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -358,6 +359,7 @@ def _copy_style(src, dst) -> None:
 
 
 NOTES_SHEET = "Chú thích"  # file vào cập nhật: giải thích các cột kết quả và màu dòng (chữ thường)
+LIST_SHEET = "Danh mục"  # sheet danh mục ẩn của file mẫu cũ (danh sách thả xuống), bỏ khi chép file vào
 _ROW_FORMULA = re.compile(r"^=\s*ROW\(\)\s*([+-])\s*(\d+)\s*$", re.IGNORECASE)
 
 
@@ -396,6 +398,8 @@ def _write_notes(wb, overtime_mode: bool) -> None:
              f"Dòng tô vàng: {OVERTIME_LEGEND.lower()}.",
              f"Dòng tô xanh lá: {HIRE_LEGEND.lower()}.",
              f"Dòng tô xanh dương: {SPARE_LEGEND.lower()}.",
+             f"Sheet {config.RULES_SHEET}: các luật nghiệp vụ đã dùng (khung giờ, HĐTN, GVCN, quyền dạy, bù giờ, luật "
+             f"bảo vệ học sinh...); sửa cột Giá trị rồi nạp lại file này để dùng luật mới.",
              f"Sheet {config.SAVED_SHEET}: TKB đã xếp, mỗi tiết một dòng. Nạp lại file này làm file vào (vd chỉ đổi "
              f"tên người \"chưa có\" thành tên người mới tuyển) thì chương trình giữ nguyên TKB nếu vẫn đúng mọi "
              f"luật; muốn xếp lại từ đầu thì đặt GIU_TKB_DA_XEP = False trong main.py."]
@@ -405,21 +409,22 @@ def _write_notes(wb, overtime_mode: bool) -> None:
 
 
 def _write_saved(wb, solution: Solution) -> None:
-    """Sheet config.SAVED_SHEET: TKB đã xếp, mỗi tiết một dòng (Lớp | Thứ | Tiết | Môn | Mã GV | Tiết Bù), cột cuối
-    ghi mã kết quả. Nạp lại file vào cập nhật thì chương trình dùng lại TKB này (solver.reuse)."""
+    """Sheet config.SAVED_SHEET: TKB đã xếp, mỗi tiết một dòng (Lớp | Thứ | Tiết | Môn | Mã GV | Tiết Bù), hai cột
+    cuối ghi mã kết quả và mã các quy định đã dùng. Nạp lại file vào cập nhật thì chương trình dùng lại TKB này
+    (solver.reuse) nếu quy định không đổi."""
     if config.SAVED_SHEET in wb.sheetnames:
         del wb[config.SAVED_SHEET]
     ws = wb.create_sheet(config.SAVED_SHEET)
     problem = solution.problem
-    ws.append([*config.SAVED_HEADERS, "Mã Kết Quả"])
+    ws.append([*config.SAVED_HEADERS, "Mã Kết Quả", RULES_CODE_HEADER])
     lessons = sorted(solution.lessons, key=lambda l: (class_sort_key(l.class_name), l.day, l.period))
     for r, les in enumerate(lessons, start=2):
         row = [les.class_name, config.DAYS[les.day], les.period, problem.subject_label(les.subject),
                problem.teachers[les.teacher].code, "Có" if les.overtime else None,
-               solution.fingerprint() if r == 2 else None]
+               *((solution.fingerprint(), rules_code()) if r == 2 else ())]
         for c, value in enumerate(row, start=1):
             ws.cell(r, c, value)
-    for c, width in enumerate((8, 8, 6, 24, 18, 8, 16), start=1):
+    for c, width in enumerate((8, 8, 6, 24, 18, 8, 16, 16), start=1):
         ws.column_dimensions[get_column_letter(c)].width = width
 
 
@@ -498,6 +503,10 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
                 cell.fill = _fill(color)
             elif cell.fill.fill_type == "solid" and str(cell.fill.start_color.rgb)[-6:] in ours:
                 cell.fill = PatternFill()
+    if find_sheet(wb, config.RULES_SHEET) is None:  # file vào chưa có sheet QUY ĐỊNH: ghi các luật đã dùng
+        program = find_sheet(wb, config.PROGRAM_SHEET)
+        write_rules_sheet(wb, list(solution.problem.subject_labels.values()),
+                          wb.worksheets.index(program) + 1 if program is not None else None)
     _write_notes(wb, solution.problem.overtime_mode())
     _write_saved(wb, solution)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
