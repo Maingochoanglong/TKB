@@ -114,15 +114,15 @@ Số liệu đo trên TKB xếp cho file `data/INPUT_V8.xlsx`, với `main.py` m
 
 Xếp theo mức ưu tiên.
 
-### 5.1. Buổi sáng ưu tiên TV, Toán (**đã đưa vào chương trình**: `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS` trong `tkb/config.py`)
+### 5.1. Buổi sáng ưu tiên TV, Toán (**đã đưa vào chương trình**: `MORNING_SUBJECTS` trong `tkb/config.py`)
 
 - **Cách làm:**
   - phạt nhẹ mỗi tiết TV, Toán (tiết chính) xếp vào buổi chiều;
   - thưởng cho Toán có mặt mỗi ngày;
-  - tiết tăng cường/ôn (TV tăng cường, Toán tăng cường) ưu tiên buổi chiều.
+  - tiết tăng cường/ôn (TV tăng cường, Toán tăng cường): nay là luật cứng "trong ngày đứng sau tiết chính cùng môn" (không ép buổi chiều), xem README mục Luật bảo vệ học sinh.
 - **Giới hạn:** khối 1 có 14 tiết TV mà luật cứng chỉ cho tối đa 2 tiết TV mỗi buổi. Như vậy buổi sáng chứa tối đa 10 tiết TV, ít nhất 4 tiết vẫn phải sang buổi chiều. Mục tiêu này chỉ đẩy được hết mức có thể.
 
-### 5.2. Mỗi khối có một buổi chiều sinh hoạt tổ khối (nên cân nhắc)
+### 5.2. Mỗi khối có một buổi chiều sinh hoạt tổ khối (**không làm**: nhà trường bỏ hướng buổi rảnh cho GVCN)
 
 - **Cách làm:** trong `tkb/config.py` ghi ngày họp của từng khối, ví dụ khối 1 chiều Thứ 5, khối 2 chiều Thứ 2… Buổi chiều đó, mọi lớp của khối chỉ học môn do giáo viên khác dạy, mọi GVCN của khối đều rảnh.
 - **Khó khăn:**
@@ -148,3 +148,23 @@ Xếp theo mức ưu tiên.
 - **Buổi chiều ngắn, nghỉ hẳn một buổi:** trường mình học cố định 7 tiết Thứ 2–5.
 - **Các môn riêng của trường B** (Công dân số AI, Tin học Quốc tế, Tiếng Anh Toán Khoa…): trường mình không có.
 - **HĐTN và môn 1 tiết/tuần:** trường mình đã làm giống hai trường.
+- **Gom tiết trống của GVCN (đã chạy thử, không áp dụng):** chương trình chỉ phạt tiết trống giữa buổi của giáo viên không chủ nhiệm (`Weights.teacher_gap`), không phạt của GVCN.
+  - **Cách thử:** phạt thêm mỗi tiết trống giữa buổi của GVCN, ở hai mức 10 và 40. Chạy trên file `data/INPUT_V8.xlsx` với `main.py` mặc định, máy Linux. Bản hiện tại có mã kết quả `3828-B620-0E2A`.
+  - **Kết quả:**
+
+    | Chỉ số (cả trường, mỗi tuần) | Hiện tại | Mức 10 | Mức 40 |
+    |---|---|---|---|
+    | Tiết trống giữa buổi của 29 GVCN | 104 | 79 | 76 |
+    | Trong đó so le (dạy – trống – dạy) | 76 | 61 | 60 |
+    | Trong đó 2 tiết liền (dạy – trống – trống – dạy) | 28 | 18 | 16 |
+    | GVCN rảnh trọn buổi (tổng số buổi) | 15 | 10 | 16 |
+    | Môn nặng ở tiết 7 | 7 | 6 | 9 |
+    | TV/Toán học buổi chiều | 40 | 39 | 38 |
+    | Giáo viên đổi cơ sở trong ngày | 1 | 3 | 1 |
+
+  - **Lý do không áp dụng:**
+    - Tiết trống của GVCN chính là tiết lớp học môn chuyên biệt. Nên xếp theo môn học (môn chính buổi sáng, môn nặng tránh tiết 7, môn 1 tiết rải ngày). Phạt tiết trống của cô sẽ tranh chỗ với các mục tiêu đó: ở mức 40, môn nặng ở tiết 7 tăng từ 7 lên 9.
+    - Tổng giờ rảnh của mỗi GVCN cố định, bằng số tiết bộ môn của lớp mình. Gom chỉ chuyển tiết rảnh lẻ ra đầu hoặc cuối buổi, không làm các cô đều nhau hơn.
+    - Tiết trống giữa buổi vẫn có ích: chấm vở, chuẩn bị tiết sau, nghỉ giọng.
+    - Lợi ích nhỏ: mỗi cô bớt khoảng 1 tiết lẻ mỗi tuần, khoảng 3/4 tiết trống vẫn là so le.
+  - **Thay vào đó:** cô cần nghỉ một buổi cụ thể thì ghi ở cột `Buổi Nghỉ` (luật cứng). Nhà trường bỏ cả hướng buổi rảnh chung cho GVCN (mục 5.2).

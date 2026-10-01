@@ -28,6 +28,7 @@ from ortools.sat.python import cp_model
 
 from . import config
 from .solver import TimetableModel, _configure, day_targets, distance_to_session_end
+from .staff import class_sort_key, grade_of
 
 
 @dataclass
@@ -42,7 +43,7 @@ class LnsResult:
 
 
 def _class_key(cls: str) -> tuple:
-    return tuple(int(p) if p.isdigit() else p for p in cls.split("/"))
+    return class_sort_key(cls)
 
 
 class _Search:
@@ -101,8 +102,6 @@ class _Search:
                 cost[key] += w.heavy_late
             if les.subject in config.MORNING_SUBJECTS and les.period not in config.MORNING.periods:
                 cost[key] += w.morning_core
-            elif les.subject in config.AFTERNOON_SUBJECTS and les.period in config.MORNING.periods:
-                cost[key] += w.extra_morning
             if problem.courses[les.course_id].flex_hdtn:
                 cost[key] += w.hdtn_flex_distance * distance_to_session_end((les.day, les.period))
         days = len(config.DAY_SESSIONS)
@@ -118,6 +117,8 @@ class _Search:
             t = problem.teachers[g]
             over = len(items) - day_targets(t.max_lessons, problem.slots)[d]
             pen = w.day_over_preferred * max(0, over) + w.day_over_buffer * max(0, over - 1)
+            if len({l.class_name in problem.campus2 for l in items}) > 1:
+                pen += w.campus_day_switch
             if not t.class_name:
                 for morning in (True, False):
                     ps = [l.period for l in items if (l.period in config.MORNING.periods) == morning]
@@ -162,9 +163,9 @@ class _Search:
         groups.sort(key=lambda s: (-round(sum(by_class[c] for c in s)), sorted(s, key=_class_key)))
         out += [("GV dùng chung", "lớp " + ",".join(sorted(s, key=_class_key)), self.free(s, days),
                  limits["GV dùng chung"]) for s in groups]
-        grade = {c: c.split("/")[0] for c in classes}
+        grade = {c: grade_of(c) for c in classes}
         grades = sorted(set(grade.values()), key=lambda g: (-round(sum(by_class[c] for c in classes if grade[c] == g)),
-                                                             _class_key(g)))
+                                                             g))
         out += [("khối", f"khối {g}", self.free([c for c in classes if grade[c] == g], days), limits["khối"])
                 for g in grades]
         pairs = sorted(itertools.combinations(days, 2), key=lambda p: (-round(by_day[p[0]] + by_day[p[1]]), p))

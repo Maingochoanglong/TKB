@@ -1,7 +1,10 @@
-"""Các luật nghiệp vụ của hệ thống xếp TKB mà file vào không có.
+"""Giá trị mặc định của các luật nghiệp vụ, trọng số mục tiêu và tham số xếp giờ.
 
 Dữ liệu của trường (danh sách môn, số tiết từng khối, giáo viên, chức vụ, lớp, định mức) chỉ lấy từ
 file vào, không ghi ở đây. Solver không hard-code số lớp, số tiết hay quyền dạy.
+Các luật nghiệp vụ (khung giờ, HĐTN, GVCN, quyền dạy, bù giờ, luật bảo vệ học sinh, môn nặng, tên viết tắt) nhà
+trường sửa trong file vào (các cột quy định của sheet CHƯƠNG TRÌNH HỌC và sheet QUY ĐỊNH, tkb/rules.py); giá trị
+dưới đây chỉ dùng cho quy định file vào không ghi.
 """
 from __future__ import annotations
 
@@ -27,6 +30,8 @@ TOAN_TC = "Toán tăng cường"
 TV_TC = "Tiếng Việt tăng cường"
 TIENG_ANH = "Tiếng Anh"
 TIN_HOC = "Tin học"
+AM_NHAC = "Âm nhạc"
+MY_THUAT = "Mỹ thuật"
 
 # Tên môn hiển thị trong ô TKB (viết tắt); môn không có ở đây giữ nguyên tên.
 DISPLAY_NAMES: dict[str, str] = {
@@ -83,6 +88,16 @@ ROLE_LABELS: dict[str, str] = {ROLE_HOMEROOM: "Chủ Nhiệm", ROLE_GENERAL: "B�
 # File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"
 PROGRAM_SHEET = "CHƯƠNG TRÌNH HỌC"
+# Không bắt buộc: các luật nghiệp vụ, mỗi ô ghi Có, Không hoặc số (tkb/rules.py): quy định của môn là các cột của
+# sheet CHƯƠNG TRÌNH HỌC, các quy định khác ở sheet này (ba bảng: chung, ngày, tiết); thiếu thì dùng giá trị dưới đây.
+RULES_SHEET = "QUY ĐỊNH"
+# File vào cập nhật (<file vào>_cap_nhat.xlsx) lưu TKB đã xếp ở sheet này, dạng lưới như TKB: dòng đầu ghi mã kết
+# quả và mã quy định; bảng Lớp | Tiết | Thứ 2 …, mỗi ô ghi môn, xuống dòng ghi Mã GV (thêm " (bù)" ở tiết dạy bù).
+# Nạp lại file đó làm file vào thì chương trình dùng lại TKB này nếu vẫn đúng mọi luật (vd chỉ đổi tên người
+# "chưa có" thành tên người mới tuyển); main.py GIU_TKB_DA_XEP = False (dòng lệnh --xep-lai) thì xếp lại từ đầu.
+SAVED_SHEET = "TKB đã xếp"
+SAVED_OVERTIME = "(bù)"
+SAVED_CODES = ("Mã kết quả", "Mã quy định")
 
 # Môn chỉ GVCN của lớp được dạy.
 HOMEROOM_ONLY_SUBJECTS: set[str] = {HDTN}
@@ -132,9 +147,12 @@ SUPPLEMENT_NAME = "chưa có"
 MODE_HIRE = "tuyen_them"  # thêm GV bổ sung "chưa có": nhận các tiết bù và phần còn thiếu
 MODE_OVERTIME = "bu_gio"  # GVCN/bộ môn dạy bù vượt định mức; bù vẫn không đủ thì báo lỗi, không tuyển
 MODES = (MODE_HIRE, MODE_OVERTIME)
-# Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt; GVCN bù
-# trước, bộ môn chỉ bù khi GVCN đã bù hết mức.
+# Chức vụ được dạy bù. GVCN chỉ bù ở lớp mình, không bù môn của GV chuyên biệt (trừ
+# HOMEROOM_OVERTIME_SPECIALIST); GVCN bù trước, bộ môn chỉ bù khi GVCN đã bù hết mức.
 OVERTIME_ROLES: set[str] = {ROLE_HOMEROOM, ROLE_GENERAL}
+# Môn của GV chuyên biệt mà GVCN vẫn được dạy bù ở lớp mình (nhận sau cùng, sau các môn trong
+# HOMEROOM_FILL_ORDER). Tin học, Tiếng Anh, Thể dục thì không.
+HOMEROOM_OVERTIME_SPECIALIST: set[str] = {AM_NHAC, MY_THUAT}
 OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức được duyệt)
 
 # --------------------------------------------------------------------------
@@ -144,12 +162,12 @@ OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức
 HEAVY_SUBJECTS: set[str] = {TOAN, TOAN_TC, TV, TV_TC, TIENG_ANH, KH, TIN_HOC}
 HEAVY_LATE_PERIODS: set[int] = {7}
 # Buổi sáng dành cho môn chính (mục tiêu mềm, như TKB các trường khác: docs/Tham_Khao_TKB_Truong_Khac.md):
-# mỗi tiết TV, Toán xếp vào buổi chiều bị phạt (Weights.morning_core); tiết tăng cường thì ngược lại, ưu tiên
-# buổi chiều để nhường buổi sáng cho tiết chính (Weights.extra_morning).
+# mỗi tiết TV, Toán xếp vào buổi chiều bị phạt (Weights.morning_core).
 MORNING_SUBJECTS: set[str] = {TV, TOAN}
-# TV tăng cường không ở đây: nó ghép cặp liền với tiết TV (SUBJECT_GROUPS, PAIR_MIN_LESSONS).
-AFTERNOON_SUBJECTS: set[str] = {TOAN_TC}
-# Nhóm môn: môn tăng cường tính chung với môn chính cho các luật liên tiết, số tiết mỗi buổi và ghép cặp.
+# Nhóm môn: môn tăng cường (khóa) tính chung với môn chính (giá trị) cho các luật liên tiết, số tiết mỗi buổi
+# và ghép cặp. Luật cứng đi kèm (luật bảo vệ học sinh): tiết tăng cường là tiết luyện bài vừa học nên trong một
+# ngày phải có tiết chính cùng nhóm đứng trước nó và không có tiết chính nào đứng sau nó (không cần liền, không
+# cần cùng người dạy, không cần buổi chiều).
 SUBJECT_GROUPS: dict[str, str] = {TV_TC: TV, TOAN_TC: TOAN}
 # Mỗi nhóm môn tối đa ngần ấy tiết mỗi buổi. Luật cứng đi kèm: môn nào có từ 2 tiết trong một buổi thì
 # các tiết đó phải liền nhau, vd sáng "TV, Toán, TV, Anh" là sai, phải là "Toán, TV, TV, Anh".
@@ -166,9 +184,9 @@ def rule_subjects() -> list[str]:
     """Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào)."""
     names = [HDTN, *HOMEROOM_PRIORITY, *HOMEROOM_CUT_ORDER, *HOMEROOM_FILL_ORDER, *HOMEROOM_ONLY_SUBJECTS,
              *GENERAL_FORBIDDEN_SUBJECTS, *(r.subject for r in MANAGER_RULES), *HEAVY_SUBJECTS,
-             *MORNING_SUBJECTS, *AFTERNOON_SUBJECTS, *SUBJECT_GROUPS, *SUBJECT_GROUPS.values(),
-             *DAILY_LIMITS, *DISPLAY_NAMES]
-    return sorted(set(names))
+             *MORNING_SUBJECTS, *SUBJECT_GROUPS, *SUBJECT_GROUPS.values(),
+             *DAILY_LIMITS, *DISPLAY_NAMES, *HOMEROOM_OVERTIME_SPECIALIST]
+    return sorted({n for n in names if n})  # HDTN = "": trường không có môn HĐTN (cột Môn HĐTN để trống)
 
 
 # --------------------------------------------------------------------------
@@ -183,25 +201,35 @@ class Weights:
     day_over_preferred: int = 100  # mỗi tiết vượt tải ngày mong muốn
     day_over_buffer: int = 300  # mỗi tiết vượt tải ngày mong muốn + 1
     hdtn_flex_distance: int = 200  # mỗi tiết cách cuối buổi của HĐTN flex
-    heavy_late: int = 400  # mỗi tiết môn nặng ở tiết 7
+    heavy_late: int = 1_200  # mỗi tiết môn nặng ở tiết 7 (400 thì file của trường còn 8 tiết trên Windows; 1200: 6;
+                             # 3000 cũng 6 mà TV/Toán buổi chiều tăng)
     morning_core: int = 300  # mỗi tiết TV, Toán (MORNING_SUBJECTS) xếp vào buổi chiều
     core_spread: int = 120  # như subject_spread nhưng cho MORNING_SUBJECTS
-    extra_morning: int = 10  # mỗi tiết tăng cường (AFTERNOON_SUBJECTS) xếp vào buổi sáng
-    extra_after_main: int = 100  # thưởng mỗi tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy
     subject_spread: int = 40  # mỗi tiết vượt mức rải đều môn/ngày
     teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
+    campus_day_switch: int = 10_000  # mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia (luật cứng mỗi buổi
+                                     # một cơ sở vẫn giữ; cứng cả ngày thì file của trường không ra TKB)
     general_on_specialist: int = 1_000  # mỗi tiết bộ môn dạy thay môn chuyên biệt (chỉ khi GV chuyên biệt đã
                                        # hết định mức; lớn hơn điểm gom lớp để không bị đổi chỉ vì gom lớp)
     load_balance: int = 50  # mỗi tiết dư lớn nhất giữa các GV cùng chức vụ
     supplement_order: int = 1  # dồn tiết cho GV bổ sung số thứ tự nhỏ trước
     # Chế độ bù giờ (thứ tự ưu tiên: ít tiết bù của bộ môn > ít tiết bù của GVCN > chia đều >
     # GVCN bù đúng thứ tự môn > hạn chế chia môn).
-    overtime_general: int = 200_000  # mỗi tiết bộ môn dạy bù (đắt hơn GVCN để GVCN bù trước)
-    overtime_homeroom: int = 100_000  # mỗi tiết GVCN dạy bù
+    # Ai bù trước: GVCN hợp đồng, GVCN khác, bộ môn hợp đồng, bộ môn khác (cột Hợp Đồng). Các mức cách nhau
+    # 200.000 > 3 × overtime_second: tiết bù thứ 4 của mức trước vẫn rẻ hơn tiết thứ nhất của mức sau (đúng khi
+    # bù tối đa đến +4); mức đắt nhất vẫn rẻ hơn một tiết thiếu (supplement_lesson).
+    overtime_general: int = 700_000  # mỗi tiết bộ môn dạy bù (đắt hơn GVCN để GVCN bù trước)
+    overtime_general_contract: int = 500_000  # mỗi tiết bộ môn hợp đồng dạy bù
+    overtime_homeroom: int = 300_000  # mỗi tiết GVCN dạy bù
+    overtime_homeroom_contract: int = 100_000  # mỗi tiết GVCN hợp đồng dạy bù
     overtime_second: int = 50_000  # mỗi tiết bù từ tiết thứ 2 của một người (ai cũng +1 rồi mới +2)
     overtime_subject_order: int = 3_000  # × hạng môn: môn ưu tiên (0) rồi HOMEROOM_FILL_ORDER (1, 2...)
     # Phân công (tkb/phan_cong.py, tìm kiếm cục bộ): gom lớp của một GV vào ít khối, ít lớp; môn ghép cặp
     # (PAIR_MIN_LESSONS) phải chia chẵn cho mỗi người.
+    # Giữ phân công của TKB cũ (cột Lớp Đang Dạy): sau số tiết thiếu/tiết bù và sau "không chia lớp-môn", nhưng
+    # trước gom lớp và cân bằng tải.
+    keep_grade: int = 60  # mỗi tiết GV dạy khối không nằm trong các khối đang dạy
+    keep_class: int = 10  # mỗi tiết GV dạy đúng khối cũ nhưng khác lớp cũ
     group_grade: int = 20  # mỗi khối một GV không chủ nhiệm dạy
     group_class: int = 5  # mỗi lớp một GV không chủ nhiệm dạy
     odd_pair_share: int = 100_000  # mỗi phần lẻ của một người trong nhóm môn ghép cặp

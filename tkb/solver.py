@@ -20,9 +20,10 @@ from dataclasses import dataclass, field, replace
 from ortools.sat.python import cp_model
 
 from . import config
-from .allocation import Course, Problem, build_problem, paired_groups, roles_for_subject, subject_group
+from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
+                         subject_group)
 from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
-from .staff import Teacher
+from .staff import Teacher, grade_of, normalize
 
 
 class SolveError(RuntimeError):
@@ -42,6 +43,7 @@ class Lesson:
     subject: str
     teacher: str
     course_id: int
+    overtime: bool = False  # tiết dạy bù (vượt định mức) của người bù, chỉ có ở chế độ bù giờ
 
 
 @dataclass
@@ -233,6 +235,8 @@ class _Allocation:
             c = problem.courses[cid]
             if c.subject in specialist and problem.teachers[g].role not in problem.specialists:
                 secondary.append(w.general_on_specialist * a)
+            if not isinstance(a, int) and (keep := keep_cost(problem.teachers[g], c.class_name, w)):
+                secondary.append(keep * a)  # giữ khối, lớp của TKB cũ
 
         # Cân bằng phần định mức chưa dùng giữa các GV cùng chức vụ.
         by_role: dict[str, list[Teacher]] = {}
@@ -261,7 +265,7 @@ class _Allocation:
             ot = m.NewIntVar(0, extra, f"ot_{title}")
             m.Add(ot >= self.load[title] - t.max_lessons)
             result[title] = ot
-            main.append((w.overtime_homeroom if t.class_name else w.overtime_general) * ot)
+            main.append(overtime_cost(t, w) * ot)
             if extra > 1:
                 second = m.NewIntVar(0, extra - 1, f"ot2_{title}")
                 m.Add(second >= ot - 1)
@@ -357,6 +361,65 @@ def timetable(problem: Problem, settings: config.Settings,
                     wall_time=wall, stage="phân công cố định" if fixed is not None else "mô hình tích hợp")
 
 
+def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, occ_campus: dict) -> None:
+    """Luật cứng theo buổi của từng GV: buổi nghỉ (cột Buổi Nghỉ) và mỗi buổi chỉ dạy ở một cơ sở (cột Cơ sở 2).
+
+    occ_terms[(GV, slot)]: các literal "GV dạy ở slot"; occ_campus[(GV, slot, lớp ở cơ sở 2?)]: như trên, tách
+    theo cơ sở của lớp."""
+    sess = session_of()
+    sessions = [(d, s) for d, ss in config.DAY_SESSIONS.items() for s in ss]
+    by_teacher: dict[str, dict[tuple[int, str], list]] = {}  # GV -> buổi -> literal
+    for (g, s), terms in sorted(occ_terms.items()):
+        by_teacher.setdefault(g, {}).setdefault((s[0], sess[s].name), []).extend(terms)
+    for g in sorted(by_teacher):
+        t, busy = problem.teachers[g], by_teacher[g]
+        for key in sorted(t.off_sessions):  # buổi nghỉ cố định
+            for v in busy.get(key, []):
+                m.Add(v == 0)
+        if t.off_any:  # nghỉ thêm n buổi bất kỳ (chương trình chọn buổi): off[buổi] = buổi đó trống
+            free = [(d, s.name) for d, s in sessions if (d, s.name) not in t.off_sessions]
+            off = {}
+            for key in free:
+                off[key] = m.NewBoolVar(f"off_{g}_{key[0]}_{key[1]}")
+                for v in busy.get(key, []):
+                    m.AddImplication(off[key], v.Not())
+            for name, n in t.off_any:
+                pool = [off[k] for k in free if name is None or k[1] == name]
+                need = sum(k for _, k in t.off_any) if name is None else n
+                m.Add(sum(pool) >= need)
+    # Mỗi buổi GV chỉ dạy ở một cơ sở: o2 = 1 là buổi đó ở cơ sở 2.
+    for g in sorted(by_teacher):
+        for d, session in sessions:
+            lits = {at2: [v for p in session.periods for v in occ_campus.get((g, (d, p), at2), [])]
+                    for at2 in (False, True)}
+            if lits[False] and lits[True]:
+                o2 = m.NewBoolVar(f"cs2_{g}_{d}_{session.name}")
+                for v in lits[True]:
+                    m.AddImplication(v, o2)
+                for v in lits[False]:
+                    m.AddImplication(v, o2.Not())
+
+
+def _campus_day_switch(m: cp_model.CpModel, occ_campus: dict, weight: int) -> list:
+    """Mục tiêu mềm: phạt `weight` mỗi (GV, ngày) dạy ở cả hai cơ sở (sáng một nơi, chiều nơi kia)."""
+    by_day: dict[tuple[str, int, bool], list] = {}  # (GV, ngày, lớp ở cơ sở 2?) -> literal
+    for (g, s, at2), lits in sorted(occ_campus.items()):
+        by_day.setdefault((g, s[0], at2), []).extend(lits)
+    terms = []
+    for g, d in sorted({(g, d) for g, d, _ in by_day}):
+        one, two = by_day.get((g, d, False)), by_day.get((g, d, True))
+        if not one or not two:
+            continue
+        u1, u2, both = (m.NewBoolVar(f"{k}_{g}_{d}") for k in ("cs1", "cs2", "hai_cs"))
+        for v in one:
+            m.AddImplication(v, u1)
+        for v in two:
+            m.AddImplication(v, u2)
+        m.Add(both >= u1 + u2 - 1)
+        terms.append(weight * both)
+    return terms
+
+
 def build_timetable(problem: Problem, settings: config.Settings,
                     fixed: dict[tuple[int, str], int] | None = None,
                     hint: dict[tuple[int, str], int] | None = None) -> TimetableModel:
@@ -392,12 +455,15 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # GV dạy course tại slot nào.
     occ_terms: dict[tuple[str, tuple[int, int]], list] = {}
+    occ_campus: dict[tuple[str, tuple[int, int], bool], list] = {}  # (GV, slot, lớp ở cơ sở 2?) -> literal
     z: dict[tuple[int, str, tuple[int, int]], cp_model.IntVar] = {}
     for c in problem.courses:
         cand = alloc.teachers_of[c.id]
+        at2 = c.class_name in problem.campus2
         if len(cand) == 1:
             for s in dom[c.id]:
                 occ_terms.setdefault((cand[0], s), []).append(x[c.id, s])
+                occ_campus.setdefault((cand[0], s, at2), []).append(x[c.id, s])
             continue
         for s in dom[c.id]:
             zs = []
@@ -406,6 +472,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 z[c.id, g, s] = v
                 zs.append(v)
                 occ_terms.setdefault((g, s), []).append(v)
+                occ_campus.setdefault((g, s, at2), []).append(v)
             m.Add(sum(zs) == x[c.id, s])
         for g in cand:
             m.Add(sum(z[c.id, g, s] for s in dom[c.id]) == alloc.a[c.id, g])
@@ -413,10 +480,11 @@ def build_timetable(problem: Problem, settings: config.Settings,
     for terms in occ_terms.values():
         if len(terms) > 1:
             m.Add(sum(terms) <= 1)
+    _teacher_sessions(m, problem, occ_terms, occ_campus)
+    objective.extend(_campus_day_switch(m, occ_campus, w.campus_day_switch))
 
-    # Biến "GV g dạy nhóm môn của lớp tại slot s" (và theo từng môn) cho các luật về người dạy.
+    # Biến "GV g dạy nhóm môn của lớp tại slot s" cho các luật về người dạy.
     teach: dict[tuple[str, str], dict[str, dict[tuple[int, int], list]]] = {}
-    teach_subject: dict[tuple[str, str], dict[str, dict[tuple[int, int], list]]] = {}
     for c in problem.courses:
         cand = alloc.teachers_of[c.id]
         for s in dom[c.id]:
@@ -424,7 +492,6 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 v = x[c.id, s] if len(cand) == 1 else z[c.id, g, s]
                 teach.setdefault((c.class_name, subject_group(c.subject)), {}).setdefault(g, {}) \
                     .setdefault(s, []).append(v)
-                teach_subject.setdefault((c.class_name, c.subject), {}).setdefault(g, {}).setdefault(s, []).append(v)
     sessions_all = [(d, session) for d, sessions in config.DAY_SESSIONS.items() for session in sessions]
 
     # Liên tiết: hai tiết liền nhau cùng lớp, cùng nhóm môn (vd TV và TV tăng cường) phải cùng người dạy.
@@ -459,18 +526,33 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # Luật bảo vệ học sinh: mỗi nhóm môn tối đa SESSION_GROUP_LIMIT tiết mỗi buổi; Toán mỗi ngày tối đa 1 tiết
     # (DAILY_LIMITS); nhóm môn ghép cặp (allocation.paired_groups) mỗi buổi 0 hoặc 2 tiết liền nhau; môn có từ 2
-    # tiết trong một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn").
+    # tiết trong một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn"); tiết tăng cường
+    # sau tiết chính cùng nhóm trong ngày (config.SUBJECT_GROUPS).
     if settings.student_rules:
         n_days = len(config.DAY_SESSIONS)
         for cls in problem.classes:
             courses = problem.class_courses(cls)
-            req = problem.curriculum[int(cls.split("/")[0])]
+            req = problem.curriculum[grade_of(cls)]
             pairs = paired_groups(req)
             by_subject: dict[str, list[Course]] = {}
             by_group: dict[str, list[Course]] = {}
             for c in courses:
                 by_subject.setdefault(c.subject, []).append(c)
                 by_group.setdefault(subject_group(c.subject), []).append(c)
+            # Tiết tăng cường là tiết luyện bài vừa học: trong ngày phải có tiết chính cùng nhóm đứng trước và
+            # không có tiết chính nào đứng sau (không cần liền, không cần cùng người dạy, không cần buổi chiều).
+            for extra, main in config.SUBJECT_GROUPS.items():
+                for te in by_subject.get(extra, []):
+                    for mc in by_subject.get(main, []):
+                        for d, p in sorted(dom[te.id]):
+                            v = x[te.id, (d, p)]
+                            day_main = [(q, x[mc.id, (d, q)]) for session in config.DAY_SESSIONS[d]
+                                        for q in session.periods if (mc.id, (d, q)) in x]
+                            before = [u for q, u in day_main if q < p]
+                            m.Add(v <= sum(before)) if before else m.Add(v == 0)
+                            for q, u in day_main:
+                                if q > p:
+                                    m.Add(v + u <= 1)
             for d, sessions in config.DAY_SESSIONS.items():
                 for subject, limit in config.DAILY_LIMITS.items():
                     if req.get(subject, 0) > n_days:
@@ -504,22 +586,6 @@ def build_timetable(problem: Problem, settings: config.Settings,
                                 for j in range(i + 1, k):
                                     m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) - sum(y[ps[j]]) <= 1)
 
-    # Tiết tăng cường liền sau tiết chính cùng nhóm, cùng người dạy (thưởng).
-    session_at = session_of()
-    for (cls, subject), by_g in teach_subject.items():
-        main = config.SUBJECT_GROUPS.get(subject)
-        if main is None:
-            continue
-        main_by_g = teach_subject.get((cls, main), {})
-        for g in sorted(by_g):
-            for (d, p), vs in sorted(by_g[g].items()):
-                prev = main_by_g.get(g, {}).get((d, p - 1))
-                if prev and session_at.get((d, p - 1)) is session_at[(d, p)]:
-                    r = m.NewBoolVar(f"after_{cls}_{subject}_{d}_{p}")
-                    m.Add(r <= sum(vs))
-                    m.Add(r <= sum(prev))
-                    objective.append(-w.extra_after_main * r)
-
     # HĐTN linh hoạt: càng gần cuối buổi càng tốt.
     for c in problem.courses:
         if c.flex_hdtn:
@@ -532,12 +598,10 @@ def build_timetable(problem: Problem, settings: config.Settings,
             objective.extend(w.heavy_late * x[c.id, s] for s in dom[c.id]
                              if s[1] in config.HEAVY_LATE_PERIODS)
 
-    # Buổi sáng dành cho TV, Toán; tiết tăng cường ưu tiên buổi chiều để nhường buổi sáng cho tiết chính.
+    # Buổi sáng dành cho TV, Toán.
     for c in problem.courses:
         if c.subject in config.MORNING_SUBJECTS:
             objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if s[1] not in config.MORNING.periods)
-        elif c.subject in config.AFTERNOON_SUBJECTS:
-            objective.extend(w.extra_morning * x[c.id, s] for s in dom[c.id] if s[1] in config.MORNING.periods)
 
     # Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
     days = sorted(config.DAY_SESSIONS)
@@ -638,7 +702,7 @@ def du_toan_lines(problem: Problem, plan: PhanCong) -> list[str]:
     """Dự toán in ra trước khi xếp giờ."""
     teachers = problem.teachers
     spec = problem.specialist_subjects()
-    total = sum(sum(problem.curriculum[int(cls.split("/")[0])].values()) for cls in problem.classes)
+    total = sum(sum(problem.curriculum[grade_of(cls)].values()) for cls in problem.classes)
     part = {"gvcn": 0, "spec": 0, "manager": 0, "general": 0, "general_spec": 0}
     for (cid, g), n in plan.lessons.items():
         t, c = teachers[g], problem.courses[cid]
@@ -692,8 +756,85 @@ def _to_overtime(solution: Solution, problem: Problem, owners: dict[tuple[int, s
     for key, lessons in by_key.items():
         for les, owner in zip(sorted(lessons, key=lambda l: (l.day, l.period)), owners[key]):
             teacher_of[id(les)] = owner
-    lessons = [replace(les, teacher=teacher_of[id(les)]) if id(les) in teacher_of else les for les in solution.lessons]
+    lessons = [replace(les, teacher=teacher_of[id(les)], overtime=True) if id(les) in teacher_of else les
+               for les in solution.lessons]
     return replace(solution, problem=problem, lessons=lessons)
+
+
+def reuse(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings: config.Settings,
+          rows: list[tuple]) -> tuple[Solution | None, list[str]]:
+    """Dùng lại TKB đã xếp (sheet config.SAVED_SHEET của file vào cập nhật, staff.read_saved_timetable) thay cho
+    xếp lại: (lời giải, []) nếu TKB đó khớp file vào và đúng mọi luật cứng (checker), không thì (None, các lý do).
+
+    Giáo viên khớp theo Mã GV (vd "Bộ Môn 5"), không theo tên: đổi tên người "chưa có" thành tên người mới tuyển thì
+    TKB giữ nguyên, mã kết quả cũng giữ nguyên (mã băm theo chức vụ, không theo tên)."""
+    from .checker import check  # checker nhập module này: nhập muộn để tránh vòng lặp
+    overtime_max = settings.overtime_max if settings.mode == config.MODE_OVERTIME else 0
+    problem = build_problem(staff, curriculum, {}, overtime_max=overtime_max)
+    if not rows:
+        return None, [f"sheet {config.SAVED_SHEET} không có bảng TKB (dòng tiêu đề Lớp | Tiết | Thứ 2 …)"]
+    title_of = {normalize(t.code): t.title for t in problem.teachers.values()}
+    subject_of = {normalize(problem.subject_label(c.subject)): c.subject for c in problem.courses}
+    day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
+    classes = {normalize(c): c for c in problem.classes}
+    errors: list[str] = []
+    parsed = []
+    for cls, day, period, subject, code, overtime, at in rows:
+        where = f"sheet {config.SAVED_SHEET} {at}"
+        try:
+            slot = (day_of[normalize(day)], int(period))
+        except (KeyError, TypeError, ValueError):
+            errors.append(f"{where}: thứ/tiết không hợp lệ ({day!r}, {period!r})")
+            continue
+        missing = [what for what, ok in (("lớp", normalize(cls) in classes), ("môn", normalize(subject) in subject_of),
+                                          ("Mã GV", normalize(code) in title_of)) if not ok]
+        if missing:
+            errors.append(f"{where}: {', '.join(missing)} không có trong file vào ({cls}, {subject}, {code})")
+            continue
+        parsed.append((classes[normalize(cls)], slot, subject_of[normalize(subject)], title_of[normalize(code)],
+                       bool(overtime)))
+    if errors:
+        return None, errors
+    # Mỗi (lớp, môn) có thể có hai course: phần GVCN (homeroom) và phần còn lại; tiết của GVCN (trừ tiết bù) vào
+    # phần GVCN trước.
+    homeroom_of = {t.class_name: t.title for t in problem.teachers.values() if t.class_name}
+    courses: dict[tuple[str, str], list[Course]] = {}
+    for c in problem.courses:
+        courses.setdefault((c.class_name, c.subject), []).append(c)
+    groups: dict[tuple[str, str], list[tuple]] = {}
+    for item in parsed:
+        groups.setdefault((item[0], item[2]), []).append(item)
+    lessons: list[Lesson] = []
+    for key, items in sorted(groups.items()):
+        options = courses.get(key)
+        if not options:
+            errors.append(f"Lớp {key[0]}: môn {problem.subject_label(key[1])} không có trong chương trình học")
+            continue
+        room = {c.id: c.lessons for c in options}
+        for cls, slot, subject, teacher, overtime in sorted(items, key=lambda p: (p[4], p[1])):
+            own = [c for c in options if c.homeroom and room[c.id] > 0 and teacher == homeroom_of.get(cls)
+                   and not overtime]
+            other = [c for c in options if not c.homeroom and room[c.id] > 0]
+            course = (own or other or options)[0]
+            room[course.id] -= 1
+            lessons.append(Lesson(cls, slot[0], slot[1], subject, teacher, course.id,
+                                  overtime=overtime and teacher in problem.overtime))
+    errors += [f"Lớp {key[0]}: môn {problem.subject_label(key[1])} có {n} tiết, chương trình học cần {need}"
+               for key, need in sorted(_need(problem).items())
+               if (n := sum(1 for les in lessons if (les.class_name, les.subject) == key)) != need]
+    if not errors:
+        errors = check(problem, lessons, settings.student_rules)
+    if errors:
+        return None, errors
+    return Solution(problem, "Dùng lại TKB đã xếp", lessons, 0, 0, 0.0, "dùng lại TKB đã xếp"), []
+
+
+def _need(problem: Problem) -> dict[tuple[str, str], int]:
+    """(lớp, môn) -> số tiết theo chương trình học."""
+    need: dict[tuple[str, str], int] = {}
+    for c in problem.courses:
+        need[c.class_name, c.subject] = need.get((c.class_name, c.subject), 0) + c.lessons
+    return need
 
 
 def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],

@@ -4,14 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-SAT. Input: one Excel file with
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
-only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code), `Thong_Ke.xlsx` (one table: lessons per subject
-per teacher + total; in `bu_gio` with a shortage only the sheet `Thiếu tiết`), `<input>_cap_nhat.xlsx` (input + hires). Code comments,
+only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code; both split into `*_diem_chinh`/`*_diem_phu` when
+the file has campus-2 classes, `writer.campus_paths`), `Thong_Ke.xlsx` (one table: lessons per subject
+per teacher + total, quota, overtime, spare, and with campus 2 who moves between campuses (`campus_moves`); spare rows blue; overtime rows yellow, their overtime subject cells orange, per-subject overtime in the text column `Môn Dạy Bù` (`Lesson.overtime`); in
+`bu_gio` with a shortage only the sheet `Thiếu tiết`), `<input>_cap_nhat.xlsx` (input + hires + result columns incl. `Số Tiết Dư`; rows coloured: overtime
+yellow, hire green, spare blue, explained in the rewritten `HƯỚNG DẪN` sheet — the simple stats in input layout;
+it also writes all rules used and the saved timetable grid `TKB đã xếp`). Output files hold
+plain values and colours only: no cell comments, formulas, frozen panes, dropdowns or conditional formats
+(`writer.plain_values`). Code comments,
 docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
-  sheet `CHƯƠNG TRÌNH HỌC` required). `data/` holds the school's real file `INPUT_V8.xlsx` and the output templates
+  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`; optional
+  business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB`: per-subject rules
+  are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
+  periods); see Architecture). `python -m tkb.template` writes a plain template (black text, no
+  fill/freeze/dropdowns/comments/hidden sheets) with NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), QUY ĐỊNH, HƯỚNG DẪN. Class names
+  are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
+  `Input_Template_V8.xlsx` (`python -m tkb.template`, a test checks it is current) and the output templates
   `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tests/du_lieu_mau.py`
   (`CURRICULUM`, `sample_staff()`, `write_sample_input()`); `tests/conftest.py` writes it to a temp `INPUT_FILE`
   and has `small_staff()` plus `teacher(name, "bộ môn 1", lessons)` for hand-made staff.
@@ -20,7 +32,9 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   are git-ignored). When analysing its output, read subject names only. CI runs this file but uploads only the
   result-code line, never `out/`.
 - Never hard-code school data (classes, subjects, lesson counts, teachers) in code: it all comes from the input
-  file. `tkb/config.py` holds only rules the file does not contain.
+  file. `tkb/config.py` holds the defaults of the rules (overridden by the file's rules), weights and LNS
+  params. A new business rule the school may want to change gets a `Col` in `tkb/rules.py` (read in `_Reader`,
+  written in `rule_tables`/`subject_columns`, listed in `ATTRS`), keeping the Có/Không/number convention.
 - Hard rules are the school's decisions: do not loosen or tighten one without asking.
 
 ## Commands
@@ -41,9 +55,21 @@ Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` sh
 
 ## Architecture
 `main.run()` validates the constants at the top of `main.py` and calls `tkb.__main__.main(argv)`:
-`program.read_program` + `staff.read_staff` → `solver.solve` → `checker.check` → `writer.write_timetable`,
-`write_timetable(with_codes=True)`, `write_updated_staff`, `write_statistics` (all output styles copied from the input via
-`style.Style.from_file`); `solver.ShortageError` → `writer.write_shortage`.
+`rules.read_rules` (rule columns of `CHƯƠNG TRÌNH HỌC` + sheet `QUY ĐỊNH` → config attribute values; missing
+sheet/table/column = default; all errors at once; unknown program columns only warn; the old 4-sheet format is an
+error) then everything runs
+inside `with rules.applied(values)`, which sets those `config.*` module attributes and restores them afterwards (code
+reads `config.X` at call time, never copies it at import). A sheet with the defaults gives the same codes as no
+sheet. `program.read_program` + `staff.read_staff` → `solver.solve` → `checker.check` → `writer.write_timetable`,
+`write_timetable(with_codes=True)`, `write_updated_staff` (adds the missing rule columns/rows and sheet `QUY ĐỊNH`,
+rewrites `HƯỚNG DẪN` with the result notes, writes the saved timetable grid), `write_statistics` (all output styles copied from the input via
+`style.Style.from_file`, which skips the program's own row colours `style.MARK_FILLS`); `solver.ShortageError` →
+`writer.write_shortage`. The updated input stores the timetable in sheet `TKB đã xếp` (`config.SAVED_SHEET`), a grid like the TKB
+(`Lớp | Tiết | Thứ 2…`, cell "subject\nMã GV", " (bù)" for overtime, row 1 = result code + rules code); reloading
+it (`staff.read_saved_timetable` → `solver.reuse`, teachers matched by Mã GV, `checker.check` must pass, and the
+saved rules code must equal `rules.code()`, else re-solve) skips
+solving, so renaming "chưa có" hires keeps the timetable and the code; `main.py` `GIU_TKB_DA_XEP = False` /
+`--xep-lai` forces a re-solve.
 
 `solver.solve` (both modes share one timetable; only who teaches the overtime cells differs):
 1. `allocation.build_problem` → `Problem`: one `Course` per (class, subject) with lesson count, candidate
@@ -67,21 +93,24 @@ Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` sh
 afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names loosely via
 `staff.subject_key` → `program.canonical_subject`.
 
-| Rule | `tkb/config.py` | Implemented in |
+| Rule | `tkb/config.py` default (the file's rules override) | Implemented in |
 |---|---|---|
-| Subject group (TV+TV TC, Toán+Toán TC) ≤ 2 per session; Toán ≤ 1 per day; groups ≥ 6 lessons with even total in consecutive pairs; same subject contiguous in a session (hard) | `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `solver.timetable` "Luật bảo vệ học sinh" block; `checker._check_student_rules`; `allocation.paired_groups` |
+| Subject group (TV+TV TC, Toán+Toán TC) ≤ 2 per session; Toán ≤ 1 per day; groups ≥ 6 lessons with even total in consecutive pairs; same subject contiguous in a session; TC lesson after every main lesson of its group that day, and the day has one (hard) | `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `solver.timetable` "Luật bảo vệ học sinh" block; `checker._check_student_rules`; `allocation.paired_groups` |
 | Consecutive lessons of a group by one teacher; homeroom priority group: GVCN's lesson first in the week (hard, always) | `SUBJECT_GROUPS`, `HOMEROOM_PRIORITY` | `solver.timetable` "Liên tiết", "GVCN trước"; `checker._check_teacher_order` |
 | HĐTN Mon p1 + Fri p4 fixed, rest Tue–Thu near session end | `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS` | `allocation.build_problem`, `solver.allowed_slots`, objective `hdtn_flex_distance` |
 | Period 1 always the homeroom teacher | `HOMEROOM_PERIODS` | `solver.allowed_slots` |
 | Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES` | `allocation.roles_for_subject`, `manager_allowed` |
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
-| Estimate + assignment, overtime homeroom first, max +2 | `OVERTIME_ROLES`, `OVERTIME_MAX`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
-| Soft: heavy subjects at p7, TV/Toán mornings, Toán TC right after Toán, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `AFTERNOON_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |
+| Estimate + assignment, overtime homeroom first, max +2 (`main.py` `SO_TIET_BU_TOI_DA` = 3 for the school file); GVCN overtime never in specialist subjects except Âm nhạc/Mỹ thuật, capped by the flow estimate | `OVERTIME_ROLES`, `OVERTIME_MAX`, `HOMEROOM_OVERTIME_SPECIALIST`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
+| Soft: heavy subjects at p7, TV/Toán mornings, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |
+| Campuses: a teacher teaches at one campus per session (hard), soft penalty per teacher-day at both campuses (whole-day hard was infeasible); maternity/`Cơ sở 2` non-homeroom teach only campus-2 classes; `Buổi Nghỉ` fixed and "n buổi" leave (hard) | columns → `Teacher.campus2/maternity/off_sessions/off_any`, `Problem.campus2`; `Weights.campus_day_switch` | `allocation.build_problem` (eligibility), `phan_cong.teacher_slots`, `solver._teacher_sessions`, `solver._campus_day_switch` (+ `lns._Search.qa`); `checker._check_teacher_sessions` |
+| Overtime order: homeroom contract → homeroom → general contract → general; maternity no overtime; keep old grade then class (`Lớp Đang Dạy`) | `Weights.overtime_*`, `keep_grade`, `keep_class` | `allocation.overtime_cost`, `keep_cost`, `overtime_allowance`; used in `phan_cong._flow`, `_Local._part`, `solver._Allocation` |
 | Timetabling loop: start share (≤ `LNS_START_MAX`), region limits, stop rules | `LNS_*`, `Settings.time_limit` (1200) | `lns.improve`, `lns._Search.regions` |
 
 Glossary: GVCN/chủ nhiệm = homeroom teacher; bộ môn = general subject teacher; GV chuyên biệt = specialist (role
 name = subject name); quản lý = manager; tuyển thêm = hire "chưa có"; bù giờ = overtime; tiết = period; buổi =
-session; khối = grade; TC/tăng cường = extra lessons (separate subjects); HĐTN, TNXH, TV = subject abbreviations.
+session; khối = grade; TC/tăng cường = extra lessons (separate subjects); HĐTN, TNXH, TV = subject abbreviations;
+cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; buổi nghỉ = requested day-part off.
 
 ## Reproducibility (read before changing the solver)
 - Default reproducible mode (`solver._configure`): deterministic time budget, `interleave_search`, clause and
@@ -93,10 +122,10 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table
   "Chạy trên máy khác" (codes of `python main.py`), the spec (§0 history row, §9), and the output templates
   (`python tools/mau_dau_ra.py`).
-- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `14CA-0CDD-A57E`/`A78D-7F44-CDA7`, Windows `6E11-2445-E375`/`C9D3-264F-A5FD`
+- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `4CCD-C868-AF11`/`51DE-A8CB-6CB7`, Windows the same
   (the small school is proven optimal at the LNS start, so these did not change with LNS);
-  `python main.py` (school file as of now) Linux `E605-A8C9-49DF`, Windows `6D35-AD5A-3ABA`; fake school of
-  `tests/du_lieu_mau.py` with main.py constants Linux `428A-3655-C110`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+  `python main.py` (school file as of now) Linux `5C2B-510F-5156`, Windows `08F4-E2C6-3470`; fake school of
+  `tests/du_lieu_mau.py` with main.py constants Linux `72C2-3315-CE24`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
@@ -110,4 +139,4 @@ session; khối = grade; TC/tăng cường = extra lessons (separate subjects); 
 - `docs/Dac_Ta_Nghiep_Vu_TKB_V16.md`: full spec. §0 change history (add a row per rule change), §5 homeroom,
   §6 student rules, §7 shortage modes, §8 objectives and weights, §9 solve process and reproducibility,
   §11 outputs, §13 reference results.
-- `docs/Tham_Khao_TKB_Truong_Khac.md`: how other schools arrange subjects; §5 proposals (5.1 done).
+- `docs/Tham_Khao_TKB_Truong_Khac.md`: how other schools arrange subjects; §5 proposals (5.1 done, 5.2 dropped); §6 not adopted (incl. the homeroom-gap trial).
