@@ -101,6 +101,14 @@ time) live in the UI, not in the Excel file.
 5. If infeasible (`tuyen_them` only): integrated model (`_Allocation` + timetable, single CP-SAT solve) with +1, then
    +3 spare supplements.
 
+Conflicting rules (`tkb/chan_doan.py`): `precheck` (sound counting checks only, called in `solver._assignment` and by the
+UI check) raises `solver.ConflictError` before solving; when no timetable is found, `solver._unsolvable` →
+`chan_doan.diagnose` re-runs `solver.feasible` (fixed assignment, first solution, 30 units) with rule families relaxed via
+`rules.applied` or the diagnosis-only flags `solver.RELAXED` (always empty in a real solve, so the model and codes are
+unchanged): not proven → "add time"; all relaxed still infeasible → staff/quota; else a deletion filter gives the
+minimal conflicting families and which single relaxation fixes it. A new hard rule should get a family in
+`chan_doan._rules` (and a count in `precheck` if one is sound).
+
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
 `solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday
 afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names loosely via

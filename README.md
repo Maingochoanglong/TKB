@@ -99,6 +99,15 @@ Tuỳ chọn:
 
 Mã thoát: `0` đạt; `1` lỗi file vào hoặc không xếp được; `2` TKB sai luật bắt buộc; `3` chế độ bù giờ thiếu tiết.
 
+**Khi các quy định mâu thuẫn** (không có TKB nào thỏa), chương trình nói rõ quy định nào:
+- Trước khi xếp, chương trình đếm và báo ngay (cả nút Kiểm tra của giao diện), vd `Khối 1: Tiếng Việt có 14 tiết/tuần
+  nhưng 'Số tiết tối đa một nhóm môn mỗi buổi' = 1 chỉ cho tối đa 1 × 9 buổi = 9 tiết`.
+- Phép đếm không thấy mà bộ giải không xếp được thì chương trình **chẩn đoán** (thường dưới vài phút): thử nới từng
+  nhóm luật bắt buộc rồi báo nhóm luật nhỏ nhất không cùng thỏa được và luật nào nới riêng là đủ, vd
+  `Số tiết tối đa một nhóm môn mỗi buổi (sheet QUY ĐỊNH)` và `Tiết HĐTN cố định, Xếp tiết HĐTN còn lại (sheet QUY
+  ĐỊNH, bảng Ngày)`. Nếu nguyên nhân chỉ là thiếu thời gian thì chương trình bảo tăng thời gian; nếu nới hết vẫn không
+  được thì nguyên nhân ở nhân sự, định mức hoặc quyền dạy.
+
 Chạy test: `python -m pytest -q`
 
 ## Tuyển được người: giữ nguyên TKB
@@ -379,6 +388,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/solver.py` | Quy trình giải và mô hình xếp giờ CP-SAT |
 | `tkb/lns.py` | Xếp giờ: CP-SAT khởi đầu rồi các vòng QA → xếp lại từng vùng |
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |
+| `tkb/chan_doan.py` | Quy định mâu thuẫn: đếm trước khi xếp; khi không xếp được thì thử nới từng nhóm luật để chỉ ra luật nào gây ra |
 | `tkb/writer.py` | Xuất Excel |
 | `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |
 | `tools/mau_dau_ra.py` | Sinh lại các file mẫu đầu ra `data/Output_Template_TKB_V8.xlsx`, `data/Output_Template_Thong_Ke_V8.xlsx` từ trường mẫu tên giả (`tests/du_lieu_mau.py`) |

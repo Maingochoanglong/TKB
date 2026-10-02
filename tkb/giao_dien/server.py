@@ -102,8 +102,12 @@ def run_argv(source: Path, out: Path, name: str, run: dict) -> list[str]:
 
 
 def summary(lines: list[str]) -> dict:
-    """Kết quả đọc từ các dòng in ra: mã kết quả, đạt luật bắt buộc hay không, các file đã ghi."""
-    out = {"code": None, "passed": None, "files": []}
+    """Kết quả đọc từ các dòng in ra: mã kết quả, đạt luật bắt buộc hay không, các file đã ghi, lỗi (từ dòng "LỖI:"
+    đầu tiên đến hết, trừ các dòng "Đã ghi")."""
+    out = {"code": None, "passed": None, "files": [], "error": None}
+    first = next((i for i, line in enumerate(lines) if line.startswith("LỖI:")), None)
+    if first is not None:
+        out["error"] = "\n".join(line for line in lines[first:] if not line.startswith("Đã ghi:")).strip()
     for line in lines:
         if m := re.match(r"Mã kết quả: (\S+)", line):
             out["code"] = m.group(1)
@@ -213,7 +217,7 @@ class App:
         run = {**RUN_DEFAULTS, **(data.get("run") or {})}
         run_argv(Path("x"), self.out_dir, "x", run)  # cài đặt chạy sai thì báo lỗi luôn
         with self.lock:
-            return kich_ban.check(data["scenario"], run["mode"], int(run["overtime_max"]))
+            return kich_ban.check(data["scenario"], run["mode"], int(run["overtime_max"]), bool(run["student_rules"]))
 
     def export(self, data: dict) -> tuple[bytes, str]:
         name = safe_name(data.get("name"))

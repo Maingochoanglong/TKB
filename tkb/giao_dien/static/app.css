@@ -194,6 +194,8 @@ th.group-grade { background: var(--accent-soft); }
 .result { margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
 .result.good { border-color: var(--ok); }
 .result.bad { border-color: var(--danger); }
+.errbox { margin: 0; padding: 10px 12px; border-radius: 6px; background: var(--danger-soft); color: var(--danger);
+  font: 13.5px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; white-space: pre-wrap; }
 .result .big { font-size: 20px; font-weight: 700; font-family: var(--mono); letter-spacing: .5px; }
 .files { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .files li { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 4px 0;

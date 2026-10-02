@@ -330,7 +330,7 @@ function renderResult(s) {
     2: ["Đã xếp TKB nhưng còn vi phạm luật bắt buộc (xem nhật ký).", "bad"],
     3: ["Chế độ bù giờ không đủ tiết: không ra TKB. Bảng tiết thiếu ở file thống kê; tăng số tiết bù tối đa, sửa nhân sự hoặc chọn Tuyển thêm.", "bad"],
   };
-  const [title, cls] = titles[s.exit] || [s.stopping ? "Đã dừng trước khi có TKB." : "Không xếp được TKB (xem nhật ký).", "bad"];
+  const [title, cls] = titles[s.exit] || [s.stopping ? "Đã dừng trước khi có TKB." : "Không xếp được TKB.", "bad"];
   const files = sum.files.map((p) => {
     const name = p.split(/[\\/]/).pop();
     return `<li><span>${esc(name)}</span><span class="actions">
@@ -341,6 +341,7 @@ function renderResult(s) {
   }).join("");
   $("#run-result").innerHTML = `<div class="result ${cls}">
     <b>${esc(title)}</b>
+    ${sum.error ? `<pre class="errbox">${esc(sum.error.replace(/^LỖI: /, ""))}</pre>` : ""}
     ${sum.code ? `<div>Mã kết quả <span class="big">${esc(sum.code)}</span><br><small>Cùng mã là cùng TKB (chạy lại với cùng file vào và cài đặt).</small></div>` : ""}
     ${files ? `<ul class="files">${files}</ul>` : ""}
     <div class="actions"><button type="button" class="ghost" data-act="open" data-path="">Mở thư mục kết quả</button></div>

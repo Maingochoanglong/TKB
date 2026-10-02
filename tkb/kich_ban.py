@@ -268,11 +268,14 @@ def _lines(exc: Exception, sheet: str = "") -> list[str]:
     return [line if not sheet or line.startswith(sheet) else f"{sheet}: {line}" for line in lines]
 
 
-def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = config.OVERTIME_MAX) -> dict:
-    """Kiểm tra kịch bản như khi chạy: ghi ra file tạm, đọc lại bằng các hàm đọc của chương trình, rồi dự toán (phân
-    công, không xếp giờ, vài giây). Trả về {errors, warnings, info}: lỗi chặn việc xếp TKB; info là số liệu và dự
-    toán. Đổi tạm config (rules.applied) nên không gọi song song."""
+def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = config.OVERTIME_MAX,
+          student_rules: bool = True) -> dict:
+    """Kiểm tra kịch bản như khi chạy: ghi ra file tạm, đọc lại bằng các hàm đọc của chương trình, đếm tìm các quy
+    định mâu thuẫn (chan_doan.precheck), rồi dự toán (phân công, không xếp giờ, vài giây). Trả về {errors, warnings,
+    info}: lỗi chặn việc xếp TKB; info là số liệu và dự toán. Đổi tạm config (rules.applied) nên không gọi song
+    song."""
     from .allocation import build_problem
+    from .chan_doan import precheck
     from .phan_cong import phan_cong
     from .solver import ShortageError, SolveError, du_toan_lines
 
@@ -309,6 +312,10 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
             try:
                 base = build_problem(staff, curriculum, {}, overtime_max=overtime_max)
                 warnings += base.warnings
+                conflicts = precheck(base, student_rules)
+                if conflicts:
+                    errors += [f"Quy định mâu thuẫn, không có TKB nào thỏa: {line}" for line in conflicts]
+                    return {"errors": errors, "warnings": warnings, "info": info}
                 plan = phan_cong(base, config.Weights())
             except (InputError, SolveError) as exc:
                 errors += _lines(exc)

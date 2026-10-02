@@ -100,8 +100,12 @@ def test_run_argv_like_main():
 def test_summary_reads_printed_result():
     lines = ["Kết quả: FEASIBLE, kiểm tra luật bắt buộc: ĐẠT", "Mã kết quả: 1234-5678-9ABC (cùng mã là cùng TKB)",
              "Đã ghi: /x/TKB.xlsx", "Đã ghi: /x/Thong_Ke.xlsx"]
-    assert summary(lines) == {"code": "1234-5678-9ABC", "passed": True, "files": ["/x/TKB.xlsx", "/x/Thong_Ke.xlsx"]}
+    assert summary(lines) == {"code": "1234-5678-9ABC", "passed": True, "files": ["/x/TKB.xlsx", "/x/Thong_Ke.xlsx"],
+                              "error": None}
     assert summary(["Kết quả: FEASIBLE, kiểm tra luật bắt buộc: KHÔNG ĐẠT"])["passed"] is False
+    assert summary(lines)["error"] is None
+    failed = summary(["Bước 2/2: xếp giờ", "LỖI: Các luật bắt buộc sau không cùng thỏa được:", "  - A", "Đã ghi: /x/a"])
+    assert failed["error"] == "LỖI: Các luật bắt buộc sau không cùng thỏa được:\n  - A"
 
 
 @pytest.mark.parametrize("mode", config.MODES)

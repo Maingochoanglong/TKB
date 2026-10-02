@@ -123,3 +123,12 @@ def test_saved_timetable_sheet_is_kept(tmp_path):
     assert scenario["saved"][0] == ["Mã kết quả", "AAAA-BBBB-CCCC", "Mã quy định", "123456789ABC"]
     kich_ban.to_excel(scenario, tmp_path / "ra.xlsx")
     assert read_saved_timetable(tmp_path / "ra.xlsx") == read_saved_timetable(path)
+
+
+def test_check_finds_rules_in_conflict():
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    scenario["general"]["SESSION_GROUP_LIMIT"] = 1
+    res = kich_ban.check(scenario, config.MODE_OVERTIME, 2)
+    assert res["errors"][0].startswith("Quy định mâu thuẫn, không có TKB nào thỏa: Khối 1: Tiếng Việt có 14 tiết/tuần")
+    assert res["info"] == [] or not any(line.startswith("Dự toán:") for line in res["info"])
+    assert kich_ban.check(scenario, config.MODE_OVERTIME, 2, student_rules=False)["errors"] == []
