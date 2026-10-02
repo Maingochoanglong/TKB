@@ -33,6 +33,7 @@ LOAD_HEADER = "Số Tiết Thực Dạy"
 OVERTIME_HEADER = "Số Tiết Bù"
 OVERTIME_DETAIL_HEADER = "Môn Dạy Bù"  # file thống kê: số tiết bù từng môn, vd "Tiếng Việt 1, TNXH 2"
 SPARE_HEADER = "Số Tiết Dư"  # file vào cập nhật: định mức − thực dạy (người dạy ít hơn định mức)
+OFF_HEADER = "Số Buổi Nghỉ"  # file thống kê: số buổi trong tuần không có tiết nào (kể cả buổi xin nghỉ)
 STATS_SHEET = "Thống kê"
 SHORTAGE_SHEET = "Thiếu tiết"
 TOTAL_HEADER = "Tổng Tiết"
@@ -213,15 +214,26 @@ def campus_moves(solution: Solution) -> dict[str, tuple[list[str], list[str]]]:
     return out
 
 
+def free_sessions(solution: Solution) -> dict[str, int]:
+    """GV -> số buổi trong tuần không có tiết nào trong TKB (gồm cả buổi xin nghỉ ở cột Buổi Nghỉ)."""
+    sess = session_of()
+    busy = defaultdict(set)
+    for les in solution.lessons:
+        busy[les.teacher].add((les.day, sess[les.day, les.period].name))
+    total = sum(len(s) for s in config.DAY_SESSIONS.values())
+    return {t.title: total - len(busy[t.title]) for t in staff_rows(solution)}
+
+
 def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[list]]:
     """Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết | Số Tiết/Tuần | Số Tiết Bù | (Môn Dạy Bù) |
-    Số Tiết Dư, mỗi giáo viên một dòng; cuối bảng có dòng Tổng. Chỉ chữ và số, không ghi chú, không công thức.
+    Số Tiết Dư | Số Buổi Nghỉ, mỗi giáo viên một dòng; cuối bảng có dòng Tổng. Chỉ chữ và số, không ghi chú, không
+    công thức.
 
     Chỉ có cột cho các môn có người dạy, theo thứ tự môn trong chương trình học; ô trống là không dạy môn đó.
     Số Tiết/Tuần là định mức (người cần tuyển: định mức tuyển); Số Tiết Bù là số tiết dạy bù vượt định mức
     (chế độ bù giờ); Môn Dạy Bù (chỉ khi có tiết bù) ghi số tiết bù từng môn; Số Tiết Dư là định mức − Tổng Tiết
-    khi dạy ít hơn định mức. Trường có lớp ở cơ sở 2: thêm hai
-    cột MOVE_HEADERS cho người dạy ở cả hai cơ sở (xem campus_moves).
+    khi dạy ít hơn định mức; Số Buổi Nghỉ là số buổi trong tuần không có tiết nào (xem free_sessions, ghi cả số 0).
+    Trường có lớp ở cơ sở 2: thêm hai cột MOVE_HEADERS cho người dạy ở cả hai cơ sở (xem campus_moves).
     """
     problem = solution.problem
     count = Counter((les.teacher, les.subject) for les in solution.lessons)
@@ -230,12 +242,13 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
     extra = overtime_cells(solution)
     detail = [OVERTIME_DETAIL_HEADER] if extra else []
     header = [style.staff_headers["name"], "Chức Vụ", *(problem.subject_label(s) for s in subjects), TOTAL_HEADER,
-              style.staff_headers["lessons"], OVERTIME_HEADER, *detail, SPARE_HEADER]
+              style.staff_headers["lessons"], OVERTIME_HEADER, *detail, SPARE_HEADER, OFF_HEADER]
     moves = campus_moves(solution) if problem.campus2 else None
     if moves is not None:
         header += MOVE_HEADERS
     text = {OVERTIME_DETAIL_HEADER, *MOVE_HEADERS}  # cột chữ: dòng Tổng không cộng
     overtime = solution.overtime()
+    free = free_sessions(solution)
     rows = []
     for t in staff_rows(solution):
         per = [count[t.title, s] for s in subjects]
@@ -244,7 +257,7 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
                                   if extra.get((t.title, s)))
         rows.append([_stats_name(t), t.code, *(n or None for n in per), total, t.max_lessons,
                      overtime.get(t.title) or None, *([subject_extra or None] if extra else []),
-                     max(0, t.max_lessons - total) or None])
+                     max(0, t.max_lessons - total) or None, free[t.title]])
         if moves is not None:
             at2, switches = moves.get(t.title, ([], []))
             rows[-1] += [", ".join(at2) or None, "; ".join(switches) or None]
@@ -324,8 +337,8 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
 
 
 def write_statistics(solution: Solution, path: str | Path, style: Style | None = None) -> None:
-    """File thống kê: một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù, số tiết dư (xem
-    subject_table). Dòng người dạy bù tô vàng (ô môn có tiết bù tô cam, số tiết bù từng môn ở cột Môn Dạy Bù),
+    """File thống kê: một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù, số tiết dư, số buổi
+    nghỉ (xem subject_table). Dòng người dạy bù tô vàng (ô môn có tiết bù tô cam, số tiết bù từng môn ở cột Môn Dạy Bù),
     dòng người cần tuyển tô xanh lá, dòng người còn dư tiết tô xanh dương; chú thích dưới bảng. Chỉ chữ, số và
     màu: không cố định dòng/cột, không ghi chú, không công thức."""
     style = style or Style()
