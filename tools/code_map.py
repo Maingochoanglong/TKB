@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "CODE_MAP.md"
-SOURCES = ["main.py", "tkb/*.py", ".github/scripts/*.py", "tools/*.py"]
+SOURCES = ["main.py", "giao_dien.py", "tkb/*.py", "tkb/giao_dien/*.py", ".github/scripts/*.py", "tools/*.py"]
 TESTS = "tests/test_*.py"
 LONG_FUNCTION = 60  # hàm dài từ chừng này dòng thì liệt kê các khối chú thích "# ..." ở thân hàm
 HEADER = ("# Code map\n\n"

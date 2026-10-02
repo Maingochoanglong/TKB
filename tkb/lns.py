@@ -9,7 +9,7 @@
      Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT xếp lại trong vùng xuất phát từ nghiệm đang có, chỉ nhận
      khi chi phí giảm. Luật cứng luôn đúng vì vẫn giải trên toàn mô hình.
 3. Dừng khi: hết ngân sách; một vòng giảm chưa tới LNS_MIN_GAIN chi phí (không giới hạn: vòng không giảm);
-   đủ LNS_MAX_ROUNDS vòng; hoặc Ctrl+C (dừng sau lần xếp lại đang chạy, vài giây).
+   đủ LNS_MAX_ROUNDS vòng; hoặc Ctrl+C / nút Dừng của giao diện (dừng sau lần xếp lại đang chạy, vài giây).
 
 Tái lập: ngân sách tính theo thời gian tất định của CP-SAT (không theo giây thực) và thứ tự các vùng cố định
 (hòa điểm thì theo tên lớp, số ngày), nên cùng dữ liệu, cùng hệ điều hành ra cùng TKB.
@@ -184,8 +184,10 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) 
     def on_sigint(*_):
         search.interrupted = True
 
+    # Ctrl+C; trên Windows giao diện (tkb/giao_dien) dừng sớm tiến trình xếp TKB bằng Ctrl+Break (SIGBREAK).
+    signals = [signal.SIGINT, *([signal.SIGBREAK] if hasattr(signal, "SIGBREAK") else [])]
     main_thread = threading.current_thread() is threading.main_thread()
-    old_handler = signal.signal(signal.SIGINT, on_sigint) if main_thread else None
+    old_handlers = {sig: signal.signal(sig, on_sigint) for sig in signals} if main_thread else {}
     try:
         status, best, values, bound, solver = search.solve(tm.model, start)
         if values is None:
@@ -235,5 +237,6 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) 
         log(f"  Dừng xếp giờ: {result.stop}")
         return result
     finally:
-        if main_thread:
-            signal.signal(signal.SIGINT, old_handler if old_handler is not None else signal.default_int_handler)
+        for sig, old in old_handlers.items():
+            default = signal.default_int_handler if sig == signal.SIGINT else signal.SIG_DFL
+            signal.signal(sig, old if old is not None else default)

@@ -22,7 +22,38 @@ Cài thư viện (một lần):
 pip install -r requirements.txt
 ```
 
-### Cách 1 — bấm nút Run trong `main.py` (dễ nhất)
+### Cách 0 — giao diện web (cho nhà trường, không cần sửa code)
+
+Mở `giao_dien.py` rồi bấm **Run ▶** (hoặc chạy `python giao_dien.py`, `python -m tkb.giao_dien`). Trình duyệt tự mở trang
+`http://127.0.0.1:8765/`. Trang này **chạy ngay trên máy**: không cần Internet, không có máy chủ ngoài, tên giáo viên không
+rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
+
+1. **Tạo mới** (quy định mặc định, chưa có nhân sự) hoặc **Mở file Excel…** (file vào V8, kể cả file cập nhật
+   `*_cap_nhat.xlsx` của lần chạy trước).
+2. Soạn kịch bản của trường ở 3 trang:
+   - **Khung giờ & quy định chung**: số tiết sáng/chiều, giới hạn nhóm môn, ghép cặp, ai được bù, ngày học (có thể thêm
+     Thứ 7), tiết HĐTN cố định, tiết luôn do GVCN dạy, tiết hạn chế môn nặng.
+   - **Môn học**: số tiết từng khối (thêm/bớt khối) và các quy định của môn (GVCN nhận trọn, cắt bớt, nhận thêm, chỉ
+     GVCN dạy, bộ môn không dạy, quản lý dạy khối, nhóm môn, môn tăng cường, tối đa tiết mỗi ngày, không ghép cặp, môn
+     nặng, ưu tiên buổi sáng, tên trong TKB). Rê chuột lên tiêu đề cột để xem giải thích.
+   - **Giáo viên**: bảng NHÂN SỰ; **Dán từ Excel…** để dán cả danh sách.
+3. **Kiểm tra & xếp TKB**: chọn chế độ, số tiết bù tối đa, thời gian, rồi
+   - **Kiểm tra** (vài giây): đọc lại kịch bản đúng như khi chạy, báo lỗi (bấm vào lỗi để tới đúng dòng) và **dự toán**
+     số tiết bù, tiết thiếu trước khi xếp.
+   - **Xếp TKB**: lưu file vào `<tên>.xlsx` vào thư mục kết quả rồi chạy như `main.py`; hiện nhật ký, **Dừng sớm**
+     (như Ctrl+C: vẫn ghi TKB tốt nhất), mã kết quả và các file ra (nút Mở, Tải). **Nạp vào giao diện** mở file cập nhật
+     (có người cần tuyển và TKB đã xếp) để sửa tiếp, vd đổi "chưa có" thành tên người mới rồi xếp lại: TKB giữ nguyên.
+   - **Tải file Excel** (góc trên): file vào V8 đầy đủ (nhân sự, chương trình học kèm quy định, QUY ĐỊNH, HƯỚNG DẪN), dùng
+     được cho `main.py` và dòng lệnh, gửi cho trường khác được.
+
+- Thư mục kết quả mặc định `out/giao_dien` của dự án (đã bỏ qua trong git); đổi ở trang 4. Kịch bản đang soạn được lưu
+  tự động trong trình duyệt của máy này.
+- Cài đặt chạy mặc định như `main.py`, riêng số tiết bù tối đa là mức được duyệt 2 (file của trường hiện cần 3).
+  Các cài đặt này không nằm trong file Excel; cùng file vào và cùng cài đặt thì ra cùng mã kết quả như dòng lệnh.
+- Mọi ô quy định sinh từ `tkb/rules.py`: thêm một quy định vào đó là giao diện tự có ô nhập.
+- Tùy chọn dòng lệnh: `python -m tkb.giao_dien --cong 8765 --thu-muc <thư mục> --khong-mo-trinh-duyet`.
+
+### Cách 1 — bấm nút Run trong `main.py` (dễ nhất cho người dùng Python)
 
 1. Mở `main.py` và sửa các hằng số ở đầu file:
 
@@ -335,6 +366,8 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | File | Nội dung |
 |---|---|
 | `main.py` | File chạy nhanh: sửa hằng số (file vào, thư mục ra, chế độ, luật học sinh, thời gian, tái lập) rồi bấm Run |
+| `giao_dien.py`, `tkb/giao_dien/` | Giao diện web chạy trên máy: máy chủ HTTP thư viện chuẩn (`server.py`), trang HTML/JS không cần Internet (`static/`), xếp TKB ở tiến trình con `python -m tkb` |
+| `tkb/kich_ban.py` | Kịch bản của giao diện: file vào V8 ↔ dữ liệu JSON, kiểm tra (đọc lại bằng các hàm đọc của chương trình) và dự toán |
 | `tkb/config.py` | Giá trị mặc định của các quy định (khi file vào không ghi), trọng số mục tiêu, tham số xếp giờ |
 | `tkb/rules.py` | Đọc, kiểm tra, ghi các quy định (cột của CHƯƠNG TRÌNH HỌC, sheet QUY ĐỊNH; Có/Không/số); dùng thay giá trị mặc định trong lúc chạy |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |

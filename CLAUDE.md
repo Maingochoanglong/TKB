@@ -49,6 +49,7 @@ python main.py                               # school's real file (FILE_VAO) -> 
 python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the fake school (~10 min)
 python -m tkb <input.xlsx> -o out/TKB.xlsx [--mode bu_gio] [--time-limit 30] [--no-student-rules]
 python -m tkb.template <new.xlsx>            # blank input template
+python -m tkb.giao_dien [--khong-mo-trinh-duyet] [--thu-muc DIR] [--cong 8765]  # local web UI (or giao_dien.py)
 ```
 No linter/formatter is configured. CLI default `--mode` is `tuyen_them`; `main.py` default `CHE_DO` is `bu_gio`.
 Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` shortage (table in the statistics file).
@@ -70,6 +71,18 @@ it (`staff.read_saved_timetable` → `solver.reuse`, teachers matched by Mã GV,
 saved rules code must equal `rules.code()`, else re-solve) skips
 solving, so renaming "chưa có" hires keeps the timetable and the code; `main.py` `GIU_TKB_DA_XEP = False` /
 `--xep-lai` forces a re-solve.
+
+Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 127.0.0.1 (Host check + per-start token
+`X-TKB-Token`, injected into `static/index.html`; files opened/served only inside the output folder, default
+`out/giao_dien`) serving a no-dependency HTML/JS page. The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
+JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself.
+`kich_ban.to_excel` writes it with `template.write_input` (same layout as the template); `from_excel` reads staff/program
+cells as written and rules via `read_rules` + `rule_tables`/`subject_columns` (missing ones = defaults), keeping sheet
+`TKB đã xếp`; `check` writes a temp file and reads it back with the real readers, then runs the estimate
+(`build_problem` + `phan_cong`, no CP-SAT). Runs are `python -m tkb` subprocesses (`server.Job`, argv like `main.run`),
+so UI results equal CLI codes; Stop sends SIGINT (Windows: CTRL_BREAK → SIGBREAK, also handled in `lns.improve`). The
+check/import path changes `config` via `rules.applied`, so `App.lock` serialises it. Run settings (mode, max overtime,
+time) live in the UI, not in the Excel file.
 
 `solver.solve` (both modes share one timetable; only who teaches the overtime cells differs):
 1. `allocation.build_problem` → `Problem`: one `Course` per (class, subject) with lesson count, candidate

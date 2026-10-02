@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xếp thời khóa biểu</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="app.css">
+<script>window.TKB_TOKEN = "__TKB_TOKEN__";</script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">TKB</span>
+    <div>
+      <h1>Xếp thời khóa biểu</h1>
+      <p id="file-label" class="muted">Kịch bản mới</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button type="button" id="btn-new" class="ghost">Tạo mới</button>
+    <label class="btn ghost" title="Mở file vào V8, kể cả file cập nhật *_cap_nhat.xlsx của lần chạy trước">
+      Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden>
+    </label>
+    <button type="button" id="btn-export" title="Tải về file Excel V8 đầy đủ: nhân sự, chương trình học, quy định">
+      Tải file Excel
+    </button>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button type="button" role="tab" data-tab="khung" class="active">1. Khung giờ &amp; quy định chung</button>
+  <button type="button" role="tab" data-tab="mon">2. Môn học <span class="count" id="count-mon"></span></button>
+  <button type="button" role="tab" data-tab="gv">3. Giáo viên <span class="count" id="count-gv"></span></button>
+  <button type="button" role="tab" data-tab="xep">4. Kiểm tra &amp; xếp TKB</button>
+</nav>
+
+<div id="notice" class="notice" hidden></div>
+
+<main>
+  <section id="tab-khung" class="tab active" role="tabpanel">
+    <div class="grid2">
+      <div class="card">
+        <h2>Quy định chung</h2>
+        <p class="muted">Sheet QUY ĐỊNH, bảng Quy định | Giá trị.</p>
+        <div id="general-form" class="form"></div>
+      </div>
+      <div class="card">
+        <h2>Tiết trong ngày</h2>
+        <p class="muted">Buổi chiều đánh số nối tiếp buổi sáng. Số tiết lấy theo quy định chung.</p>
+        <div class="table-wrap"><table id="period-table" class="grid"></table></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Ngày học</h2>
+      <p class="muted">Các ngày học liền nhau từ Thứ 2 (có thể thêm Thứ 7); buổi chiều phải là ngày có học buổi sáng.</p>
+      <div class="table-wrap"><table id="day-table" class="grid"></table></div>
+    </div>
+    <details class="card help"><summary>Giải thích các quy định ở trang này</summary><dl id="help-khung"></dl></details>
+  </section>
+
+  <section id="tab-mon" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Chương trình học và quy định của môn</h2>
+        <div class="actions">
+          <button type="button" id="btn-add-subject">+ Thêm môn</button>
+          <button type="button" id="btn-add-grade" class="ghost">+ Thêm khối</button>
+          <button type="button" id="btn-del-grade" class="ghost">− Bớt khối cuối</button>
+        </div>
+      </div>
+      <p class="muted">Mỗi môn một dòng: số tiết/tuần từng khối (trống hoặc 0: khối đó không học), rồi các quy định của
+        môn. Rê chuột lên tiêu đề cột để xem giải thích. Tên môn dùng đúng ở cột Chức Vụ của GV chuyên biệt.</p>
+      <div class="table-wrap tall"><table id="subject-table" class="grid sticky"></table></div>
+    </div>
+    <details class="card help"><summary>Giải thích các cột quy định của môn</summary><dl id="help-mon"></dl></details>
+  </section>
+
+  <section id="tab-gv" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Nhân sự</h2>
+        <div class="actions">
+          <button type="button" id="btn-add-staff">+ Thêm dòng</button>
+          <button type="button" id="btn-paste" class="ghost">Dán từ Excel…</button>
+        </div>
+      </div>
+      <p class="muted" id="staff-summary"></p>
+      <div class="table-wrap tall"><table id="staff-table" class="grid sticky"></table></div>
+      <datalist id="role-list"></datalist>
+    </div>
+    <details class="card help"><summary>Giải thích các cột nhân sự</summary><dl id="help-gv"></dl></details>
+  </section>
+
+  <section id="tab-xep" class="tab" role="tabpanel">
+    <div class="grid2">
+      <div class="card">
+        <h2>Cài đặt chạy</h2>
+        <div class="form" id="run-form">
+          <label class="row"><span>Tên file vào</span>
+            <input type="text" data-run="name" spellcheck="false">
+            <small>Lưu thành &lt;tên&gt;.xlsx trong thư mục kết quả; file cập nhật là &lt;tên&gt;_cap_nhat.xlsx.</small>
+          </label>
+          <fieldset class="row"><legend>Khi thiếu người</legend><div id="mode-options"></div></fieldset>
+          <label class="row"><span>Số tiết bù tối đa mỗi người</span>
+            <input type="number" min="0" step="1" data-run="overtime_max">
+            <small>Chế độ tuyển thêm: người mới nhận đúng các tiết bù này.</small>
+          </label>
+          <label class="row"><span>Thời gian xếp giờ</span>
+            <select data-run="time_preset">
+              <option value="600">Nhanh (600 ≈ 4–6 phút)</option>
+              <option value="1200">Chuẩn (1200 ≈ 9–13 phút)</option>
+              <option value="0">Không giới hạn (đến khi hết cải thiện)</option>
+              <option value="custom">Tùy chọn…</option>
+            </select>
+            <input type="number" min="0" step="1" data-run="time_limit" hidden>
+          </label>
+          <label class="check"><input type="checkbox" data-run="student_rules"> Áp dụng luật bảo vệ học sinh</label>
+          <label class="check"><input type="checkbox" data-run="keep_saved"> Giữ TKB đã xếp trong file vào (nếu còn đúng
+            luật) <small id="saved-hint"></small></label>
+          <details class="advanced"><summary>Nâng cao</summary>
+            <label class="check"><input type="checkbox" data-run="reproducible"> Kết quả tái lập (chạy lại ra đúng TKB
+              cũ)</label>
+            <label class="row"><span>Số luồng</span><input type="number" min="1" step="1" data-run="workers">
+              <small>Đổi số này thì TKB ra khác (vẫn đúng luật).</small></label>
+          </details>
+          <label class="row"><span>Thư mục kết quả</span>
+            <span class="inline"><input type="text" id="out-dir" spellcheck="false">
+              <button type="button" id="btn-out-dir" class="ghost">Đổi</button>
+              <button type="button" id="btn-open-dir" class="ghost">Mở</button></span>
+          </label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Kiểm tra và xếp</h2>
+        <p class="muted">Kiểm tra đọc lại kịch bản đúng như khi chạy và dự toán số tiết bù, tiết thiếu (vài giây).
+          Xếp TKB lưu file vào rồi chạy như main.py.</p>
+        <div class="actions">
+          <button type="button" id="btn-check" class="ghost">Kiểm tra</button>
+          <button type="button" id="btn-run" class="primary">Xếp TKB</button>
+          <button type="button" id="btn-stop" class="danger" hidden>Dừng sớm</button>
+          <button type="button" id="btn-kill" class="danger ghost" hidden>Dừng hẳn</button>
+        </div>
+        <div id="check-result"></div>
+        <div id="run-status" class="status" hidden></div>
+        <div id="run-result"></div>
+      </div>
+    </div>
+    <div class="card" id="log-card" hidden>
+      <div class="toolbar"><h2>Nhật ký chạy</h2><span class="muted" id="log-info"></span></div>
+      <pre id="log" class="log"></pre>
+    </div>
+  </section>
+</main>
+
+<dialog id="paste-dialog">
+  <form method="dialog">
+    <h2>Dán danh sách nhân sự từ Excel</h2>
+    <p class="muted">Chọn các ô trong Excel theo thứ tự cột: <span id="paste-cols"></span>, bấm Ctrl+C rồi dán vào đây.
+      Dòng tiêu đề (nếu có) được bỏ qua.</p>
+    <textarea id="paste-text" rows="12" spellcheck="false"></textarea>
+    <div class="actions end">
+      <button value="cancel" class="ghost">Hủy</button>
+      <button value="append" id="paste-append">Thêm vào cuối</button>
+      <button value="replace" id="paste-replace" class="primary">Thay toàn bộ</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

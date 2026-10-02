@@ -1,0 +1,413 @@
+"""Máy chủ HTTP của giao diện (chỉ thư viện chuẩn) và việc xếp TKB ở tiến trình con.
+
+An toàn khi chạy trên máy của trường:
+- chỉ nghe trên 127.0.0.1 và chỉ nhận yêu cầu có Host là 127.0.0.1/localhost (trang web lạ không gọi được);
+- mọi lệnh /api/ cần mã phiên (X-TKB-Token, sinh mới mỗi lần mở) nên trang web khác không gửi lệnh thay được;
+- chỉ mở, tải các file trong thư mục kết quả.
+
+Xếp TKB chạy `python -m tkb <file vào> ...` (đúng như main.py) ở tiến trình con: giao diện không treo, in ra từng
+dòng như khi chạy dòng lệnh, và nút Dừng gửi Ctrl+C (Windows: Ctrl+Break) để chương trình dừng sớm mà vẫn ghi TKB tốt
+nhất (tkb/lns.py).
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import secrets
+import signal
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import webbrowser
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, quote, unquote, urlparse
+
+from .. import config, kich_ban
+from ..staff import InputError
+
+STATIC = Path(__file__).resolve().parent / "static"
+PROJECT = Path(__file__).resolve().parents[2]  # thư mục dự án khi chạy từ mã nguồn
+PORT = 8765
+TOKEN_MARK = "__TKB_TOKEN__"  # chỗ ghi mã phiên trong index.html
+MAX_BODY = 20 * 1024 * 1024
+TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
+         ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+MODES = [{"key": config.MODE_OVERTIME, "label": "Bù giờ",
+          "note": "GVCN và bộ môn dạy bù vượt định mức; bù tối đa vẫn thiếu thì báo lỗi, ghi bảng tiết thiếu."},
+         {"key": config.MODE_HIRE, "label": "Tuyển thêm",
+          "note": f"Thêm GV \"{config.SUPPLEMENT_NAME}\" dạy đúng các ô mà ở chế độ bù là tiết bù (cùng TKB)."}]
+# Cài đặt chạy mặc định (như main.py; bù tối đa theo mức được duyệt trong tkb/config.py).
+RUN_DEFAULTS = {"name": "kich_ban", "mode": config.MODE_OVERTIME, "overtime_max": config.OVERTIME_MAX,
+                "student_rules": True, "time_limit": 1200, "reproducible": True, "keep_saved": True, "workers": 8}
+FILE_NAMES = {"tkb": "TKB.xlsx", "roles": "TKB_chuc_vu.xlsx", "stats": "Thong_Ke.xlsx"}
+
+
+def default_out_dir() -> Path:
+    """Chạy từ mã nguồn: out/giao_dien của dự án (out/ đã bỏ qua trong git vì có tên giáo viên); bản đóng gói: thư
+    mục TKB trong thư mục người dùng."""
+    if not getattr(sys, "frozen", False) and (PROJECT / "main.py").is_file():
+        return PROJECT / "out" / "giao_dien"
+    return Path.home() / "TKB"
+
+
+def cli_command(argv: list[str]) -> list[str]:
+    """Lệnh chạy `python -m tkb`; bản đóng gói (PyInstaller) gọi lại chính nó với --cli (xem __main__.py)."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--cli", *argv]
+    return [sys.executable, "-m", "tkb", *argv]
+
+
+def safe_name(name) -> str:
+    """Tên file vào: bỏ ký tự Windows không cho phép, bỏ đuôi .xlsx."""
+    text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", str(name or "")).strip().strip(".")
+    text = re.sub(r"\.xlsx$", "", text, flags=re.IGNORECASE).strip()
+    return text[:80] or RUN_DEFAULTS["name"]
+
+
+def run_argv(source: Path, out: Path, name: str, run: dict) -> list[str]:
+    """Tham số dòng lệnh `python -m tkb` theo cài đặt chạy (như main.run); báo lỗi nếu cài đặt sai."""
+    mode = run.get("mode", RUN_DEFAULTS["mode"])
+    if mode not in config.MODES:
+        raise InputError(f"Chế độ phải là một trong {', '.join(config.MODES)}")
+    numbers = {}
+    for key, low, kind in (("overtime_max", 0, int), ("time_limit", 0, float), ("workers", 1, int)):
+        value = run.get(key, RUN_DEFAULTS[key])
+        value = 0 if key == "time_limit" and value in (None, "") else value
+        try:
+            number = kind(value)
+        except (TypeError, ValueError):
+            number = None
+        if number is None or isinstance(value, bool) or number < low or (kind is int and number != float(value)):
+            raise InputError({"overtime_max": "Số tiết bù tối đa phải là số nguyên >= 0",
+                              "time_limit": "Thời gian phải là số >= 0 (0 = không giới hạn)",
+                              "workers": "Số luồng phải là số nguyên >= 1"}[key])
+        numbers[key] = number
+    argv = [str(source), "-o", str(out / FILE_NAMES["tkb"]), "--roles-out", str(out / FILE_NAMES["roles"]),
+            "--stats-out", str(out / FILE_NAMES["stats"]), "--staff-out", str(out / f"{name}_cap_nhat.xlsx"),
+            "--mode", mode, "--max-overtime", str(numbers["overtime_max"]),
+            "--time-limit", f"{numbers['time_limit']:g}", "--workers", str(numbers["workers"])]
+    if not run.get("student_rules", True):
+        argv.append("--no-student-rules")
+    if not run.get("reproducible", True):
+        argv.append("--non-reproducible")
+    if not run.get("keep_saved", True):
+        argv.append("--xep-lai")
+    return argv
+
+
+def summary(lines: list[str]) -> dict:
+    """Kết quả đọc từ các dòng in ra: mã kết quả, đạt luật bắt buộc hay không, các file đã ghi."""
+    out = {"code": None, "passed": None, "files": []}
+    for line in lines:
+        if m := re.match(r"Mã kết quả: (\S+)", line):
+            out["code"] = m.group(1)
+        if "kiểm tra luật bắt buộc:" in line:
+            out["passed"] = line.rstrip().endswith("ĐẠT") and "KHÔNG ĐẠT" not in line
+        if m := re.match(r"Đã ghi: (.+)", line):
+            out["files"].append(m.group(1).strip())
+    return out
+
+
+class Job:
+    """Một lần xếp TKB: tiến trình con, đọc từng dòng in ra."""
+
+    def __init__(self, argv: list[str], cwd: Path):
+        env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
+        if not getattr(sys, "frozen", False):
+            env["PYTHONPATH"] = os.pathsep.join(p for p in (str(PROJECT), env.get("PYTHONPATH")) if p)
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        self.started = time.time()
+        self.ended: float | None = None
+        self.lines: list[str] = []
+        self.stopping = False
+        self.proc = subprocess.Popen(cli_command(argv), cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                                     errors="replace", creationflags=flags)
+        self._reader = threading.Thread(target=self._read, daemon=True)
+        self._reader.start()
+
+    def _read(self) -> None:
+        for line in self.proc.stdout:
+            self.lines.append(line.rstrip("\r\n"))
+        self.proc.wait()
+        self.ended = time.time()
+
+    @property
+    def running(self) -> bool:
+        return self.ended is None
+
+    def stop(self) -> None:
+        """Dừng sớm như bấm Ctrl+C: chương trình xếp xong vùng đang xếp rồi ghi TKB tốt nhất."""
+        if self.running and self.proc.poll() is None:
+            try:
+                self.proc.send_signal(signal.CTRL_BREAK_EVENT if os.name == "nt" else signal.SIGINT)
+            except OSError as exc:  # vd Windows không cùng cửa sổ dòng lệnh với tiến trình con
+                raise InputError(f"Không gửi được lệnh dừng sớm ({exc}); bấm Dừng hẳn nếu cần dừng ngay") from None
+            self.stopping = True
+
+    def kill(self) -> None:
+        if self.proc.poll() is None:
+            self.proc.kill()
+
+    def state(self, since: int = 0) -> dict:
+        lines = list(self.lines)
+        done = not self.running
+        return {"running": not done, "stopping": self.stopping, "lines": lines[since:], "next": len(lines),
+                "elapsed": round((self.ended or time.time()) - self.started),
+                "exit": self.proc.returncode if done else None, "summary": summary(lines) if done else None}
+
+
+class App:
+    """Trạng thái của giao diện: thư mục kết quả, mã phiên, việc xếp TKB đang chạy."""
+
+    def __init__(self, out_dir: Path, token: str):
+        self.out_dir = Path(out_dir).expanduser().resolve()
+        self.token = token
+        self.lock = threading.Lock()  # kịch bản <-> Excel đổi tạm config (rules.applied): mỗi lúc một việc
+        self.job: Job | None = None
+
+    def inside(self, path) -> Path:
+        """Đường dẫn trong thư mục kết quả, không thì báo lỗi."""
+        p = Path(str(path)).expanduser()
+        p = (p if p.is_absolute() else self.out_dir / p).resolve()
+        if p != self.out_dir and self.out_dir not in p.parents:
+            raise InputError("Chỉ mở được file trong thư mục kết quả")
+        return p
+
+    # ---- các lệnh /api/ ----
+    def schema(self, _):
+        return {**kich_ban.schema(), "modes": MODES, "run_defaults": RUN_DEFAULTS, "out_dir": str(self.out_dir),
+                "files": FILE_NAMES, "running": bool(self.job and self.job.running)}
+
+    def new(self, _):
+        with self.lock:
+            return {"scenario": kich_ban.default_scenario()}
+
+    def _import(self, path: Path, name: str):
+        try:
+            with self.lock:
+                scenario, warnings = kich_ban.from_excel(path)
+        except InputError as exc:
+            raise InputError(f"Không đọc được file {name}: {exc}") from None
+        except Exception as exc:  # không phải file Excel (.xlsx) hợp lệ
+            raise InputError(f"Không đọc được file {name} (cần file Excel .xlsx): {exc}") from None
+        return {"scenario": scenario, "warnings": warnings, "name": safe_name(Path(name).stem)}
+
+    def import_file(self, body: bytes, name: str):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "vao.xlsx"
+            path.write_bytes(body)
+            return self._import(path, name or "vào")
+
+    def import_path(self, data: dict):
+        path = self.inside(data.get("path", ""))
+        return self._import(path, path.name)
+
+    def check(self, data: dict):
+        run = {**RUN_DEFAULTS, **(data.get("run") or {})}
+        run_argv(Path("x"), self.out_dir, "x", run)  # cài đặt chạy sai thì báo lỗi luôn
+        with self.lock:
+            return kich_ban.check(data["scenario"], run["mode"], int(run["overtime_max"]))
+
+    def export(self, data: dict) -> tuple[bytes, str]:
+        name = safe_name(data.get("name"))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / f"{name}.xlsx"
+            with self.lock:
+                kich_ban.to_excel(data["scenario"], path)
+            return path.read_bytes(), path.name
+
+    def run(self, data: dict):
+        if self.job and self.job.running:
+            raise InputError("Đang xếp TKB, chờ xong hoặc bấm Dừng trước khi xếp lại")
+        run = {**RUN_DEFAULTS, **(data.get("run") or {})}
+        name = safe_name(run.get("name"))
+        out = self.out_dir
+        source = out / f"{name}.xlsx"
+        argv = run_argv(source, out, name, run)
+        out.mkdir(parents=True, exist_ok=True)
+        try:
+            with self.lock:
+                kich_ban.to_excel(data["scenario"], source)
+        except PermissionError:
+            raise InputError(f"Không ghi được {source}: file đang mở trong Excel? Đóng file rồi bấm lại") from None
+        self.job = Job(argv, out)
+        return {"input": str(source), "command": " ".join(cli_command(argv))}
+
+    def status(self, query: dict):
+        if self.job is None:
+            return {"running": False, "lines": [], "next": 0, "exit": None, "summary": None}
+        return self.job.state(int((query.get("since") or ["0"])[0] or 0))
+
+    def stop(self, _):
+        if self.job:
+            self.job.stop()
+        return {"ok": True}
+
+    def kill(self, _):
+        if self.job:
+            self.job.kill()
+        return {"ok": True}
+
+    def open(self, data: dict):
+        path = self.inside(data.get("path") or self.out_dir)
+        if not path.exists():
+            raise InputError(f"Không có {path}")
+        try:
+            if os.name == "nt":
+                os.startfile(path)  # noqa: S606 (mở bằng ứng dụng mặc định, vd Excel)
+            else:
+                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as exc:
+            raise InputError(f"Không mở được {path.name}: {exc}") from None
+        return {"ok": True}
+
+    def settings(self, data: dict):
+        if self.job and self.job.running:
+            raise InputError("Đang xếp TKB, chưa đổi được thư mục kết quả")
+        folder = Path(str(data.get("out_dir") or "")).expanduser()
+        if not str(folder).strip() or not folder.is_absolute():
+            raise InputError("Ghi đường dẫn đầy đủ của thư mục, vd C:\\Users\\ten\\TKB")
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise InputError(f"Không tạo được thư mục {folder}: {exc}") from None
+        self.out_dir = folder.resolve()
+        return {"out_dir": str(self.out_dir)}
+
+    def shutdown(self) -> None:
+        if self.job:
+            self.job.kill()
+
+
+class Handler(BaseHTTPRequestHandler):
+    app: App  # gán khi tạo máy chủ (make_server)
+    server_version = "TKB"
+
+    def log_message(self, fmt, *args):  # không in mỗi yêu cầu ra màn hình
+        pass
+
+    # ---- trả lời ----
+    def _send(self, status: int, body: bytes, ctype: str, headers: dict | None = None) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json(self, status: int, payload) -> None:
+        self._send(status, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
+
+    def _host_ok(self) -> bool:
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
+        return host in ("127.0.0.1", "localhost")
+
+    def _token_ok(self, query: dict) -> bool:
+        given = self.headers.get("X-TKB-Token") or (query.get("t") or [""])[0]
+        return secrets.compare_digest(given.encode(), self.app.token.encode())
+
+    def _body(self) -> bytes:
+        length = int(self.headers.get("Content-Length") or 0)
+        if length > MAX_BODY:
+            raise InputError("Dữ liệu quá lớn")
+        return self.rfile.read(length) if length else b""
+
+    # ---- yêu cầu ----
+    def do_GET(self):
+        url = urlparse(self.path)
+        if not self._host_ok():
+            return self._send(HTTPStatus.FORBIDDEN, b"Forbidden", "text/plain")
+        if url.path.startswith("/api/"):
+            return self._api("GET", url)
+        self._static(url.path)
+
+    def do_POST(self):
+        url = urlparse(self.path)
+        if not self._host_ok() or not url.path.startswith("/api/"):
+            return self._send(HTTPStatus.FORBIDDEN, b"Forbidden", "text/plain")
+        self._api("POST", url)
+
+    def _static(self, path: str) -> None:
+        name = "index.html" if path in ("", "/") else path.lstrip("/")
+        file = (STATIC / name).resolve()
+        if STATIC not in file.parents or not file.is_file() or file.suffix not in TYPES:
+            return self._send(HTTPStatus.NOT_FOUND, "Không có trang này".encode(), "text/plain; charset=utf-8")
+        body = file.read_bytes()
+        if file.name == "index.html":
+            body = body.replace(TOKEN_MARK.encode(), self.app.token.encode())
+        self._send(HTTPStatus.OK, body, TYPES[file.suffix])
+
+    def _api(self, method: str, url) -> None:
+        query = parse_qs(url.query)
+        if not self._token_ok(query):
+            return self._json(HTTPStatus.FORBIDDEN, {"error": "Phiên đã hết hạn: mở lại trang bằng đường dẫn in ở "
+                                                              "cửa sổ chương trình"})
+        app = self.app
+        name = url.path[len("/api/"):]
+        try:
+            if method == "GET" and name == "file":
+                path = app.inside((query.get("path") or [""])[0])
+                if not path.is_file():
+                    raise InputError(f"Không có file {path.name}")
+                return self._send(HTTPStatus.OK, path.read_bytes(), XLSX if path.suffix == ".xlsx" else
+                                  "application/octet-stream",
+                                  {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(path.name)}"})
+            if method == "POST" and name == "export":
+                body, filename = app.export(json.loads(self._body() or b"{}"))
+                return self._send(HTTPStatus.OK, body, XLSX,
+                                  {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
+            if method == "POST" and name == "import":
+                return self._json(HTTPStatus.OK, app.import_file(self._body(),
+                                                                 unquote(self.headers.get("X-File-Name") or "")))
+            routes = {("GET", "schema"): app.schema, ("GET", "new"): app.new, ("GET", "status"): app.status,
+                      ("POST", "import_path"): app.import_path, ("POST", "check"): app.check, ("POST", "run"): app.run,
+                      ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
+                      ("POST", "settings"): app.settings}
+            handler = routes.get((method, name))
+            if handler is None:
+                return self._json(HTTPStatus.NOT_FOUND, {"error": f"Không có lệnh {name}"})
+            arg = query if method == "GET" else json.loads(self._body() or b"{}")
+            return self._json(HTTPStatus.OK, handler(arg))
+        except InputError as exc:
+            return self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+        except (ValueError, KeyError, TypeError) as exc:
+            return self._json(HTTPStatus.BAD_REQUEST, {"error": f"Dữ liệu gửi lên không hợp lệ: {exc}"})
+
+
+def make_server(port: int = PORT, out_dir=None) -> tuple[ThreadingHTTPServer, App, str]:
+    """Máy chủ trên 127.0.0.1 (cổng bận thì lấy cổng khác): (máy chủ, trạng thái, đường dẫn trang)."""
+    app = App(Path(out_dir) if out_dir else default_out_dir(), secrets.token_urlsafe(16))
+    handler = type("TkbHandler", (Handler,), {"app": app})
+    try:
+        httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    except OSError:
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    return httpd, app, f"http://127.0.0.1:{httpd.server_port}/"
+
+
+def serve(port: int = PORT, open_browser: bool = True, out_dir=None) -> int:
+    httpd, app, url = make_server(port, out_dir)
+    print(f"Giao diện xếp TKB: {url}")
+    print(f"Thư mục kết quả : {app.out_dir}")
+    print("Giữ cửa sổ này mở trong khi dùng giao diện; bấm Ctrl+C để tắt.")
+    if open_browser:
+        webbrowser.open(url)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("Đã tắt giao diện.")
+    finally:
+        app.shutdown()
+        httpd.server_close()
+    return 0

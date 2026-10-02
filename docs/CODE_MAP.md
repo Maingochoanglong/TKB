@@ -9,6 +9,8 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 - `_resolve(path)` — Đường dẫn tương đối tính từ thư mục dự án; để trống = chính thư mục dự án.
 - `run(file_vao, thu_muc_out, file_tkb, thoi_gian_toi_da, luat_hoc_sinh, chay_tai_lap_duoc, so_luong, che_do, so_tiet_bu_toi_da, file_thong_ke, file_tkb_chuc_vu, giu_tkb_da_xep)` — Chạy xếp TKB; trả về 0 nếu thành công, 3 nếu chế độ bù giờ thiếu tiết.
 
+## giao_dien.py — Mở giao diện web xếp thời khóa biểu: bấm nút Run (▶) để chạy, trình duyệt tự mở trang nhập liệu.
+
 ## tkb/__main__.py — Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] ...
 - `use_utf8_output()` — In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252).
 - `main(argv)`
@@ -62,6 +64,27 @@ Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE
 - `class Weights`
 - `class Settings`
 
+## tkb/kich_ban.py — Kịch bản của một trường cho giao diện (tkb/giao_dien): toàn bộ nội dung file vào V8 dưới dạng dữ liệu JSON.
+Hằng số: `VERSION`, `STAFF_COLS`, `_HEADERS`, `ROLES`
+- `_col(c)`
+- `schema()` — Mô tả các bảng, cột cho giao diện (sinh ô nhập theo đây).
+- `_blank(value)`
+- `_number(value)` — Số nguyên nếu ô là số nguyên, ô trống là None, còn lại giữ chữ (kiểm tra sẽ báo lỗi).
+- `_text(value)`
+- `_read_staff_rows(wb, warnings)` — Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua).
+- `_read_program_rows(wb)` — Các khối và các dòng (môn, {khối: số tiết}) của sheet CHƯƠNG TRÌNH HỌC đúng như trong file.
+- `_from_cell(col, value)`
+- `_json_value(value)`
+- `_read_saved(wb)`
+- `_rules_part(subject_names)` — Các quy định đang dùng (config) theo dạng kịch bản: (chung, ngày, tiết, {môn: quy định}, các môn có quy
+- `from_excel(path)` — Đọc file vào V8 (cả file vào cập nhật *_cap_nhat.xlsx) thành kịch bản: (kịch bản, các cảnh báo). Nhân sự và số
+- `default_scenario()` — Kịch bản trống như file mẫu (python -m tkb.template): chưa có nhân sự, các môn có quy định mặc định với số tiết
+- `_to_cell(col, value)`
+- `_staff_row(row)`
+- `to_excel(scenario, path)` — Ghi kịch bản ra file vào V8 (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, QUY ĐỊNH, HƯỚNG DẪN và, nếu có, sheet
+- `_lines(exc, sheet)` — Các dòng lỗi của một InputError (dòng tiêu đề "... có n lỗi:" bỏ đi), thêm tên sheet nếu lỗi chưa ghi.
+- `check(scenario, mode, overtime_max)` — Kiểm tra kịch bản như khi chạy: ghi ra file tạm, đọc lại bằng các hàm đọc của chương trình, rồi dự toán (phân
+
 ## tkb/lns.py — Xếp giờ với phân công cố định: CP-SAT khởi đầu, rồi lặp QA -> xếp lại từng vùng (LNS) đến khi dừng.
 - `class LnsResult`
 - `_class_key()`
@@ -72,6 +95,7 @@ Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE
   - `.free(classes, days)`
   - `.regions(cost, lessons)` — (loại, tên, biến được mở, giới hạn) theo thứ tự thử của một vòng.
 - `improve(tm, settings, log)` — Khởi đầu + các vòng QA -> LNS (xem đầu module). None nếu không tìm được TKB nào.
+  · Ctrl+C; trên Windows giao diện (tkb/giao_dien) dừng sớm tiến trình xếp TKB bằng Ctrl+Break (SIGBREAK).
 
 ## tkb/phan_cong.py — Dự toán và phân công giáo viên, không dùng CP-SAT: Python thuần, số nguyên, duyệt theo thứ tự cố định nên
 Hằng số: `MANAGER_BONUS`
@@ -246,10 +270,12 @@ Hằng số: `STAFF_HEADERS`, `STAFF_WIDTHS`, `RULES_WIDTHS`, `GUIDE_SHEET`, `GU
 - `staff_row(t)`
 - `_style_rows(ws, first, last, n_cols, header, left)` — Kẻ bảng: chữ đen Times New Roman 14 (tiêu đề in đậm), viền mảnh, không tô nền; cột trong `left` căn trái.
 - `_widths(ws, widths)`
-- `_staff_sheet(wb, teachers)`
-- `_program_sheet(wb, curriculum, teachers)` — Sheet CHƯƠNG TRÌNH HỌC: các môn của `curriculum` (không có thì các môn có quy định mặc định, số tiết để trống)
-- `write_rules_sheet(wb, index)` — Sheet QUY ĐỊNH ở vị trí `index`: ba bảng (quy định chung, ngày, tiết) theo các luật đang dùng, cách nhau một
+- `_staff_sheet(wb, rows)` — Sheet NHÂN SỰ: mỗi dòng các giá trị theo STAFF_HEADERS (vd `staff_row`).
+- `program_rows(curriculum, teachers)` — Bảng CHƯƠNG TRÌNH HỌC: các môn của `curriculum` (không có thì các môn có quy định mặc định, số tiết để trống)
+- `_program_sheet(wb, grades, heads, rows)` — Sheet CHƯƠNG TRÌNH HỌC: Môn học | Khối ... | các cột quy định `heads`; mỗi dòng một môn.
+- `write_rules_sheet(wb, index, tables)` — Sheet QUY ĐỊNH ở vị trí `index`: ba bảng (quy định chung, ngày, tiết), cách nhau một dòng trống. `tables`:
 - `write_guide(wb, extra, index)` — Sheet HƯỚNG DẪN: cách ghi từng sheet, từng cột, rồi các dòng `extra` (vd giải thích kết quả).
+- `write_input(path, staff, program, tables, extra)` — Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
 - `write_staff_template(path, teachers, curriculum)` — Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), QUY ĐỊNH (các luật đang
 - `main(argv)`
 
@@ -281,6 +307,52 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
   · Tô nền cả dòng (đến cột tiêu đề cuối); chạy lại trên file cập nhật thì bỏ màu cũ của chương trình.
   · Ghi đủ các quy định đã dùng: cột quy định của môn, sheet QUY ĐỊNH (nếu file vào chưa có, sau sheet chương trình học); sheet HƯỚNG DẪN viết lại, kèm giải thích phần kết quả; cuối cùng là TKB đã xếp.
 
+## tkb/giao_dien/__main__.py — Chạy: python -m tkb.giao_dien [--cong 8765] [--thu-muc <thư mục kết quả>] [--khong-mo-trinh-duyet]
+- `main(argv)`
+
+## tkb/giao_dien/server.py — Máy chủ HTTP của giao diện (chỉ thư viện chuẩn) và việc xếp TKB ở tiến trình con.
+Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XLSX`, `MODES`, `RUN_DEFAULTS`, `FILE_NAMES`
+- `default_out_dir()` — Chạy từ mã nguồn: out/giao_dien của dự án (out/ đã bỏ qua trong git vì có tên giáo viên); bản đóng gói: thư
+- `cli_command(argv)` — Lệnh chạy `python -m tkb`; bản đóng gói (PyInstaller) gọi lại chính nó với --cli (xem __main__.py).
+- `safe_name(name)` — Tên file vào: bỏ ký tự Windows không cho phép, bỏ đuôi .xlsx.
+- `run_argv(source, out, name, run)` — Tham số dòng lệnh `python -m tkb` theo cài đặt chạy (như main.run); báo lỗi nếu cài đặt sai.
+- `summary(lines)` — Kết quả đọc từ các dòng in ra: mã kết quả, đạt luật bắt buộc hay không, các file đã ghi.
+- `class Job` — Một lần xếp TKB: tiến trình con, đọc từng dòng in ra.
+  - `._read()`
+  - `.running()`
+  - `.stop()` — Dừng sớm như bấm Ctrl+C: chương trình xếp xong vùng đang xếp rồi ghi TKB tốt nhất.
+  - `.kill()`
+  - `.state(since)`
+- `class App` — Trạng thái của giao diện: thư mục kết quả, mã phiên, việc xếp TKB đang chạy.
+  - `.inside(path)` — Đường dẫn trong thư mục kết quả, không thì báo lỗi.
+  - `.schema(_)`
+  - `.new(_)`
+  - `._import(path, name)`
+  - `.import_file(body, name)`
+  - `.import_path(data)`
+  - `.check(data)`
+  - `.export(data)`
+  - `.run(data)`
+  - `.status(query)`
+  - `.stop(_)`
+  - `.kill(_)`
+  - `.open(data)`
+  - `.settings(data)`
+  - `.shutdown()`
+- `class Handler`
+  - `.log_message(fmt, *args)`
+  - `._send(status, body, ctype, headers)`
+  - `._json(status, payload)`
+  - `._host_ok()`
+  - `._token_ok(query)`
+  - `._body()`
+  - `.do_GET()`
+  - `.do_POST()`
+  - `._static(path)`
+  - `._api(method, url)`
+- `make_server(port, out_dir)` — Máy chủ trên 127.0.0.1 (cổng bận thì lấy cổng khác): (máy chủ, trạng thái, đường dẫn trang).
+- `serve(port, open_browser, out_dir)`
+
 ## .github/scripts/chay_mau.py — Chạy xếp TKB file FILE_VAO với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã.
 Hằng số: `ROOT`
 - `class _Tee` — Vừa in ra màn hình vừa giữ lại chữ đã in.
@@ -309,6 +381,8 @@ Hằng số: `ROOT`, `TEMPLATES`
 ## tests
 - `tests/test_allocation.py`: test_homeroom_split_sample, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
+- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable
+- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
 - `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited, test_reloading_updated_file_keeps_timetable, test_reloading_falls_back_when_saved_timetable_breaks_rules, test_reloading_overtime_result_rewrites_the_same_files
 - `tests/test_phan_cong.py`: test_min_cost_flow_prefers_cheap_paths, test_estimate_overtime_then_missing, test_homeroom_overtime_before_general, test_homeroom_overtime_takes_whole_subjects, test_homeroom_overtime_takes_music_and_art, test_assignment_is_deterministic, test_hires_take_overtime_and_missing_lessons, test_hire_split_limits_pairs_and_orders_by_load
