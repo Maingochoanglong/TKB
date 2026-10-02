@@ -135,6 +135,9 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
     errors.extend(_check_teacher_sessions(problem, lessons))
     if student_rules:
         errors.extend(_check_student_rules(problem, lessons))
+    if config.CUSTOM_RULES:  # luật riêng bắt buộc (tkb/luat_rieng.py)
+        from .luat_rieng import check as check_custom
+        errors.extend(check_custom(problem, lessons))
     return errors
 
 
@@ -209,7 +212,7 @@ def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
     n_days = len(config.DAY_SESSIONS)
     for cls in problem.classes:
         req = problem.curriculum[grade_of(cls)]
-        pairs = paired_groups(req)
+        pairs = paired_groups(req, grade_of(cls))
         for d, sessions in config.DAY_SESSIONS.items():
             day_subjects = [grid.get((cls, d, p)) for s in sessions for p in s.periods]
             for subject, limit in config.DAILY_LIMITS.items():

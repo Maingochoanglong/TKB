@@ -70,6 +70,7 @@
 | 52 | Nạp lại file vào cập nhật giữ nguyên TKB | Chạy lại trên file vào cập nhật (vd đã đổi "chưa có" thành tên người mới tuyển) thì xếp lại từ đầu: người mới thành bộ môn thật, phân công và TKB đổi | File vào cập nhật có sheet **TKB đã xếp** (mục 11.2). Nạp lại file đó thì chương trình **dùng lại TKB này**: GV khớp theo Mã GV, kiểm tra đủ tiết và mọi luật cứng bằng bộ kiểm tra; đạt thì không xếp lại, mã kết quả giữ nguyên (mã băm theo chức vụ, không theo tên), không đạt thì in lý do và xếp lại từ đầu. `main.py` `GIU_TKB_DA_XEP` (mặc định `True`; dòng lệnh `--xep-lai` để xếp lại). Dùng được để có lại TKB của máy khác (file cập nhật bản Linux chạy trên Windows ra đúng TKB Linux). Style chép từ file vào bỏ qua màu chương trình tô (dòng bù/tuyển/dư). Mã kết quả không đổi |
 | 53 | Quy định trong file vào, file mẫu đơn giản | Các luật nghiệp vụ (khung giờ, HĐTN, GVCN, quyền dạy, bù giờ, luật học sinh, môn nặng, tên viết tắt) chỉ sửa được trong `tkb/config.py`; file mẫu có danh sách thả xuống, tô đỏ theo điều kiện, ghi chú ở tiêu đề cột và sheet danh mục ẩn; file vào cập nhật có sheet Chú thích và TKB đã xếp dạng danh sách | Nhà trường sửa luật trong Excel (mục 2.5, `tkb/rules.py`), **một quy ước cho mọi ô**: mỗi quy định một cột, mỗi ô ghi Có, Không hoặc số nguyên dương (riêng Tên trong TKB ghi chữ). Quy định của môn là **các cột của sheet CHƯƠNG TRÌNH HỌC** (tên môn chỉ ghi một chỗ); các quy định khác ở **sheet QUY ĐỊNH** (ba bảng: chung, ngày, tiết). Thiếu thì dùng mặc định; ghi sai thì báo mọi lỗi kèm sheet và số dòng. File mẫu (`data/Input_Template_V8.xlsx`, `python -m tkb.template`) 4 sheet, đơn giản: chữ đen, không tô nền, không cố định dòng/cột, không danh sách thả xuống, không ghi chú, không sheet ẩn; chương trình học điền sẵn các môn. File vào cập nhật 5 sheet: ghi đủ quy định đã dùng, HƯỚNG DẪN thay Chú thích, **TKB đã xếp dạng lưới như TKB** kèm mã quy định (sửa quy định rồi nạp lại thì xếp lại). Ghi đúng mặc định cho cùng TKB: mã kết quả không đổi |
 | 54 | Báo quy định mâu thuẫn | Không xếp được thì chỉ báo "Không tìm được TKB hợp lệ. Thử tăng thời gian…", kể cả khi các luật mâu thuẫn (tăng thời gian không giúp gì) | **Đếm trước khi xếp** (`tkb/chan_doan.py` `precheck`, cả nút Kiểm tra của giao diện): báo ngay khối, môn và quy định mâu thuẫn. **Chẩn đoán khi không xếp được:** thử nới từng nhóm luật bắt buộc để chỉ ra nhóm luật nhỏ nhất không cùng thỏa được và luật nào nới riêng là đủ; hoặc báo do thiếu thời gian, hoặc do nhân sự/quyền dạy (mục 9). Luật và mã kết quả không đổi |
+| 55 | Luật riêng của trường | Mỗi luật mới phải sửa code (solver, checker, QA) | **Sheet `LUẬT RIÊNG`** (không bắt buộc, mục 6.1): mỗi dòng một luật thuộc 6 kiểu luật chung (không xếp vào, chỉ xếp vào, học 2 tiết liền, học trước, GV tối đa tiết mỗi ngày, số lớp học cùng lúc tối đa), bắt buộc hoặc ưu tiên mức 1–3; mỗi kiểu viết code một lần (`tkb/luat_rieng.py`). Giao diện có trang Luật riêng. Phân công thêm bước đổi chéo cho chẵn khi còn phần lẻ trong nhóm ghép cặp. Không có luật riêng thì mã kết quả, mã quy định không đổi |
 
 ---
 
@@ -362,6 +363,29 @@ Ví dụ luật học liền, buổi sáng tiết 1–4:
 **Môn nặng** (`HEAVY_SUBJECTS`): Toán, Toán tăng cường, Tiếng Việt, Tiếng Việt tăng cường, Tiếng Anh, Khoa học, Tin học.
 
 Mỗi GV tiếng anh dạy 23 tiết; ngoài tiết 1, Thứ 6 tiết 4 và tiết 7, họ chỉ còn 22 slot, nên luôn còn ít nhất 1 tiết Tiếng Anh ở tiết 7 mỗi người.
+
+### 6.1. Luật riêng của trường (sheet `LUẬT RIÊNG`)
+
+Nhà trường tự thêm luật mà không sửa code: mỗi dòng một luật thuộc một **kiểu luật chung** (`tkb/luat_rieng.py`),
+**[Cứng]** khi cột Bắt buộc = Có, không thì **[Mềm]** với mức 1, 2, 3 (`Weights.custom_levels` = 100, 400, 1.500 điểm
+mỗi lần không theo). Môn so khớp tên như các quy định khác; Khối trống là mọi khối; Ngày, Tiết, Buổi trống là mọi giá trị.
+
+| Kiểu luật | Cứng | Mềm (mỗi lần không theo) |
+|---|---|---|
+| Không xếp vào | Bỏ các ô (ngày, tiết, buổi) đó khỏi miền ô của môn (`solver.allowed_slots`) | Mỗi tiết của môn ở các ô đó |
+| Chỉ xếp vào | Chỉ giữ các ô đó trong miền ô của môn | Mỗi tiết của môn ngoài các ô đó |
+| Học 2 tiết liền | Thêm nhóm môn vào các nhóm ghép cặp (`allocation.paired_groups`): mỗi buổi 0 hoặc 2 tiết liền, cùng người; phân công chia chẵn | Mỗi tiết của nhóm không có tiết cùng nhóm liền trước hay liền sau trong buổi |
+| Học trước | Trong một buổi, không tiết Môn thứ hai nào đứng trước tiết Môn | Mỗi cặp (tiết Môn thứ hai, tiết Môn đứng sau nó) trong buổi |
+| Giáo viên tối đa tiết mỗi ngày | Mỗi GV có chức vụ đó dạy tối đa Số tiết mỗi ngày; phân công tính sức chứa theo đó (`phan_cong.teacher_slots`) | Mỗi tiết vượt |
+| Số lớp học cùng lúc tối đa | Mỗi tiết tối đa Số lớp học môn đó (các khối của luật) | Mỗi lớp vượt |
+
+- Luật cứng được kiểm lại độc lập (`checker` gọi `luat_rieng.check`); luật mềm được LNS tính vào QA từng lớp-ngày.
+- Trước khi xếp: báo môn hay chức vụ không có (`validate`); đếm mâu thuẫn chắc chắn (`precheck`): luật vị trí để lại ít ô
+  hơn số tiết, Học 2 tiết liền mà số tiết lẻ, số lớp cùng lúc không đủ ô. Không xếp được: mỗi luật cứng là một nhóm luật
+  để chẩn đoán nới thử (mục 9), lỗi in `LUẬT RIÊNG dòng n: <luật bằng lời>`.
+- Phân công: còn phần lẻ trong nhóm ghép cặp thì đổi chéo 1 tiết giữa hai người cùng lẻ, hoặc nhờ người thứ ba có tiết ở
+  nhóm không ghép cặp (`phan_cong._Local.repair`). Chỉ chạy khi còn phần lẻ, nên phân công khác không đổi.
+- Không có luật riêng: mô hình y như cũ, mã kết quả và mã quy định không đổi.
 
 ---
 

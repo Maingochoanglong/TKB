@@ -27,7 +27,8 @@ from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.utils import get_column_letter
 
 from . import config
-from .rules import default_subjects, notes as rule_notes, rule_tables, subject_columns
+from . import luat_rieng
+from .rules import custom_rows, default_subjects, notes as rule_notes, rule_tables, subject_columns
 from .staff import Teacher, class_sort_key, off_text
 
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
@@ -172,6 +173,20 @@ def write_rules_sheet(wb, index: int | None = None, tables=None) -> None:
     _widths(ws, RULES_WIDTHS)
 
 
+def write_custom_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
+    """Sheet LUẬT RIÊNG ở vị trí `index`: tiêu đề và các luật riêng (không có thì theo các luật đang dùng), kẻ sẵn
+    vài dòng trống để nhà trường điền."""
+    rows = custom_rows() if rows is None else rows
+    ws = wb.create_sheet(luat_rieng.SHEET, index)
+    headers = [h for _, h in luat_rieng.COLUMNS]
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+    _style_rows(ws, 1, 1, len(headers), header=True)
+    _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, len(headers), left=(1, 2, 3))
+    _widths(ws, (30, 22, 22, 10, 18, 10, 12, 16, 8, 12, 8))
+
+
 def write_guide(wb, extra=(), index: int | None = None) -> None:
     """Sheet HƯỚNG DẪN: cách ghi từng sheet, từng cột, rồi các dòng `extra` (vd giải thích kết quả)."""
     rows = [*GUIDE, *extra]
@@ -184,14 +199,17 @@ def write_guide(wb, extra=(), index: int | None = None) -> None:
     _widths(ws, GUIDE_WIDTHS)
 
 
-def write_input(path: str | Path, staff: list[list], program: tuple, tables=None, extra=None) -> None:
+def write_input(path: str | Path, staff: list[list], program: tuple, tables=None, extra=None,
+                custom: list[list] | None = None) -> None:
     """Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
     (`program`: (các khối, tiêu đề cột quy định, các dòng) như `program_rows`), QUY ĐỊNH (`tables` như
-    `rules.rule_tables`; không có thì theo các luật đang dùng), HƯỚNG DẪN; `extra(wb)` ghi thêm sheet nếu cần."""
+    `rules.rule_tables`; không có thì theo các luật đang dùng), LUẬT RIÊNG (`custom`: các dòng; không có thì theo các
+    luật đang dùng), HƯỚNG DẪN; `extra(wb)` ghi thêm sheet nếu cần."""
     wb = openpyxl.Workbook()
     _staff_sheet(wb, staff)
     _program_sheet(wb, *program)
     write_rules_sheet(wb, tables=tables)
+    write_custom_sheet(wb, custom)
     write_guide(wb)
     if extra is not None:
         extra(wb)

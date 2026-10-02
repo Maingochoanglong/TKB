@@ -22,7 +22,8 @@ from .solver import Solution, session_of
 from .staff import Teacher, _find_columns, class_sort_key, clean_name, find_sheet, grade_of, normalize, staff_sheet
 from .style import CellStyle, Style
 from .rules import code as rules_code, subject_columns
-from .template import GUIDE_SHEET, write_guide, write_rules_sheet
+from . import luat_rieng
+from .template import GUIDE_SHEET, write_custom_sheet, write_guide, write_rules_sheet
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -572,6 +573,8 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     if find_sheet(wb, config.RULES_SHEET) is None:
         program = find_sheet(wb, config.PROGRAM_SHEET)
         write_rules_sheet(wb, wb.worksheets.index(program) + 1 if program is not None else None)
+    if find_sheet(wb, luat_rieng.SHEET) is None:  # sheet LUẬT RIÊNG trống để nhà trường biết mà điền
+        write_custom_sheet(wb, index=wb.worksheets.index(find_sheet(wb, config.RULES_SHEET)) + 1)
     for name in (GUIDE_SHEET, OLD_NOTES_SHEET):
         old = find_sheet(wb, name)
         if old is not None:

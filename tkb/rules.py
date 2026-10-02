@@ -9,6 +9,9 @@ số nguyên dương; ô trống là Không (hoặc không áp dụng). Riêng c
   Ngày | Học buổi sáng | Học buổi chiều | Tiết HĐTN cố định | Xếp tiết HĐTN còn lại (Thứ 2 … Thứ 7);
   Tiết | Luôn do GVCN dạy | Hạn chế môn nặng.
 
+- Sheet LUẬT RIÊNG (không bắt buộc): mỗi dòng một luật riêng của trường thuộc một kiểu luật chung (tkb/luat_rieng.py),
+  vd Thể dục chỉ học buổi chiều, Tiếng Anh học 2 tiết liền; các ô Khối, Ngày, Tiết, Buổi ghi danh sách.
+
 Cột, bảng (hoặc dòng của bảng chung) nào không có thì quy định đó dùng giá trị mặc định trong tkb/config.py, nên
 file vào cũ vẫn chạy như trước. Cột đã có thì là đủ: môn, ngày, tiết không có dòng tính là Không. Trọng số mục tiêu,
 tham số xếp giờ và số tiết bù tối đa (main.py) vẫn ở mã nguồn.
@@ -19,12 +22,12 @@ import copy
 import hashlib
 import re
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import openpyxl
 
-from . import config
+from . import config, luat_rieng
 from .staff import _NO, _YES, InputError, _fold, clean_name, find_sheet, normalize, subject_key
 
 YES, NO = "Có", "Không"
@@ -106,11 +109,11 @@ ATTRS = (*FRAME_ATTRS, "SESSION_GROUP_LIMIT", "PAIR_MIN_LESSONS", "OVERTIME_ROLE
          "HDTN_FLEX_DAYS", "HOMEROOM_PERIODS", "HEAVY_LATE_PERIODS", "DISPLAY_NAMES", "HDTN", "HOMEROOM_PRIORITY",
          "HOMEROOM_CUT_ORDER", "HOMEROOM_FILL_ORDER", "HOMEROOM_ONLY_SUBJECTS", "GENERAL_FORBIDDEN_SUBJECTS",
          "MANAGER_RULES", "HOMEROOM_OVERTIME_SPECIALIST", "SUBJECT_GROUPS", "DAILY_LIMITS", "PAIR_EXCLUDED",
-         "HEAVY_SUBJECTS", "MORNING_SUBJECTS")
+         "HEAVY_SUBJECTS", "MORNING_SUBJECTS", "CUSTOM_RULES")
 # Tên quy định khi in "khác mặc định".
 LABELS = {**{c.key: c.header for c in (*GENERAL, *DAY_COLS, *PERIOD_COLS, *SUBJECT_COLS)},
           **{a: "Khung giờ" for a in FRAME_ATTRS}, "OVERTIME_ROLES": "Được dạy bù",
-          "SUBJECT_GROUPS": "Nhóm môn, Môn tăng cường"}
+          "SUBJECT_GROUPS": "Nhóm môn, Môn tăng cường", "CUSTOM_RULES": "Luật riêng"}
 DEFAULTS = {attr: copy.deepcopy(getattr(config, attr)) for attr in ATTRS}  # giá trị mặc định trong tkb/config.py
 # Tên môn trong tkb/config.py (và chữ viết tắt mặc định), để khớp tên môn ghi trong sheet CHƯƠNG TRÌNH HỌC.
 _KNOWN = {**{subject_key(label): s for s, label in config.DISPLAY_NAMES.items()},
@@ -412,6 +415,35 @@ class _Reader:
             v["SUBJECT_GROUPS"] = pairs
         return True
 
+    # ---- sheet LUẬT RIÊNG: mỗi dòng một luật riêng ----
+    def custom(self, ws) -> None:
+        """Bảng có dòng tiêu đề bắt đầu bằng cột Kiểu luật; mỗi dòng sau đó là một luật (dòng trống bỏ qua)."""
+        sheet = ws.title
+        heads = {normalize(h): k for k, h in luat_rieng.COLUMNS}
+        header_row = next((r for r in range(1, min(ws.max_row, 20) + 1)
+                           if any(normalize(v) == normalize(luat_rieng.HEADERS["kind"]) for v in _row(ws, r).values())),
+                          None)
+        if header_row is None:
+            if ws.max_row > 1 or _row(ws, 1):
+                self.error(sheet, None, f"không có dòng tiêu đề có cột {luat_rieng.HEADERS['kind']}")
+            self.values["CUSTOM_RULES"] = []
+            return
+        cols: dict[str, int] = {}
+        for c, value in _row(ws, header_row).items():
+            key = heads.get(normalize(value))
+            if key is not None:
+                cols[key] = c
+            elif normalize(value) != normalize(luat_rieng.NOTE):
+                self.error(sheet, header_row, f"không có cột nào tên '{clean_name(value)}' (các cột: "
+                                              f"{', '.join(luat_rieng.HEADERS.values())}, {luat_rieng.NOTE})")
+        rules = []
+        for r in range(header_row + 1, ws.max_row + 1):
+            values = {k: ws.cell(r, c).value for k, c in cols.items()}
+            rule = luat_rieng.parse(values, r, lambda text, r=r: self.error(sheet, r, text))
+            if rule is not None:
+                rules.append(rule)
+        self.values["CUSTOM_RULES"] = rules
+
     def finish(self) -> dict[str, object]:
         f = self.frame
         sheet = config.RULES_SHEET
@@ -461,6 +493,10 @@ def read_rules(path: str | Path, warn=lambda text: None) -> dict[str, object] | 
     if ws is not None:
         reader.rules_sheet(ws)
         found = True
+    ws = find_sheet(wb, luat_rieng.SHEET)
+    if ws is not None:
+        reader.custom(ws)
+        found = True
     if not found:
         return None
     values = reader.finish()
@@ -495,12 +531,15 @@ def _canonical(attr: str, value):
         return sorted(value, key=repr)
     if attr == "DISPLAY_NAMES":
         return sorted(value.items())
+    if attr == "CUSTOM_RULES":  # số dòng trong sheet không phải là luật: dời dòng không đổi mã
+        return [replace(r, row=0) for r in value]
     return value
 
 
 def code() -> str:
     """Mã của các quy định đang dùng (12 chữ số hex): quy định khác nhau thì mã khác nhau, mọi máy cùng mã."""
-    text = "\n".join(f"{attr}={_canonical(attr, getattr(config, attr))!r}" for attr in ATTRS)
+    text = "\n".join(f"{attr}={_canonical(attr, getattr(config, attr))!r}" for attr in ATTRS
+                     if attr != "CUSTOM_RULES" or config.CUSTOM_RULES)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12].upper()
 
 
@@ -524,6 +563,11 @@ def rule_tables() -> list[tuple[list[str], list[list]]]:
     return [([GENERAL_KEY, VALUE], [[c.header, general[c.key]] for c in GENERAL]),
             ([DAY_KEY, *(c.header for c in DAY_COLS)], days),
             ([PERIOD_KEY, *(c.header for c in PERIOD_COLS)], periods)]
+
+
+def custom_rows() -> list[list]:
+    """Các dòng của sheet LUẬT RIÊNG theo config hiện tại (cùng thứ tự cột với luat_rieng.COLUMNS)."""
+    return [[luat_rieng.cells(r)[k] for k, _ in luat_rieng.COLUMNS] for r in config.CUSTOM_RULES]
 
 
 def default_subjects() -> list[str]:
@@ -561,4 +605,11 @@ def subject_columns(subjects=()) -> tuple[list[str], dict[str, list], list[str]]
 def notes() -> list[tuple[str, str]]:
     """Giải thích từng quy định (cho sheet HƯỚNG DẪN): [(sheet: cột/quy định, cách ghi)]."""
     return [*((f"{config.PROGRAM_SHEET}: {c.header}", c.note) for c in SUBJECT_COLS),
-            *((f"{config.RULES_SHEET}: {c.header}", c.note) for c in (*GENERAL, *DAY_COLS, *PERIOD_COLS))]
+            *((f"{config.RULES_SHEET}: {c.header}", c.note) for c in (*GENERAL, *DAY_COLS, *PERIOD_COLS)),
+            (luat_rieng.SHEET, "Không bắt buộc. Mỗi dòng một luật riêng của trường: chọn Kiểu luật rồi ghi các cột kiểu "
+                               "đó dùng (cột không dùng để trống). Bắt buộc: Có (luật cứng) hoặc Không (ưu tiên, ô trống "
+                               "là Không); Mức: 1, 2, 3 (chỉ cho luật ưu tiên, trống là 2, 3 là ưu tiên nhất). Khối, Ngày, "
+                               "Tiết ghi danh sách cách nhau bằng dấu phẩy hoặc khoảng, vd 3, 4 hoặc 3-5; Thứ 2, Thứ 4 "
+                               "hoặc T2-T4; 5-7. Buổi: Sáng hoặc Chiều. Giáo viên: chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý "
+                               "hoặc tên môn của GV chuyên biệt)."),
+            *((f"{luat_rieng.SHEET}: {k.label}", k.note) for k in luat_rieng.KINDS)]

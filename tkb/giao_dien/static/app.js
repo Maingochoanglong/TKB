@@ -170,6 +170,8 @@ function newSubjectRules() {
 function renderRoleList() {
   const names = st.scenario.subjects.map((s) => String(s.name || "").trim()).filter(Boolean);
   $("#role-list").innerHTML = [...new Set([...S.roles, ...names])].map((r) => `<option value="${esc(r)}">`).join("");
+  $("#subject-list").innerHTML = [...new Set(names)].map((r) => `<option value="${esc(r)}">`).join("");
+  $("#session-list").innerHTML = S.custom.sessions.map((r) => `<option value="${esc(r)}">`).join("");
 }
 function renderStaff() {
   const head = `<thead><tr><th>Dòng</th>${S.staff.map((c, j) =>
@@ -194,6 +196,7 @@ function updateCounts() {
   const subjects = st.scenario.subjects.filter((s) => String(s.name || "").trim());
   $("#count-gv").textContent = staff.length || "";
   $("#count-mon").textContent = subjects.length || "";
+  $("#count-luat").textContent = (st.scenario.custom || []).length || "";
   const classes = staff.filter(isHomeroom).length;
   const quota = staff.reduce((n, t) => n + (Number.isInteger(t.lessons) ? t.lessons : 0), 0);
   $("#staff-summary").textContent = `${staff.length} người, ${classes} lớp (mỗi Chủ Nhiệm một lớp), tổng định mức ` +
@@ -220,7 +223,63 @@ function parsePasted(text) {
   return rows;
 }
 
-// ---------------------------------------------------------------- tab 4: cài đặt chạy, kiểm tra, xếp
+// ---------------------------------------------------------------- tab 4: luật riêng
+// Mỗi dòng một luật thuộc một kiểu luật chung (tkb/luat_rieng.py); ô nào kiểu luật không dùng thì khóa.
+const kindOf = (row) => S.custom.kinds.find((k) => k.label === row.kind || k.key === row.kind) || S.custom.kinds[0];
+const RULE_INPUT = {
+  subject: (v, a) => `<input type="text" list="subject-list" class="wide" ${a} value="${esc(v)}" spellcheck="false">`,
+  other: (v, a) => `<input type="text" list="subject-list" class="wide" ${a} value="${esc(v)}" spellcheck="false">`,
+  sessions: (v, a) => `<input type="text" list="session-list" ${a} value="${esc(v)}" spellcheck="false">`,
+  role: (v, a) => `<input type="text" list="role-list" class="wide" ${a} value="${esc(v)}" spellcheck="false">`,
+  number: (v, a) => `<input type="number" min="1" step="1" ${a} value="${esc(v)}">`,
+};
+function describeRule(row) {
+  const k = kindOf(row).key;
+  const who = (row.subject || "…") + (row.grades ? ` khối ${row.grades}` : "");
+  const where = [row.sessions && `buổi ${String(row.sessions).toLowerCase()}`, row.days,
+    row.periods && `tiết ${row.periods}`].filter(Boolean).join(" ") || "…";
+  const text = {
+    khong_xep: `${who} không xếp vào ${where}`,
+    chi_xep: `${who} chỉ xếp vào ${where}`,
+    lien_2: `${who} học 2 tiết liền`,
+    truoc: `${who} học trước ${row.other || "…"} trong buổi`,
+    gv_ngay: `${row.role ? `mỗi GV ${row.role}` : "mỗi giáo viên"} dạy tối đa ${row.number || "…"} tiết mỗi ngày`,
+    cung_luc: `${who}: tối đa ${row.number || "…"} lớp học cùng lúc`,
+  }[k];
+  return text + (row.hard ? " (bắt buộc)" : ` (ưu tiên mức ${row.level || 2})`);
+}
+function renderRules() {
+  const rows = st.scenario.custom;
+  const cols = S.custom.columns.filter((c) => !["kind", "hard", "level"].includes(c.key));
+  const head = `<thead><tr><th>Dòng</th><th class="left">Luật đọc là</th><th class="left">Kiểu luật</th>${
+    cols.map((c) => `<th>${esc(c.header)}</th>`).join("")}<th>Bắt buộc</th><th>Mức</th><th></th></tr></thead>`;
+  const body = rows.map((row, i) => {
+    const kind = kindOf(row);
+    const cells = cols.map((c) => {
+      const a = `data-f="rulec" data-i="${i}" data-k="${c.key}" ${kind.uses.includes(c.key) ? "" : "disabled"}`;
+      const make = RULE_INPUT[c.key] || ((v, at) => `<input type="text" ${at} value="${esc(v)}" spellcheck="false">`);
+      return `<td>${make(row[c.key] ?? "", a)}</td>`;
+    }).join("");
+    const levels = [1, 2, 3].map((n) => `<option value="${n}" ${Number(row.level || 2) === n ? "selected" : ""}>${n}</option>`).join("");
+    return `<tr data-row="${i + 2}"><td class="num">${i + 2}</td>
+      <td class="say">${esc(describeRule(row))}</td>
+      <td class="left"><select data-f="rulec" data-i="${i}" data-k="kind">${S.custom.kinds.map((k) =>
+        `<option value="${esc(k.label)}" ${k.key === kind.key ? "selected" : ""}>${esc(k.label)}</option>`).join("")}</select></td>
+      ${cells}
+      <td><input type="checkbox" data-f="rulec" data-i="${i}" data-k="hard" ${row.hard ? "checked" : ""}></td>
+      <td><select data-f="rulec" data-i="${i}" data-k="level" ${row.hard ? "disabled" : ""}>${levels}</select></td>
+      <td><button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật">✕</button></td></tr>`;
+  }).join("");
+  $("#rule-table").innerHTML = rows.length ? head + `<tbody>${body}</tbody>` : "";
+  $("#rule-empty").hidden = rows.length > 0;
+  updateCounts();
+}
+function newRule(label) {
+  const row = Object.fromEntries(S.custom.columns.map((c) => [c.key, ""]));
+  return { ...row, kind: label, number: null, hard: true, level: null };
+}
+
+// ---------------------------------------------------------------- tab 5: cài đặt chạy, kiểm tra, xếp
 function renderRun() {
   const run = st.run;
   $("#mode-options").innerHTML = S.modes.map((m) => `<label class="mode">
@@ -243,9 +302,10 @@ function renderRun() {
 }
 
 function jumpTo(sheet, row) {
-  const tab = sheet === S.sheets.staff ? "gv" : "mon";
+  const [tab, table] = sheet === S.sheets.staff ? ["gv", "staff"] : sheet === S.sheets.custom ? ["luat", "rule"]
+    : ["mon", "subject"];
   showTab(tab);
-  const tr = $(`#${tab === "gv" ? "staff" : "subject"}-table tr[data-row="${row}"]`);
+  const tr = $(`#${table}-table tr[data-row="${row}"]`);
   if (!tr) return;
   tr.scrollIntoView({ block: "center", behavior: "smooth" });
   tr.classList.remove("flash");
@@ -253,8 +313,8 @@ function jumpTo(sheet, row) {
   tr.classList.add("flash");
 }
 function msgItem(text, cls) {
-  const m = text.match(new RegExp(`^(${S.sheets.staff}|${S.sheets.program})[:,].*?[Dd]òng (\\d+)`));
-  const body = m ? `<a href="#" data-jump="${esc(m[1])}|${m[2]}">${esc(text)}</a>` : esc(text);
+  const m = text.match(new RegExp(`(${S.sheets.staff}|${S.sheets.program}|${S.sheets.custom})[:,]? *(?:[Dd]òng (\\d+)|.*?[Dd]òng (\\d+))`));
+  const body = m ? `<a href="#" data-jump="${esc(m[1])}|${m[2] || m[3]}">${esc(text)}</a>` : esc(text);
   return `<li class="${cls}">${body}</li>`;
 }
 function renderCheck(res) {
@@ -355,6 +415,8 @@ function renderHelp() {
   $("#help-mon").innerHTML = dl(S.subject);
   $("#help-gv").innerHTML = dl(S.staff);
   $("#paste-cols").textContent = S.staff.map((c) => c.header).join(" | ");
+  $("#kind-list").innerHTML = S.custom.kinds.map((k) => `<dt>${esc(k.label)}</dt><dd>${esc(k.note)}</dd>`).join("");
+  $("#new-kind").innerHTML = S.custom.kinds.map((k) => `<option value="${esc(k.label)}">${esc(k.label)}</option>`).join("");
 }
 function renderAll() {
   syncPeriods();
@@ -363,6 +425,7 @@ function renderAll() {
   renderPeriods();
   renderSubjects();
   renderStaff();
+  renderRules();
   renderRun();
   $("#file-label").textContent = st.label || "Kịch bản mới";
   updateCounts();
@@ -431,6 +494,19 @@ function onEdit(e) {
     sc.subjects[i].rules[d.k] = v;
   } else if (d.f === "staff") {
     sc.staff[i][d.k] = v;
+  } else if (d.f === "rulec") {
+    const row = sc.custom[i];
+    row[d.k] = d.k === "level" ? Number(v) : v;
+    if (d.k === "kind" || d.k === "hard") {
+      const kind = kindOf(row);
+      for (const c of S.custom.columns) {
+        if (!["kind", "hard", "level"].includes(c.key) && !kind.uses.includes(c.key)) row[c.key] = c.key === "number" ? null : "";
+      }
+      row.level = row.hard ? null : (row.level || 2);
+      if (e.type === "change") renderRules();
+    } else {
+      el.closest("tr").querySelector("td.say").textContent = describeRule(row);
+    }
   }
   changed();
 }
@@ -456,6 +532,10 @@ async function onClick(e) {
     case "del-staff":
       sc.staff.splice(i, 1);
       renderStaff();
+      break;
+    case "del-rule":
+      sc.custom.splice(i, 1);
+      renderRules();
       break;
     case "up":
     case "down": {
@@ -534,6 +614,12 @@ function wire() {
     renderSubjects();
     changed();
   };
+  $("#btn-add-rule").onclick = () => {
+    st.scenario.custom.push(newRule($("#new-kind").value));
+    renderRules();
+    changed();
+    $$("#rule-table tbody tr").pop()?.querySelector("input:not([disabled])")?.focus();
+  };
   $("#btn-add-staff").onclick = () => {
     st.scenario.staff.push(newStaffRow());
     renderStaff();
@@ -585,6 +671,7 @@ async function init() {
   const draft = loadDraft();
   if (draft && draft.scenario && draft.scenario.version === S.version) {
     st = { ...draft, run: { ...S.run_defaults, ...(draft.run || {}) } };
+    st.scenario.custom ||= [];
     renderAll();
     notify("Đã mở lại kịch bản đang soạn lần trước (lưu tự động trên máy này).", "",
       { label: "Tạo mới", fn: () => newScenario().catch(fail) });

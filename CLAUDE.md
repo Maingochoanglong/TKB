@@ -20,7 +20,7 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB`: per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
-  periods); see Architecture). `python -m tkb.template` writes a plain template (black text, no
+  periods); school-specific rules of generic kinds are rows of sheet `LUẬT RIÊNG`; see Architecture). `python -m tkb.template` writes a plain template (black text, no
   fill/freeze/dropdowns/comments/hidden sheets) with NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), QUY ĐỊNH, HƯỚNG DẪN. Class names
   are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
   `Input_Template_V8.xlsx` (`python -m tkb.template`, a test checks it is current) and the output templates
@@ -108,6 +108,16 @@ UI check) raises `solver.ConflictError` before solving; when no timetable is fou
 unchanged): not proven → "add time"; all relaxed still infeasible → staff/quota; else a deletion filter gives the
 minimal conflicting families and which single relaxation fixes it. A new hard rule should get a family in
 `chan_doan._rules` (and a count in `precheck` if one is sound).
+
+School-specific rules (`tkb/luat_rieng.py`, sheet `LUẬT RIÊNG`, `config.CUSTOM_RULES` of `config.CustomRule`): one row per
+rule of 6 generic kinds (not in / only in day-period-session, 2 consecutive lessons, A before B in a session, teacher max
+per day, max classes at once), hard or soft with level 1–3 (`Weights.custom_levels`). Each kind is coded once:
+`banned` (in `solver.allowed_slots`), `forced_pairs` (in `allocation.paired_groups(req, grade)` — always pass the grade),
+`build` (constraints/objective at the end of `build_timetable`), `qa` (LNS), `check` (checker), `day_cap`
+(`phan_cong.teacher_slots`), `validate`/`precheck`, and one diagnosis family per hard rule. Everything is skipped when
+the list is empty, and `rules.code()` leaves out an empty list, so codes are unchanged. `phan_cong._Local.repair` fixes
+odd shares in paired groups (only runs when some remain). The parse convention of this sheet allows text lists (Khối,
+Ngày, Tiết, Buổi) unlike the Có/Không/number rule columns.
 
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
 `solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday

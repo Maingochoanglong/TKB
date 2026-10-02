@@ -215,3 +215,18 @@ dialog::backdrop { background: #0006; }
   .grid2 { grid-template-columns: 1fr; }
   details.help dl { grid-template-columns: 1fr; }
 }
+
+/* Luật riêng */
+dl.kinds { margin: 8px 0 0; display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 8px 16px; }
+dl.kinds dt { font-weight: 600; font-size: 14px; }
+dl.kinds dd { margin: 0; color: var(--muted); font-size: 13.5px; }
+#new-kind { width: auto; }
+#rule-table select { font: inherit; font-size: 13.5px; padding: 3px 4px; width: auto; max-width: 210px; }
+#rule-table input[type=text] { min-width: 0; width: 72px; }
+#rule-table input.wide { min-width: 0; width: 120px; }
+#rule-table input[type=number] { width: 52px; }
+#rule-table input:disabled, #rule-table select:disabled { opacity: .35; }
+#rule-table td.say { text-align: left; min-width: 250px; font-size: 13px; }
+code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 4px; padding: 0 4px; }
+@media (max-width: 640px) { dl.kinds { grid-template-columns: 1fr; } }

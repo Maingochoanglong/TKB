@@ -32,7 +32,8 @@
   <button type="button" role="tab" data-tab="khung" class="active">1. Khung giờ &amp; quy định chung</button>
   <button type="button" role="tab" data-tab="mon">2. Môn học <span class="count" id="count-mon"></span></button>
   <button type="button" role="tab" data-tab="gv">3. Giáo viên <span class="count" id="count-gv"></span></button>
-  <button type="button" role="tab" data-tab="xep">4. Kiểm tra &amp; xếp TKB</button>
+  <button type="button" role="tab" data-tab="luat">4. Luật riêng <span class="count" id="count-luat"></span></button>
+  <button type="button" role="tab" data-tab="xep">5. Kiểm tra &amp; xếp TKB</button>
 </nav>
 
 <div id="notice" class="notice" hidden></div>
@@ -88,8 +89,32 @@
       <p class="muted" id="staff-summary"></p>
       <div class="table-wrap tall"><table id="staff-table" class="grid sticky"></table></div>
       <datalist id="role-list"></datalist>
+      <datalist id="subject-list"></datalist>
+      <datalist id="session-list"></datalist>
     </div>
     <details class="card help"><summary>Giải thích các cột nhân sự</summary><dl id="help-gv"></dl></details>
+  </section>
+
+  <section id="tab-luat" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Luật riêng của trường</h2>
+        <div class="actions">
+          <select id="new-kind" aria-label="Kiểu luật mới"></select>
+          <button type="button" id="btn-add-rule">+ Thêm luật</button>
+        </div>
+      </div>
+      <p class="muted">Mỗi dòng một luật, chọn một kiểu luật chung rồi điền các ô kiểu đó dùng (ô không dùng bị khóa).
+        <b>Bắt buộc</b>: TKB phải theo đúng; bỏ đánh dấu là <b>ưu tiên</b>, chọn mức 1–3 (3 là ưu tiên nhất). Khối, Ngày,
+        Tiết ghi danh sách, vd <code>3, 4</code>, <code>3-5</code>, <code>Thứ 2, Thứ 4</code>, <code>T2-T4</code>,
+        <code>5-7</code>. Luật bắt buộc mâu thuẫn thì nút Kiểm tra hoặc phần chẩn đoán khi xếp sẽ chỉ ra luật nào.</p>
+      <div class="table-wrap"><table id="rule-table" class="grid"></table></div>
+      <p class="muted" id="rule-empty">Chưa có luật riêng nào: chọn kiểu luật rồi bấm <b>+ Thêm luật</b>.</p>
+    </div>
+    <div class="card">
+      <h2>Các kiểu luật</h2>
+      <dl id="kind-list" class="kinds"></dl>
+    </div>
   </section>
 
   <section id="tab-xep" class="tab" role="tabpanel">

@@ -31,20 +31,23 @@ def _q(attr: str) -> str:
 
 def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
     """Các mâu thuẫn chắc chắn giữa chương trình học và luật bảo vệ học sinh, tìm bằng phép đếm (mỗi khối một lần)."""
+    out = []
+    if config.CUSTOM_RULES:  # luật riêng: môn/chức vụ không có, luật vị trí, 2 tiết liền, số lớp cùng lúc
+        from .luat_rieng import precheck as precheck_custom
+        out += precheck_custom(problem)
     if not student_rules:
-        return []
+        return out
     sessions = [s for ss in config.DAY_SESSIONS.values() for s in ss]
     pair_sessions = sum(1 for s in sessions if len(s.periods) >= 2)
     n_days = len(config.DAY_SESSIONS)
     limit = config.SESSION_GROUP_LIMIT
-    out = []
     for g in sorted({grade_of(c) for c in problem.classes}):
         req = problem.curriculum[g]
         groups: dict[str, dict[str, int]] = {}
         for s, n in req.items():
             if n > 0:
                 groups.setdefault(subject_group(s), {})[s] = n
-        pairs = paired_groups(req)
+        pairs = paired_groups(req, g)
         for group, subjects in groups.items():
             n = sum(subjects.values())
             name = " + ".join(problem.subject_labels.get(s, s) for s in subjects)
@@ -76,6 +79,7 @@ class _Rule:
     values: tuple = ()  # (hằng số config, giá trị khi nới)
     flag: str = ""  # cờ solver.RELAXED
     leave: bool = False  # bỏ cột Buổi Nghỉ của mọi GV
+    custom: int = -1  # chỉ số của luật riêng bắt buộc (config.CUSTOM_RULES) được bỏ khi nới
 
 
 def _rules(staff: list[Teacher], settings: config.Settings) -> list[_Rule]:
@@ -105,6 +109,8 @@ def _rules(staff: list[Teacher], settings: config.Settings) -> list[_Rule]:
         out.append(_Rule("Buổi Nghỉ của giáo viên (sheet NHÂN SỰ)", leave=True))
     if any(t.campus2 for t in staff if t.class_name):
         out.append(_Rule("Mỗi buổi một giáo viên chỉ dạy ở một cơ sở (cột Cơ sở 2)", flag="co_so"))
+    from .luat_rieng import label
+    out += [_Rule(label(r), custom=i) for i, r in enumerate(config.CUSTOM_RULES) if r.hard]
     return out
 
 
@@ -113,7 +119,11 @@ def _relaxed(rules: list[_Rule]):
     from . import solver
 
     old = solver.RELAXED
-    with applied({attr: value for r in rules for attr, value in r.values}):
+    values = {attr: value for r in rules for attr, value in r.values}
+    dropped = {r.custom for r in rules if r.custom >= 0}
+    if dropped:
+        values["CUSTOM_RULES"] = [r for i, r in enumerate(config.CUSTOM_RULES) if i not in dropped]
+    with applied(values):
         solver.RELAXED = frozenset(r.flag for r in rules if r.flag)
         try:
             yield

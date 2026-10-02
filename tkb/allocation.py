@@ -70,13 +70,18 @@ def subject_group(subject: str) -> str:
     return config.SUBJECT_GROUPS.get(subject, subject)
 
 
-def paired_groups(grade_req: dict[str, int]) -> set[str]:
-    """Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS)."""
+def paired_groups(grade_req: dict[str, int], grade: int | None = None) -> set[str]:
+    """Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS, và luật riêng "Học 2
+    tiết liền" bắt buộc của khối `grade`)."""
     totals: dict[str, int] = {}
     for s, n in grade_req.items():
         totals[subject_group(s)] = totals.get(subject_group(s), 0) + n
-    return {g for g, n in totals.items()
-            if n >= config.PAIR_MIN_LESSONS and n % 2 == 0 and g not in config.PAIR_EXCLUDED}
+    out = {g for g, n in totals.items()
+           if n >= config.PAIR_MIN_LESSONS and n % 2 == 0 and g not in config.PAIR_EXCLUDED}
+    if grade is not None and config.CUSTOM_RULES:
+        from .luat_rieng import forced_pairs
+        out |= forced_pairs(grade, totals)
+    return out
 
 
 def sessions_per_week() -> int:

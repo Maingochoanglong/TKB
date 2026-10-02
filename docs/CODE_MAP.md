@@ -27,7 +27,7 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
   - `.class_courses(class_name)`
 - `all_slots()`
 - `subject_group(subject)` — Nhóm môn: môn tăng cường đi cùng môn chính (config.SUBJECT_GROUPS), môn khác là nhóm riêng.
-- `paired_groups(grade_req)` — Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS).
+- `paired_groups(grade_req, grade)` — Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS, và luật riêng "Học 2
 - `sessions_per_week()`
 - `roles_for_subject(subject, specialists)` — Các chức vụ (ngoài chủ nhiệm/quản lý) được dạy môn này.
 - `resolve_roles(staff, subject_labels)` — Suy ra GV chuyên biệt từ tên chức vụ: (chức vụ -> môn, chức vụ -> cách ghi trong file ra).
@@ -67,9 +67,10 @@ Hằng số: `SECONDS`, `ALL`
 - `_check_student_rules(problem, lessons)`
 
 ## tkb/config.py — Giá trị mặc định của các luật nghiệp vụ, trọng số mục tiêu và tham số xếp giờ.
-Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `DISPLAY_NAMES`, `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS`, `OFF_LABEL`, `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS`, `ROLE_HOMEROOM`, `ROLE_GENERAL`, `ROLE_MANAGER`, `ROLE_LABELS`, `STAFF_SHEET`, `PROGRAM_SHEET`, `RULES_SHEET`, `SAVED_SHEET`, `SAVED_OVERTIME`, `SAVED_CODES`, `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER`, `HOMEROOM_PERIODS`, `SUPPLEMENT_NAME`, `MODE_HIRE`, `MODE_OVERTIME`, `MODES`, `OVERTIME_ROLES`, `HOMEROOM_OVERTIME_SPECIALIST`, `OVERTIME_MAX`, `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `MORNING_SUBJECTS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED`, `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`, `ORTOOLS_VERSION`
+Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `DISPLAY_NAMES`, `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS`, `OFF_LABEL`, `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS`, `ROLE_HOMEROOM`, `ROLE_GENERAL`, `ROLE_MANAGER`, `ROLE_LABELS`, `STAFF_SHEET`, `PROGRAM_SHEET`, `RULES_SHEET`, `SAVED_SHEET`, `SAVED_OVERTIME`, `SAVED_CODES`, `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER`, `HOMEROOM_PERIODS`, `SUPPLEMENT_NAME`, `MODE_HIRE`, `MODE_OVERTIME`, `MODES`, `OVERTIME_ROLES`, `HOMEROOM_OVERTIME_SPECIALIST`, `OVERTIME_MAX`, `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `MORNING_SUBJECTS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED`, `CUSTOM_RULES`, `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`, `ORTOOLS_VERSION`
 - `class Session`
 - `class ManagerRule` — Quản lý chỉ dạy môn `subject` của khối `grade`.
+- `class CustomRule`
 - `rule_subjects()` — Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào).
 - `class Weights`
 - `class Settings`
@@ -86,12 +87,14 @@ Hằng số: `VERSION`, `STAFF_COLS`, `_HEADERS`, `ROLES`
 - `_from_cell(col, value)`
 - `_json_value(value)`
 - `_read_saved(wb)`
+- `_custom_part()` — Các luật riêng đang dùng (config.CUSTOM_RULES) theo dạng kịch bản.
 - `_rules_part(subject_names)` — Các quy định đang dùng (config) theo dạng kịch bản: (chung, ngày, tiết, {môn: quy định}, các môn có quy
 - `from_excel(path)` — Đọc file vào V8 (cả file vào cập nhật *_cap_nhat.xlsx) thành kịch bản: (kịch bản, các cảnh báo). Nhân sự và số
 - `default_scenario()` — Kịch bản trống như file mẫu (python -m tkb.template): chưa có nhân sự, các môn có quy định mặc định với số tiết
 - `_to_cell(col, value)`
 - `_staff_row(row)`
 - `to_excel(scenario, path)` — Ghi kịch bản ra file vào V8 (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, QUY ĐỊNH, HƯỚNG DẪN và, nếu có, sheet
+- `_custom_cell(key, value)` — Ô của sheet LUẬT RIÊNG (cả dòng trống: dòng i của bảng là dòng i + 2 của sheet).
 - `_lines(exc, sheet)` — Các dòng lỗi của một InputError (dòng tiêu đề "... có n lỗi:" bỏ đi), thêm tên sheet nếu lỗi chưa ghi.
 - `check(scenario, mode, overtime_max, student_rules)` — Kiểm tra kịch bản như khi chạy: ghi ra file tạm, đọc lại bằng các hàm đọc của chương trình, đếm tìm các quy
 
@@ -106,6 +109,35 @@ Hằng số: `VERSION`, `STAFF_COLS`, `_HEADERS`, `ROLES`
   - `.regions(cost, lessons)` — (loại, tên, biến được mở, giới hạn) theo thứ tự thử của một vòng.
 - `improve(tm, settings, log)` — Khởi đầu + các vòng QA -> LNS (xem đầu module). None nếu không tìm được TKB nào.
   · Ctrl+C; trên Windows giao diện (tkb/giao_dien) dừng sớm tiến trình xếp TKB bằng Ctrl+Break (SIGBREAK).
+
+## tkb/luat_rieng.py — Luật riêng của trường: sheet LUẬT RIÊNG, mỗi dòng một luật thuộc một trong các kiểu luật chung (KINDS).
+Hằng số: `SHEET`, `NOTE`, `COLUMNS`, `HEADERS`, `_PLACE`, `KINDS`, `BY_KEY`, `_BY_LABEL`
+- `class Kind`
+- `_day_label(d)`
+- `_numbers(text)` — "3, 4, 5", "3-5", "3–5" -> [3, 4, 5]; None nếu có phần không phải số.
+- `_days(text)` — "Thứ 2, Thứ 4", "T2-T4", "2, 3" -> [0, 2] / [0, 1, 2] / [0, 1].
+- `_blank(value)`
+- `parse(values, row, error)` — Một dòng của sheet LUẬT RIÊNG ({khóa cột: ô}) -> CustomRule; lỗi gọi error(chữ). Dòng trống: None.
+- `cells(rule)` — Các ô của luật khi ghi ra sheet LUẬT RIÊNG ({khóa cột: giá trị}), ngược với `parse`.
+- `describe(rule)` — Luật bằng lời, vd "Thể dục khối 3, 4 không xếp vào tiết 1 (bắt buộc)".
+- `label(rule)`
+- `_subject(name)`
+- `_grade_ok(rule, grade)`
+- `_slots(rule)` — Các ô (ngày, tiết) của khung giờ khớp cột Ngày, Tiết, Buổi của luật (cột trống: mọi giá trị).
+- `_all_slots()`
+- `_bad_slots(rule)` — Ô mà môn của luật vị trí không được (bắt buộc) / không nên (ưu tiên) học.
+- `_weight(rule, w)`
+- `_rules(kind, hard)`
+- `banned(subject, grade)` — Ô mà môn của khối không được học theo các luật vị trí bắt buộc (dùng trong solver.allowed_slots).
+- `forced_pairs(grade, totals)` — Nhóm môn của khối phải học 2 tiết liền theo luật bắt buộc (số tiết chẵn; lẻ thì precheck báo lỗi).
+- `day_cap(teacher)` — Số tiết tối đa mỗi ngày của GV theo luật bắt buộc (None: không giới hạn); dùng trong phan_cong.teacher_slots.
+- `build(m, problem, x, dom, occ_terms, w)` — Ràng buộc và mục tiêu của các luật riêng trong mô hình CP-SAT (solver.build_timetable); trả về các số hạng
+- `_violations(problem, lessons, hard)` — Các lần không theo luật riêng (bắt buộc hoặc ưu tiên) của một TKB: (luật, số lần, các (lớp, ngày) liên quan,
+- `check(problem, lessons)` — Kiểm tra độc lập các luật riêng bắt buộc (checker.check).
+- `qa(problem, lessons, w)` — Chi phí của các luật riêng ưu tiên theo (lớp, ngày), như mục tiêu trong `build` (lns._Search.qa).
+- `soft_report(problem, lessons)` — Số lần không theo từng luật riêng ưu tiên (in ra màn hình sau khi xếp).
+- `validate(problem)` — Lỗi ghi của luật riêng chỉ thấy khi có chương trình học và nhân sự: môn hay chức vụ không có.
+- `precheck(problem)` — Mâu thuẫn chắc chắn của luật riêng bắt buộc, tìm bằng phép đếm: luật vị trí để lại ít ô hơn số tiết, môn phải
 
 ## tkb/phan_cong.py — Dự toán và phân công giáo viên, không dùng CP-SAT: Python thuần, số nguyên, duyệt theo thứ tự cố định nên
 Hằng số: `MANAGER_BONUS`
@@ -127,6 +159,8 @@ Hằng số: `MANAGER_BONUS`
   - `._part(cids, gs)`
   - `._try(ops, cids, gs)`
   - `.run(max_rounds)`
+  - `.odd()` — (lớp, nhóm môn, GV) mà GV dạy số tiết lẻ trong một nhóm môn ghép cặp (khó xếp thành cặp).
+  - `.repair(max_rounds)` — Sửa phần lẻ trong nhóm môn ghép cặp mà `run` để lại (vd luật riêng "Học 2 tiết liền" với định mức lẻ):
   - `.lessons()`
 - `class PhanCong`
   - `.missing_total()`
@@ -164,6 +198,7 @@ Hằng số: `MAX_DAYS`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY_KEY`, `DAY_COLS`,
   - `.days(ws, header_row, end_row, key_col)`
   - `.periods(ws, header_row, end_row, key_col)`
   - `.subjects(ws)` — Đọc các cột quy định sau các cột Khối; trả về True nếu sheet có ít nhất một cột quy định.
+  - `.custom(ws)` — Bảng có dòng tiêu đề bắt đầu bằng cột Kiểu luật; mỗi dòng sau đó là một luật (dòng trống bỏ qua).
   - `.finish()`
 - `read_rules(path, warn)` — Đọc quy định của file vào: các cột quy định của sheet CHƯƠNG TRÌNH HỌC và sheet QUY ĐỊNH. Trả về {hằng số
 - `applied(values)` — Dùng các quy định đọc từ file vào trong khối `with`; ra khỏi khối thì trả lại giá trị cũ.
@@ -172,6 +207,7 @@ Hằng số: `MAX_DAYS`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY_KEY`, `DAY_COLS`,
 - `code()` — Mã của các quy định đang dùng (12 chữ số hex): quy định khác nhau thì mã khác nhau, mọi máy cùng mã.
 - `_yn(on)`
 - `rule_tables()` — Ba bảng của sheet QUY ĐỊNH theo config hiện tại: [(tiêu đề, các dòng)].
+- `custom_rows()` — Các dòng của sheet LUẬT RIÊNG theo config hiện tại (cùng thứ tự cột với luat_rieng.COLUMNS).
 - `default_subjects()` — Các môn có quy định, theo thứ tự tự nhiên (môn GVCN nhận trọn, môn nhận thêm, rồi các môn khác).
 - `subject_columns(subjects)` — Các cột quy định của sheet CHƯƠNG TRÌNH HỌC theo config hiện tại: (tiêu đề, {môn: giá trị các cột}, các môn có
 - `notes()` — Giải thích từng quy định (cho sheet HƯỚNG DẪN): [(sheet: cột/quy định, cách ghi)].
@@ -215,6 +251,7 @@ Hằng số: `RELAXED`
   · Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
   · Rải đều môn trong tuần theo từng lớp.
   · Tiết trống giữa buổi của GV không chủ nhiệm.
+  · Luật riêng của trường (sheet LUẬT RIÊNG); không có luật nào thì không thêm gì.
 - `class ShortageError` — Chế độ bù giờ: GVCN và bộ môn đã bù tối đa mà vẫn thiếu tiết (không tuyển thêm).
   - `.rows()` — (lớp, môn, số tiết thiếu, lý do) theo thứ tự lớp.
 - `du_toan_lines(problem, plan)` — Dự toán in ra trước khi xếp giờ.
@@ -289,8 +326,9 @@ Hằng số: `STAFF_HEADERS`, `STAFF_WIDTHS`, `RULES_WIDTHS`, `GUIDE_SHEET`, `GU
 - `program_rows(curriculum, teachers)` — Bảng CHƯƠNG TRÌNH HỌC: các môn của `curriculum` (không có thì các môn có quy định mặc định, số tiết để trống)
 - `_program_sheet(wb, grades, heads, rows)` — Sheet CHƯƠNG TRÌNH HỌC: Môn học | Khối ... | các cột quy định `heads`; mỗi dòng một môn.
 - `write_rules_sheet(wb, index, tables)` — Sheet QUY ĐỊNH ở vị trí `index`: ba bảng (quy định chung, ngày, tiết), cách nhau một dòng trống. `tables`:
+- `write_custom_sheet(wb, rows, index)` — Sheet LUẬT RIÊNG ở vị trí `index`: tiêu đề và các luật riêng (không có thì theo các luật đang dùng), kẻ sẵn
 - `write_guide(wb, extra, index)` — Sheet HƯỚNG DẪN: cách ghi từng sheet, từng cột, rồi các dòng `extra` (vd giải thích kết quả).
-- `write_input(path, staff, program, tables, extra)` — Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
+- `write_input(path, staff, program, tables, extra, custom)` — Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
 - `write_staff_template(path, teachers, curriculum)` — Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), QUY ĐỊNH (các luật đang
 - `main(argv)`
 
@@ -398,8 +436,9 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_chan_doan.py`: test_no_conflict_with_default_rules, test_session_limit_too_small_for_the_lessons, test_pairs_against_daily_limit, test_student_rules_off_skips_the_count, test_solve_stops_before_solving_on_a_counted_conflict, test_diagnosis_names_the_rules_in_conflict, test_diagnosis_of_a_solvable_school_blames_the_time, test_relaxing_rules_changes_nothing_by_default
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable
-- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict
+- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_custom_rules_round_trip
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
+- `tests/test_luat_rieng.py`: test_parse_each_kind, test_parse_errors, test_read_sheet_and_rules_code, test_no_custom_rules_change_nothing, test_hard_rules_hold_and_are_checked, test_soft_rules_are_preferred, test_teacher_day_cap_limits_the_assignment, test_precheck_and_validate, test_diagnosis_names_the_custom_rule
 - `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited, test_reloading_updated_file_keeps_timetable, test_reloading_falls_back_when_saved_timetable_breaks_rules, test_reloading_overtime_result_rewrites_the_same_files
 - `tests/test_phan_cong.py`: test_min_cost_flow_prefers_cheap_paths, test_estimate_overtime_then_missing, test_homeroom_overtime_before_general, test_homeroom_overtime_takes_whole_subjects, test_homeroom_overtime_takes_music_and_art, test_assignment_is_deterministic, test_hires_take_overtime_and_missing_lessons, test_hire_split_limits_pairs_and_orders_by_load
 - `tests/test_reproducible.py`: test_same_timetable_across_runs, test_reference_fingerprint, test_ortools_version_is_pinned, test_no_wall_clock_limit_in_reproducible_mode

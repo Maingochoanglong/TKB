@@ -68,6 +68,7 @@ def _drop_all_rule_columns(path):
     keep = sum(1 for c in ws[1] if c.value == "Môn học" or str(c.value).startswith("Khối"))
     ws.delete_cols(keep + 1, ws.max_column - keep)
     del wb[config.RULES_SHEET]
+    del wb["LUẬT RIÊNG"]
     wb.save(path)
 
 
@@ -211,8 +212,8 @@ def test_default_rules_give_the_same_timetable(tmp_path, capsys):
     # File cập nhật của file vào không ghi quy định thì có thêm các quy định đã dùng.
     updated = tmp_path / without.stem / "khong_quy_dinh_cap_nhat.xlsx"
     assert read_rules(updated) == DEFAULTS
-    assert openpyxl.load_workbook(updated).sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN",
-                                                          "TKB đã xếp"]
+    assert openpyxl.load_workbook(updated).sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "LUẬT RIÊNG",
+                                                          "HƯỚNG DẪN", "TKB đã xếp"]
 
 
 def test_rules_from_the_file_are_used(tmp_path, capsys):

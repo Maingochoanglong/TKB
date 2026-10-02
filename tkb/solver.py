@@ -131,6 +131,10 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
         if not course.homeroom and s[1] in config.HOMEROOM_PERIODS:
             continue
         result.append(s)
+    if config.CUSTOM_RULES:  # luật riêng "Không xếp vào", "Chỉ xếp vào" bắt buộc
+        from .luat_rieng import banned
+        bad = banned(course.subject, course.grade)
+        result = [s for s in result if s not in bad]
     if len(result) < course.lessons:
         raise SolveError(f"Lớp {course.class_name}: môn {course.subject} cần {course.lessons} tiết "
                          f"nhưng chỉ có {len(result)} slot hợp lệ")
@@ -540,7 +544,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
         for cls in problem.classes:
             courses = problem.class_courses(cls)
             req = problem.curriculum[grade_of(cls)]
-            pairs = paired_groups(req)
+            pairs = paired_groups(req, grade_of(cls))
             by_subject: dict[str, list[Course]] = {}
             by_group: dict[str, list[Course]] = {}
             for c in courses:
@@ -672,6 +676,11 @@ def build_timetable(problem: Problem, settings: config.Settings,
                     gap = m.NewBoolVar(f"gap_{title}_{d}_{ps[i]}")
                     m.Add(gap >= started[i - 1] + later[i + 1] - o[i] - 1)
                     objective.append(w.teacher_gap * gap)
+
+    # Luật riêng của trường (sheet LUẬT RIÊNG); không có luật nào thì không thêm gì.
+    if config.CUSTOM_RULES:
+        from .luat_rieng import build
+        objective.extend(build(m, problem, x, dom, occ_terms, w))
 
     m.Minimize(sum(objective))
 
@@ -857,6 +866,11 @@ def _assignment(staff: list[Teacher], curriculum: dict[int, dict[str, int]], set
     base = build_problem(staff, curriculum, {}, overtime_max=settings.overtime_max)
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
+    if config.CUSTOM_RULES:
+        from .luat_rieng import SHEET, validate
+        wrong = validate(base)
+        if wrong:
+            raise InputError(f"Sheet {SHEET} có {len(wrong)} lỗi:\n  " + "\n  ".join(wrong))
     conflicts = precheck(base, settings.student_rules)
     if conflicts:
         raise ConflictError("Các quy định mâu thuẫn nhau, không có TKB nào thỏa:\n  - " + "\n  - ".join(conflicts))

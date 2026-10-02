@@ -109,7 +109,7 @@ def test_run_overtime_mode_needs_no_hire(tmp_path):
     # Giải thích cột kết quả và màu bằng chữ thường ở sheet HƯỚNG DẪN; mọi file ra chỉ có chữ, số và màu: không ghi
     # chú (comment), công thức, cố định dòng/cột, danh sách thả xuống hay định dạng theo điều kiện.
     wb = openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")
-    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN", "TKB đã xếp"]
+    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "LUẬT RIÊNG", "HƯỚNG DẪN", "TKB đã xếp"]
     notes = [c.value or "" for c in wb["HƯỚNG DẪN"]["B"]]
     assert any("xanh dương" in n for n in notes) and any("số tiết dạy vượt định mức" in n for n in notes)
     for path in out_dir.glob("*.xlsx"):

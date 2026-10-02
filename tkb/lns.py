@@ -127,6 +127,9 @@ class _Search:
             classes = sorted({l.class_name for l in items})
             for cls in classes:
                 cost[cls, d] += pen / len(classes)
+        if config.CUSTOM_RULES:  # luật riêng ưu tiên (tkb/luat_rieng.py)
+            from .luat_rieng import qa
+            cost.update(qa(problem, lessons, w))
         return cost, lessons
 
     # --- Các vùng -------------------------------------------------------------

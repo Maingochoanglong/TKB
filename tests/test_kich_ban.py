@@ -132,3 +132,26 @@ def test_check_finds_rules_in_conflict():
     assert res["errors"][0].startswith("Quy định mâu thuẫn, không có TKB nào thỏa: Khối 1: Tiếng Việt có 14 tiết/tuần")
     assert res["info"] == [] or not any(line.startswith("Dự toán:") for line in res["info"])
     assert kich_ban.check(scenario, config.MODE_OVERTIME, 2, student_rules=False)["errors"] == []
+
+
+def test_custom_rules_round_trip(tmp_path):
+    from tkb.config import CustomRule
+
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    assert scenario["custom"] == [] and len(kich_ban.schema()["custom"]["kinds"]) == 6
+    scenario["custom"] = [{"kind": "Chỉ xếp vào", "subject": "Thể dục", "sessions": "Chiều", "hard": False, "level": 3},
+                          {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True}]
+    out = tmp_path / "ra.xlsx"
+    kich_ban.to_excel(scenario, out)
+    assert read_rules(out)["CUSTOM_RULES"] == [
+        CustomRule("chi_xep", "Thể dục", sessions=("Chiều",), level=3, row=2),
+        CustomRule("truoc", "Tiếng Việt", other="Toán", hard=True, row=3)]
+    back, _ = kich_ban.from_excel(out)
+    assert back["custom"][0]["sessions"] == "Chiều" and back["custom"][0]["level"] == 3
+    assert back["custom"][1] | {} == {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "grades": "",
+                                      "days": "", "periods": "", "sessions": "", "role": "", "number": None,
+                                      "hard": True, "level": None}
+    assert kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"] == []
+    back["custom"].append({"kind": "Học trước", "subject": "Toán"})
+    assert "LUẬT RIÊNG, dòng 4: kiểu luật Học trước phải ghi cột Môn thứ hai" in \
+        kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"]
