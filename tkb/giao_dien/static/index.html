@@ -22,7 +22,7 @@
     <label class="btn ghost" title="Mở file vào V8, kể cả file cập nhật *_cap_nhat.xlsx của lần chạy trước">
       Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden>
     </label>
-    <button type="button" id="btn-export" title="Tải về file Excel V8 đầy đủ: nhân sự, chương trình học, quy định">
+    <button type="button" id="btn-export" title="Tải về file Excel V8 đầy đủ: nhân sự, chương trình học, chức vụ, quy định">
       Tải file Excel
     </button>
   </div>
@@ -31,9 +31,10 @@
 <nav class="tabs" role="tablist">
   <button type="button" role="tab" data-tab="khung" class="active">1. Khung giờ &amp; quy định chung</button>
   <button type="button" role="tab" data-tab="mon">2. Môn học <span class="count" id="count-mon"></span></button>
-  <button type="button" role="tab" data-tab="gv">3. Giáo viên <span class="count" id="count-gv"></span></button>
-  <button type="button" role="tab" data-tab="luat">4. Luật riêng <span class="count" id="count-luat"></span></button>
-  <button type="button" role="tab" data-tab="xep">5. Kiểm tra &amp; xếp TKB</button>
+  <button type="button" role="tab" data-tab="chucvu">3. Chức vụ <span class="count" id="count-cv"></span></button>
+  <button type="button" role="tab" data-tab="gv">4. Giáo viên <span class="count" id="count-gv"></span></button>
+  <button type="button" role="tab" data-tab="luat">5. Luật riêng <span class="count" id="count-luat"></span></button>
+  <button type="button" role="tab" data-tab="xep">6. Kiểm tra &amp; xếp TKB</button>
 </nav>
 
 <div id="notice" class="notice" hidden></div>
@@ -58,31 +59,50 @@
       <div class="table-wrap"><table id="day-table" class="grid"></table></div>
     </div>
     <details class="card help"><summary>Giải thích các quy định ở trang này</summary><dl id="help-khung"></dl></details>
+    <div class="next"><button type="button" data-go="mon">Tiếp: Môn học →</button></div>
   </section>
 
   <section id="tab-mon" class="tab" role="tabpanel">
     <div class="card">
       <div class="toolbar">
-        <h2>Chương trình học và quy định của môn</h2>
+        <h2>Môn học</h2>
         <div class="actions">
           <button type="button" id="btn-add-subject">+ Thêm môn</button>
           <button type="button" id="btn-add-grade" class="ghost">+ Thêm khối</button>
           <button type="button" id="btn-del-grade" class="ghost">− Bớt khối cuối</button>
+          <label class="check"><input type="checkbox" id="subject-grid"> Bảng đầy đủ</label>
         </div>
       </div>
-      <p class="muted">Mỗi môn một dòng: số tiết/tuần từng khối (trống hoặc 0: khối đó không học), rồi các quy định của
-        môn. Rê chuột lên tiêu đề cột để xem giải thích. Tên môn dùng đúng ở cột Chức Vụ của GV chuyên biệt.</p>
+      <p class="muted">Mỗi môn một dòng: số tiết/tuần từng khối (trống hoặc 0: khối đó không học). Bấm <b>Sửa</b> để xem
+        và sửa các quy định của môn. Cột <b>Ai dạy</b> theo bước 3 (Chức vụ).</p>
       <div class="table-wrap tall"><table id="subject-table" class="grid sticky"></table></div>
     </div>
     <details class="card help"><summary>Giải thích các cột quy định của môn</summary><dl id="help-mon"></dl></details>
+    <div class="next"><button type="button" data-go="chucvu">Tiếp: Chức vụ →</button></div>
+  </section>
+
+  <section id="tab-chucvu" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Chức vụ</h2>
+        <div class="actions"><button type="button" id="btn-add-role" data-act="add-role">+ Thêm chức vụ</button></div>
+      </div>
+      <p class="muted">Mỗi giáo viên có một chức vụ. Ba chức vụ có sẵn (Chủ Nhiệm, Bộ Môn, Quản Lý) theo luật của
+        chương trình: đánh dấu ở đây là sửa đúng các cột quy định của môn ở bước 2. Các chức vụ GV chuyên biệt do trường
+        tự đặt tên và chọn các môn được dạy (sheet CHỨC VỤ), vd <b>GV Nghệ thuật</b> dạy Âm nhạc và Mỹ thuật.</p>
+      <div id="role-hints"></div>
+    </div>
+    <div class="roles" id="role-cards"></div>
+    <div class="next"><button type="button" data-go="gv">Tiếp: Giáo viên →</button></div>
   </section>
 
   <section id="tab-gv" class="tab" role="tabpanel">
     <div class="card">
       <div class="toolbar">
-        <h2>Nhân sự</h2>
+        <h2>Giáo viên</h2>
         <div class="actions">
-          <button type="button" id="btn-add-staff">+ Thêm dòng</button>
+          <select id="staff-filter" aria-label="Lọc theo chức vụ"></select>
+          <button type="button" id="btn-add-staff">+ Thêm giáo viên</button>
           <button type="button" id="btn-paste" class="ghost">Dán từ Excel…</button>
         </div>
       </div>
@@ -93,6 +113,7 @@
       <datalist id="session-list"></datalist>
     </div>
     <details class="card help"><summary>Giải thích các cột nhân sự</summary><dl id="help-gv"></dl></details>
+    <div class="next"><button type="button" data-go="luat">Tiếp: Luật riêng →</button></div>
   </section>
 
   <section id="tab-luat" class="tab" role="tabpanel">
@@ -115,6 +136,7 @@
       <h2>Các kiểu luật</h2>
       <dl id="kind-list" class="kinds"></dl>
     </div>
+    <div class="next"><button type="button" data-go="xep">Tiếp: Kiểm tra &amp; xếp TKB →</button></div>
   </section>
 
   <section id="tab-xep" class="tab" role="tabpanel">
@@ -189,6 +211,17 @@
       <button value="append" id="paste-append">Thêm vào cuối</button>
       <button value="replace" id="paste-replace" class="primary">Thay toàn bộ</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="detail-dialog">
+  <form method="dialog">
+    <div class="toolbar">
+      <h2 id="detail-title"></h2>
+      <button value="close" class="icon" title="Đóng">✕</button>
+    </div>
+    <div id="detail-body" class="detail"></div>
+    <div class="actions end"><button value="close" class="primary">Xong</button></div>
   </form>
 </dialog>
 

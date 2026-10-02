@@ -7,11 +7,14 @@ import openpyxl
 
 from tkb import config, kich_ban
 from tkb.program import read_program
-from tkb.rules import DEFAULTS, SUBJECT_COLS, read_rules
+from tkb.rules import DEFAULTS, SUBJECT_COLS, applied, code, read_rules
 from tkb.staff import read_saved_timetable, read_staff
 from tkb.template import write_staff_template
 
 from .conftest import CURRICULUM, INPUT_FILE, small_staff
+
+
+DEFAULT_CODE = code()
 
 
 def _values(path):
@@ -30,10 +33,20 @@ def test_round_trip_keeps_the_file(tmp_path):
     assert len(scenario["staff"]) == 45 and scenario["grades"] == [1, 2, 3, 4, 5]
     assert scenario["staff"][0] == {"name": "Giáo viên CN 1", "role": "Chủ Nhiệm", "class": "1/1", "lessons": 19,
                                     "maternity": False, "contract": False, "campus2": False, "history": "", "off": ""}
+    # Chức vụ trùng tên môn nhân sự đang dùng thành các dòng của sheet CHỨC VỤ (để giao diện chọn từ danh sách).
+    assert [(r["name"], r["subjects"]) for r in scenario["roles"]] == [
+        ("Tiếng Anh", ["Tiếng Anh"]), ("Thể Dục", ["Thể dục"]), ("Âm Nhạc", ["Âm nhạc"]), ("Mỹ Thuật", ["Mỹ thuật"]),
+        ("Tin Học", ["Tin học"])]
     out = tmp_path / "ra.xlsx"
     kich_ban.to_excel(scenario, out)
-    assert _values(out) == _values(INPUT_FILE)  # ghi lại đúng từng ô
-    assert read_program(out) == CURRICULUM and read_rules(out) == DEFAULTS
+    written, source = _values(out), _values(INPUT_FILE)
+    assert written.pop("CHỨC VỤ")[1:] == [(r["name"], r["subjects"][0]) for r in scenario["roles"]]
+    assert source.pop("CHỨC VỤ") == [("Chức vụ", "Môn được dạy")]
+    assert written == source  # các sheet khác ghi lại đúng từng ô
+    rules = read_rules(out)
+    assert read_program(out) == CURRICULUM and {**rules, "CUSTOM_ROLES": []} == DEFAULTS
+    with applied(rules):  # các dòng đó như không ghi: mã quy định không đổi
+        assert code() == DEFAULT_CODE
     assert _key(read_staff(out)) == _key(read_staff(INPUT_FILE))
 
 
@@ -48,6 +61,9 @@ def test_schema_follows_rules_columns():
     assert [c["key"] for c in s["subject"]] == [c.key for c in SUBJECT_COLS]
     assert [c["header"] for c in s["staff"]][:4] == ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"]
     assert s["days"][0] == "Thứ 2" and s["days"][-1] == "Thứ 7"
+    keys = {c.key for c in SUBJECT_COLS}  # nhóm cột của trang chi tiết môn, cột theo chức vụ: đúng khóa của rules.py
+    assert all(k in keys for g in s["subject_groups"] for k in g["keys"])
+    assert set(s["role_rules"].values()) <= keys and s["sheets"]["roles"] == "CHỨC VỤ"
 
 
 def test_rules_edited_in_the_scenario_reach_the_file(tmp_path):

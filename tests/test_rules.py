@@ -11,7 +11,7 @@ from tkb.rules import ATTRS, DEFAULTS, LABELS, applied, changed, code, read_rule
 from tkb.staff import InputError
 from tkb.template import write_staff_template
 
-from .conftest import CURRICULUM, small_staff
+from .conftest import CURRICULUM, INPUT_SHEETS, small_staff
 
 MON, CHUNG, NGAY, TIET = "MÔN", "Quy định", "Ngày", "Tiết"  # nơi sửa: sheet chương trình học, ba bảng
 
@@ -69,6 +69,7 @@ def _drop_all_rule_columns(path):
     ws.delete_cols(keep + 1, ws.max_column - keep)
     del wb[config.RULES_SHEET]
     del wb["LUẬT RIÊNG"]
+    del wb["CHỨC VỤ"]
     wb.save(path)
 
 
@@ -211,9 +212,16 @@ def test_default_rules_give_the_same_timetable(tmp_path, capsys):
     assert codes[0] == codes[1]
     # File cập nhật của file vào không ghi quy định thì có thêm các quy định đã dùng.
     updated = tmp_path / without.stem / "khong_quy_dinh_cap_nhat.xlsx"
-    assert read_rules(updated) == DEFAULTS
-    assert openpyxl.load_workbook(updated).sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "LUẬT RIÊNG",
-                                                          "HƯỚNG DẪN", "TKB đã xếp"]
+    rules = read_rules(updated)
+    assert {**rules, "CUSTOM_ROLES": []} == DEFAULTS and changed(rules) == []
+    # Sheet CHỨC VỤ ghi các GV chuyên biệt có người giữ: chức vụ trùng tên môn, như không ghi (mã quy định không đổi).
+    assert [(r.name, r.subjects) for r in rules["CUSTOM_ROLES"]] == [
+        ("Tiếng Anh", ("Tiếng Anh",)), ("Thể Dục", ("Thể dục",)), ("Âm Nhạc", ("Âm nhạc",)),
+        ("Mỹ Thuật", ("Mỹ thuật",)), ("Tin Học", ("Tin học",))]
+    default_code = code()
+    with applied(rules):
+        assert code() == default_code
+    assert openpyxl.load_workbook(updated).sheetnames == [*INPUT_SHEETS, "TKB đã xếp"]
 
 
 def test_rules_from_the_file_are_used(tmp_path, capsys):

@@ -79,11 +79,24 @@ HDTN_FLEX_DAYS: list[int] = [1, 2, 3]  # Thứ 3 - Thứ 5
 ROLE_HOMEROOM = "chủ nhiệm"
 ROLE_GENERAL = "bộ môn"
 ROLE_MANAGER = "quản lý"
-# Chức vụ khác ba chức vụ trên là GV chuyên biệt: tên chức vụ trùng tên một môn trong sheet
-# CHƯƠNG TRÌNH HỌC (vd "Tiếng Anh", "Thể Dục") và chỉ dạy môn đó.
+# Chức vụ khác ba chức vụ trên là GV chuyên biệt: một chức vụ của sheet CHỨC VỤ (dạy các môn ghi ở dòng đó), hoặc
+# tên chức vụ trùng tên một môn trong sheet CHƯƠNG TRÌNH HỌC (vd "Tiếng Anh", "Thể Dục") và chỉ dạy môn đó.
 
 # Cách ghi ba chức vụ trên trong các file xuất ra (GV chuyên biệt ghi đúng chữ trong file vào).
 ROLE_LABELS: dict[str, str] = {ROLE_HOMEROOM: "Chủ Nhiệm", ROLE_GENERAL: "Bộ Môn", ROLE_MANAGER: "Quản Lý"}
+
+
+@dataclass(frozen=True)
+class Role:
+    """Chức vụ GV chuyên biệt nhà trường tự đặt (sheet CHỨC VỤ, đọc ở tkb/rules.py)."""
+    name: str  # tên chức vụ như ghi trong file, vd "GV Nghệ thuật"
+    subjects: tuple[str, ...]  # các môn được dạy (tên như trong sheet CHƯƠNG TRÌNH HỌC)
+    row: int = 0  # dòng trong sheet CHỨC VỤ (để báo lỗi)
+
+
+ROLES_SHEET = "CHỨC VỤ"
+# Mặc định không có: GV chuyên biệt là chức vụ trùng tên môn.
+CUSTOM_ROLES: list[Role] = []
 
 # File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"

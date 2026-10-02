@@ -81,8 +81,8 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             if not any(manager_allowed(r, les.class_name, grade, les.subject) for r in config.MANAGER_RULES):
                 errors.append(f"{at}: {t.title} không được dạy {les.subject}")
         elif t.role in problem.specialists:
-            if les.subject != problem.specialists[t.role]:
-                errors.append(f"{at}: {t.title} chỉ được dạy {problem.specialists[t.role]}")
+            if les.subject not in problem.specialists[t.role]:
+                errors.append(f"{at}: {t.title} chỉ được dạy {', '.join(problem.specialists[t.role])}")
 
     # GVCN dạy đủ phần đã phân; phần dạy thêm chỉ là tiết bù hợp lệ (chế độ bù giờ).
     homeroom = {t.class_name: t.title for t in teachers.values() if t.class_name}

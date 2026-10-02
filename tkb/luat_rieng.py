@@ -9,7 +9,7 @@ Không có luật riêng nào (config.CUSTOM_RULES rỗng) thì mô hình dựng
 
 Cột của sheet: Kiểu luật | Môn | Môn thứ hai | Khối | Ngày | Tiết | Buổi | Giáo viên | Số | Bắt buộc | Mức (| Ghi chú).
 Khối, Ngày, Tiết ghi danh sách cách nhau bằng dấu phẩy hoặc khoảng, vd "3, 4, 5", "3-5", "Thứ 2, Thứ 4", "T2-T4",
-"5-7"; Buổi ghi Sáng/Chiều; Giáo viên ghi chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý hoặc tên môn của GV chuyên biệt).
+"5-7"; Buổi ghi Sáng/Chiều; Giáo viên ghi chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý hoặc chức vụ GV chuyên biệt).
 """
 from __future__ import annotations
 
@@ -183,9 +183,11 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
 def cells(rule: CustomRule) -> dict:
     """Các ô của luật khi ghi ra sheet LUẬT RIÊNG ({khóa cột: giá trị}), ngược với `parse`."""
     from .rules import NO, YES
-    from .staff import SPECIAL_ROLES
+    from .staff import SPECIAL_ROLES, subject_key
 
-    role = config.ROLE_LABELS.get(rule.role) if rule.role in SPECIAL_ROLES else rule.role.title()
+    custom = {subject_key(r.name): r.name for r in config.CUSTOM_ROLES}  # chức vụ của sheet CHỨC VỤ: tên như ghi
+    role = (config.ROLE_LABELS.get(rule.role) if rule.role in SPECIAL_ROLES
+            else custom.get(subject_key(rule.role)) or rule.role.title())
     return {"kind": BY_KEY[rule.kind].label, "subject": rule.subject or None, "other": rule.other or None,
             "grades": ", ".join(map(str, rule.grades)) or None,
             "days": ", ".join(_day_label(d) for d in rule.days) or None,

@@ -20,8 +20,10 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB`: per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
-  periods); school-specific rules of generic kinds are rows of sheet `LUẬT RIÊNG`; see Architecture). `python -m tkb.template` writes a plain template (black text, no
-  fill/freeze/dropdowns/comments/hidden sheets) with NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), QUY ĐỊNH, HƯỚNG DẪN. Class names
+  periods); school-defined specialist roles teaching several subjects are rows of sheet `CHỨC VỤ`; school-specific rules
+  of generic kinds are rows of sheet `LUẬT RIÊNG`; see Architecture). `python -m tkb.template` writes a plain template (black text, no
+  fill/freeze/dropdowns/comments/hidden sheets) with NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), CHỨC VỤ, QUY ĐỊNH,
+  LUẬT RIÊNG, HƯỚNG DẪN. Class names
   are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
   `Input_Template_V8.xlsx` (`python -m tkb.template`, a test checks it is current) and the output templates
   `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tests/du_lieu_mau.py`
@@ -75,7 +77,11 @@ solving, so renaming "chưa có" hires keeps the timetable and the code; `main.p
 Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 127.0.0.1 (Host check + per-start token
 `X-TKB-Token`, injected into `static/index.html`; files opened/served only inside the output folder, default
 `out/giao_dien`) serving a no-dependency HTML/JS page. The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
-JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself.
+JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself
+(subject detail groups `kich_ban.SUBJECT_GROUPS`, ungrouped columns go to "Khác"). Steps: Khung giờ → Môn học (list +
+detail dialog) → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
+`scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select) → Luật riêng →
+Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page.
 `kich_ban.to_excel` writes it with `template.write_input` (same layout as the template); `from_excel` reads staff/program
 cells as written and rules via `read_rules` + `rule_tables`/`subject_columns` (missing ones = defaults), keeping sheet
 `TKB đã xếp`; `check` writes a temp file and reads it back with the real readers, then runs the estimate
@@ -109,6 +115,13 @@ unchanged): not proven → "add time"; all relaxed still infeasible → staff/qu
 minimal conflicting families and which single relaxation fixes it. A new hard rule should get a family in
 `chan_doan._rules` (and a count in `precheck` if one is sound).
 
+Specialist roles (sheet `CHỨC VỤ`, `config.CUSTOM_ROLES` of `config.Role(name, subjects)`, read in `rules._Reader.roles`):
+`Problem.specialists` is role → tuple of subjects (`allocation.resolve_roles`: a sheet role, else a role named like a
+subject teaches that one subject; an uncovered `GENERAL_FORBIDDEN_SUBJECTS` subject gets the first sheet role teaching it,
+else a subject-named role; sheet roles nobody holds and nobody needs are dropped). `specialist_subjects()` is the union.
+`rules.code()` leaves out an empty list and rows that only restate a subject-named role, so the codes are unchanged;
+the updated input adds the sheet with the held specialist roles (`writer.role_rows`).
+
 School-specific rules (`tkb/luat_rieng.py`, sheet `LUẬT RIÊNG`, `config.CUSTOM_RULES` of `config.CustomRule`): one row per
 rule of 6 generic kinds (not in / only in day-period-session, 2 consecutive lessons, A before B in a session, teacher max
 per day, max classes at once), hard or soft with level 1–3 (`Weights.custom_levels`). Each kind is coded once:
@@ -130,7 +143,7 @@ afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names 
 | Consecutive lessons of a group by one teacher; homeroom priority group: GVCN's lesson first in the week (hard, always) | `SUBJECT_GROUPS`, `HOMEROOM_PRIORITY` | `solver.timetable` "Liên tiết", "GVCN trước"; `checker._check_teacher_order` |
 | HĐTN Mon p1 + Fri p4 fixed, rest Tue–Thu near session end | `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS` | `allocation.build_problem`, `solver.allowed_slots`, objective `hdtn_flex_distance` |
 | Period 1 always the homeroom teacher | `HOMEROOM_PERIODS` | `solver.allowed_slots` |
-| Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES` | `allocation.roles_for_subject`, `manager_allowed` |
+| Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `CUSTOM_ROLES` (sheet CHỨC VỤ) | `allocation.resolve_roles`, `roles_for_subject`, `manager_allowed`; `checker.check` "Quyền dạy" |
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 (`main.py` `SO_TIET_BU_TOI_DA` = 3 for the school file); GVCN overtime never in specialist subjects except Âm nhạc/Mỹ thuật, capped by the flow estimate | `OVERTIME_ROLES`, `OVERTIME_MAX`, `HOMEROOM_OVERTIME_SPECIALIST`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
 | Soft: heavy subjects at p7, TV/Toán mornings, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |

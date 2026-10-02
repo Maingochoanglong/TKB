@@ -4,12 +4,14 @@ cột nằm ở sheet HƯỚNG DẪN.
 
 - Sheet "NHÂN SỰ": Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy |
   Buổi Nghỉ (5 cột sau không bắt buộc)
-  - Chức Vụ: Chủ Nhiệm, Bộ Môn, Quản Lý hoặc tên một môn (GV chuyên biệt, vd "Tiếng Anh"); không ghi số
-    thứ tự (chương trình tự đánh số theo thứ tự dòng).
+  - Chức Vụ: Chủ Nhiệm, Bộ Môn, Quản Lý, một chức vụ của sheet CHỨC VỤ hoặc tên một môn (GV chuyên biệt, vd
+    "Tiếng Anh"); không ghi số thứ tự (chương trình tự đánh số theo thứ tự dòng).
   - Lớp (khối/số thứ tự, vd 1/1, hoặc khối rồi tên lớp, vd 1D15) chỉ ghi cho Chủ Nhiệm.
 - Sheet "CHƯƠNG TRÌNH HỌC": Môn học | Khối 1 ... Khối n (số tiết/tuần) | các cột quy định của môn (Có, Không
   hoặc số; tkb/rules.py).
+- Sheet "CHỨC VỤ": Chức vụ | Môn được dạy: các chức vụ GV chuyên biệt nhà trường tự đặt (không bắt buộc).
 - Sheet "QUY ĐỊNH": ba bảng (quy định chung, ngày, tiết), mỗi ô ghi Có, Không hoặc số.
+- Sheet "LUẬT RIÊNG": các luật riêng của trường (không bắt buộc).
 - Sheet "HƯỚNG DẪN": cách ghi từng sheet, từng cột.
 
 Chạy:
@@ -28,7 +30,8 @@ from openpyxl.utils import get_column_letter
 
 from . import config
 from . import luat_rieng
-from .rules import custom_rows, default_subjects, notes as rule_notes, rule_tables, subject_columns
+from .rules import (ROLE_NAME, ROLE_SUBJECTS, custom_rows, default_subjects, notes as rule_notes, role_rows,
+                    rule_tables, subject_columns)
 from .staff import Teacher, class_sort_key, off_text
 
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
@@ -55,8 +58,8 @@ ROW_HEIGHT = 25
 
 NOTES = {
     "Họ và Tên": "Tên giáo viên; người chưa tuyển được ghi \"chưa có\".",
-    "Chức Vụ": "Chủ Nhiệm, Bộ Môn, Quản Lý hoặc tên một môn trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên biệt). "
-               "Không ghi số thứ tự: chương trình tự đánh số theo thứ tự dòng.",
+    "Chức Vụ": "Chủ Nhiệm, Bộ Môn, Quản Lý, một chức vụ của sheet CHỨC VỤ hoặc tên một môn trong sheet CHƯƠNG "
+               "TRÌNH HỌC (GV chuyên biệt). Không ghi số thứ tự: chương trình tự đánh số theo thứ tự dòng.",
     "Lớp": "Chỉ ghi cho Chủ Nhiệm, dạng khối/số thứ tự (vd 1/1) hoặc khối rồi tên lớp (vd 1D15). Mỗi lớp một "
            "Chủ Nhiệm.",
     "Số Tiết/Tuần": "Số tiết tối đa mỗi tuần (số nguyên).",
@@ -74,9 +77,9 @@ GUIDE = [
     (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Năm cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ "
                          "không bắt buộc (để trống hoặc xóa cột)."),
     *((f"{config.STAFF_SHEET}: {head}", note) for head, note in NOTES.items()),
-    (config.PROGRAM_SHEET, "Mỗi môn một dòng: cột Môn học ghi tên môn (dùng đúng tên này ở cột Chức Vụ của GV chuyên "
-                           "biệt), cột Khối k ghi số tiết/tuần của môn ở khối k (0 hoặc để trống: khối đó không học), "
-                           "các cột sau là quy định của môn."),
+    (config.PROGRAM_SHEET, "Mỗi môn một dòng: cột Môn học ghi tên môn (dùng đúng tên này ở sheet CHỨC VỤ, hoặc ở cột "
+                           "Chức Vụ của GV chuyên biệt chỉ dạy môn này), cột Khối k ghi số tiết/tuần của môn ở khối k "
+                           "(0 hoặc để trống: khối đó không học), các cột sau là quy định của môn."),
     ("Quy ước các ô quy định", "Mỗi quy định là một cột (bảng Quy định chung: một dòng). Mỗi ô chỉ ghi Có, Không hoặc "
                                "một số nguyên dương; ô trống là Không. Riêng cột Tên trong TKB ghi chữ. Xóa một cột "
                                "(một dòng của bảng chung, một bảng, hoặc cả sheet QUY ĐỊNH) thì quy định đó dùng giá "
@@ -173,6 +176,19 @@ def write_rules_sheet(wb, index: int | None = None, tables=None) -> None:
     _widths(ws, RULES_WIDTHS)
 
 
+def write_roles_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
+    """Sheet CHỨC VỤ ở vị trí `index`: Chức vụ | Môn được dạy, các dòng `rows` (không có thì theo các chức vụ đang
+    dùng), kẻ sẵn vài dòng trống để nhà trường điền."""
+    rows = role_rows() if rows is None else rows
+    ws = wb.create_sheet(config.ROLES_SHEET, index)
+    ws.append([ROLE_NAME, ROLE_SUBJECTS])
+    for row in rows:
+        ws.append(row)
+    _style_rows(ws, 1, 1, 2, header=True)
+    _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, 2, left=(1, 2))
+    _widths(ws, (30, 60))
+
+
 def write_custom_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
     """Sheet LUẬT RIÊNG ở vị trí `index`: tiêu đề và các luật riêng (không có thì theo các luật đang dùng), kẻ sẵn
     vài dòng trống để nhà trường điền."""
@@ -200,14 +216,15 @@ def write_guide(wb, extra=(), index: int | None = None) -> None:
 
 
 def write_input(path: str | Path, staff: list[list], program: tuple, tables=None, extra=None,
-                custom: list[list] | None = None) -> None:
+                custom: list[list] | None = None, roles: list[list] | None = None) -> None:
     """Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
-    (`program`: (các khối, tiêu đề cột quy định, các dòng) như `program_rows`), QUY ĐỊNH (`tables` như
-    `rules.rule_tables`; không có thì theo các luật đang dùng), LUẬT RIÊNG (`custom`: các dòng; không có thì theo các
-    luật đang dùng), HƯỚNG DẪN; `extra(wb)` ghi thêm sheet nếu cần."""
+    (`program`: (các khối, tiêu đề cột quy định, các dòng) như `program_rows`), CHỨC VỤ (`roles`: các dòng), QUY ĐỊNH
+    (`tables` như `rules.rule_tables`), LUẬT RIÊNG (`custom`: các dòng), HƯỚNG DẪN; phần nào không có thì theo các
+    quy định đang dùng. `extra(wb)` ghi thêm sheet nếu cần."""
     wb = openpyxl.Workbook()
     _staff_sheet(wb, staff)
     _program_sheet(wb, *program)
+    write_roles_sheet(wb, roles)
     write_rules_sheet(wb, tables=tables)
     write_custom_sheet(wb, custom)
     write_guide(wb)
@@ -219,8 +236,8 @@ def write_input(path: str | Path, staff: list[list], program: tuple, tables=None
 
 def write_staff_template(path: str | Path, teachers: list[Teacher] = (),
                          curriculum: dict[int, dict[str, int]] | None = None) -> None:
-    """Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), QUY ĐỊNH (các luật đang
-    dùng) và HƯỚNG DẪN."""
+    """Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), CHỨC VỤ, QUY ĐỊNH, LUẬT
+    RIÊNG (các quy định đang dùng) và HƯỚNG DẪN."""
     teachers = list(teachers)
     write_input(path, [staff_row(t) for t in teachers], program_rows(curriculum, teachers))
 

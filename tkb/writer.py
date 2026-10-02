@@ -23,7 +23,7 @@ from .staff import Teacher, _find_columns, class_sort_key, clean_name, find_shee
 from .style import CellStyle, Style
 from .rules import code as rules_code, subject_columns
 from . import luat_rieng
-from .template import GUIDE_SHEET, write_custom_sheet, write_guide, write_rules_sheet
+from .template import GUIDE_SHEET, write_custom_sheet, write_guide, write_roles_sheet, write_rules_sheet
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -491,6 +491,16 @@ def _write_saved(wb, solution: Solution, style: Style) -> None:
         ws.column_dimensions[get_column_letter(c)].width = width
 
 
+def role_rows(solution: Solution) -> list[list[str]]:
+    """Các dòng sheet CHỨC VỤ cho file vào chưa có sheet này: các chức vụ GV chuyên biệt có người giữ (cả người cần
+    tuyển), mỗi dòng [tên chức vụ, các môn được dạy]. Đó là các chức vụ trùng tên môn: ghi ra thì như không ghi
+    (rules.code không đổi), chỉ để nhà trường thấy mỗi chức vụ dạy môn nào."""
+    problem = solution.problem
+    held = {t.role: t.label or t.role for t in reversed(staff_rows(solution)) if t.role in problem.specialists}
+    return [[held[role], ", ".join(problem.subject_labels.get(s, s) for s in subjects)]
+            for role, subjects in problem.specialists.items() if role in held]
+
+
 def write_updated_staff(solution: Solution, source: str | Path, path: str | Path) -> None:
     """Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
     (số tiết bù ở chế độ bù giờ) và số tiết dư. Dòng, cột mới chép style của file vào; đọc lại file này làm file
@@ -567,12 +577,16 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
                 cell.fill = _fill(color)
             elif cell.fill.fill_type == "solid" and str(cell.fill.start_color.rgb)[-6:] in ours:
                 cell.fill = PatternFill()
-    # Ghi đủ các quy định đã dùng: cột quy định của môn, sheet QUY ĐỊNH (nếu file vào chưa có, sau sheet chương
-    # trình học); sheet HƯỚNG DẪN viết lại, kèm giải thích phần kết quả; cuối cùng là TKB đã xếp.
+    # Ghi đủ các quy định đã dùng: cột quy định của môn, sheet CHỨC VỤ, QUY ĐỊNH (nếu file vào chưa có, sau sheet
+    # chương trình học); sheet HƯỚNG DẪN viết lại, kèm giải thích phần kết quả; cuối cùng là TKB đã xếp.
     _add_subject_rules(wb)
+    program = find_sheet(wb, config.PROGRAM_SHEET)
+    after = wb.worksheets.index(program) + 1 if program is not None else None
+    if find_sheet(wb, config.ROLES_SHEET) is None:
+        write_roles_sheet(wb, role_rows(solution), after)
+        after = after and after + 1
     if find_sheet(wb, config.RULES_SHEET) is None:
-        program = find_sheet(wb, config.PROGRAM_SHEET)
-        write_rules_sheet(wb, wb.worksheets.index(program) + 1 if program is not None else None)
+        write_rules_sheet(wb, after)
     if find_sheet(wb, luat_rieng.SHEET) is None:  # sheet LUẬT RIÊNG trống để nhà trường biết mà điền
         write_custom_sheet(wb, index=wb.worksheets.index(find_sheet(wb, config.RULES_SHEET)) + 1)
     for name in (GUIDE_SHEET, OLD_NOTES_SHEET):

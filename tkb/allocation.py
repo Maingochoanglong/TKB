@@ -37,7 +37,7 @@ class Problem:
     warnings: list[str] = field(default_factory=list)
     overtime: dict[str, int] = field(default_factory=dict)  # GV -> số tiết được dạy bù tối đa
     overtime_max: int = 0  # > 0: chế độ bù giờ
-    specialists: dict[str, str] = field(default_factory=dict)  # chức vụ chuyên biệt -> môn duy nhất được dạy
+    specialists: dict[str, tuple[str, ...]] = field(default_factory=dict)  # chức vụ chuyên biệt -> các môn được dạy
     subject_labels: dict[str, str] = field(default_factory=dict)  # môn -> tên như ghi trong file vào
     subject_order: list[str] = field(default_factory=list)  # các môn theo thứ tự dòng trong file vào
     campus2: frozenset[str] = frozenset()  # các lớp ở cơ sở 2 (cột Cơ sở 2 trên dòng Chủ Nhiệm)
@@ -50,7 +50,7 @@ class Problem:
         return [config.ROLE_HOMEROOM, config.ROLE_GENERAL, *self.specialists, config.ROLE_MANAGER]
 
     def specialist_subjects(self) -> set[str]:
-        return set(self.specialists.values())
+        return {s for subjects in self.specialists.values() for s in subjects}
 
     def subject_label(self, subject: str) -> str:
         """Tên môn in trong TKB: tên viết tắt trong config, không có thì tên như trong file vào."""
@@ -88,36 +88,55 @@ def sessions_per_week() -> int:
     return sum(len(s) for s in config.DAY_SESSIONS.values())
 
 
-def roles_for_subject(subject: str, specialists: dict[str, str]) -> list[str]:
+def roles_for_subject(subject: str, specialists: dict[str, tuple[str, ...]]) -> list[str]:
     """Các chức vụ (ngoài chủ nhiệm/quản lý) được dạy môn này."""
-    roles = [r for r, s in specialists.items() if s == subject]
+    roles = [r for r, subjects in specialists.items() if subject in subjects]
     if subject not in config.GENERAL_FORBIDDEN_SUBJECTS:
         roles.append(config.ROLE_GENERAL)
     return roles
 
 
-def resolve_roles(staff: list[Teacher], subject_labels: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
-    """Suy ra GV chuyên biệt từ tên chức vụ: (chức vụ -> môn, chức vụ -> cách ghi trong file ra).
+def resolve_roles(staff: list[Teacher], subject_labels: dict[str, str]
+                  ) -> tuple[dict[str, tuple[str, ...]], dict[str, str]]:
+    """Các GV chuyên biệt: (chức vụ -> các môn được dạy, chức vụ -> cách ghi trong file ra).
 
-    Chức vụ khác Chủ Nhiệm/Bộ Môn/Quản Lý phải trùng tên một môn của chương trình học. Môn bộ môn không
-    được dạy mà trường chưa có GV chuyên biệt thì thêm chức vụ trùng tên môn để có thể tuyển thêm.
+    Chức vụ khác Chủ Nhiệm/Bộ Môn/Quản Lý là một chức vụ của sheet CHỨC VỤ (config.CUSTOM_ROLES, dạy các môn ghi
+    ở đó), hoặc trùng tên một môn của chương trình học (chỉ dạy môn đó). Môn bộ môn không được dạy mà trường chưa
+    có GV dạy được thì thêm một chức vụ để có thể tuyển thêm: chức vụ đầu tiên của sheet CHỨC VỤ dạy môn đó, không
+    có thì chức vụ trùng tên môn. Chức vụ của sheet CHỨC VỤ không ai giữ và không cần tuyển thì không dùng.
     """
     names = {subject_key(label): s for s, label in subject_labels.items()}
     names.update({subject_key(s): s for s in subject_labels})
     errors = role_errors(staff, names)
+    custom: dict[str, tuple[str, tuple[str, ...]]] = {}  # khóa tên chức vụ -> (tên, các môn), theo thứ tự dòng
+    for r in config.CUSTOM_ROLES:
+        subjects = []
+        for s in r.subjects:
+            where = f"{config.ROLES_SHEET}, dòng {r.row}" if r.row else f"Chức vụ {r.name}"
+            if subject_key(s) not in names:
+                errors.append(f"{where}: không có môn '{s}' trong sheet {config.PROGRAM_SHEET}")
+            elif names[subject_key(s)] in config.HOMEROOM_ONLY_SUBJECTS:
+                errors.append(f"{where}: môn '{s}' chỉ GVCN được dạy (cột Chỉ GVCN dạy)")
+            else:
+                subjects.append(names[subject_key(s)])
+        custom[subject_key(r.name)] = (clean_name(r.name), tuple(dict.fromkeys(subjects)))
     if errors:
         raise InputError("\n".join(errors))
-    specialists: dict[str, str] = {}
+    specialists: dict[str, tuple[str, ...]] = {}
     labels = dict(config.ROLE_LABELS)
     for t in staff:
-        if t.role not in SPECIAL_ROLES:
-            specialists.setdefault(t.role, names[subject_key(t.role)])
-            labels.setdefault(t.role, clean_name(t.label) if t.label else subject_labels[specialists[t.role]])
+        if t.role not in SPECIAL_ROLES and t.role not in specialists:
+            name, subjects = custom.get(subject_key(t.role)) or (None, (names[subject_key(t.role)],))
+            specialists[t.role] = subjects
+            labels[t.role] = clean_name(t.label) if t.label else name or subject_labels[subjects[0]]
+    covered = {s for subjects in specialists.values() for s in subjects}
     for s, label in subject_labels.items():
         if (s in config.GENERAL_FORBIDDEN_SUBJECTS and s not in config.HOMEROOM_ONLY_SUBJECTS
-                and s not in specialists.values()):
-            specialists[normalize(label)] = s
-            labels[normalize(label)] = label
+                and s not in covered):
+            name, subjects = next(((n, subs) for n, subs in custom.values() if s in subs), (label, (s,)))
+            specialists[normalize(name)] = subjects
+            labels[normalize(name)] = name
+            covered.update(subjects)
     return specialists, labels
 
 
@@ -233,7 +252,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                   for g, req in curriculum.items()}
     specialists, role_labels = resolve_roles(staff, subject_labels)
     staff = [replace(t, label=role_labels[t.role]) for t in staff]
-    specialist = set(specialists.values())
+    specialist = {s for subjects in specialists.values() for s in subjects}
     slots = all_slots()
     classes = classes_from_staff(staff)
     homeroom = {t.class_name: t for t in staff if t.class_name}

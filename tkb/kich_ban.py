@@ -1,8 +1,8 @@
 """Kịch bản của một trường cho giao diện (tkb/giao_dien): toàn bộ nội dung file vào V8 dưới dạng dữ liệu JSON.
 
-Giao diện không có luật riêng: kịch bản chỉ là các bảng của file vào (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định,
-QUY ĐỊNH), mỗi cột quy định lấy từ tkb/rules.py (`Col`: tiêu đề, khóa, loại ô, ghi chú) nên thêm một quy định vào
-rules.py là giao diện tự có ô nhập. Xuất kịch bản ra Excel dùng đúng hàm ghi file mẫu (tkb/template.py); kiểm tra
+Kịch bản chỉ là các bảng của file vào (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, CHỨC VỤ, QUY ĐỊNH, LUẬT RIÊNG),
+mỗi cột quy định lấy từ tkb/rules.py (`Col`: tiêu đề, khóa, loại ô, ghi chú) nên thêm một quy định vào rules.py là
+giao diện tự có ô nhập. Xuất kịch bản ra Excel dùng đúng hàm ghi file mẫu (tkb/template.py); kiểm tra
 kịch bản = xuất ra file tạm rồi đọc lại bằng chính các hàm đọc của chương trình, nên giao diện và dòng lệnh luôn hiểu
 file vào như nhau.
 
@@ -10,6 +10,8 @@ Kịch bản:
     staff    : [{name, role, class, lessons, maternity, contract, campus2, history, off}] theo thứ tự dòng
     grades   : [1, 2, ...] các cột Khối
     subjects : [{name, lessons: {"1": số tiết hoặc None, ...}, rules: {khóa Col: giá trị}}]
+    roles    : [{name, subjects: [tên môn]}] chức vụ GV chuyên biệt (sheet CHỨC VỤ); đọc file thì thêm các chức vụ
+               trùng tên môn nhân sự đang dùng (ghi ra sheet CHỨC VỤ thì như không ghi)
     general  : {khóa Col: giá trị} (bảng Quy định | Giá trị)
     days     : [{khóa Col: giá trị}] Thứ 2 … Thứ 7
     periods  : [{khóa Col: giá trị}] tiết 1, 2, ...
@@ -31,7 +33,7 @@ from .program import read_program
 from .rules import (DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, MAX_DAYS, NO, PERIOD_COLS, PERIOD_KEY, SUBJECT_COLS, VALUE,
                     YES, _day_name, applied, read_rules, rule_tables, subject_columns)
 from .staff import (InputError, _find_columns, _fold, _NO, _YES, clean_name, find_sheet, normalize, read_staff,
-                    staff_sheet)
+                    staff_sheet, subject_key)
 from .template import NOTES, STAFF_HEADERS, program_rows, write_input
 
 VERSION = 1
@@ -41,6 +43,20 @@ STAFF_COLS = (("name", "name", "text"), ("role", "title", "role"), ("class", "cl
               ("campus2", "campus2", "yes"), ("history", "history", "text"), ("off", "off", "text"))
 _HEADERS = {key: head for (key, _, _), head in zip(STAFF_COLS, STAFF_HEADERS)}
 ROLES = [config.ROLE_LABELS[r] for r in (config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER)]
+# Trang chi tiết môn của giao diện chia các cột quy định của môn thành nhóm; cột chưa có nhóm hiện ở nhóm "Khác", nên
+# cột mới thêm ở rules.py vẫn có ô nhập.
+SUBJECT_GROUPS = (
+    ("Hiển thị", ("DISPLAY_NAMES", "HDTN")),
+    ("Giáo viên chủ nhiệm", ("HOMEROOM_PRIORITY", "HOMEROOM_CUT_ORDER", "HOMEROOM_FILL_ORDER", "HOMEROOM_ONLY_SUBJECTS",
+                             "HOMEROOM_OVERTIME_SPECIALIST")),
+    ("Ai được dạy", ("GENERAL_FORBIDDEN_SUBJECTS", "MANAGER_RULES")),
+    ("Luật bảo vệ học sinh (bắt buộc)", ("group", "extra", "DAILY_LIMITS", "PAIR_EXCLUDED")),
+    ("Ưu tiên khi xếp (mềm)", ("HEAVY_SUBJECTS", "MORNING_SUBJECTS")),
+)
+# Các cột của môn mà bước Chức vụ sửa theo chức vụ có sẵn (Chủ Nhiệm, Bộ Môn, Quản Lý).
+ROLE_RULES = {"homeroom_take": "HOMEROOM_PRIORITY", "homeroom_only": "HOMEROOM_ONLY_SUBJECTS",
+              "homeroom_fill": "HOMEROOM_FILL_ORDER", "general_forbidden": "GENERAL_FORBIDDEN_SUBJECTS",
+              "manager_grade": "MANAGER_RULES"}
 
 
 def _col(c) -> dict:
@@ -54,7 +70,9 @@ def schema() -> dict:
         "staff": [{"key": key, "header": _HEADERS[key], "kind": kind, "note": NOTES[_HEADERS[key]]}
                   for key, _, kind in STAFF_COLS],
         "roles": ROLES,
+        "role_rules": ROLE_RULES,
         "subject": [_col(c) for c in SUBJECT_COLS],
+        "subject_groups": [{"label": label, "keys": list(keys)} for label, keys in SUBJECT_GROUPS],
         "general": [_col(c) for c in GENERAL],
         "day": [_col(c) for c in DAY_COLS],
         "period": [_col(c) for c in PERIOD_COLS],
@@ -63,8 +81,8 @@ def schema() -> dict:
                    "kinds": [{"key": k.key, "label": k.label, "needs": list(k.needs), "uses": list(k.uses),
                               "note": k.note} for k in luat_rieng.KINDS],
                    "sessions": [config.MORNING.name, config.AFTERNOON.name]},
-        "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "rules": config.RULES_SHEET,
-                   "custom": luat_rieng.SHEET, "saved": config.SAVED_SHEET},
+        "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "roles": config.ROLES_SHEET,
+                   "rules": config.RULES_SHEET, "custom": luat_rieng.SHEET, "saved": config.SAVED_SHEET},
     }
 
 
@@ -179,6 +197,23 @@ def _custom_part() -> list[dict]:
     return out
 
 
+def _roles_part(staff: list[dict], subject_names: list[str]) -> list[dict]:
+    """Các chức vụ GV chuyên biệt: các dòng sheet CHỨC VỤ (config.CUSTOM_ROLES), rồi các chức vụ trùng tên môn mà
+    nhân sự đang dùng, theo thứ tự dòng (để giao diện chọn chức vụ từ danh sách)."""
+    from .program import canonical_subject
+
+    roles = [{"name": r.name, "subjects": list(r.subjects)} for r in config.CUSTOM_ROLES]
+    known = {subject_key(r["name"]) for r in roles} | {subject_key(label) for label in ROLES}
+    by_key = {subject_key(canonical_subject(s)): s for s in subject_names}
+    by_key.update({subject_key(s): s for s in subject_names})
+    for row in staff:
+        key = subject_key(row["role"]) if row["role"] else ""
+        if key and key not in known and key in by_key:
+            roles.append({"name": row["role"], "subjects": [by_key[key]]})
+            known.add(key)
+    return roles
+
+
 def _rules_part(subject_names: list[str]) -> tuple[dict, list[dict], list[dict], dict[str, dict], list[str]]:
     """Các quy định đang dùng (config) theo dạng kịch bản: (chung, ngày, tiết, {môn: quy định}, các môn có quy
     định mà chương trình học không có)."""
@@ -203,11 +238,12 @@ def from_excel(path: str | Path) -> tuple[dict, list[str]]:
     with applied(rules):
         general, days, periods, by_subject, rest = _rules_part([name for name, _ in program])
         custom = _custom_part()
+        roles = _roles_part(staff, [name for name, _ in program])
     subjects = [{"name": name, "lessons": lessons, "rules": by_subject[name]} for name, lessons in program]
     subjects += [{"name": name, "lessons": {str(g): None for g in grades}, "rules": by_subject[name]}
                  for name in rest]
-    scenario = {"version": VERSION, "staff": staff, "grades": grades, "subjects": subjects, "general": general,
-                "days": days, "periods": periods, "custom": custom, "saved": _read_saved(wb)}
+    scenario = {"version": VERSION, "staff": staff, "grades": grades, "subjects": subjects, "roles": roles,
+                "general": general, "days": days, "periods": periods, "custom": custom, "saved": _read_saved(wb)}
     return scenario, warnings
 
 
@@ -219,7 +255,7 @@ def default_scenario() -> dict:
     general, days, periods, by_subject, _ = _rules_part(names)
     return {"version": VERSION, "staff": [], "grades": grades,
             "subjects": [{"name": n, "lessons": {str(g): None for g in grades}, "rules": by_subject[n]} for n in names],
-            "general": general, "days": days, "periods": periods, "custom": [], "saved": None}
+            "roles": [], "general": general, "days": days, "periods": periods, "custom": [], "saved": None}
 
 
 # ---- ghi kịch bản ra file Excel ----
@@ -246,8 +282,8 @@ def _staff_row(row: dict) -> list:
 
 
 def to_excel(scenario: dict, path: str | Path) -> None:
-    """Ghi kịch bản ra file vào V8 (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, QUY ĐỊNH, HƯỚNG DẪN và, nếu có, sheet
-    TKB đã xếp), cùng cách ghi với file mẫu."""
+    """Ghi kịch bản ra file vào V8 (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, CHỨC VỤ, QUY ĐỊNH, LUẬT RIÊNG, HƯỚNG
+    DẪN và, nếu có, sheet TKB đã xếp), cùng cách ghi với file mẫu."""
     staff = [_staff_row(row) for row in scenario.get("staff", [])]  # cả dòng trống: dòng i là dòng i + 2 của sheet
     grades = [int(g) for g in scenario.get("grades", [])]
     rows = []
@@ -273,8 +309,12 @@ def to_excel(scenario: dict, path: str | Path) -> None:
             ws.append(row)
 
     custom = [[_custom_cell(k, rule.get(k)) for k, _ in luat_rieng.COLUMNS] for rule in scenario.get("custom") or []]
+    # Cả dòng trống: dòng i của bảng là dòng i + 2 của sheet CHỨC VỤ.
+    roles = [[_text(role.get("name")) or None,
+              ", ".join(t for t in map(_text, role.get("subjects") or []) if t) or None]
+             for role in scenario.get("roles") or []]
     write_input(path, staff, (grades, [c.header for c in SUBJECT_COLS], rows), tables,
-                extra=write_saved if saved else None, custom=custom)
+                extra=write_saved if saved else None, custom=custom, roles=roles)
 
 
 def _custom_cell(key: str, value):
