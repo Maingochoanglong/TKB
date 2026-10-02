@@ -199,6 +199,28 @@ def test_statistics_show_campus_moves(campus_solution, tmp_path):
     assert any(r[1] and str(r[1]).startswith("Dạy ở cả hai cơ sở:") for r in rows)
 
 
+def test_statistics_count_sessions_off(campus_solution, tmp_path):
+    """File thống kê: cột Số Buổi Nghỉ là số buổi trong tuần không có tiết, gồm cả buổi xin nghỉ."""
+    import openpyxl
+
+    from tkb.solver import session_of
+    from tkb.writer import OFF_HEADER, write_statistics
+    out = tmp_path / "Thong_Ke.xlsx"
+    write_statistics(campus_solution, out)
+    rows = list(openpyxl.load_workbook(out)["Thống kê"].iter_rows(values_only=True))
+    col, end = rows[0].index(OFF_HEADER), [r[0] for r in rows].index("Tổng")
+    off = {r[1]: r[col] for r in rows[1:end]}
+    sess, teachers = session_of(), campus_solution.problem.teachers
+    week = sum(len(s) for s in config.DAY_SESSIONS.values())
+    for g, t in teachers.items():
+        if t.code in off:
+            busy = {(les.day, sess[les.day, les.period].name) for les in campus_solution.lessons if les.teacher == g}
+            assert off[t.code] == week - len(busy)
+    # Tiếng Anh 1 xin nghỉ Chiều T5, Sáng T6; GVCN 3/1 xin nghỉ 2 buổi chiều bất kỳ.
+    assert off[teachers["tiếng anh 1"].code] >= 2 and off[teachers["chủ nhiệm 3/1"].code] >= 2
+    assert rows[end][col] == sum(off.values())
+
+
 def test_cli_splits_timetables_by_campus(tmp_path):
     """Có lớp ở cơ sở 2: mỗi file TKB tách thành file điểm chính (cơ sở 1) và file điểm phụ (cơ sở 2)."""
     import openpyxl
