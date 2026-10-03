@@ -20,8 +20,10 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB`: per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
-  periods); see Architecture). `python -m tkb.template` writes a plain template (black text, no
-  fill/freeze/dropdowns/comments/hidden sheets) with NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), QUY ĐỊNH, HƯỚNG DẪN. Class names
+  periods); school-defined specialist roles teaching several subjects are rows of sheet `CHỨC VỤ`; school-specific rules
+  of generic kinds are rows of sheet `LUẬT RIÊNG`; see Architecture). `python -m tkb.template` writes a plain template (black text, no
+  fill/freeze/dropdowns/comments/hidden sheets) with NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), CHỨC VỤ, QUY ĐỊNH,
+  LUẬT RIÊNG, HƯỚNG DẪN. Class names
   are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
   `Input_Template_V8.xlsx` (`python -m tkb.template`, a test checks it is current) and the output templates
   `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tests/du_lieu_mau.py`
@@ -49,6 +51,7 @@ python main.py                               # school's real file (FILE_VAO) -> 
 python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the fake school (~10 min)
 python -m tkb <input.xlsx> -o out/TKB.xlsx [--mode bu_gio] [--time-limit 30] [--no-student-rules]
 python -m tkb.template <new.xlsx>            # blank input template
+python -m tkb.giao_dien [--khong-mo-trinh-duyet] [--thu-muc DIR] [--cong 8765]  # local web UI (or giao_dien.py)
 ```
 No linter/formatter is configured. CLI default `--mode` is `tuyen_them`; `main.py` default `CHE_DO` is `bu_gio`.
 Exit codes: 0 ok, 1 input/solve error, 2 checker found violations, 3 `bu_gio` shortage (table in the statistics file).
@@ -71,6 +74,26 @@ saved rules code must equal `rules.code()`, else re-solve) skips
 solving, so renaming "chưa có" hires keeps the timetable and the code; `main.py` `GIU_TKB_DA_XEP = False` /
 `--xep-lai` forces a re-solve.
 
+Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 127.0.0.1 (Host check + per-start token
+`X-TKB-Token`, injected into `static/index.html`; files opened/served only inside the output folder, default
+`out/giao_dien`) serving a no-dependency HTML/JS page. The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
+JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself
+(subject detail groups `kich_ban.SUBJECT_GROUPS`, ungrouped columns go to "Khác"). Steps: Khung giờ → Môn học (list +
+detail dialog) → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
+`scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select; the detail
+dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
+counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật riêng →
+Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page.
+Import (`/api/import` → `kich_ban.from_excel` + `sheets_in`) opens a dialog to take only some parts (staff replace/append,
+subjects+grades, roles, frame, custom rules, saved grid) into the current scenario; `/api/template` gives the blank template.
+`kich_ban.to_excel` writes it with `template.write_input` (same layout as the template); `from_excel` reads staff/program
+cells as written and rules via `read_rules` + `rule_tables`/`subject_columns` (missing ones = defaults), keeping sheet
+`TKB đã xếp`; `check` writes a temp file and reads it back with the real readers, then runs the estimate
+(`build_problem` + `phan_cong`, no CP-SAT). Runs are `python -m tkb` subprocesses (`server.Job`, argv like `main.run`),
+so UI results equal CLI codes; Stop sends SIGINT (Windows: CTRL_BREAK → SIGBREAK, also handled in `lns.improve`). The
+check/import path changes `config` via `rules.applied`, so `App.lock` serialises it. Run settings (mode, max overtime,
+time) live in the UI, not in the Excel file.
+
 `solver.solve` (both modes share one timetable; only who teaches the overtime cells differs):
 1. `allocation.build_problem` → `Problem`: one `Course` per (class, subject) with lesson count, candidate
    teachers, fixed slots; homeroom share from `split_homeroom`; supplement teachers named "chưa có".
@@ -88,6 +111,31 @@ solving, so renaming "chưa có" hires keeps the timetable and the code; `main.p
 5. If infeasible (`tuyen_them` only): integrated model (`_Allocation` + timetable, single CP-SAT solve) with +1, then
    +3 spare supplements.
 
+Conflicting rules (`tkb/chan_doan.py`): `precheck` (sound counting checks only, called in `solver._assignment` and by the
+UI check) raises `solver.ConflictError` before solving; when no timetable is found, `solver._unsolvable` →
+`chan_doan.diagnose` re-runs `solver.feasible` (fixed assignment, first solution, 30 units) with rule families relaxed via
+`rules.applied` or the diagnosis-only flags `solver.RELAXED` (always empty in a real solve, so the model and codes are
+unchanged): not proven → "add time"; all relaxed still infeasible → staff/quota; else a deletion filter gives the
+minimal conflicting families and which single relaxation fixes it. A new hard rule should get a family in
+`chan_doan._rules` (and a count in `precheck` if one is sound).
+
+Specialist roles (sheet `CHỨC VỤ`, `config.CUSTOM_ROLES` of `config.Role(name, subjects)`, read in `rules._Reader.roles`):
+`Problem.specialists` is role → tuple of subjects (`allocation.resolve_roles`: a sheet role, else a role named like a
+subject teaches that one subject; an uncovered `GENERAL_FORBIDDEN_SUBJECTS` subject gets the first sheet role teaching it,
+else a subject-named role; sheet roles nobody holds and nobody needs are dropped). `specialist_subjects()` is the union.
+`rules.code()` leaves out an empty list and rows that only restate a subject-named role, so the codes are unchanged;
+the updated input adds the sheet with the held specialist roles (`writer.role_rows`).
+
+School-specific rules (`tkb/luat_rieng.py`, sheet `LUẬT RIÊNG`, `config.CUSTOM_RULES` of `config.CustomRule`): one row per
+rule of 6 generic kinds (not in / only in day-period-session, 2 consecutive lessons, A before B in a session, teacher max
+per day, max classes at once), hard or soft with level 1–3 (`Weights.custom_levels`). Each kind is coded once:
+`banned` (in `solver.allowed_slots`), `forced_pairs` (in `allocation.paired_groups(req, grade)` — always pass the grade),
+`build` (constraints/objective at the end of `build_timetable`), `qa` (LNS), `check` (checker), `day_cap`
+(`phan_cong.teacher_slots`), `validate`/`precheck`, and one diagnosis family per hard rule. Everything is skipped when
+the list is empty, and `rules.code()` leaves out an empty list, so codes are unchanged. `phan_cong._Local.repair` fixes
+odd shares in paired groups (only runs when some remain). The parse convention of this sheet allows text lists (Khối,
+Ngày, Tiết, Buổi) unlike the Có/Không/number rule columns.
+
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
 `solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday
 afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names loosely via
@@ -99,7 +147,7 @@ afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names 
 | Consecutive lessons of a group by one teacher; homeroom priority group: GVCN's lesson first in the week (hard, always) | `SUBJECT_GROUPS`, `HOMEROOM_PRIORITY` | `solver.timetable` "Liên tiết", "GVCN trước"; `checker._check_teacher_order` |
 | HĐTN Mon p1 + Fri p4 fixed, rest Tue–Thu near session end | `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS` | `allocation.build_problem`, `solver.allowed_slots`, objective `hdtn_flex_distance` |
 | Period 1 always the homeroom teacher | `HOMEROOM_PERIODS` | `solver.allowed_slots` |
-| Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES` | `allocation.roles_for_subject`, `manager_allowed` |
+| Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `CUSTOM_ROLES` (sheet CHỨC VỤ) | `allocation.resolve_roles`, `roles_for_subject`, `manager_allowed`; `checker.check` "Quyền dạy" |
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 (`main.py` `SO_TIET_BU_TOI_DA` = 3 for the school file); GVCN overtime never in specialist subjects except Âm nhạc/Mỹ thuật, capped by the flow estimate | `OVERTIME_ROLES`, `OVERTIME_MAX`, `HOMEROOM_OVERTIME_SPECIALIST`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
 | Soft: heavy subjects at p7, TV/Toán mornings, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |

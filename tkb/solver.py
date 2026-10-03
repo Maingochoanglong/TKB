@@ -23,11 +23,18 @@ from . import config
 from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
                          subject_group)
 from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
-from .staff import Teacher, grade_of, normalize
+from .staff import InputError, Teacher, grade_of, normalize
 
 
 class SolveError(RuntimeError):
     pass
+
+
+# Các luật bắt buộc đang được nới để chẩn đoán vì sao không xếp được (tkb/chan_doan.py). Luôn rỗng khi xếp thật:
+# rỗng thì mô hình dựng ra y như cũ, không đổi mã kết quả.
+# "tang_cuong": tiết tăng cường sau tiết chính; "lien_nhau": các tiết cùng môn trong buổi liền nhau; "lien_tiet":
+# hai tiết liền cùng nhóm môn do một người dạy; "gvcn_truoc": tiết đầu tuần của GVCN; "co_so": mỗi buổi một cơ sở.
+RELAXED: frozenset[str] = frozenset()
 
 
 def ortools_version() -> str:
@@ -124,6 +131,10 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
         if not course.homeroom and s[1] in config.HOMEROOM_PERIODS:
             continue
         result.append(s)
+    if config.CUSTOM_RULES:  # luật riêng "Không xếp vào", "Chỉ xếp vào" bắt buộc
+        from .luat_rieng import banned
+        bad = banned(course.subject, course.grade)
+        result = [s for s in result if s not in bad]
     if len(result) < course.lessons:
         raise SolveError(f"Lớp {course.class_name}: môn {course.subject} cần {course.lessons} tiết "
                          f"nhưng chỉ có {len(result)} slot hợp lệ")
@@ -388,7 +399,7 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
                 need = sum(k for _, k in t.off_any) if name is None else n
                 m.Add(sum(pool) >= need)
     # Mỗi buổi GV chỉ dạy ở một cơ sở: o2 = 1 là buổi đó ở cơ sở 2.
-    for g in sorted(by_teacher):
+    for g in sorted(by_teacher) if "co_so" not in RELAXED else ():
         for d, session in sessions:
             lits = {at2: [v for p in session.periods for v in occ_campus.get((g, (d, p), at2), [])]
                     for at2 in (False, True)}
@@ -496,7 +507,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # Liên tiết: hai tiết liền nhau cùng lớp, cùng nhóm môn (vd TV và TV tăng cường) phải cùng người dạy.
     for by_g in teach.values():
-        if len(by_g) < 2:
+        if len(by_g) < 2 or "lien_tiet" in RELAXED:
             continue
         gs = sorted(by_g)
         for d, session in sessions_all:
@@ -513,7 +524,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
     week = sorted(slots)
     for (cls, group), by_g in teach.items():
         cn = homeroom_of.get(cls)
-        if group not in config.HOMEROOM_PRIORITY or cn not in by_g or len(by_g) < 2:
+        if group not in config.HOMEROOM_PRIORITY or cn not in by_g or len(by_g) < 2 or "gvcn_truoc" in RELAXED:
             continue
         for g in sorted(by_g):
             if g == cn:
@@ -533,7 +544,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
         for cls in problem.classes:
             courses = problem.class_courses(cls)
             req = problem.curriculum[grade_of(cls)]
-            pairs = paired_groups(req)
+            pairs = paired_groups(req, grade_of(cls))
             by_subject: dict[str, list[Course]] = {}
             by_group: dict[str, list[Course]] = {}
             for c in courses:
@@ -541,7 +552,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 by_group.setdefault(subject_group(c.subject), []).append(c)
             # Tiết tăng cường là tiết luyện bài vừa học: trong ngày phải có tiết chính cùng nhóm đứng trước và
             # không có tiết chính nào đứng sau (không cần liền, không cần cùng người dạy, không cần buổi chiều).
-            for extra, main in config.SUBJECT_GROUPS.items():
+            for extra, main in config.SUBJECT_GROUPS.items() if "tang_cuong" not in RELAXED else ():
                 for te in by_subject.get(extra, []):
                     for mc in by_subject.get(main, []):
                         for d, p in sorted(dom[te.id]):
@@ -576,7 +587,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                                     if y[ps[i]] and y[ps[k]]:
                                         m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) <= 1)
                     for subject, cs in by_subject.items():
-                        if sum(c.lessons for c in cs) < 2:
+                        if sum(c.lessons for c in cs) < 2 or "lien_nhau" in RELAXED:
                             continue
                         y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in ps}
                         for i in range(len(ps)):
@@ -665,6 +676,11 @@ def build_timetable(problem: Problem, settings: config.Settings,
                     gap = m.NewBoolVar(f"gap_{title}_{d}_{ps[i]}")
                     m.Add(gap >= started[i - 1] + later[i + 1] - o[i] - 1)
                     objective.append(w.teacher_gap * gap)
+
+    # Luật riêng của trường (sheet LUẬT RIÊNG); không có luật nào thì không thêm gì.
+    if config.CUSTOM_RULES:
+        from .luat_rieng import build
+        objective.extend(build(m, problem, x, dom, occ_terms, w))
 
     m.Minimize(sum(objective))
 
@@ -837,17 +853,27 @@ def _need(problem: Problem) -> dict[tuple[str, str], int]:
     return need
 
 
-def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
-          settings: config.Settings, log=print) -> Solution:
-    """Dự toán, phân công → xếp giờ một lần → TKB chế độ bù hoặc chế độ tuyển (cùng vị trí môn)."""
-    if settings.mode not in config.MODES:
-        raise SolveError(f"Chế độ không hợp lệ: {settings.mode!r} (chọn một trong {', '.join(config.MODES)})")
-    if settings.overtime_max < 0:
-        raise SolveError(f"Số tiết bù tối đa phải >= 0 (đang là {settings.overtime_max})")
+class ConflictError(SolveError):
+    """Các luật bắt buộc mâu thuẫn nhau: không có TKB nào thỏa (thấy khi đếm trước, hoặc khi chẩn đoán)."""
+
+
+def _assignment(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings: config.Settings, log):
+    """Bước 1 của solve: kiểm tra đếm (tkb/chan_doan.py), dự toán, phân công, chia tiết bù cho người tuyển mới.
+    Trả về (bài toán chế độ bù, phân công, bài toán xếp giờ, phân công cố định, chủ của các ô bù, số người tuyển)."""
+    from .chan_doan import precheck
+
     hire = settings.mode == config.MODE_HIRE
     base = build_problem(staff, curriculum, {}, overtime_max=settings.overtime_max)
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
+    if config.CUSTOM_RULES:
+        from .luat_rieng import SHEET, validate
+        wrong = validate(base)
+        if wrong:
+            raise InputError(f"Sheet {SHEET} có {len(wrong)} lỗi:\n  " + "\n  ".join(wrong))
+    conflicts = precheck(base, settings.student_rules)
+    if conflicts:
+        raise ConflictError("Các quy định mâu thuẫn nhau, không có TKB nào thỏa:\n  - " + "\n  - ".join(conflicts))
     log(f"Bước 1/2: dự toán và phân công giáo viên (bù tối đa +{settings.overtime_max} tiết/người)...")
     plan = phan_cong(base, settings.weights)
     for line in du_toan_lines(base, plan):
@@ -866,6 +892,46 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     for cls, group, g in plan.odd_pairs:
         log(f"  Cảnh báo: {work.teachers.get(g, base.teachers[g]).code} dạy số tiết lẻ nhóm {group} lớp {cls}, "
             f"khó xếp thành cặp")
+    return base, plan, work, fixed, owners, counts
+
+
+def feasible(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings: config.Settings,
+             seconds: float) -> bool | None:
+    """Có TKB nào thỏa mọi luật bắt buộc không, với phân công cố định như solve (tìm nghiệm đầu tiên, tối đa
+    `seconds`): True có, False chắc chắn không, None chưa biết (hết thời gian). Dùng để chẩn đoán."""
+    try:
+        _, _, work, fixed, _, _ = _assignment(staff, curriculum, settings, lambda *_: None)
+        tm = build_timetable(work, settings, fixed)
+    except (InputError, SolveError):
+        return False
+    solver = cp_model.CpSolver()
+    _configure(solver, settings, seconds)
+    solver.parameters.stop_after_first_solution = True
+    status = solver.Solve(tm.model)
+    if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return True
+    return False if status == cp_model.INFEASIBLE else None
+
+
+def _unsolvable(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings: config.Settings,
+                log) -> SolveError:
+    """Lỗi khi không xếp được: chẩn đoán luật nào gây ra (tkb/chan_doan.py)."""
+    from .chan_doan import diagnose
+
+    found = diagnose(staff, curriculum, settings, log)
+    return (ConflictError if found.conflict else SolveError)("\n".join(found.lines))
+
+
+def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
+          settings: config.Settings, log=print) -> Solution:
+    """Dự toán, phân công → xếp giờ một lần → TKB chế độ bù hoặc chế độ tuyển (cùng vị trí môn). Không xếp được
+    thì chẩn đoán luật bắt buộc nào gây ra (ConflictError nếu chắc chắn mâu thuẫn)."""
+    if settings.mode not in config.MODES:
+        raise SolveError(f"Chế độ không hợp lệ: {settings.mode!r} (chọn một trong {', '.join(config.MODES)})")
+    if settings.overtime_max < 0:
+        raise SolveError(f"Số tiết bù tối đa phải >= 0 (đang là {settings.overtime_max})")
+    hire = settings.mode == config.MODE_HIRE
+    base, plan, work, fixed, owners, counts = _assignment(staff, curriculum, settings, log)
 
     mode = "chế độ tái lập" if settings.reproducible else "giới hạn giây thực"
     budget = ("không giới hạn thời gian, bấm Ctrl+C để dừng sớm" if settings.time_limit is None
@@ -875,8 +941,7 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     if solution is not None:
         return solution if hire else _to_overtime(solution, base, owners)
     if not hire:
-        raise SolveError("Không xếp được TKB với phân công đã dự toán. Thử tăng thời gian (THOI_GIAN_TOI_DA) hoặc "
-                         "tắt luật học sinh (--no-student-rules) để tìm nguyên nhân.")
+        raise _unsolvable(staff, curriculum, settings, log)
     for slack in (1, 3):
         log(f"  Không xếp được với phân công cố định; thử mô hình tích hợp (dự phòng {slack} GV/chức vụ)...")
         planned = {role: counts.get(role, 0) + slack for role in work.supplement_roles}
@@ -885,5 +950,4 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         if solution is not None:
             solution.notes.append(f"Mô hình tích hợp (dự phòng {slack} GV bổ sung/chức vụ)")
             return solution
-    raise SolveError("Không tìm được TKB hợp lệ. Thử tăng --time-limit hoặc tắt luật học sinh "
-                     "(--no-student-rules) để kiểm tra nguyên nhân.")
+    raise _unsolvable(staff, curriculum, settings, log)

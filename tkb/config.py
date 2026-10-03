@@ -79,11 +79,24 @@ HDTN_FLEX_DAYS: list[int] = [1, 2, 3]  # Thứ 3 - Thứ 5
 ROLE_HOMEROOM = "chủ nhiệm"
 ROLE_GENERAL = "bộ môn"
 ROLE_MANAGER = "quản lý"
-# Chức vụ khác ba chức vụ trên là GV chuyên biệt: tên chức vụ trùng tên một môn trong sheet
-# CHƯƠNG TRÌNH HỌC (vd "Tiếng Anh", "Thể Dục") và chỉ dạy môn đó.
+# Chức vụ khác ba chức vụ trên là GV chuyên biệt: một chức vụ của sheet CHỨC VỤ (dạy các môn ghi ở dòng đó), hoặc
+# tên chức vụ trùng tên một môn trong sheet CHƯƠNG TRÌNH HỌC (vd "Tiếng Anh", "Thể Dục") và chỉ dạy môn đó.
 
 # Cách ghi ba chức vụ trên trong các file xuất ra (GV chuyên biệt ghi đúng chữ trong file vào).
 ROLE_LABELS: dict[str, str] = {ROLE_HOMEROOM: "Chủ Nhiệm", ROLE_GENERAL: "Bộ Môn", ROLE_MANAGER: "Quản Lý"}
+
+
+@dataclass(frozen=True)
+class Role:
+    """Chức vụ GV chuyên biệt nhà trường tự đặt (sheet CHỨC VỤ, đọc ở tkb/rules.py)."""
+    name: str  # tên chức vụ như ghi trong file, vd "GV Nghệ thuật"
+    subjects: tuple[str, ...]  # các môn được dạy (tên như trong sheet CHƯƠNG TRÌNH HỌC)
+    row: int = 0  # dòng trong sheet CHỨC VỤ (để báo lỗi)
+
+
+ROLES_SHEET = "CHỨC VỤ"
+# Mặc định không có: GV chuyên biệt là chức vụ trùng tên môn.
+CUSTOM_ROLES: list[Role] = []
 
 # File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"
@@ -180,6 +193,29 @@ PAIR_MIN_LESSONS = 6
 PAIR_EXCLUDED: set[str] = {TOAN, HDTN}  # Toán: mỗi ngày 1 tiết (DAILY_LIMITS); HĐTN: có ô cố định
 
 
+# --------------------------------------------------------------------------
+# Luật riêng của trường (sheet LUẬT RIÊNG, tkb/luat_rieng.py): mỗi dòng một luật thuộc một kiểu luật chung, bắt
+# buộc hoặc ưu tiên (mức 1–3). Mặc định không có luật riêng nào.
+# --------------------------------------------------------------------------
+@dataclass(frozen=True)
+class CustomRule:
+    kind: str  # khóa kiểu luật trong luat_rieng.KINDS, vd "khong_xep"
+    subject: str = ""  # môn (tên như trong file vào)
+    other: str = ""  # môn thứ hai (luật "Học trước": subject học trước other)
+    grades: tuple[int, ...] = ()  # các khối; trống = mọi khối
+    days: tuple[int, ...] = ()  # các ngày (0 = Thứ 2); trống = mọi ngày
+    periods: tuple[int, ...] = ()  # các tiết; trống = mọi tiết
+    sessions: tuple[str, ...] = ()  # các buổi (tên buổi, vd "Sáng"); trống = mọi buổi
+    role: str = ""  # chức vụ của GV (chữ thường); trống = mọi GV
+    number: int | None = None  # số trong luật (tối đa tiết mỗi ngày, số lớp cùng lúc)
+    hard: bool = False  # bắt buộc; không thì là ưu tiên
+    level: int = 2  # mức ưu tiên 1–3 (Weights.custom_levels)
+    row: int = 0  # dòng trong sheet LUẬT RIÊNG (để báo lỗi)
+
+
+CUSTOM_RULES: list[CustomRule] = []
+
+
 def rule_subjects() -> list[str]:
     """Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào)."""
     names = [HDTN, *HOMEROOM_PRIORITY, *HOMEROOM_CUT_ORDER, *HOMEROOM_FILL_ORDER, *HOMEROOM_ONLY_SUBJECTS,
@@ -233,6 +269,9 @@ class Weights:
     group_grade: int = 20  # mỗi khối một GV không chủ nhiệm dạy
     group_class: int = 5  # mỗi lớp một GV không chủ nhiệm dạy
     odd_pair_share: int = 100_000  # mỗi phần lẻ của một người trong nhóm môn ghép cặp
+    # Luật riêng không bắt buộc (sheet LUẬT RIÊNG), theo mức 1, 2, 3: mỗi lần không theo luật bị trừ ngần ấy điểm
+    # (mức 3 nặng hơn một tiết môn nặng ở tiết 7, mức 1 cỡ một tiết TV/Toán buổi chiều).
+    custom_levels: tuple[int, int, int] = (100, 400, 1_500)
 
 
 # --------------------------------------------------------------------------

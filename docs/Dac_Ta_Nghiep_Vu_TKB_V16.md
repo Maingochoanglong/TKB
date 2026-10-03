@@ -69,6 +69,9 @@
 | 51 | Giảm môn nặng tiết 7 và đổi cơ sở trong ngày | `heavy_late` 400, `campus_day_switch` 3000: file của trường (Windows) còn 8 tiết Tiếng Anh ở tiết 7, 4 lần GV dạy sáng một cơ sở, chiều cơ sở kia | **`heavy_late` 1200, `campus_day_switch` 10000** (mục 8.2). Thử trên Windows: phạt tiết 7 1200 → 6 tiết, 1 lần; thêm phạt đổi cơ sở 10000 → 6 tiết, 1 lần, TV/Toán buổi chiều 38 (trước 39); phạt tiết 7 3000 → vẫn 6 tiết, TV/Toán chiều 40; tăng thời gian lên 2400 không đổi gì. Linux: 6 tiết, 0 lần. Mỗi GV Tiếng Anh dạy 23 tiết trong 26 ô được dạy, 4 ô là tiết 7, nên ít nhất 4 tiết Tiếng Anh ở tiết 7. Mã kết quả đổi (Linux `5C2B-510F-5156`, Windows `08F4-E2C6-3470`) |
 | 52 | Nạp lại file vào cập nhật giữ nguyên TKB | Chạy lại trên file vào cập nhật (vd đã đổi "chưa có" thành tên người mới tuyển) thì xếp lại từ đầu: người mới thành bộ môn thật, phân công và TKB đổi | File vào cập nhật có sheet **TKB đã xếp** (mục 11.2). Nạp lại file đó thì chương trình **dùng lại TKB này**: GV khớp theo Mã GV, kiểm tra đủ tiết và mọi luật cứng bằng bộ kiểm tra; đạt thì không xếp lại, mã kết quả giữ nguyên (mã băm theo chức vụ, không theo tên), không đạt thì in lý do và xếp lại từ đầu. `main.py` `GIU_TKB_DA_XEP` (mặc định `True`; dòng lệnh `--xep-lai` để xếp lại). Dùng được để có lại TKB của máy khác (file cập nhật bản Linux chạy trên Windows ra đúng TKB Linux). Style chép từ file vào bỏ qua màu chương trình tô (dòng bù/tuyển/dư). Mã kết quả không đổi |
 | 53 | Quy định trong file vào, file mẫu đơn giản | Các luật nghiệp vụ (khung giờ, HĐTN, GVCN, quyền dạy, bù giờ, luật học sinh, môn nặng, tên viết tắt) chỉ sửa được trong `tkb/config.py`; file mẫu có danh sách thả xuống, tô đỏ theo điều kiện, ghi chú ở tiêu đề cột và sheet danh mục ẩn; file vào cập nhật có sheet Chú thích và TKB đã xếp dạng danh sách | Nhà trường sửa luật trong Excel (mục 2.5, `tkb/rules.py`), **một quy ước cho mọi ô**: mỗi quy định một cột, mỗi ô ghi Có, Không hoặc số nguyên dương (riêng Tên trong TKB ghi chữ). Quy định của môn là **các cột của sheet CHƯƠNG TRÌNH HỌC** (tên môn chỉ ghi một chỗ); các quy định khác ở **sheet QUY ĐỊNH** (ba bảng: chung, ngày, tiết). Thiếu thì dùng mặc định; ghi sai thì báo mọi lỗi kèm sheet và số dòng. File mẫu (`data/Input_Template_V8.xlsx`, `python -m tkb.template`) 4 sheet, đơn giản: chữ đen, không tô nền, không cố định dòng/cột, không danh sách thả xuống, không ghi chú, không sheet ẩn; chương trình học điền sẵn các môn. File vào cập nhật 5 sheet: ghi đủ quy định đã dùng, HƯỚNG DẪN thay Chú thích, **TKB đã xếp dạng lưới như TKB** kèm mã quy định (sửa quy định rồi nạp lại thì xếp lại). Ghi đúng mặc định cho cùng TKB: mã kết quả không đổi |
+| 54 | Báo quy định mâu thuẫn | Không xếp được thì chỉ báo "Không tìm được TKB hợp lệ. Thử tăng thời gian…", kể cả khi các luật mâu thuẫn (tăng thời gian không giúp gì) | **Đếm trước khi xếp** (`tkb/chan_doan.py` `precheck`, cả nút Kiểm tra của giao diện): báo ngay khối, môn và quy định mâu thuẫn. **Chẩn đoán khi không xếp được:** thử nới từng nhóm luật bắt buộc để chỉ ra nhóm luật nhỏ nhất không cùng thỏa được và luật nào nới riêng là đủ; hoặc báo do thiếu thời gian, hoặc do nhân sự/quyền dạy (mục 9). Luật và mã kết quả không đổi |
+| 55 | Luật riêng của trường | Mỗi luật mới phải sửa code (solver, checker, QA) | **Sheet `LUẬT RIÊNG`** (không bắt buộc, mục 6.1): mỗi dòng một luật thuộc 6 kiểu luật chung (không xếp vào, chỉ xếp vào, học 2 tiết liền, học trước, GV tối đa tiết mỗi ngày, số lớp học cùng lúc tối đa), bắt buộc hoặc ưu tiên mức 1–3; mỗi kiểu viết code một lần (`tkb/luat_rieng.py`). Giao diện có trang Luật riêng. Phân công thêm bước đổi chéo cho chẵn khi còn phần lẻ trong nhóm ghép cặp. Không có luật riêng thì mã kết quả, mã quy định không đổi |
+| 56 | Chức vụ tự đặt, dạy nhiều môn | GV chuyên biệt chỉ là chức vụ trùng tên một môn và chỉ dạy môn đó; giao diện nhập nhân sự, môn học thành hai bảng rời | **Sheet `CHỨC VỤ`** (không bắt buộc, mục 2.1.2): mỗi dòng một chức vụ GV chuyên biệt do trường đặt tên và **các môn được dạy**, vd `GV Nghệ thuật: Âm nhạc, Mỹ thuật`; GV có Chức Vụ đó chỉ dạy các môn này (mục 4). Chức vụ trùng tên môn không ghi ở sheet vẫn như cũ; dòng ghi đúng như vậy (một môn, cùng tên) tính như không ghi. Môn bộ môn không dạy mà chưa ai dạy được: tuyển chức vụ đầu tiên của sheet dạy môn đó. File vào cập nhật ghi thêm sheet này (các chức vụ GV chuyên biệt đang có). Giao diện thành các bước **Môn học → Chức vụ → Giáo viên**: danh sách gọn, bấm Sửa mở trang chi tiết; bước Chức vụ sửa quyền dạy của Chủ Nhiệm, Bộ Môn, Quản Lý (các cột quy định của môn) và các chức vụ tự đặt; Giáo viên chọn chức vụ từ danh sách, chỉ Chủ Nhiệm ghi Lớp. Không có sheet hoặc chỉ có dòng trùng tên môn thì mã kết quả, mã quy định không đổi |
 
 ---
 
@@ -83,7 +86,7 @@
 |---|---|
 | GVCN | Giáo viên chủ nhiệm, chức vụ `Chủ Nhiệm`, Mã GV `Chủ Nhiệm k/n` (lớp k/n) |
 | Bộ môn (GVBM) | Chức vụ `Bộ Môn`, Mã GV `Bộ Môn n`, dạy được nhiều môn (mục 4) |
-| GV chuyên biệt | Chức vụ **trùng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (ví dụ `Tiếng Anh`, `Thể Dục`, `Tin Học`); chỉ dạy đúng môn đó |
+| GV chuyên biệt | Chức vụ ghi ở **sheet CHỨC VỤ** (ví dụ `GV Nghệ thuật`), chỉ dạy các môn ghi ở dòng đó; hoặc chức vụ **trùng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (ví dụ `Tiếng Anh`, `Thể Dục`, `Tin Học`), chỉ dạy đúng môn đó |
 | Mã GV | Chức vụ kèm số thứ tự hoặc lớp, ví dụ `Chủ Nhiệm 1/1`, `Tiếng Anh 2`, `Bộ Môn 6`. Dùng để nhận ra giáo viên khi cột tên để trống |
 | Quản lý | Chức vụ `Quản Lý`, Mã GV `Quản Lý n` |
 | Số tiết (định mức) | Số tiết **tối đa** giáo viên dạy mỗi tuần |
@@ -104,6 +107,7 @@
 |---|---|---|
 | `NHÂN SỰ` | Có | Danh sách nhân sự (mục 2.1.1). Nếu không có sheet tên này thì đọc sheet đầu tiên |
 | `CHƯƠNG TRÌNH HỌC` | Có | Chương trình học (mục 2.3). Thiếu sheet này thì báo lỗi |
+| `CHỨC VỤ` | Không | Các chức vụ GV chuyên biệt do trường đặt và các môn mỗi chức vụ được dạy (mục 2.1.2) |
 | `QUY ĐỊNH` | Không | Các luật nghiệp vụ khác ngoài quy định của môn (quy định của môn là các cột của sheet CHƯƠNG TRÌNH HỌC), mỗi ô ghi Có, Không hoặc số (mục 2.5). Không có sheet, bảng hoặc cột thì dùng giá trị mặc định trong `tkb/config.py` |
 
 Các sheet khác (ví dụ `HƯỚNG DẪN` của file mẫu) được bỏ qua.
@@ -115,7 +119,7 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 | Cột | Bắt buộc | Quy tắc |
 |---|---|---|
 | Họ và Tên | Có (cột) | Họ tên, tự do. **Có thể để trống** (bảo mật): TKB ghi Mã GV thay tên |
-| Chức Vụ | Có | `Chủ Nhiệm`, `Bộ Môn`, `Quản Lý`, hoặc **đúng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên biệt). **Không ghi số thứ tự**. So khớp không phân biệt hoa thường, dấu câu, khoảng trắng thừa |
+| Chức Vụ | Có | `Chủ Nhiệm`, `Bộ Môn`, `Quản Lý`, một chức vụ của sheet CHỨC VỤ, hoặc **đúng tên một môn** trong sheet CHƯƠNG TRÌNH HỌC (GV chuyên biệt). **Không ghi số thứ tự**. So khớp không phân biệt hoa thường, dấu câu, khoảng trắng thừa |
 | Lớp | Với Chủ Nhiệm | Dạng **khối/số thứ tự** (`1/1`) hoặc **khối rồi tên lớp** (`1D15`, `2A`); khối là các chữ số đầu. Chỉ Chủ Nhiệm được ghi Lớp |
 | Số Tiết/Tuần | Có | Số nguyên ≥ 0. Người được giảm tiết (ví dụ thai sản) ghi mức đã giảm |
 | Thai Sản | Không | `Có` hoặc để trống. Có: không dạy bù, chỉ dạy các lớp ở cơ sở 2 |
@@ -129,7 +133,7 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 - **Không đọc mẫu cũ** (V5–V7: chức vụ ghi kèm số như `bộ môn 5`, chương trình học ở file riêng): Chức Vụ có chữ số thì báo lỗi. Muốn dùng dữ liệu cũ thì tạo file mẫu V8 trống rồi chép sang, bỏ số thứ tự.
 
 **Chương trình từ chối file và liệt kê tất cả lỗi một lần, kèm số dòng, khi:**
-- Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý và không trùng tên môn nào trong chương trình học, hoặc có ghi số thứ tự (mẫu cũ).
+- Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý, không có ở sheet CHỨC VỤ và không trùng tên môn nào trong chương trình học, hoặc có ghi số thứ tự (mẫu cũ).
 - Chủ Nhiệm thiếu Lớp, Lớp sai dạng khối/số thứ tự, hoặc chức vụ khác lại ghi Lớp.
 - Lớp bị Excel đổi thành ngày tháng (khi gõ tay `1/1` vào ô không định dạng chữ).
 - Số tiết trống, không phải số, âm hoặc không nguyên.
@@ -144,6 +148,14 @@ Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối
 **File mẫu V8** (tạo bằng `python -m tkb.template`), style giống file của nhà trường (Times New Roman 14, tiêu đề in đậm không tô nền, viền mảnh, căn giữa, dòng cao 25):
 - Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`, mỗi cột có chú thích. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải bắt đầu bằng số khối. Ba cột Có/Không có danh sách `Có`. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
 - Sheet CHƯƠNG TRÌNH HỌC: `Môn học | Khối 1 …`. File mẫu trống không có môn nào.
+
+#### 2.1.2. Sheet CHỨC VỤ (không bắt buộc)
+
+`Chức vụ | Môn được dạy` (thêm cột `Ghi chú` nếu cần), mỗi dòng một chức vụ GV chuyên biệt, ví dụ `GV Nghệ thuật | Âm nhạc, Mỹ thuật` (`config.CUSTOM_ROLES`, đọc ở `tkb/rules.py`).
+- Tên chức vụ không ghi số, không trùng `Chủ Nhiệm`, `Bộ Môn`, `Quản Lý` (quyền dạy của ba chức vụ này là các cột của sheet CHƯƠNG TRÌNH HỌC: Chỉ GVCN dạy, Bộ Môn không dạy, Quản lý dạy khối), không ghi trùng hai dòng. Các môn cách nhau bằng dấu phẩy, chấm phẩy hoặc xuống dòng, đúng tên trong sheet CHƯƠNG TRÌNH HỌC (so khớp không phân biệt hoa thường, dấu câu), không phải môn Chỉ GVCN dạy. Ghi sai thì báo mọi lỗi kèm số dòng.
+- GV có Chức Vụ là tên đó chỉ dạy các môn của dòng (mục 4). Chức vụ không ghi ở đây mà trùng tên một môn thì chỉ dạy môn đó (như trước); dòng ghi đúng như vậy (một môn, cùng tên với chức vụ) tính như không ghi: mã quy định không đổi.
+- Môn bộ môn không được dạy mà chưa có GV nào dạy được: chức vụ để tuyển thêm là **chức vụ đầu tiên của sheet dạy môn đó**, không có thì chức vụ trùng tên môn (mục 4). Chức vụ không ai giữ và không cần tuyển thì không dùng.
+- File vào cập nhật chưa có sheet này thì ghi thêm, gồm các chức vụ GV chuyên biệt đang có người giữ (chức vụ trùng tên môn: như không ghi).
 
 ### 2.2. Danh sách lớp
 
@@ -261,11 +273,12 @@ Ví dụ (trường mẫu tên giả của test, `tests/du_lieu_mau.py`):
 |---|---|---|
 | Chủ nhiệm | Chỉ **lớp mình**: phần được phân (mục 5), cộng tiết bù (mục 7.2) | Lớp khác |
 | Bộ môn | Mọi môn | Tiếng Anh, Tin học, HĐTN |
-| GV chuyên biệt (chức vụ trùng tên một môn: Tiếng Anh, Tin Học, Thể Dục…) | Chỉ môn trùng tên chức vụ | Môn khác |
+| GV chuyên biệt (chức vụ của sheet CHỨC VỤ, hoặc trùng tên một môn: Tiếng Anh, Tin Học, Thể Dục…) | Chỉ các môn của chức vụ ở sheet CHỨC VỤ, hoặc môn trùng tên chức vụ | Môn khác |
 | Quản lý | Chỉ **Kỹ năng sống khối 4** | Môn/khối khác |
 
 - **[Cứng]** HĐTN chỉ do GVCN của lớp dạy.
-- Môn bộ môn không được dạy (Tiếng Anh, Tin học) mà trường chưa có GV chuyên biệt: chương trình tự thêm chức vụ trùng tên môn để tuyển (ví dụ `Tin Học 1`).
+- Môn bộ môn không được dạy (Tiếng Anh, Tin học) mà trường chưa có GV chuyên biệt: chương trình tự thêm chức vụ để tuyển: chức vụ đầu tiên của sheet CHỨC VỤ dạy môn đó, không có thì chức vụ trùng tên môn (ví dụ `Tin Học 1`).
+- Môn của mọi GV chuyên biệt (kể cả chức vụ dạy nhiều môn) là **môn chuyên biệt**: GVCN không nhận thêm (mục 5), không bù (trừ `HOMEROOM_OVERTIME_SPECIALIST`, mục 7.2), bộ môn chỉ dạy thay phần vượt năng lực của GV chuyên biệt.
 - **[Cứng]** Quản lý dạy **đúng** bằng Số tiết của mình. Nếu số tiết phù hợp ít hơn thì dạy hết số đó và có cảnh báo. Chương trình tự chọn lớp; có thể cố định lớp trong `MANAGER_RULES`. Mỗi lớp chỉ có 1 tiết KNS, nên quản lý 4 tiết sẽ dạy ở 4 lớp khối 4.
 - Thể dục, Âm nhạc, Mỹ thuật do GV chuyên biệt dạy trước. Bộ môn chỉ dạy thay phần vượt năng lực của GV chuyên biệt; dự toán in số tiết này. Ở chế độ bù giờ, GVCN cũng được dạy bù Âm nhạc, Mỹ thuật ở lớp mình (mục 7.2).
 - **[Mềm]** Hạn chế chia một lớp–môn cho nhiều giáo viên.
@@ -362,6 +375,29 @@ Ví dụ luật học liền, buổi sáng tiết 1–4:
 
 Mỗi GV tiếng anh dạy 23 tiết; ngoài tiết 1, Thứ 6 tiết 4 và tiết 7, họ chỉ còn 22 slot, nên luôn còn ít nhất 1 tiết Tiếng Anh ở tiết 7 mỗi người.
 
+### 6.1. Luật riêng của trường (sheet `LUẬT RIÊNG`)
+
+Nhà trường tự thêm luật mà không sửa code: mỗi dòng một luật thuộc một **kiểu luật chung** (`tkb/luat_rieng.py`),
+**[Cứng]** khi cột Bắt buộc = Có, không thì **[Mềm]** với mức 1, 2, 3 (`Weights.custom_levels` = 100, 400, 1.500 điểm
+mỗi lần không theo). Môn so khớp tên như các quy định khác; Khối trống là mọi khối; Ngày, Tiết, Buổi trống là mọi giá trị.
+
+| Kiểu luật | Cứng | Mềm (mỗi lần không theo) |
+|---|---|---|
+| Không xếp vào | Bỏ các ô (ngày, tiết, buổi) đó khỏi miền ô của môn (`solver.allowed_slots`) | Mỗi tiết của môn ở các ô đó |
+| Chỉ xếp vào | Chỉ giữ các ô đó trong miền ô của môn | Mỗi tiết của môn ngoài các ô đó |
+| Học 2 tiết liền | Thêm nhóm môn vào các nhóm ghép cặp (`allocation.paired_groups`): mỗi buổi 0 hoặc 2 tiết liền, cùng người; phân công chia chẵn | Mỗi tiết của nhóm không có tiết cùng nhóm liền trước hay liền sau trong buổi |
+| Học trước | Trong một buổi, không tiết Môn thứ hai nào đứng trước tiết Môn | Mỗi cặp (tiết Môn thứ hai, tiết Môn đứng sau nó) trong buổi |
+| Giáo viên tối đa tiết mỗi ngày | Mỗi GV có chức vụ đó dạy tối đa Số tiết mỗi ngày; phân công tính sức chứa theo đó (`phan_cong.teacher_slots`) | Mỗi tiết vượt |
+| Số lớp học cùng lúc tối đa | Mỗi tiết tối đa Số lớp học môn đó (các khối của luật) | Mỗi lớp vượt |
+
+- Luật cứng được kiểm lại độc lập (`checker` gọi `luat_rieng.check`); luật mềm được LNS tính vào QA từng lớp-ngày.
+- Trước khi xếp: báo môn hay chức vụ không có (`validate`); đếm mâu thuẫn chắc chắn (`precheck`): luật vị trí để lại ít ô
+  hơn số tiết, Học 2 tiết liền mà số tiết lẻ, số lớp cùng lúc không đủ ô. Không xếp được: mỗi luật cứng là một nhóm luật
+  để chẩn đoán nới thử (mục 9), lỗi in `LUẬT RIÊNG dòng n: <luật bằng lời>`.
+- Phân công: còn phần lẻ trong nhóm ghép cặp thì đổi chéo 1 tiết giữa hai người cùng lẻ, hoặc nhờ người thứ ba có tiết ở
+  nhóm không ghép cặp (`phan_cong._Local.repair`). Chỉ chạy khi còn phần lẻ, nên phân công khác không đổi.
+- Không có luật riêng: mô hình y như cũ, mã kết quả và mã quy định không đổi.
+
 ---
 
 ## 7. Xử lý khi thiếu người
@@ -457,7 +493,15 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
    - Màn hình in "chi phí xếp giờ" (mục tiêu trừ phần của phân công, là hằng số) sau khởi đầu và sau mỗi vòng. Trạng thái là FEASIBLE: kết quả là tốt nhất tìm được (tối ưu cục bộ theo các vùng), không chứng minh tối ưu.
 
    Chế độ tuyển: giữ người mới. Chế độ bù giờ: trả các ô của người mới về đúng người bù. Hai chế độ cùng vị trí môn; mã kết quả khác nhau vì người dạy các ô bù khác nhau.
-6. **Dự phòng** (chỉ chế độ tuyển): nếu bước 2 không xếp được, giải một lần CP-SAT mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ), cho phép thêm 1 người dự phòng mỗi chức vụ, rồi 3 người. Chế độ bù giờ thì báo lỗi.
+6. **Dự phòng** (chỉ chế độ tuyển): nếu bước 2 không xếp được, giải một lần CP-SAT mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ), cho phép thêm 1 người dự phòng mỗi chức vụ, rồi 3 người. Vẫn không được (hoặc chế độ bù giờ) thì **chẩn đoán** (bên dưới) rồi báo lỗi.
+
+**Quy định mâu thuẫn** (`tkb/chan_doan.py`):
+- **Đếm trước khi xếp** (ngay sau bước 2 ở trên, và khi bấm Kiểm tra trên giao diện): chỉ báo khi chắc chắn không có TKB nào thỏa, theo từng khối: nhóm môn có nhiều tiết hơn "Số tiết tối đa một nhóm môn mỗi buổi" × số buổi; nhóm phải ghép cặp mà giới hạn mỗi buổi dưới 2, hoặc không đủ buổi có từ 2 tiết, hoặc môn có "Tối đa tiết mỗi ngày" dưới 2. Cùng với các phép đếm sẵn có (tổng số tiết vượt khung giờ, GVCN không đủ tiết cho tiết "Luôn do GVCN dạy", môn không đủ ô hợp lệ).
+- **Chẩn đoán khi không xếp được:** mỗi lần thử là một mô hình xếp giờ (phân công cố định như bước 2) tìm nghiệm đầu tiên, tối đa 30 đơn vị, với một số nhóm luật bắt buộc được nới: giới hạn nhóm môn mỗi buổi, ghép cặp, tối đa tiết mỗi ngày, tiết tăng cường sau tiết chính, các tiết cùng môn liền nhau, liên tiết cùng người dạy, GVCN dạy tiết đầu tuần, tiết luôn do GVCN dạy, HĐTN (tiết cố định, ngày xếp), buổi nghỉ, mỗi buổi một cơ sở.
+  - Không nới gì mà vẫn xếp được, hoặc chưa biết: do thiếu thời gian (tăng `THOI_GIAN_TOI_DA`), không phải mâu thuẫn.
+  - Nới hết mà vẫn không được: do nhân sự, định mức hoặc quyền dạy.
+  - Còn lại: lọc bỏ dần từng nhóm luật, còn lại **nhóm luật nhỏ nhất không cùng thỏa được**; rồi thử nới riêng từng luật trong đó để báo luật nào nới riêng là đủ. Lỗi in tên quy định như trong file vào (vd "Số tiết tối đa một nhóm môn mỗi buổi (sheet QUY ĐỊNH)").
+  - Khi xếp thật không nới luật nào (`solver.RELAXED` rỗng): mô hình và mã kết quả không đổi.
 7. **Kiểm tra độc lập** (mục 10) và xuất file (mục 11).
 
 **Thời gian và tái lập:**
@@ -544,7 +588,7 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
 - **Thống kê gọn theo mẫu file vào:** tô nền cả dòng (đến cột tiêu đề cuối) người dạy bù (vàng, như file thống kê), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **HƯỚNG DẪN** viết lại mỗi lần: cách ghi từng cột của file vào, rồi các cột kết quả, các màu và sheet TKB đã xếp (chữ thường; thay sheet Chú thích của bản trước). Không ghi chú thích dưới bảng, để file vẫn đọc lại được. Mọi ghi chú (comment) của file vào bị bỏ, mọi công thức đổi thành giá trị (STT `=ROW()-1` tự tính nếu file chưa lưu giá trị). Chạy lại trên file này thì màu cũ của chương trình được bỏ trước khi tô.
 - Chỉ chữ, số và màu: bỏ cố định dòng/cột, danh sách thả xuống, định dạng theo điều kiện và sheet danh mục ẩn của file mẫu (các thứ này không cần để đọc lại file).
 - Dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc). File gốc không bị sửa.
-- **Quy định** (mục 2.5): file ghi đủ các quy định đã dùng, để nhà trường sửa rồi nạp lại: sheet CHƯƠNG TRÌNH HỌC thêm các cột quy định còn thiếu (chép style của file vào) và dòng cho môn có quy định mà chương trình học chưa có (số tiết để trống); sheet QUY ĐỊNH giữ nguyên nếu file vào đã có, chưa có thì ghi sau sheet CHƯƠNG TRÌNH HỌC.
+- **Quy định** (mục 2.5): file ghi đủ các quy định đã dùng, để nhà trường sửa rồi nạp lại: sheet CHƯƠNG TRÌNH HỌC thêm các cột quy định còn thiếu (chép style của file vào) và dòng cho môn có quy định mà chương trình học chưa có (số tiết để trống); sheet CHỨC VỤ (các chức vụ GV chuyên biệt có người giữ, mục 2.1.2), QUY ĐỊNH và LUẬT RIÊNG giữ nguyên nếu file vào đã có, chưa có thì ghi sau sheet CHƯƠNG TRÌNH HỌC.
 - **Sheet TKB đã xếp** (`config.SAVED_SHEET`), dạng lưới như TKB: dòng 1 ghi `Mã kết quả` và `Mã quy định` (`rules.code`, tính từ giá trị các quy định); bảng `Lớp | Tiết | Thứ 2 … Thứ 6`, mỗi lớp 7 dòng (tên lớp ở dòng đầu), mỗi ô ghi môn, xuống dòng ghi Mã GV, thêm `(bù)` ở tiết dạy bù; ô không học ghi `Nghỉ`. Nạp lại mà quy định đã sửa (mã quy định khác) thì xếp lại từ đầu theo quy định mới; file chưa có mã này thì bỏ qua bước so mã.
   - Nạp lại file này làm file vào (`GIU_TKB_DA_XEP = True`, mặc định), chương trình dùng lại TKB đó thay vì xếp lại (`solver.reuse`), với điều kiện:
     - mọi Lớp, Môn, Mã GV có trong file vào;
@@ -614,7 +658,8 @@ Các hằng số nghiệp vụ dưới đây là **giá trị mặc định**: q
 |---|---|
 | `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS` | Khung thời gian (mục 3) |
 | `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS` | HĐTN (mục 5.6) |
-| `GENERAL_FORBIDDEN_SUBJECTS`, `HOMEROOM_ONLY_SUBJECTS`, `MANAGER_RULES` | Quyền dạy (mục 4); GV chuyên biệt suy ra từ tên chức vụ, không cấu hình |
+| `GENERAL_FORBIDDEN_SUBJECTS`, `HOMEROOM_ONLY_SUBJECTS`, `MANAGER_RULES` | Quyền dạy (mục 4) |
+| `CUSTOM_ROLES` (`Role`) | Chức vụ GV chuyên biệt tự đặt, sheet CHỨC VỤ (mục 2.1.2); mặc định trống: GV chuyên biệt là chức vụ trùng tên môn |
 | `TV`, `TOAN`, `HDTN`…, `DISPLAY_NAMES` | Tên các môn có luật (so khớp với file vào, mục 2.3) và tên viết tắt |
 | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | Phân GVCN (mục 5) |
 | `HOMEROOM_PERIODS` | Tiết luôn do GVCN dạy (mục 5.5) |

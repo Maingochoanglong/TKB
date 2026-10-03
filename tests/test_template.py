@@ -6,11 +6,11 @@ from tkb import config
 from tkb.program import read_program
 from tkb.solver import solve
 from tkb.staff import read_staff
-from tkb.rules import DEFAULTS, read_rules
+from tkb.rules import DEFAULTS, changed, read_rules
 from tkb.template import main as template_main, write_staff_template
 from tkb.writer import write_updated_staff
 
-from .conftest import CURRICULUM, small_staff
+from .conftest import CURRICULUM, INPUT_SHEETS, small_staff
 
 ROOT = Path(__file__).resolve().parent.parent
 HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy", "Buổi Nghỉ")
@@ -29,7 +29,7 @@ def test_template_is_plain(tmp_path, sample_staff):
     path = tmp_path / "mau.xlsx"
     write_staff_template(path, sample_staff, CURRICULUM)
     wb = openpyxl.load_workbook(path)
-    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN"]
+    assert wb.sheetnames == INPUT_SHEETS
     ws = wb["NHÂN SỰ"]
     # Style như file của nhà trường: Times New Roman 14 chữ đen, tiêu đề đậm, không tô nền, viền mảnh, dòng cao 25.
     assert ws["A1"].font.name == "Times New Roman" and ws["A1"].font.sz == 14 and ws["A1"].font.b
@@ -100,7 +100,7 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     # File vào theo mẫu cũ có danh sách thả xuống, định dạng theo điều kiện, sheet danh mục ẩn, ghi chú ở tiêu đề
     # cột và cố định dòng; file cập nhật (file kết quả) chỉ còn chữ, số và màu.
     assert not ws.data_validations.dataValidation and not len(ws.conditional_formatting) and ws.freeze_panes is None
-    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN", "TKB đã xếp"]
+    assert wb.sheetnames == [*INPUT_SHEETS, "TKB đã xếp"]
     assert not any(c.comment for sheet in wb.worksheets for row in sheet.iter_rows() for c in row)
     rows = _rows(ws)
     assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy", "Số Tiết Dư")
@@ -186,7 +186,9 @@ def test_updated_staff_turns_formulas_into_values(tmp_path):
     # File vào không ghi quy định: file cập nhật ghi các quy định đã dùng (cột quy định của môn thêm vào sheet chương
     # trình học, sheet QUY ĐỊNH sau sheet đó) và sheet HƯỚNG DẪN.
     wb = openpyxl.load_workbook(dst)
-    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN", "TKB đã xếp"]
+    assert wb.sheetnames == [*INPUT_SHEETS, "TKB đã xếp"]
     program = _rows(wb["CHƯƠNG TRÌNH HỌC"])
     assert program[0][:3] == ("Môn học", "Khối 3", "Tên trong TKB") and program[1][:2] == ("Tiếng Việt", 7)
-    assert read_rules(dst) == DEFAULTS
+    rules = read_rules(dst)  # sheet CHỨC VỤ: các GV chuyên biệt đang có, chức vụ trùng tên môn (như không ghi)
+    assert {**rules, "CUSTOM_ROLES": []} == DEFAULTS and changed(rules) == []
+    assert [r.name for r in rules["CUSTOM_ROLES"]] == ["Tiếng Anh", "Thể Dục", "Âm Nhạc", "Mỹ Thuật", "Tin Học"]

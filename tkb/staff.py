@@ -78,15 +78,17 @@ SPECIAL_ROLES = (config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER)
 
 
 def role_errors(teachers: list[Teacher], subjects) -> list[str]:
-    """Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý và không trùng tên môn nào của chương trình học."""
-    keys = {subject_key(s) for s in subjects}
+    """Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý, không có trong sheet CHỨC VỤ (config.CUSTOM_ROLES) và không trùng
+    tên môn nào của chương trình học."""
+    keys = {subject_key(s) for s in subjects} | {subject_key(r.name) for r in config.CUSTOM_ROLES}
     bad: dict[str, list[str]] = {}
     for t in teachers:
         if t.role not in SPECIAL_ROLES and subject_key(t.role) not in keys:
             bad.setdefault(t.label or t.role, []).append(str(t.row) if t.row else "?")
     valid = ", ".join(config.ROLE_LABELS[r] for r in SPECIAL_ROLES)
-    return [f"Dòng {', '.join(rows)}: chức vụ '{label}' không xác định (hợp lệ: {valid} hoặc đúng tên một môn "
-            f"trong sheet {config.PROGRAM_SHEET})" for label, rows in bad.items()]
+    return [f"Dòng {', '.join(rows)}: chức vụ '{label}' không xác định (hợp lệ: {valid}, một chức vụ của sheet "
+            f"{config.ROLES_SHEET} hoặc đúng tên một môn trong sheet {config.PROGRAM_SHEET})"
+            for label, rows in bad.items()]
 
 
 def canonical_title(role: str, index: int | None, class_name: str | None) -> str:

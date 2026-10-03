@@ -81,8 +81,8 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             if not any(manager_allowed(r, les.class_name, grade, les.subject) for r in config.MANAGER_RULES):
                 errors.append(f"{at}: {t.title} không được dạy {les.subject}")
         elif t.role in problem.specialists:
-            if les.subject != problem.specialists[t.role]:
-                errors.append(f"{at}: {t.title} chỉ được dạy {problem.specialists[t.role]}")
+            if les.subject not in problem.specialists[t.role]:
+                errors.append(f"{at}: {t.title} chỉ được dạy {', '.join(problem.specialists[t.role])}")
 
     # GVCN dạy đủ phần đã phân; phần dạy thêm chỉ là tiết bù hợp lệ (chế độ bù giờ).
     homeroom = {t.class_name: t.title for t in teachers.values() if t.class_name}
@@ -135,6 +135,9 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
     errors.extend(_check_teacher_sessions(problem, lessons))
     if student_rules:
         errors.extend(_check_student_rules(problem, lessons))
+    if config.CUSTOM_RULES:  # luật riêng bắt buộc (tkb/luat_rieng.py)
+        from .luat_rieng import check as check_custom
+        errors.extend(check_custom(problem, lessons))
     return errors
 
 
@@ -209,7 +212,7 @@ def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
     n_days = len(config.DAY_SESSIONS)
     for cls in problem.classes:
         req = problem.curriculum[grade_of(cls)]
-        pairs = paired_groups(req)
+        pairs = paired_groups(req, grade_of(cls))
         for d, sessions in config.DAY_SESSIONS.items():
             day_subjects = [grid.get((cls, d, p)) for s in sessions for p in s.periods]
             for subject, limit in config.DAILY_LIMITS.items():

@@ -169,6 +169,10 @@ def _run(args, settings: config.Settings) -> int:
                           if any(les.subject == s for les in core))
         afternoon = sum(1 for les in core if les.period not in config.MORNING.periods)
         print(f"{names} ở buổi chiều: {afternoon}/{len(core)} tiết (mục tiêu mềm: dành buổi sáng cho các môn này)")
+    if config.CUSTOM_RULES:  # luật riêng ưu tiên: số lần không theo
+        from .luat_rieng import soft_report
+        for line in soft_report(solution.problem, solution.lessons):
+            print(f"{line} (ưu tiên, càng ít càng tốt)")
     for e in errors[:20]:
         print(f"  LỖI: {e}")
     for path in timetables:
