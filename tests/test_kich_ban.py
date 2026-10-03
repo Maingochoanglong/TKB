@@ -171,3 +171,16 @@ def test_custom_rules_round_trip(tmp_path):
     back["custom"].append({"kind": "Học trước", "subject": "Toán"})
     assert "LUẬT RIÊNG, dòng 4: kiểu luật Học trước phải ghi cột Môn thứ hai" in \
         kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"]
+
+
+def test_history_and_leave_as_the_page_writes_them(tmp_path):
+    """Trang Giáo viên ghi Lớp Đang Dạy, Buổi Nghỉ bằng ô đánh dấu, ra chữ dạng "3/1, 4/2" và "Chiều T5, 2 buổi
+    chiều, 1 buổi sáng, 1 buổi": chương trình đọc đúng như khi ghi tay."""
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    i = next(i for i, row in enumerate(scenario["staff"]) if row["role"] == "Tiếng Anh")
+    scenario["staff"][i] |= {"history": "3/1, 3/2, 4/2", "off": "Chiều T5, 2 buổi chiều, 1 buổi sáng, 1 buổi"}
+    kich_ban.to_excel(scenario, tmp_path / "ra.xlsx")
+    t = next(t for t in read_staff(tmp_path / "ra.xlsx") if t.row == i + 2)
+    assert t.history == {"3/1", "3/2", "4/2"} and t.off_sessions == {(3, "Chiều")}
+    assert dict(t.off_any) == {"Chiều": 2, "Sáng": 1, None: 1}
+    assert kich_ban.check(scenario, config.MODE_OVERTIME, 2)["errors"] == []

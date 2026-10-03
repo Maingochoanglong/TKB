@@ -80,7 +80,9 @@ Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 1
 JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself
 (subject detail groups `kich_ban.SUBJECT_GROUPS`, ungrouped columns go to "Khác"). Steps: Khung giờ → Môn học (list +
 detail dialog) → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
-`scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select) → Luật riêng →
+`scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select; the detail
+dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
+counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật riêng →
 Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page.
 `kich_ban.to_excel` writes it with `template.write_input` (same layout as the template); `from_excel` reads staff/program
 cells as written and rules via `read_rules` + `rule_tables`/`subject_columns` (missing ones = defaults), keeping sheet

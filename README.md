@@ -41,8 +41,10 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      **+ Thêm chức vụ**: đặt tên (vd `GV Nghệ thuật`) và đánh dấu các môn được dạy (sheet `CHỨC VỤ`). Trang nhắc môn
      nào Bộ Môn không dạy mà chưa có chức vụ hay giáo viên nào dạy.
    - **Giáo viên**: danh sách NHÂN SỰ, chọn **Chức Vụ** trong danh sách các chức vụ ở bước trước; ô Lớp chỉ mở cho Chủ
-     Nhiệm; lọc theo chức vụ; **Sửa** để ghi Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ; **Dán từ Excel…** để
-     dán cả danh sách.
+     Nhiệm; lọc theo chức vụ; **Dán từ Excel…** để dán cả danh sách. **Sửa** mở trang chi tiết: Thai Sản, Hợp Đồng,
+     Cơ sở 2; **Lớp Đang Dạy** đánh dấu trong các lớp của trường (nút Khối k chọn cả khối); **Buổi Nghỉ** đánh dấu buổi
+     cố định trên bảng ngày × buổi và ghi số buổi nghỉ thêm bất kỳ: buổi sáng, buổi chiều, hoặc sáng hay chiều đều được
+     (GVCN không nghỉ buổi sáng). Trang ghi ra đúng chữ như ghi tay, vd `3/1, 3/2` và `Chiều T5, 2 buổi chiều`.
    - **Luật riêng**: chọn kiểu luật, điền các ô kiểu đó dùng (ô không dùng bị khóa), đánh dấu Bắt buộc hoặc chọn mức
      ưu tiên; mỗi dòng hiện luật bằng lời, vd "Thể dục chỉ xếp vào buổi chiều (ưu tiên mức 3)".
 

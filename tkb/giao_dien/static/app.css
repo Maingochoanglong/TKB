@@ -274,3 +274,17 @@ select.bad, table.grid select.bad { border-color: var(--danger); color: var(--da
 .card.flash { animation: flash 2.2s ease-out; }
 #staff-filter { width: auto; }
 .actions label.check { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; cursor: pointer; }
+
+/* Giáo viên: lớp đang dạy, buổi nghỉ */
+.gen-row.block { grid-template-columns: 1fr; }
+.gen-row.block .val { justify-self: stretch; display: grid; gap: 6px; }
+.grade-row { display: flex; gap: 8px; align-items: flex-start; }
+.grade-row > button { flex: none; min-width: 72px; justify-content: center; }
+table.off-grid { width: auto; }
+table.off-grid th, table.off-grid td { padding: 4px 10px; }
+table.off-grid tbody th { text-align: left; }
+.any-row { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.any-off { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.any-off input[type=number] { width: 64px; }
+.detail .preview { margin: 2px 0 0; font-size: 13.5px; }
+.detail .warn-text { margin: 0; font-size: 13.5px; }

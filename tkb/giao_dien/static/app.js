@@ -235,10 +235,136 @@ function renderDetail() {
       let field = input(c.kind, t[c.key], { f: "staff", i, k: c.key }, "wide");
       if (c.key === "role") field = roleSelect(t.role, i);
       if (c.key === "class" && !isHomeroom(t)) field = `<input type="text" disabled placeholder="Chỉ Chủ Nhiệm ghi Lớp">`;
+      if (c.key === "history") return formBlock(c.header, `<div id="hist-box">${historyBox(t, i)}</div>`, c.note);
+      if (c.key === "off") return formBlock(c.header, `<div id="off-box">${offBox(t, i)}</div>`, c.note);
       return formRow(c.header, field, c.note);
     }).join("")}</fieldset>`;
   }
   $("#detail-body").innerHTML = html;
+}
+
+// ---------------------------------------------------------------- giáo viên: lớp đang dạy, buổi nghỉ
+// Hai cột chữ của sheet NHÂN SỰ, chọn bằng ô đánh dấu. Chữ ghi ra đúng cách chương trình đọc (staff.parse_classes,
+// staff.parse_off); mục không đọc được giữ nguyên chữ để nút Kiểm tra báo lỗi, bấm ✕ để bỏ.
+function formBlock(label, html, note = "") {
+  return `<div class="gen-row block"><span>${esc(label)}</span><div class="val">${html}</div>${note ? `<small>${esc(note)}</small>` : ""}</div>`;
+}
+const fold = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d")
+  .replace(/\s+/g, " ").trim();
+const classKey = (c) => String(c ?? "").toLowerCase().replace(/\s+/g, "");
+function classOrder(c) { // như staff.class_sort_key: khối, phần chữ, số
+  const m = String(c).match(/^(\d+)\D*?(\p{L}*)(\d*)$/u);
+  return m ? [Number(m[1]), m[2].toUpperCase(), Number(m[3] || 0)] : [Infinity, String(c), 0];
+}
+const byClass = (a, b) => {
+  const [x, y] = [classOrder(a), classOrder(b)];
+  return x[0] - y[0] || (x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : 0) || x[2] - y[2];
+};
+function schoolClasses() { // các lớp của trường: cột Lớp của các dòng Chủ Nhiệm
+  const seen = new Map();
+  for (const t of st.scenario.staff) {
+    const c = String(t.class || "").trim();
+    if (isHomeroom(t) && c && !seen.has(classKey(c))) seen.set(classKey(c), c);
+  }
+  return [...seen.values()].sort(byClass);
+}
+const histList = (t) => String(t.history || "").split(/[,;]/).map((c) => c.trim()).filter(Boolean);
+function setHistory(t, list) {
+  const known = new Set(schoolClasses().map(classKey));
+  const uniq = [...new Map(list.map((c) => [classKey(c), c])).values()];
+  t.history = [...uniq.filter((c) => known.has(classKey(c))).sort(byClass), ...uniq.filter((c) => !known.has(classKey(c)))]
+    .join(", ");
+}
+function historyBox(t, i) {
+  if (isHomeroom(t)) return `<p class="muted">Chủ Nhiệm dạy lớp mình; cột này dành cho GV bộ môn, chuyên biệt.</p>`;
+  const classes = schoolClasses();
+  if (!classes.length) return `<p class="muted">Chưa có lớp nào: ghi Lớp cho các Chủ Nhiệm trước.</p>`;
+  const chosen = new Set(histList(t).map(classKey));
+  const grades = [...new Set(classes.map((c) => classOrder(c)[0]))];
+  const rows = grades.map((g) => {
+    const list = classes.filter((c) => classOrder(c)[0] === g);
+    return `<div class="grade-row"><button type="button" class="ghost small" data-act="hist-grade" data-i="${i}" data-g="${g}"
+      title="Chọn hoặc bỏ cả khối">Khối ${g}</button><div class="checks">${list.map((c) => `<label class="check-item">
+      <input type="checkbox" data-f="hist" data-i="${i}" data-c="${esc(c)}" ${chosen.has(classKey(c)) ? "checked" : ""}> ${esc(c)}</label>`).join("")}</div></div>`;
+  }).join("");
+  const known = new Set(classes.map(classKey));
+  const unknown = histList(t).filter((c) => !known.has(classKey(c)));
+  return rows + unknown.map((c) => `<p class="warn-text">Không có Chủ Nhiệm lớp "${esc(c)}"
+    <button type="button" class="icon" data-act="hist-drop" data-i="${i}" data-c="${esc(c)}" title="Bỏ lớp này">✕</button></p>`).join("");
+}
+// Khung giờ của kịch bản: ngày học (liền nhau từ Thứ 2) và các buổi của từng ngày.
+const SESSIONS = () => S.custom.sessions; // ["Sáng", "Chiều"]
+function frameDays() {
+  const days = st.scenario.days || [];
+  const out = [];
+  for (let d = 0; d < days.length && days[d] && days[d].morning_days; d++) {
+    out.push({ d, sessions: [SESSIONS()[0], ...(days[d].afternoon_days ? [SESSIONS()[1]] : [])] });
+  }
+  return out;
+}
+const sessionOf = (word) => SESSIONS().find((s) => fold(s) === word);
+function offState(text) {
+  const o = { fixed: new Set(), any: Object.fromEntries([...SESSIONS(), ""].map((s) => [s, 0])), other: [] };
+  const days = frameDays();
+  for (const part of String(text || "").split(/[,;]/)) {
+    const raw = part.trim();
+    if (!raw) continue;
+    const item = fold(raw);
+    let m = item.match(/^(\w+)\s*(?:thu|t)?\s*(\d)$/);
+    if (m && sessionOf(m[1])) {
+      const s = sessionOf(m[1]);
+      const day = days.find((x) => x.d === Number(m[2]) - 2);
+      if (day && day.sessions.includes(s)) o.fixed.add(`${day.d}|${s}`);
+      else o.other.push({ raw, note: day ? "buổi này vốn nghỉ, chương trình bỏ qua" : "không có ngày này trong khung giờ" });
+      continue;
+    }
+    m = item.match(/^(\d+)\s*buoi(?:\s+(\w+))?(?:\s+bat k[yi])?$/);
+    if (m && (!m[2] || sessionOf(m[2]))) o.any[m[2] ? sessionOf(m[2]) : ""] += Number(m[1]);
+    else o.other.push({ raw, note: "không đọc được" });
+  }
+  return o;
+}
+function offText(o) {
+  const parts = [];
+  for (const { d } of frameDays()) for (const s of SESSIONS()) if (o.fixed.has(`${d}|${s}`)) parts.push(`${s} T${d + 2}`);
+  for (const s of SESSIONS()) if (o.any[s] > 0) parts.push(`${o.any[s]} buổi ${s.toLowerCase()}`);
+  if (o.any[""] > 0) parts.push(`${o.any[""]} buổi`);
+  return [...parts, ...o.other.map((x) => x.raw)].join(", ");
+}
+function offBox(t, i) {
+  const o = offState(t.off);
+  const days = frameDays();
+  const [morning] = SESSIONS();
+  const cn = isHomeroom(t);
+  const locked = (s, on) => cn && s === morning && !on; // GVCN không nghỉ buổi sáng (tiết luôn do GVCN dạy)
+  const grid = `<table class="grid off-grid"><thead><tr><th></th>${days.map(({ d }) => `<th>${esc(S.days[d])}</th>`).join("")}</tr></thead>
+    <tbody>${SESSIONS().map((s) => `<tr><th>${esc(s)}</th>${days.map(({ d, sessions }) => {
+      if (!sessions.includes(s)) return `<td class="muted">—</td>`;
+      const on = o.fixed.has(`${d}|${s}`);
+      return `<td><input type="checkbox" data-f="off-fixed" data-i="${i}" data-d="${d}" data-s="${esc(s)}" ${on ? "checked" : ""}
+        ${locked(s, on) ? "disabled title=\"GVCN không nghỉ buổi sáng\"" : ""} aria-label="${esc(`${s} ${S.days[d]}`)}"></td>`;
+    }).join("")}</tr>`).join("")}</tbody></table>`;
+  const anyInput = (s, label) => `<label class="any-off"><input type="number" min="0" step="1" data-f="off-any" data-i="${i}"
+    data-s="${esc(s)}" value="${o.any[s] || ""}" placeholder="0" ${locked(s, o.any[s] > 0) ? "disabled" : ""}> ${esc(label)}</label>`;
+  return `<p class="muted">Buổi cố định: đánh dấu buổi nghỉ.</p>${grid}
+    <p class="muted">Nghỉ thêm buổi bất kỳ (chương trình tự chọn buổi cho TKB tốt nhất):</p>
+    <div class="any-row">${SESSIONS().map((s) => anyInput(s, `buổi ${s.toLowerCase()}`)).join("")}${anyInput("", "buổi sáng hoặc chiều")}</div>
+    <div id="off-note">${offNote(t, i)}</div>`;
+}
+function offNote(t, i) {
+  const o = offState(t.off);
+  const days = frameDays();
+  const notes = [];
+  for (const s of [...SESSIONS(), ""]) { // như staff.parse_off: số buổi bất kỳ không quá số buổi còn lại
+    const free = days.reduce((n, { d, sessions }) => n + sessions.filter((x) => (!s || x === s) && !o.fixed.has(`${d}|${x}`)).length, 0);
+    if (o.any[s] > free) notes.push(`<p class="warn-text">Xin nghỉ ${o.any[s]} buổi ${s ? s.toLowerCase() : "bất kỳ"} nhưng chỉ còn ${free} buổi để chọn.</p>`);
+  }
+  if (isHomeroom(t) && ([...o.fixed].some((k) => k.endsWith(`|${SESSIONS()[0]}`)) || o.any[SESSIONS()[0]] > 0)) {
+    notes.push(`<p class="warn-text">GVCN không nghỉ buổi sáng được (tiết Luôn do GVCN dạy, bước 1).</p>`);
+  }
+  notes.push(...o.other.map((x, k) => `<p class="warn-text">"${esc(x.raw)}": ${esc(x.note)}
+    <button type="button" class="icon" data-act="off-drop" data-i="${i}" data-k="${k}" title="Bỏ mục này">✕</button></p>`));
+  return `<p class="preview">Ghi vào file: <b>${esc(t.off || "không nghỉ buổi nào")}</b></p>${notes.join("")}`;
 }
 
 // ---------------------------------------------------------------- tab 2: môn học
@@ -791,6 +917,21 @@ function onEdit(e) {
       renderStaff();
       if (detail) renderDetail();
     }
+  } else if (d.f === "hist") {
+    const t = sc.staff[i];
+    const rest = histList(t).filter((c) => classKey(c) !== classKey(d.c));
+    setHistory(t, v ? [...rest, d.c] : rest);
+  } else if (d.f === "off-fixed" || d.f === "off-any") {
+    const t = sc.staff[i];
+    const o = offState(t.off);
+    if (d.f === "off-fixed") {
+      const k = `${d.d}|${d.s}`;
+      if (v) o.fixed.add(k); else o.fixed.delete(k);
+    } else {
+      o.any[d.s] = Number.isInteger(v) && v > 0 ? v : 0;
+    }
+    t.off = offText(o);
+    $("#off-note").innerHTML = offNote(t, i);
   } else if (d.f === "rulec") {
     const row = sc.custom[i];
     row[d.k] = d.k === "level" ? Number(v) : v;
@@ -833,6 +974,30 @@ async function onClick(e) {
     case "edit-staff":
       openDetail("staff", i);
       return;
+    case "hist-grade": {
+      const t = sc.staff[i];
+      const grade = schoolClasses().filter((c) => String(classOrder(c)[0]) === btn.dataset.g);
+      const chosen = new Set(histList(t).map(classKey));
+      const all = grade.every((c) => chosen.has(classKey(c)));
+      const keys = new Set(grade.map(classKey));
+      setHistory(t, all ? histList(t).filter((c) => !keys.has(classKey(c))) : [...histList(t), ...grade]);
+      $("#hist-box").innerHTML = historyBox(t, i);
+      break;
+    }
+    case "hist-drop": {
+      const t = sc.staff[i];
+      setHistory(t, histList(t).filter((c) => c !== btn.dataset.c));
+      $("#hist-box").innerHTML = historyBox(t, i);
+      break;
+    }
+    case "off-drop": {
+      const t = sc.staff[i];
+      const o = offState(t.off);
+      o.other.splice(Number(btn.dataset.k), 1);
+      t.off = offText(o);
+      $("#off-box").innerHTML = offBox(t, i);
+      break;
+    }
     case "del-subject": {
       const name = named(sc.subjects[i]);
       if (!confirm(`Xóa môn "${name || "(chưa đặt tên)"}"?`)) return;
