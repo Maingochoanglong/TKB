@@ -84,6 +84,8 @@ detail dialog) → Chức vụ (built-in role cards edit the subject columns nam
 dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
 counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật riêng →
 Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page.
+Import (`/api/import` → `kich_ban.from_excel` + `sheets_in`) opens a dialog to take only some parts (staff replace/append,
+subjects+grades, roles, frame, custom rules, saved grid) into the current scenario; `/api/template` gives the blank template.
 `kich_ban.to_excel` writes it with `template.write_input` (same layout as the template); `from_excel` reads staff/program
 cells as written and rules via `read_rules` + `rule_tables`/`subject_columns` (missing ones = defaults), keeping sheet
 `TKB đã xếp`; `check` writes a temp file and reads it back with the real readers, then runs the estimate

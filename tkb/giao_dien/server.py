@@ -46,6 +46,7 @@ MODES = [{"key": config.MODE_OVERTIME, "label": "Bù giờ",
 RUN_DEFAULTS = {"name": "kich_ban", "mode": config.MODE_OVERTIME, "overtime_max": config.OVERTIME_MAX,
                 "student_rules": True, "time_limit": 1200, "reproducible": True, "keep_saved": True, "workers": 8}
 FILE_NAMES = {"tkb": "TKB.xlsx", "roles": "TKB_chuc_vu.xlsx", "stats": "Thong_Ke.xlsx"}
+TEMPLATE_NAME = "Mau_Input_V8.xlsx"  # file mẫu trống (như data/Input_Template_V8.xlsx)
 
 
 def default_out_dir() -> Path:
@@ -201,7 +202,8 @@ class App:
             raise InputError(f"Không đọc được file {name}: {exc}") from None
         except Exception as exc:  # không phải file Excel (.xlsx) hợp lệ
             raise InputError(f"Không đọc được file {name} (cần file Excel .xlsx): {exc}") from None
-        return {"scenario": scenario, "warnings": warnings, "name": safe_name(Path(name).stem)}
+        return {"scenario": scenario, "warnings": warnings, "name": safe_name(Path(name).stem),
+                "sheets": kich_ban.sheets_in(path)}
 
     def import_file(self, body: bytes, name: str):
         with tempfile.TemporaryDirectory() as tmp:
@@ -225,6 +227,16 @@ class App:
             path = Path(tmp) / f"{name}.xlsx"
             with self.lock:
                 kich_ban.to_excel(data["scenario"], path)
+            return path.read_bytes(), path.name
+
+    def template(self) -> tuple[bytes, str]:
+        """File vào mẫu trống (python -m tkb.template): nhà trường điền trong Excel rồi nhập lại."""
+        from ..template import write_staff_template
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / TEMPLATE_NAME
+            with self.lock:
+                write_staff_template(path)
             return path.read_bytes(), path.name
 
     def run(self, data: dict):
@@ -367,8 +379,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(HTTPStatus.OK, path.read_bytes(), XLSX if path.suffix == ".xlsx" else
                                   "application/octet-stream",
                                   {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(path.name)}"})
-            if method == "POST" and name == "export":
-                body, filename = app.export(json.loads(self._body() or b"{}"))
+            if (method, name) in (("POST", "export"), ("GET", "template")):
+                body, filename = app.export(json.loads(self._body() or b"{}")) if name == "export" else app.template()
                 return self._send(HTTPStatus.OK, body, XLSX,
                                   {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
             if method == "POST" and name == "import":

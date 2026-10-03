@@ -836,6 +836,85 @@ function useImported(data, label) {
     (warns ? `<ul>${warns}</ul>` : ""), warns ? "" : "ok");
 }
 
+// ---------------------------------------------------------------- nhập từ Excel
+// File vào V8 (mẫu đã điền, file của trường, file cập nhật) đọc ở máy chủ thành kịch bản; hộp thoại cho chọn phần nào
+// lấy vào kịch bản đang soạn. Mỗi phần ứng với một sheet; chọn hết là thay toàn bộ (như Nạp vào giao diện).
+const PARTS = [
+  { key: "staff", label: "Giáo viên", sheet: "staff", sum: (x) => `${x.staff.length} dòng` },
+  { key: "subjects", label: "Môn học và quy định của môn", sheet: "program",
+    sum: (x) => `${x.subjects.filter(named).length} môn, khối ${x.grades.join(", ")}` },
+  { key: "roles", label: "Chức vụ", sheet: "roles", sum: (x) => `${x.roles.filter(named).length} chức vụ GV chuyên biệt` },
+  { key: "frame", label: "Khung giờ và quy định chung", sheet: "rules",
+    sum: (x) => `${(x.days || []).filter((d) => d.morning_days).length} ngày học, ${(x.periods || []).length} tiết mỗi ngày` },
+  { key: "custom", label: "Luật riêng", sheet: "custom", sum: (x) => `${(x.custom || []).length} luật` },
+  { key: "saved", label: "TKB đã xếp", sheet: "saved", sum: () => "giữ TKB nếu vẫn đúng luật" },
+];
+let importPreset = null; // nút Nhập từ Excel… của một bước: chỉ chọn sẵn phần đó
+let imported = null; // {data, label}
+function openImport(data, label, preset) {
+  imported = { data, label };
+  const src = data.scenario;
+  const has = new Set((data.sheets || []).map((name) => Object.keys(S.sheets).find((k) => S.sheets[k] === name)));
+  has.add("staff"); // không có sheet NHÂN SỰ thì chương trình đọc sheet đầu tiên
+  $("#import-file").textContent = label;
+  $("#import-parts").innerHTML = PARTS.filter((p) => p.key !== "saved" || src.saved).map((p) => {
+    const inFile = has.has(p.sheet);
+    const on = preset ? preset.includes(p.key) : true; // nút ở thanh trên: mặc định thay toàn bộ như mở file
+    const staffMode = p.key === "staff" ? `<select id="import-staff-mode" aria-label="Cách nhập giáo viên">
+      <option value="replace">thay danh sách đang có</option><option value="append">thêm vào cuối danh sách</option></select>` : "";
+    return `<div class="import-part ${inFile ? "" : "off"}"><label><input type="checkbox" data-part="${p.key}" ${on ? "checked" : ""}>
+      <b>${esc(p.label)}</b></label><span class="muted">sheet ${esc(S.sheets[p.sheet])} · ${inFile ? esc(p.sum(src))
+      : "file không có sheet này: lấy giá trị mặc định"}</span>${staffMode}</div>`;
+  }).join("");
+  renderImportNotes();
+  $("#import-dialog").showModal();
+}
+function importChoice() {
+  return { parts: $$("#import-parts [data-part]").filter((el) => el.checked).map((el) => el.dataset.part),
+    all: $$("#import-parts [data-part]").every((el) => el.checked),
+    append: ($("#import-staff-mode") || {}).value === "append" };
+}
+function renderImportNotes() {
+  const src = imported.data.scenario;
+  const { parts } = importChoice();
+  const notes = [...imported.data.warnings];
+  if (parts.includes("staff") && !parts.includes("roles")) { // GV dùng chức vụ chỉ có trong file
+    const have = (name) => S.roles.some((r) => key(r) === key(name)) || st.scenario.roles.some((r) => key(r.name) === key(name));
+    const subjects = new Set([...subjectNames(), ...src.subjects.map(named)].map(key)); // trùng tên môn: tự có
+    const missing = [...new Set(src.staff.map((t) => String(t.role || "").trim())
+      .filter((r) => r && !have(r) && !subjects.has(key(r)) && src.roles.some((x) => key(x.name) === key(r))))];
+    if (missing.length) notes.push(`Giáo viên trong file có chức vụ ${missing.join(", ")} chưa có ở bước Chức vụ: nên nhập cả phần Chức vụ.`);
+  }
+  $("#import-notes").innerHTML = notes.length ? `<ul class="msgs">${notes.map((t) => `<li class="warn">${esc(t)}</li>`).join("")}</ul>` : "";
+  $("#import-apply").disabled = !parts.length;
+}
+function applyImport() {
+  const { data, label } = imported;
+  const { parts, all, append } = importChoice();
+  if (all && !append) { useImported(data, label); return; }
+  const sc = st.scenario;
+  const src = data.scenario;
+  if (parts.includes("staff")) sc.staff = append ? [...sc.staff, ...src.staff] : src.staff;
+  if (parts.includes("subjects")) { sc.subjects = src.subjects; sc.grades = src.grades; }
+  if (parts.includes("roles")) sc.roles = src.roles;
+  if (parts.includes("frame")) { sc.general = src.general; sc.days = src.days; sc.periods = src.periods; }
+  if (parts.includes("custom")) sc.custom = src.custom;
+  if (parts.includes("saved")) sc.saved = src.saved;
+  addImplicitRoles();
+  renderAll();
+  changed();
+  const names = PARTS.filter((p) => parts.includes(p.key)).map((p) => p.label.toLowerCase());
+  notify(`Đã nhập từ ${esc(label)}: ${esc(names.join(", "))}` +
+    (parts.includes("staff") && append ? ` (thêm ${src.staff.length} giáo viên vào cuối)` : "") + ".", "ok");
+}
+async function downloadBlob(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
 // ---------------------------------------------------------------- sự kiện
 let editFrom = null; // tên môn / chức vụ trước khi sửa (đổi tên thì đổi theo ở các bước khác)
 function onFocus(e) {
@@ -957,6 +1036,12 @@ async function onClick(e) {
     jumpTo(sheet, row);
     return;
   }
+  const imp = e.target.closest("[data-import]");
+  if (imp) {
+    importPreset = [imp.dataset.import];
+    $("#file-open").click();
+    return;
+  }
   const go = e.target.closest("[data-go]");
   if (go) {
     showTab(go.dataset.go);
@@ -1072,22 +1157,30 @@ function wire() {
   $("#btn-new").onclick = () => newScenario().catch(fail);
   $("#file-open").onchange = async (e) => {
     const file = e.target.files[0];
+    const preset = importPreset;
+    importPreset = null;
     e.target.value = "";
     if (!file) return;
     try {
       const data = await api("POST", "/api/import", await file.arrayBuffer(),
         { headers: { "X-File-Name": encodeURIComponent(file.name) } });
-      useImported(data, file.name);
+      openImport(data, file.name, preset);
+    } catch (err) { fail(err); }
+  };
+  $("#import-parts").addEventListener("change", renderImportNotes);
+  $("#import-dialog").addEventListener("close", () => {
+    if ($("#import-dialog").returnValue === "apply" && imported) applyImport();
+    imported = null;
+  });
+  $("#btn-template").onclick = async () => {
+    try {
+      downloadBlob(await api("GET", "/api/template", undefined, { blob: true }), "Mau_Input_V8.xlsx");
     } catch (err) { fail(err); }
   };
   $("#btn-export").onclick = async () => {
     try {
       const blob = await api("POST", "/api/export", { scenario: st.scenario, name: st.run.name }, { blob: true });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${st.run.name || "kich_ban"}.xlsx`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      downloadBlob(blob, `${st.run.name || "kich_ban"}.xlsx`);
     } catch (err) { fail(err); }
   };
   $("#btn-add-subject").onclick = () => {

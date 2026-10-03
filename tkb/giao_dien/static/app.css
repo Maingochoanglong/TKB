@@ -288,3 +288,13 @@ table.off-grid tbody th { text-align: left; }
 .any-off input[type=number] { width: 64px; }
 .detail .preview { margin: 2px 0 0; font-size: 13.5px; }
 .detail .warn-text { margin: 0; font-size: 13.5px; }
+
+/* Nhập từ Excel */
+.import-parts { display: grid; gap: 6px; }
+.import-part { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; }
+.import-part label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.import-part .muted { margin: 0; }
+.import-part.off { opacity: .7; }
+.import-part select { width: auto; margin-left: auto; }
+.card .toolbar h2 { margin-bottom: 0; }

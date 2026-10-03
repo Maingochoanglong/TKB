@@ -63,6 +63,7 @@ def test_import_check_export(server):
     status, data = _call(url, "/api/import", "POST", INPUT_FILE.read_bytes(), app.token,
                          {"X-File-Name": "Truong%20M%E1%BA%ABu.xlsx"})
     assert status == 200 and len(data["scenario"]["staff"]) == 45 and data["name"] == "Truong Mẫu"
+    assert data["sheets"] == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT RIÊNG"]
     status, res = _call(url, "/api/check", "POST", {"scenario": data["scenario"], "run": {"overtime_max": 2}}, app.token)
     assert status == 200 and res["errors"] == []
     status, xlsx = _call(url, "/api/export", "POST", {"scenario": data["scenario"], "name": "a/b"}, app.token)
@@ -71,6 +72,21 @@ def test_import_check_export(server):
     assert status == 400 and "Excel" in err["error"]
     status, err = _call(url, "/api/check", "POST", {"scenario": data["scenario"], "run": {"workers": 0}}, app.token)
     assert status == 400 and "luồng" in err["error"]
+
+
+def test_blank_template(server, tmp_path):
+    """Nút Tải file mẫu: đúng file mẫu trống của python -m tkb.template; nhập lại được."""
+    import openpyxl
+
+    app, url = server
+    status, xlsx = _call(url, f"/api/template?t={app.token}")
+    assert status == 200 and xlsx[:2] == b"PK"
+    (tmp_path / "tai.xlsx").write_bytes(xlsx)
+    write_staff_template(tmp_path / "mau.xlsx")
+    values = lambda p: [list(ws.values) for ws in openpyxl.load_workbook(p).worksheets]  # noqa: E731
+    assert values(tmp_path / "tai.xlsx") == values(tmp_path / "mau.xlsx")
+    status, data = _call(url, "/api/import", "POST", xlsx, app.token)
+    assert status == 200 and data["scenario"]["staff"] == [] and data["warnings"] == []
 
 
 def test_files_only_inside_output_folder(server, tmp_path):

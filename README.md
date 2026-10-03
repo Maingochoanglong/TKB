@@ -28,8 +28,11 @@ Mở `giao_dien.py` rồi bấm **Run ▶** (hoặc chạy `python giao_dien.py`
 `http://127.0.0.1:8765/`. Trang này **chạy ngay trên máy**: không cần Internet, không có máy chủ ngoài, tên giáo viên không
 rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
 
-1. **Tạo mới** (quy định mặc định, chưa có nhân sự) hoặc **Mở file Excel…** (file vào V8, kể cả file cập nhật
-   `*_cap_nhat.xlsx` của lần chạy trước).
+1. **Tạo mới** (quy định mặc định, chưa có nhân sự), hoặc làm trong Excel: **Tải file mẫu** (file mẫu trống đủ các
+   sheet, như `data/Input_Template_V8.xlsx`), điền rồi **Nhập từ Excel…**. Nhập được file vào V8 bất kỳ, kể cả file
+   cập nhật `*_cap_nhat.xlsx` của lần chạy trước. Hộp thoại nhập cho chọn phần nào lấy từ file (Giáo viên: thay danh
+   sách hoặc thêm vào cuối; Môn học; Chức vụ; Khung giờ và quy định chung; Luật riêng; TKB đã xếp), phần không chọn
+   giữ như đang soạn; chọn hết là thay toàn bộ. Mỗi bước cũng có nút **Nhập từ Excel…** chỉ lấy phần của bước đó.
 2. Soạn kịch bản của trường theo từng bước (nút **Tiếp →** cuối mỗi trang):
    - **Khung giờ & quy định chung**: số tiết sáng/chiều, giới hạn nhóm môn, ghép cặp, ai được bù, ngày học (có thể thêm
      Thứ 7), tiết HĐTN cố định, tiết luôn do GVCN dạy, tiết hạn chế môn nặng.

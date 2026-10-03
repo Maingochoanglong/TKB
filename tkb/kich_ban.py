@@ -247,6 +247,16 @@ def from_excel(path: str | Path) -> tuple[dict, list[str]]:
     return scenario, warnings
 
 
+def sheets_in(path: str | Path) -> list[str]:
+    """Các sheet của file vào V8 mà file có (tên chuẩn, theo thứ tự trong `schema()["sheets"]`): giao diện cho chọn
+    phần nào lấy từ file."""
+    wb = openpyxl.load_workbook(path, read_only=True)
+    try:
+        return [name for name in schema()["sheets"].values() if find_sheet(wb, name) is not None]
+    finally:
+        wb.close()
+
+
 def default_scenario() -> dict:
     """Kịch bản trống như file mẫu (python -m tkb.template): chưa có nhân sự, các môn có quy định mặc định với số tiết
     để trống, mọi quy định là giá trị mặc định."""
