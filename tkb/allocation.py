@@ -77,11 +77,17 @@ def paired_groups(grade_req: dict[str, int], grade: int | None = None) -> set[st
     for s, n in grade_req.items():
         totals[subject_group(s)] = totals.get(subject_group(s), 0) + n
     out = {g for g, n in totals.items()
-           if n >= config.PAIR_MIN_LESSONS and n % 2 == 0 and g not in config.PAIR_EXCLUDED}
+           if n >= config.PAIR_MIN_LESSONS and n % 2 == 0 and g not in config.PAIR_EXCLUDED} if config.on("ghep_cap") \
+        else set()
     if grade is not None and config.CUSTOM_RULES:
         from .luat_rieng import forced_pairs
         out |= forced_pairs(grade, totals)
     return out
+
+
+def homeroom_only() -> set[str]:
+    """Các môn chỉ GVCN dạy (cột Chỉ GVCN dạy), khi luật "Chỉ GVCN dạy" có trong sheet LUẬT."""
+    return set(config.HOMEROOM_ONLY_SUBJECTS) if config.on("chi_gvcn") else set()
 
 
 def sessions_per_week() -> int:
@@ -115,7 +121,7 @@ def resolve_roles(staff: list[Teacher], subject_labels: dict[str, str]
             where = f"{config.ROLES_SHEET}, dòng {r.row}" if r.row else f"Chức vụ {r.name}"
             if subject_key(s) not in names:
                 errors.append(f"{where}: không có môn '{s}' trong sheet {config.PROGRAM_SHEET}")
-            elif names[subject_key(s)] in config.HOMEROOM_ONLY_SUBJECTS:
+            elif names[subject_key(s)] in homeroom_only():
                 errors.append(f"{where}: môn '{s}' chỉ GVCN được dạy (cột Chỉ GVCN dạy)")
             else:
                 subjects.append(names[subject_key(s)])
@@ -131,7 +137,7 @@ def resolve_roles(staff: list[Teacher], subject_labels: dict[str, str]
             labels[t.role] = clean_name(t.label) if t.label else name or subject_labels[subjects[0]]
     covered = {s for subjects in specialists.values() for s in subjects}
     for s, label in subject_labels.items():
-        if (s in config.GENERAL_FORBIDDEN_SUBJECTS and s not in config.HOMEROOM_ONLY_SUBJECTS
+        if (s in config.GENERAL_FORBIDDEN_SUBJECTS and s not in homeroom_only()
                 and s not in covered):
             name, subjects = next(((n, subs) for n, subs in custom.values() if s in subs), (label, (s,)))
             specialists[normalize(name)] = subjects
@@ -282,8 +288,8 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     courses: list[Course] = []
     homeroom_take: dict[str, dict[str, int]] = {}
     pool: list[tuple[str, int, str, int]] = []
-    fixed_hdtn = tuple(config.HDTN_FIXED_SLOTS)
-    homeroom_slots = [s for s in slots if s[1] in config.HOMEROOM_PERIODS]
+    fixed_hdtn = tuple(config.HDTN_FIXED_SLOTS) if config.on("hdtn_co_dinh") else ()
+    homeroom_slots = [s for s in slots if s[1] in config.HOMEROOM_PERIODS] if config.on("tiet_gvcn") else []
 
     for cls in classes:
         grade = grade_of(cls)
@@ -301,10 +307,11 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                 courses.append(Course(len(courses), cls, grade, subject, n_fixed, [cn.title],
                                       homeroom=True, fixed_slots=fixed_hdtn[:n_fixed]))
                 if n > n_fixed:
-                    if not config.HDTN_FLEX_DAYS:
+                    flex = config.on("hdtn_ngay")
+                    if flex and not config.HDTN_FLEX_DAYS:
                         raise InputError("Chưa cấu hình ngày cho tiết HĐTN linh hoạt")
                     courses.append(Course(len(courses), cls, grade, subject, n - n_fixed, [cn.title],
-                                          homeroom=True, allowed_days=tuple(config.HDTN_FLEX_DAYS),
+                                          homeroom=True, allowed_days=tuple(config.HDTN_FLEX_DAYS) if flex else None,
                                           flex_hdtn=True))
             else:
                 courses.append(Course(len(courses), cls, grade, subject, n, [cn.title], homeroom=True))
@@ -312,7 +319,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
             rest = n - take.get(subject, 0)
             if rest <= 0:
                 continue
-            if subject in config.HOMEROOM_ONLY_SUBJECTS:
+            if subject in homeroom_only():
                 raise InputError(f"Lớp {cls}: môn {subject} chỉ GVCN được dạy nhưng GVCN không đủ tiết")
             pool.append((cls, grade, subject, rest))
 
@@ -347,13 +354,13 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     for cls, grade, subject, n in pool:
         # GV chỉ dạy cơ sở 2 (đánh dấu Cơ sở 2, hoặc thai sản) không dạy lớp ở cơ sở 1.
         eligible = [t.title for r in roles_for_subject(subject, specialists) for t in by_role.get(r, [])
-                    if cls in campus2 or not t.campus2_only]
+                    if cls in campus2 or not t.campus2_only or not config.on("co_so_2")]
         # GVCN bù ở lớp mình: không bù môn của GV chuyên biệt, trừ HOMEROOM_OVERTIME_SPECIALIST.
         if homeroom[cls].title in overtime and (subject not in specialist
                                                 or subject in config.HOMEROOM_OVERTIME_SPECIALIST):
             eligible.append(homeroom[cls].title)
         for m in managers:
-            if (cls in campus2 or not m.campus2_only) and \
+            if (cls in campus2 or not m.campus2_only or not config.on("co_so_2")) and \
                     any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
                 eligible.append(m.title)
                 manager_pool_lessons[m.title] += n

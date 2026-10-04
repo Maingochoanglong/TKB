@@ -11,7 +11,7 @@ from tkb.rules import ATTRS, DEFAULTS, LABELS, applied, changed, code, read_rule
 from tkb.staff import InputError
 from tkb.template import write_staff_template
 
-from .conftest import CURRICULUM, INPUT_SHEETS, small_staff
+from .conftest import CURRICULUM, INPUT_SHEETS, small_staff, plain_rules
 
 MON, CHUNG, NGAY, TIET = "MÔN", "Quy định", "Ngày", "Tiết"  # nơi sửa: sheet chương trình học, ba bảng
 
@@ -68,14 +68,14 @@ def _drop_all_rule_columns(path):
     keep = sum(1 for c in ws[1] if c.value == "Môn học" or str(c.value).startswith("Khối"))
     ws.delete_cols(keep + 1, ws.max_column - keep)
     del wb[config.RULES_SHEET]
-    del wb["LUẬT RIÊNG"]
+    del wb["LUẬT"]
     del wb["CHỨC VỤ"]
     wb.save(path)
 
 
 def test_default_rules_equal_config(tmp_path):
     rules = read_rules(_input(tmp_path))
-    assert rules == DEFAULTS and changed(rules) == []
+    assert plain_rules(rules) == DEFAULTS and changed(rules) == []
     # Cùng thứ tự (thứ tự dựng mô hình): nhóm môn, môn GVCN, ô HĐTN.
     for attr in ("SUBJECT_GROUPS", "HOMEROOM_PRIORITY", "HOMEROOM_CUT_ORDER", "HOMEROOM_FILL_ORDER", "HDTN_FIXED_SLOTS"):
         assert list(rules[attr]) == list(DEFAULTS[attr])
@@ -104,7 +104,6 @@ def test_subject_columns(tmp_path):
         (MON, "Khoa học", "Môn nặng", "không"),
         (MON, "Tiếng Việt", "GVCN nhận trọn", "Không"),
         (MON, "Đạo đức", "Quản lý dạy khối", 5),
-        (MON, "Tiếng Anh", "Tối đa tiết mỗi ngày", 2),
         (MON, "Thể dục", "Tên trong TKB", "TD"),
         (MON, "Tiếng Việt", "Môn khó", "Có"),  # cột lạ ở sheet chương trình học: cảnh báo, bỏ qua
     ])
@@ -113,9 +112,9 @@ def test_subject_columns(tmp_path):
                                        "Thể dục"}
     assert rules["HOMEROOM_PRIORITY"] == [config.TOAN, config.HDTN, config.KH, config.LSDL, config.DD]
     assert rules["MANAGER_RULES"] == [config.ManagerRule(config.DD, 5), config.ManagerRule(config.KNS, 4)]  # thứ tự dòng
-    assert rules["DAILY_LIMITS"] == {config.TOAN: 1, config.TIENG_ANH: 2}
+    assert rules["DAILY_LIMITS"] == {config.TOAN: 1}  # nay là dòng luật của sheet LUẬT
     assert rules["DISPLAY_NAMES"]["Thể dục"] == "TD"
-    assert changed(rules) == ["Tên trong TKB", "GVCN nhận trọn", "Quản lý dạy khối", "Tối đa tiết mỗi ngày", "Môn nặng"]
+    assert changed(rules) == ["Tên trong TKB", "GVCN nhận trọn", "Quản lý dạy khối", "Môn nặng"]
     assert len(warnings) == 1 and "'Môn khó' không phải quy định nào" in warnings[0]
 
 
@@ -213,7 +212,7 @@ def test_default_rules_give_the_same_timetable(tmp_path, capsys):
     # File cập nhật của file vào không ghi quy định thì có thêm các quy định đã dùng.
     updated = tmp_path / without.stem / "khong_quy_dinh_cap_nhat.xlsx"
     rules = read_rules(updated)
-    assert {**rules, "CUSTOM_ROLES": []} == DEFAULTS and changed(rules) == []
+    assert {**plain_rules(rules), "CUSTOM_ROLES": []} == DEFAULTS and changed(rules) == []
     # Sheet CHỨC VỤ ghi các GV chuyên biệt có người giữ: chức vụ trùng tên môn, như không ghi (mã quy định không đổi).
     assert [(r.name, r.subjects) for r in rules["CUSTOM_ROLES"]] == [
         ("Tiếng Anh", ("Tiếng Anh",)), ("Thể Dục", ("Thể dục",)), ("Âm Nhạc", ("Âm nhạc",)),

@@ -10,6 +10,9 @@ from tkb.solver import ConflictError, solve
 from .conftest import CURRICULUM, small_staff
 
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
+GROUP_LIMIT = "'Luật có sẵn: Với mỗi lớp, nhóm môn, buổi: mọi tiết: số tiết tối đa {} (bắt buộc)'"
+PAIRS = ("'Luật có sẵn: Với mỗi lớp, nhóm môn, buổi: các tiết trừ nhãn Không ghép cặp: thành cặp 2 tiết liền trong "
+         "buổi, khi số tiết/tuần >= {}, chẵn (bắt buộc)'")
 
 
 def _precheck(staff, **rules):
@@ -23,19 +26,21 @@ def test_no_conflict_with_default_rules(sample_staff):
 
 def test_session_limit_too_small_for_the_lessons(sample_staff):
     found = _precheck(sample_staff, SESSION_GROUP_LIMIT=1)
-    assert found[0] == ("Khối 1: Tiếng Việt có 14 tiết/tuần nhưng 'Số tiết tối đa một nhóm môn mỗi buổi' = 1 chỉ "
-                        "cho tối đa 1 × 9 buổi = 9 tiết")
+    assert found[0] == (f"Khối 1: Tiếng Việt có 14 tiết/tuần nhưng luật {GROUP_LIMIT.format(1)} chỉ cho tối đa 1 × 9 "
+                        f"buổi = 9 tiết")
     # Khối 3: 8 tiết Tiếng Việt vừa 9 buổi, nhưng phải học thành cặp mà mỗi buổi chỉ được 1 tiết.
-    assert ("Khối 3: Tiếng Việt + Tiếng Việt tăng cường có 8 tiết/tuần nên phải học thành cặp 2 tiết liền ('Ghép cặp "
-            "khi nhóm môn có từ (tiết/tuần)' = 6) nhưng 'Số tiết tối đa một nhóm môn mỗi buổi' = 1") in found
+    assert (f"Khối 3: Tiếng Việt + Tiếng Việt tăng cường có 8 tiết/tuần nên phải học thành cặp 2 tiết liền (luật "
+            f"{PAIRS.format(6)}) nhưng luật {GROUP_LIMIT.format(1)}") in found
     assert len(found) == 3  # mỗi nhóm môn của mỗi khối một lỗi: khối 1, 2 (đếm), khối 3 (ghép cặp)
     assert _precheck(sample_staff, SESSION_GROUP_LIMIT=1, PAIR_MIN_LESSONS=100)[-1].startswith("Khối 2:")
 
 
 def test_pairs_against_daily_limit(sample_staff):
     found = _precheck(sample_staff, PAIR_MIN_LESSONS=4, DAILY_LIMITS={config.TIENG_ANH: 1, config.TOAN: 1})
-    assert found == [f"Khối {g}: Tiếng Anh có 4 tiết/tuần nên phải học thành cặp 2 tiết liền ('Ghép cặp khi nhóm môn "
-                     f"có từ (tiết/tuần)' = 4) nhưng 'Tối đa tiết mỗi ngày' của môn này = 1" for g in (3, 4, 5)]
+    daily = ("'Luật có sẵn: Với mỗi lớp, ngày: các tiết Tiếng Anh: số tiết tối đa 1, khi số tiết/tuần <= số ngày (bắt "
+             "buộc)'")
+    assert found == [f"Khối {g}: Tiếng Anh có 4 tiết/tuần nên phải học thành cặp 2 tiết liền (luật {PAIRS.format(4)}) "
+                     f"nhưng luật {daily}" for g in (3, 4, 5)]
 
 
 def test_student_rules_off_skips_the_count():
@@ -54,14 +59,14 @@ def test_diagnosis_names_the_rules_in_conflict():
     log = []
     with applied({"HDTN_FIXED_SLOTS": [(4, 4)], "HDTN_FLEX_DAYS": [4]}), pytest.raises(ConflictError) as err:
         solve(small_staff(), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS), log=log.append)
+    limit = GROUP_LIMIT.format(2)[1:-1]
+    flex = ("Luật có sẵn: Các tiết có nhãn Môn HĐTN: chỉ trong ô có nhãn Xếp tiết HĐTN còn lại hoặc Tiết HĐTN cố định "
+            "(bắt buộc)")
     assert str(err.value).splitlines() == [
-        "Các luật bắt buộc sau không cùng thỏa được, nên không có TKB nào:",
-        "  - Số tiết tối đa một nhóm môn mỗi buổi (sheet QUY ĐỊNH)",
-        "  - Tiết HĐTN cố định, Xếp tiết HĐTN còn lại (sheet QUY ĐỊNH, bảng Ngày)",
-        "Nới hoặc bỏ một trong các luật trên. Chỉ cần nới riêng một luật này là xếp được: Số tiết tối đa một nhóm môn "
-        "mỗi buổi (sheet QUY ĐỊNH); Tiết HĐTN cố định, Xếp tiết HĐTN còn lại (sheet QUY ĐỊNH, bảng Ngày)."]
+        "Các luật bắt buộc sau không cùng thỏa được, nên không có TKB nào:", f"  - {limit}", f"  - {flex}",
+        f"Nới hoặc bỏ một trong các luật trên. Chỉ cần nới riêng một luật này là xếp được: {limit}; {flex}."]
     assert any(line.startswith("Chẩn đoán:") for line in log)
-    assert solver.RELAXED == frozenset() and config.SESSION_GROUP_LIMIT == 2  # chẩn đoán xong trả lại như cũ
+    assert solver.RELAXED == frozenset() and config.OFF == frozenset()  # chẩn đoán xong trả lại như cũ
 
 
 def test_diagnosis_of_a_solvable_school_blames_the_time():

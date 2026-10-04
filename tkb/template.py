@@ -11,7 +11,7 @@ cột nằm ở sheet HƯỚNG DẪN.
   hoặc số; tkb/rules.py).
 - Sheet "CHỨC VỤ": Chức vụ | Môn được dạy: các chức vụ GV chuyên biệt nhà trường tự đặt (không bắt buộc).
 - Sheet "QUY ĐỊNH": ba bảng (quy định chung, ngày, tiết), mỗi ô ghi Có, Không hoặc số.
-- Sheet "LUẬT RIÊNG": các luật riêng của trường (không bắt buộc).
+- Sheet "LUẬT": mọi luật xếp TKB, mỗi dòng một câu của bộ ghép luật; ghi sẵn các luật có sẵn (tkb/luat_co_san.py).
 - Sheet "HƯỚNG DẪN": cách ghi từng sheet, từng cột.
 
 Chạy:
@@ -30,7 +30,8 @@ from openpyxl.utils import get_column_letter
 
 from . import config
 from . import luat_rieng
-from .rules import (ROLE_NAME, ROLE_SUBJECTS, custom_rows, default_subjects, notes as rule_notes, role_rows,
+from .rules import (ROLE_NAME, ROLE_SUBJECTS, default_subjects, luat_headers, luat_rows,
+                    notes as rule_notes, role_rows,
                     rule_tables, subject_columns)
 from .staff import Teacher, class_sort_key, off_text
 
@@ -189,18 +190,18 @@ def write_roles_sheet(wb, rows: list[list] | None = None, index: int | None = No
     _widths(ws, (30, 60))
 
 
-def write_custom_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
-    """Sheet LUẬT RIÊNG ở vị trí `index`: tiêu đề và các luật riêng (không có thì theo các luật đang dùng), kẻ sẵn
-    vài dòng trống để nhà trường điền."""
-    rows = custom_rows() if rows is None else rows
-    ws = wb.create_sheet(luat_rieng.SHEET, index)
-    headers = [h for _, h in luat_rieng.COLUMNS]
+def write_luat_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
+    """Sheet LUẬT ở vị trí `index`: tiêu đề và các dòng luật (không có thì theo các luật đang dùng, kể cả luật có
+    sẵn), kẻ sẵn vài dòng trống để nhà trường thêm luật."""
+    rows = luat_rows() if rows is None else rows
+    ws = wb.create_sheet(luat_rieng.RULES_SHEET, index)
+    headers = luat_headers()
     ws.append(headers)
     for row in rows:
         ws.append(row)
     _style_rows(ws, 1, 1, len(headers), header=True)
-    _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, len(headers), left=(1, 2, 3))
-    _widths(ws, (30, 22, 22, 10, 18, 10, 12, 16, 8, 12, 8))
+    _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, len(headers), left=(1, 2, 3, len(headers)))
+    _widths(ws, (18, 22, 16, 18, 10, 22, 16, 8, 10, 12, 8, 8, 16, 12, 14, 10, 10, 14, 12, 9, 6, 8, 70))
 
 
 def write_guide(wb, extra=(), index: int | None = None) -> None:
@@ -216,17 +217,17 @@ def write_guide(wb, extra=(), index: int | None = None) -> None:
 
 
 def write_input(path: str | Path, staff: list[list], program: tuple, tables=None, extra=None,
-                custom: list[list] | None = None, roles: list[list] | None = None) -> None:
+                rules: list[list] | None = None, roles: list[list] | None = None) -> None:
     """Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
     (`program`: (các khối, tiêu đề cột quy định, các dòng) như `program_rows`), CHỨC VỤ (`roles`: các dòng), QUY ĐỊNH
-    (`tables` như `rules.rule_tables`), LUẬT RIÊNG (`custom`: các dòng), HƯỚNG DẪN; phần nào không có thì theo các
-    quy định đang dùng. `extra(wb)` ghi thêm sheet nếu cần."""
+    (`tables` như `rules.rule_tables`), LUẬT (`rules`: các dòng như `rules.luat_rows`), HƯỚNG DẪN; phần nào không có
+    thì theo các quy định đang dùng. `extra(wb)` ghi thêm sheet nếu cần."""
     wb = openpyxl.Workbook()
     _staff_sheet(wb, staff)
     _program_sheet(wb, *program)
     write_roles_sheet(wb, roles)
     write_rules_sheet(wb, tables=tables)
-    write_custom_sheet(wb, custom)
+    write_luat_sheet(wb, rules)
     write_guide(wb)
     if extra is not None:
         extra(wb)
@@ -237,7 +238,7 @@ def write_input(path: str | Path, staff: list[list], program: tuple, tables=None
 def write_staff_template(path: str | Path, teachers: list[Teacher] = (),
                          curriculum: dict[int, dict[str, int]] | None = None) -> None:
     """Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), CHỨC VỤ, QUY ĐỊNH, LUẬT
-    RIÊNG (các quy định đang dùng) và HƯỚNG DẪN."""
+    (mọi luật, kể cả luật có sẵn) và HƯỚNG DẪN."""
     teachers = list(teachers)
     write_input(path, [staff_row(t) for t in teachers], program_rows(curriculum, teachers))
 

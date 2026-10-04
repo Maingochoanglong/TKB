@@ -135,7 +135,7 @@ def _run(args, settings: config.Settings) -> int:
         for path, classes in campus_paths(base, solution.problem):
             write_timetable(solution, path, style, with_codes=with_codes, classes=classes)
             timetables.append(path)
-    write_updated_staff(solution, args.staff, staff_out, settings)
+    write_updated_staff(solution, args.staff, staff_out)
     write_statistics(solution, stats_out, style)
 
     load = solution.teacher_load()

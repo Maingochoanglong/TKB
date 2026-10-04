@@ -5,13 +5,13 @@ import json
 
 import openpyxl
 
-from tkb import config, kich_ban, luat_rieng
+from tkb import config, kich_ban, luat_co_san, luat_rieng
 from tkb.program import read_program
-from tkb.rules import DEFAULTS, SUBJECT_COLS, applied, code, read_rules
+from tkb.rules import DEFAULTS, LEGACY, SUBJECT_COLS, applied, code, read_rules
 from tkb.staff import read_saved_timetable, read_staff
 from tkb.template import write_staff_template
 
-from .conftest import CURRICULUM, INPUT_FILE, small_staff
+from .conftest import CURRICULUM, INPUT_FILE, small_staff, plain_rules
 
 
 DEFAULT_CODE = code()
@@ -44,7 +44,7 @@ def test_round_trip_keeps_the_file(tmp_path):
     assert source.pop("CHỨC VỤ") == [("Chức vụ", "Môn được dạy")]
     assert written == source  # các sheet khác ghi lại đúng từng ô
     rules = read_rules(out)
-    assert read_program(out) == CURRICULUM and {**rules, "CUSTOM_ROLES": []} == DEFAULTS
+    assert read_program(out) == CURRICULUM and {**plain_rules(rules), "CUSTOM_ROLES": []} == DEFAULTS
     with applied(rules):  # các dòng đó như không ghi: mã quy định không đổi
         assert code() == DEFAULT_CODE
     assert _key(read_staff(out)) == _key(read_staff(INPUT_FILE))
@@ -56,9 +56,15 @@ def test_new_scenario_is_the_blank_template(tmp_path):
     assert _values(tmp_path / "moi.xlsx") == _values(tmp_path / "mau.xlsx")
 
 
+def _row(scenario, native):
+    """Dòng luật của kịch bản là dạng gốc của luật có sẵn `native`."""
+    keys = [r["native"] for r in kich_ban.describe(scenario)["rules"]]
+    return scenario["rules"][keys.index(native)]
+
+
 def test_schema_follows_rules_columns():
     s = kich_ban.schema()
-    assert [c["key"] for c in s["subject"]] == [c.key for c in SUBJECT_COLS]
+    assert [c["key"] for c in s["subject"]] == [c.key for c in SUBJECT_COLS if c.key not in LEGACY]
     assert [c["header"] for c in s["staff"]][:4] == ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"]
     assert s["days"][0] == "Thứ 2" and s["days"][-1] == "Thứ 7"
     keys = {c.key for c in SUBJECT_COLS}  # nhóm cột của trang chi tiết môn, cột theo chức vụ: đúng khóa của rules.py
@@ -68,7 +74,7 @@ def test_schema_follows_rules_columns():
 
 def test_rules_edited_in_the_scenario_reach_the_file(tmp_path):
     scenario, _ = kich_ban.from_excel(INPUT_FILE)
-    scenario["general"]["SESSION_GROUP_LIMIT"] = 3
+    _row(scenario, "nhom_buoi")["number"] = 3  # số của luật có sẵn: ở dòng luật
     scenario["days"][5]["morning_days"] = True  # học sáng Thứ 7
     english = next(s for s in scenario["subjects"] if s["name"] == "Tiếng Anh")
     english["rules"]["MORNING_SUBJECTS"] = True
@@ -143,44 +149,63 @@ def test_saved_timetable_sheet_is_kept(tmp_path):
 
 def test_check_finds_rules_in_conflict():
     scenario, _ = kich_ban.from_excel(INPUT_FILE)
-    scenario["general"]["SESSION_GROUP_LIMIT"] = 1
+    _row(scenario, "nhom_buoi")["number"] = 1
     res = kich_ban.check(scenario, config.MODE_OVERTIME, 2)
     assert res["errors"][0].startswith("Quy định mâu thuẫn, không có TKB nào thỏa: Khối 1: Tiếng Việt có 14 tiết/tuần")
     assert res["info"] == [] or not any(line.startswith("Dự toán:") for line in res["info"])
     assert kich_ban.check(scenario, config.MODE_OVERTIME, 2, student_rules=False)["errors"] == []
 
 
-def test_custom_rules_round_trip(tmp_path):
+def test_rules_round_trip(tmp_path):
+    """Mọi luật ở `rules` của kịch bản (sheet LUẬT): luật có sẵn ở dạng gốc và luật thêm vào; ghi ra Excel rồi đọc
+    lại như cũ."""
     from tkb.config import CustomRule
 
     scenario, _ = kich_ban.from_excel(INPUT_FILE)
-    assert scenario["custom"] == [] and len(kich_ban.schema()["custom"]["kinds"]) == len(luat_rieng.KINDS)
-    scenario["custom"] = [{"kind": "Chỉ xếp vào", "subject": "Thể dục", "sessions": "Chiều", "hard": False, "level": 3},
-                          {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True}]
+    n = len(luat_co_san.default_rows())
+    assert len(scenario["rules"]) == n and all(r["group_label"] for r in scenario["rules"])
+    assert all(r["native"] for r in kich_ban.describe(scenario)["rules"])
+    assert len(kich_ban.schema()["custom"]["kinds"]) == len(luat_rieng.KINDS)
+    scenario["rules"] += [{"kind": "Chỉ xếp vào", "subject": "Thể dục", "sessions": "Chiều", "hard": False, "level": 3},
+                          {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True},
+                          {"kind": "Tự ghép", "scope": "Giáo viên, Ngày", "measure": "Số khác nhau", "op": "Tối đa",
+                           "number": 2, "count_by": "Lớp", "role": "Tiếng Anh", "hard": True}]
     out = tmp_path / "ra.xlsx"
     kich_ban.to_excel(scenario, out)
     assert read_rules(out)["CUSTOM_RULES"] == [
-        CustomRule("chi_xep", "Thể dục", sessions=("Chiều",), level=3, row=2),
-        CustomRule("truoc", "Tiếng Việt", other="Toán", hard=True, row=3)]
+        CustomRule("chi_xep", "Thể dục", sessions=("Chiều",), level=3, row=n + 2),
+        CustomRule("truoc", "Tiếng Việt", other="Toán", hard=True, row=n + 3),
+        CustomRule("tu_ghep", role="tiếng anh", number=2, hard=True, row=n + 4, scope=("gv", "ngay"),
+                   measure="so_khac", op="<=", count_by="lop")]
     back, _ = kich_ban.from_excel(out)
-    assert back["custom"][0]["sessions"] == "Chiều" and back["custom"][0]["level"] == 3
-    assert back["custom"][1] | {} == {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "grades": "",
-                                      "days": "", "periods": "", "sessions": "", "role": "", "number": None,
-                                      "hard": True, "level": None, "scope": "", "group": "", "tags": "",
-                                      "classes": "", "measure": "", "op": "", "count_by": "", "when": ""}
-    # Luật tự ghép qua kịch bản: ghi ra Excel rồi đọc lại như cũ.
-    back["custom"].append({"kind": "Tự ghép", "scope": "Giáo viên, Ngày", "measure": "Số khác nhau",
-                           "op": "Tối đa", "number": 2, "count_by": "Lớp", "role": "Tiếng Anh", "hard": True})
-    kich_ban.to_excel(back, out)
-    assert read_rules(out)["CUSTOM_RULES"][-1] == CustomRule(
-        "tu_ghep", role="tiếng anh", number=2, hard=True, row=4, scope=("gv", "ngay"), measure="so_khac", op="<=",
-        count_by="lop")
-    back["custom"].pop()
+    assert back["rules"][:n] == scenario["rules"][:n]
+    assert back["rules"][n + 1] == {"group_label": "", "kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán",
+                                    "grades": "", "days": "", "periods": "", "sessions": "", "role": "",
+                                    "number": None, "hard": True, "level": None, "scope": "", "group": "", "tags": "",
+                                    "classes": "", "measure": "", "op": "", "count_by": "", "when": "",
+                                    "exclude": "", "points": None}
     assert kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"] == []
-    back["custom"].append({"kind": "Học trước", "subject": "Toán"})
-    assert "LUẬT RIÊNG, dòng 4: kiểu luật Học trước phải ghi cột Môn thứ hai" in \
+    back["rules"].append({"kind": "Học trước", "subject": "Toán"})
+    assert f"LUẬT, dòng {n + 5}: kiểu luật Học trước phải ghi cột Môn thứ hai" in \
         kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"]
 
+
+def test_rules_only_file(tmp_path):
+    """Xuất luật ra Excel (chỉ sheet LUẬT, HƯỚNG DẪN) rồi nhập lại: chỉ có phần luật; mẫu luật là các luật có sẵn."""
+    scenario = kich_ban.default_scenario()
+    _row(scenario, "nhom_buoi")["number"] = 3
+    del scenario["rules"][-1]
+    scenario["rules"].append({"kind": "Không xếp vào", "subject": "Tin học", "days": "Thứ 2", "hard": True})
+    path = tmp_path / "luat.xlsx"
+    kich_ban.rules_to_excel(scenario, path)
+    assert openpyxl.load_workbook(path).sheetnames == ["LUẬT", "HƯỚNG DẪN"]
+    assert kich_ban.sheets_in(path) == ["LUẬT"]
+    back, _ = kich_ban.from_excel(path)
+    assert back["staff"] == [] and back["grades"] == [] and back["rules"] == scenario["rules"][:-1] + [
+        {**{k: "" for k in kich_ban.RULE_KEYS}, "kind": "Không xếp vào", "subject": "Tin học", "days": "Thứ 2",
+         "hard": True, "number": None, "level": None, "points": None}]
+    rules = read_rules(path)
+    assert rules["SESSION_GROUP_LIMIT"] == 3 and rules["OFF"] == frozenset({"tiet_trong"})
 
 def test_history_and_leave_as_the_page_writes_them(tmp_path):
     """Trang Giáo viên ghi Lớp Đang Dạy, Buổi Nghỉ bằng ô đánh dấu, ra chữ dạng "3/1, 4/2" và "Chiều T5, 2 buổi

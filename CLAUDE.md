@@ -20,10 +20,10 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB`: per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
-  periods); school-defined specialist roles teaching several subjects are rows of sheet `CHỨC VỤ`; school-specific rules
-  of generic kinds are rows of sheet `LUẬT RIÊNG`; see Architecture). `python -m tkb.template` writes a plain template (black text, no
-  fill/freeze/dropdowns/comments/hidden sheets) with NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), CHỨC VỤ, QUY ĐỊNH,
-  LUẬT RIÊNG, HƯỚNG DẪN. Class names
+  periods); school-defined specialist roles teaching several subjects are rows of sheet `CHỨC VỤ`; **every scheduling
+  rule, built-in ones included, is a row of sheet `LUẬT`** (old files: sheet `LUẬT RIÊNG`; see Architecture).
+  `python -m tkb.template` writes a plain template (black text, no fill/freeze/dropdowns/comments/hidden sheets) with
+  NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), CHỨC VỤ, QUY ĐỊNH, LUẬT (the built-in rule rows), HƯỚNG DẪN. Class names
   are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
   `Input_Template_V8.xlsx` (`python -m tkb.template`, a test checks it is current) and the output templates
   `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tests/du_lieu_mau.py`
@@ -127,32 +127,41 @@ else a subject-named role; sheet roles nobody holds and nobody needs are dropped
 `rules.code()` leaves out an empty list and rows that only restate a subject-named role, so the codes are unchanged;
 the updated input adds the sheet with the held specialist roles (`writer.role_rows`).
 
-School-specific rules = the rule composer (`tkb/bo_ghep.py`; sheet `LUẬT RIÊNG` read/written and described in
-`tkb/luat_rieng.py`; `config.CUSTOM_RULES` of `config.CustomRule`). Every rule is one sentence "for each [scope dims
-`SCOPES`] · lessons [subject(+group), tags, grades, classes, days, periods, sessions, teacher role] · then [measure
-`MEASURES`] [op] [number] · when [curriculum condition]", hard or soft level 1–3 (`Weights.custom_levels`). `Kiểu luật`
-is a preset (`luat_rieng.KINDS`, expanded by `bo_ghep.PRESETS`) or "Tự ghép" (columns Với mỗi, Phép đo, So sánh…).
-`bo_ghep.make` normalises a row to a `Luat`; each of the 9 measures is ONE function written against a context: `_Cp`
-lowers it into CP-SAT (`build`, end of `build_timetable`), `_Eval` counts violations on a timetable (`violations` →
-`check`, `qa`, `soft_report`), both over the same atoms (`_Source`: course × allowed slot [× teacher]). Shortcuts read
-the same `Luat`: `banned` (domain cut in `solver.allowed_slots`), `forced_pairs` (in `allocation.paired_groups(req,
-grade)` — always pass the grade), `day_cap` (`phan_cong.teacher_slots`), `allowed` (hard "Người dạy: Do" without slots
-filters eligible teachers in `allocation.build_problem`), `assign_cost` (soft one: `phan_cong._flow`, `_Local._part`,
-`solver._Allocation`), `validate`/`precheck`, one diagnosis family per hard rule. A new measure = one `Measure` + one
-function in `LOWER`; a new tag = a new Có/Không `Col` (tags are column headers, `subject_tags`/`slot_tags`). Everything
-is skipped when the list is empty (all hooks guard on `config.CUSTOM_RULES`), and `rules.code()` leaves out an empty
-list, so codes are unchanged. `phan_cong._Local.repair` fixes odd shares in paired groups (only runs when some remain).
-The parse convention of this sheet allows text lists (Môn, Lớp, Khối, Ngày, Tiết, Buổi, Nhãn) unlike the Có/Không/number
-rule columns. Built-in rules are written in the same grammar in `tkb/luat_co_san.py` (`co_san(problem)`: listed in the
-updated input's HƯỚNG DẪN and the UI); they keep their native encoding (codes!), `CoSan.rule` is the composer version
-used by `tests/test_luat_co_san.py` to cross-check the checker and to show the generic lowering can replace the native
-one. The UI composer dialog builds rows from `kich_ban.composer()` (schema) and asks `/api/describe`
-(`kich_ban.describe`) for the read-back sentence, errors and the built-in list.
+Rules = rows of sheet `LUẬT` (`config.RULES_SHEET_ROWS`), each one sentence of the rule composer (`tkb/bo_ghep.py`;
+cells read/written and described in `tkb/luat_rieng.py` as `config.CustomRule`): "for each [scope dims `SCOPES`] ·
+lessons [subject(+group), tags, excluded tags, grades, classes, days, periods, sessions, teacher role or 'trừ <role>'] ·
+then [measure `MEASURES`] [op] [number or `DERIVED` threshold] · when [curriculum condition, per subject/group if the
+scope has one]", hard or soft (Điểm points, else level 1–3 `Weights.custom_levels`). `Kiểu luật` is a preset
+(`luat_rieng.KINDS`, expanded by `bo_ghep.PRESETS`; `nghi_gv`, `co_so_2` exist only in native form) or "Tự ghép".
+**Built-in rules** are the default rows of `tkb/luat_co_san.py` (`NATIVES`, `default_rows`, written by the template):
+`rules.read_rules` → `luat_co_san.apply(rows)`: a row in a native's exact shape (only number/points differ, `fits`)
+keeps the native encoding (params into `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `config.WEIGHTS` via
+`config.rule_weights`), a native with no row is off (`config.OFF`; code checks `config.on(key)`, the solver
+`solver.on(key)` which also honours `RELAXED`), every other row goes to `config.CUSTOM_RULES` (composer). No sheet
+`LUẬT` (old file): default rows from the old columns (`rules.LEGACY`: still read, never written or shown) plus sheet
+`LUẬT RIÊNG` rows; so defaults give the same model and codes (`OFF`/`WEIGHTS` are optional attrs of `rules.code()`).
+`config.RULES` holds the sheet rows (None: no sheet, `luat_co_san.rows()` rebuilds them). Each of the 9 measures is ONE
+function against a context: `_Cp` lowers it into CP-SAT (`build`, end of `build_timetable`), `_Eval` counts violations
+(`violations` → `check`, `qa`, `soft_report`), both over the same atoms (`_Source`: course × allowed slot [× teacher]).
+Shortcuts read the same `Luat`: `banned` (domain cut in `solver.allowed_slots`), `forced_pairs` (in
+`allocation.paired_groups(req, grade)` — always pass the grade), `day_cap` (`phan_cong.teacher_slots`), `allowed` (hard
+"Người dạy: Do" without slots filters eligible teachers in `allocation.build_problem`), `assign_cost` (soft one:
+`phan_cong._flow`, `_Local._part`, `solver._Allocation`), `validate`/`precheck`. Diagnosis (`chan_doan._rules`) tries
+dropping each hard row (native: `OFF`; daily: drop the subject; composer: drop from `CUSTOM_RULES`) and names rows as
+`LUẬT dòng n: <sentence>` (`luat_rieng.label`). A new measure = one `Measure` + one function in `LOWER`; a new tag = a
+new Có/Không `Col`; a new built-in rule = a `Native` + its encoding guarded by `on(key)` (plus `checker`). Everything
+composer-side is skipped when `CUSTOM_RULES` is empty. `tests/test_luat_co_san.py` checks default rows change nothing,
+edits work, the composer cross-checks the checker and its lowering can replace natives. The UI rules step edits
+`scenario["rules"]` (all rows) in a composer dialog driven by `kich_ban.composer()`, asks `/api/describe`
+(`kich_ban.describe`: sentence, errors, native key), and imports/exports rules-only files (`kich_ban.rules_to_excel`,
+`/api/rules_file`).
 
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
 `solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday
 afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names loosely via
 `staff.subject_key` → `program.canonical_subject`.
+
+Each rule below (except who-may-teach and the assignment/LNS rows) is a default row of sheet `LUẬT` (`luat_co_san.NATIVES`; deleting the row turns it off, its number/points come from the row).
 
 | Rule | `tkb/config.py` default (the file's rules override) | Implemented in |
 |---|---|---|

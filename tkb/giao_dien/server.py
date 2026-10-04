@@ -47,6 +47,7 @@ RUN_DEFAULTS = {"name": "kich_ban", "mode": config.MODE_OVERTIME, "overtime_max"
                 "student_rules": True, "time_limit": 1200, "reproducible": True, "keep_saved": True, "workers": 8}
 FILE_NAMES = {"tkb": "TKB.xlsx", "roles": "TKB_chuc_vu.xlsx", "stats": "Thong_Ke.xlsx"}
 TEMPLATE_NAME = "Mau_Input_V8.xlsx"  # file mẫu trống (như data/Input_Template_V8.xlsx)
+RULES_TEMPLATE_NAME = "Mau_Luat.xlsx"  # mẫu luật: chỉ sheet LUẬT với các luật có sẵn (và HƯỚNG DẪN)
 
 
 def default_out_dir() -> Path:
@@ -233,6 +234,16 @@ class App:
                 kich_ban.to_excel(data["scenario"], path)
             return path.read_bytes(), path.name
 
+    def rules_file(self, data: dict) -> tuple[bytes, str]:
+        """File Excel chỉ có các luật (sheet LUẬT, HƯỚNG DẪN): các luật của kịch bản, hoặc (mẫu) các luật mặc định."""
+        name = RULES_TEMPLATE_NAME if data.get("template") else f"{safe_name(data.get('name'))}_luat.xlsx"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / name
+            with self.lock:
+                scenario = kich_ban.default_scenario() if data.get("template") else data["scenario"]
+                kich_ban.rules_to_excel(scenario, path)
+            return path.read_bytes(), path.name
+
     def template(self) -> tuple[bytes, str]:
         """File vào mẫu trống (python -m tkb.template): nhà trường điền trong Excel rồi nhập lại."""
         from ..template import write_staff_template
@@ -383,8 +394,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(HTTPStatus.OK, path.read_bytes(), XLSX if path.suffix == ".xlsx" else
                                   "application/octet-stream",
                                   {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(path.name)}"})
-            if (method, name) in (("POST", "export"), ("GET", "template")):
-                body, filename = app.export(json.loads(self._body() or b"{}")) if name == "export" else app.template()
+            if (method, name) in (("POST", "export"), ("GET", "template"), ("POST", "rules_file")):
+                data = json.loads(self._body() or b"{}") if method == "POST" else {}
+                body, filename = (app.export(data) if name == "export" else app.rules_file(data)
+                                  if name == "rules_file" else app.template())
                 return self._send(HTTPStatus.OK, body, XLSX,
                                   {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
             if method == "POST" and name == "import":

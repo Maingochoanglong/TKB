@@ -92,7 +92,7 @@ class _Search:
     # --- QA -------------------------------------------------------------------
     def qa(self, values: list[int]):
         """Chi phí mềm theo (lớp, ngày), theo trọng số mục tiêu; và các tiết của nghiệm."""
-        tm, w = self.tm, self.settings.weights
+        tm, w = self.tm, config.rule_weights(self.settings.weights)
         problem = tm.problem
         lessons = tm.lessons(lambda v: values[v.Index()])
         cost: Counter = Counter()

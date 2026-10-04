@@ -1,6 +1,6 @@
 """Kịch bản của một trường cho giao diện (tkb/giao_dien): toàn bộ nội dung file vào V8 dưới dạng dữ liệu JSON.
 
-Kịch bản chỉ là các bảng của file vào (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, CHỨC VỤ, QUY ĐỊNH, LUẬT RIÊNG),
+Kịch bản chỉ là các bảng của file vào (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, CHỨC VỤ, QUY ĐỊNH, LUẬT),
 mỗi cột quy định lấy từ tkb/rules.py (`Col`: tiêu đề, khóa, loại ô, ghi chú) nên thêm một quy định vào rules.py là
 giao diện tự có ô nhập. Xuất kịch bản ra Excel dùng đúng hàm ghi file mẫu (tkb/template.py); kiểm tra
 kịch bản = xuất ra file tạm rồi đọc lại bằng chính các hàm đọc của chương trình, nên giao diện và dòng lệnh luôn hiểu
@@ -15,8 +15,8 @@ Kịch bản:
     general  : {khóa Col: giá trị} (bảng Quy định | Giá trị)
     days     : [{khóa Col: giá trị}] Thứ 2 … Thứ 7
     periods  : [{khóa Col: giá trị}] tiết 1, 2, ...
-    custom   : [{kind, subject, other, grades, days, periods, sessions, role, number, hard, level}] luật riêng
-               (sheet LUẬT RIÊNG, tkb/luat_rieng.py): chữ như trong ô, hard true/false, number/level số hoặc None
+    rules    : [{group_label, kind, scope, subject, ...}] mọi luật, kể cả luật có sẵn (sheet LUẬT, các cột
+               luat_rieng.COLUMNS): chữ như trong ô, hard true/false, number/level/points số hoặc None
     saved    : các dòng của sheet TKB đã xếp (file vào cập nhật) hoặc None
 Giá trị theo loại ô: "yes" → true/false; "int", "order" → số hoặc None; "text" → chữ.
 """
@@ -28,15 +28,19 @@ from pathlib import Path
 
 import openpyxl
 
-from . import bo_ghep, config, luat_rieng
+from . import bo_ghep, config, luat_co_san, luat_rieng
 from .program import read_program
-from .rules import (DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, MAX_DAYS, NO, PERIOD_COLS, PERIOD_KEY, SUBJECT_COLS, VALUE,
-                    YES, _day_name, applied, read_rules, rule_tables, subject_columns)
+from .rules import (DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, MAX_DAYS, NO, PERIOD_COLS, PERIOD_KEY, VALUE, YES,
+                    _day_name, applied, luat_row, read_rules, rule_tables, subject_columns, visible)
+from .rules import SUBJECT_COLS as _ALL_SUBJECT_COLS
 from .staff import (InputError, _find_columns, _fold, _NO, _YES, clean_name, find_sheet, normalize, read_staff,
                     staff_sheet, subject_key)
 from .template import NOTES, STAFF_HEADERS, program_rows, write_input
 
-VERSION = 1
+VERSION = 2  # 2: mọi luật ở `rules` (sheet LUẬT)
+SUBJECT_COLS = visible(_ALL_SUBJECT_COLS)  # cột quy định của môn còn dùng (số của luật nay ở sheet LUẬT)
+GENERAL_COLS = visible(GENERAL)
+RULE_KEYS = (luat_rieng.GROUP[0], *(k for k, _ in luat_rieng.COLUMNS))
 # Các cột của sheet NHÂN SỰ: (khóa trong kịch bản, khóa của staff._find_columns, loại ô); tiêu đề là STAFF_HEADERS.
 STAFF_COLS = (("name", "name", "text"), ("role", "title", "role"), ("class", "class", "text"),
               ("lessons", "lessons", "int"), ("maternity", "maternity", "yes"), ("contract", "contract", "yes"),
@@ -50,7 +54,7 @@ SUBJECT_GROUPS = (
     ("Giáo viên chủ nhiệm", ("HOMEROOM_PRIORITY", "HOMEROOM_CUT_ORDER", "HOMEROOM_FILL_ORDER", "HOMEROOM_ONLY_SUBJECTS",
                              "HOMEROOM_OVERTIME_SPECIALIST")),
     ("Ai được dạy", ("GENERAL_FORBIDDEN_SUBJECTS", "MANAGER_RULES")),
-    ("Luật bảo vệ học sinh (bắt buộc)", ("group", "extra", "DAILY_LIMITS", "PAIR_EXCLUDED")),
+    ("Nhóm môn, nhãn của luật", ("group", "extra", "PAIR_EXCLUDED")),
     ("Ưu tiên khi xếp (mềm)", ("HEAVY_SUBJECTS", "MORNING_SUBJECTS")),
 )
 # Các cột của môn mà bước Chức vụ sửa theo chức vụ có sẵn (Chủ Nhiệm, Bộ Môn, Quản Lý).
@@ -73,17 +77,21 @@ def schema() -> dict:
         "role_rules": ROLE_RULES,
         "subject": [_col(c) for c in SUBJECT_COLS],
         "subject_groups": [{"label": label, "keys": list(keys)} for label, keys in SUBJECT_GROUPS],
-        "general": [_col(c) for c in GENERAL],
+        "general": [_col(c) for c in GENERAL_COLS],
         "day": [_col(c) for c in DAY_COLS],
         "period": [_col(c) for c in PERIOD_COLS],
         "days": [_day_name(d) for d in range(MAX_DAYS)],
-        "custom": {"columns": [{"key": k, "header": h} for k, h in luat_rieng.COLUMNS],
+        "custom": {"columns": [{"key": k, "header": h} for k, h in (luat_rieng.GROUP, *luat_rieng.COLUMNS)],
                    "kinds": [{"key": k.key, "label": k.label, "needs": list(k.needs), "uses": list(k.uses),
                               "note": k.note} for k in luat_rieng.KINDS],
                    "sessions": [config.MORNING.name, config.AFTERNOON.name],
+                   "groups": [*luat_co_san.GROUPS, luat_co_san.CUSTOM_GROUP],
+                   "custom_group": luat_co_san.CUSTOM_GROUP,
+                   "structure": luat_co_san.STRUCTURE,
                    "composer": composer()},
         "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "roles": config.ROLES_SHEET,
-                   "rules": config.RULES_SHEET, "custom": luat_rieng.SHEET, "saved": config.SAVED_SHEET},
+                   "rules": config.RULES_SHEET, "luat": luat_rieng.RULES_SHEET, "custom": luat_rieng.SHEET,
+                   "saved": config.SAVED_SHEET},
     }
 
 
@@ -93,7 +101,9 @@ def composer() -> dict:
     tags = bo_ghep.tag_names()
     return {"scopes": [{"key": d.key, "label": d.label} for d in bo_ghep.SCOPES],
             "measures": [{"key": m.key, "label": m.label, "ops": list(m.ops), "number": m.number, "other": m.other,
-                          "count_by": m.count_by, "sequence": m.sequence, "note": m.note} for m in bo_ghep.MEASURES],
+                          "count_by": m.count_by, "sequence": m.sequence, "note": m.note,
+                          "default_op": m.default_op} for m in bo_ghep.MEASURES],
+            "derived": list(bo_ghep.DERIVED.values()),
             "ops": [{"key": k, "label": v} for k, v in bo_ghep.OPS.items()],
             "tags": {"subject": [t for t in tags if t not in slot], "slot": [t for t in tags if t in slot]},
             "compose": list(luat_rieng.COMPOSE)}
@@ -126,7 +136,10 @@ def _text(value) -> str:
 
 
 def _read_staff_rows(wb, warnings: list[str]) -> list[dict]:
-    """Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua)."""
+    """Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua). File không có sheet
+    nhân sự (vd file chỉ có sheet LUẬT): không có dòng nào."""
+    if find_sheet(wb, config.STAFF_SHEET) is None:
+        return []
     ws = staff_sheet(wb)
     header_row, cols = _find_columns(ws)
     rows = []
@@ -157,8 +170,8 @@ def _read_staff_rows(wb, warnings: list[str]) -> list[dict]:
 def _read_program_rows(wb) -> tuple[list[int], list[tuple[str, dict]]]:
     """Các khối và các dòng (môn, {khối: số tiết}) của sheet CHƯƠNG TRÌNH HỌC đúng như trong file."""
     ws = find_sheet(wb, config.PROGRAM_SHEET)
-    if ws is None:
-        raise InputError(f"File vào thiếu sheet {config.PROGRAM_SHEET} (Môn học, Khối 1, Khối 2...)")
+    if ws is None:  # vd file chỉ có sheet LUẬT: giao diện chỉ lấy các phần file có
+        return [], []
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
         heads = {normalize(c.value): c.column for c in row if not _blank(c.value)}
         grades = {int(h.split()[1]): c for h, c in heads.items() if h.startswith("khối ") and h[5:].isdigit()}
@@ -200,14 +213,16 @@ def _read_saved(wb) -> list[list] | None:
     return [row[:max((i + 1 for i, v in enumerate(row) if v is not None), default=0)] for row in rows]
 
 
-def _custom_part() -> list[dict]:
-    """Các luật riêng đang dùng (config.CUSTOM_RULES) theo dạng kịch bản."""
-    out = []
-    for rule in config.CUSTOM_RULES:
-        cells = luat_rieng.cells(rule)
-        out.append({k: (cells[k] == YES if k == "hard" else cells[k] if k in ("number", "level")
-                        else (cells[k] or "")) for k, _ in luat_rieng.COLUMNS})
-    return out
+def rule_dict(rule) -> dict:
+    """Một luật (config.CustomRule) theo dạng kịch bản: các ô như trong sheet LUẬT."""
+    cells = {**luat_rieng.cells(rule), luat_rieng.GROUP[0]: rule.group_label}
+    return {k: (cells[k] == YES if k == "hard" else cells[k] if k in ("number", "level", "points")
+                else (cells[k] or "")) for k in RULE_KEYS}
+
+
+def _rules_rows() -> list[dict]:
+    """Mọi luật đang dùng (sheet LUẬT, hoặc các dòng mặc định cộng luật riêng của file cũ) theo dạng kịch bản."""
+    return [rule_dict(r) for r in luat_co_san.rows()]
 
 
 def _roles_part(staff: list[dict], subject_names: list[str]) -> list[dict]:
@@ -231,7 +246,7 @@ def _rules_part(subject_names: list[str]) -> tuple[dict, list[dict], list[dict],
     """Các quy định đang dùng (config) theo dạng kịch bản: (chung, ngày, tiết, {môn: quy định}, các môn có quy
     định mà chương trình học không có)."""
     general_t, days_t, periods_t = rule_tables()
-    general = {c.key: _from_cell(c, value) for c, (_, value) in zip(GENERAL, general_t[1])}
+    general = {c.key: _from_cell(c, value) for c, (_, value) in zip(GENERAL_COLS, general_t[1])}
     days = [{c.key: _from_cell(c, v) for c, v in zip(DAY_COLS, row[1:])} for row in days_t[1]]
     periods = [{c.key: _from_cell(c, v) for c, v in zip(PERIOD_COLS, row[1:])} for row in periods_t[1]]
     _, values, rest = subject_columns(subject_names)
@@ -250,13 +265,13 @@ def from_excel(path: str | Path) -> tuple[dict, list[str]]:
     rules = read_rules(path, warn=warnings.append)
     with applied(rules):
         general, days, periods, by_subject, rest = _rules_part([name for name, _ in program])
-        custom = _custom_part()
+        luat = _rules_rows()
         roles = _roles_part(staff, [name for name, _ in program])
     subjects = [{"name": name, "lessons": lessons, "rules": by_subject[name]} for name, lessons in program]
     subjects += [{"name": name, "lessons": {str(g): None for g in grades}, "rules": by_subject[name]}
                  for name in rest]
     scenario = {"version": VERSION, "staff": staff, "grades": grades, "subjects": subjects, "roles": roles,
-                "general": general, "days": days, "periods": periods, "custom": custom, "saved": _read_saved(wb)}
+                "general": general, "days": days, "periods": periods, "rules": luat, "saved": _read_saved(wb)}
     return scenario, warnings
 
 
@@ -278,7 +293,8 @@ def default_scenario() -> dict:
     general, days, periods, by_subject, _ = _rules_part(names)
     return {"version": VERSION, "staff": [], "grades": grades,
             "subjects": [{"name": n, "lessons": {str(g): None for g in grades}, "rules": by_subject[n]} for n in names],
-            "roles": [], "general": general, "days": days, "periods": periods, "custom": [], "saved": None}
+            "roles": [], "general": general, "days": days, "periods": periods,
+            "rules": [rule_dict(r) for r in luat_co_san.default_rows()], "saved": None}
 
 
 # ---- ghi kịch bản ra file Excel ----
@@ -319,7 +335,7 @@ def to_excel(scenario: dict, path: str | Path) -> None:
     general = scenario.get("general") or {}
     days = scenario.get("days") or []
     periods = scenario.get("periods") or []
-    tables = [([GENERAL_KEY, VALUE], [[c.header, _to_cell(c, general.get(c.key))] for c in GENERAL]),
+    tables = [([GENERAL_KEY, VALUE], [[c.header, _to_cell(c, general.get(c.key))] for c in GENERAL_COLS]),
               ([DAY_KEY, *(c.header for c in DAY_COLS)],
                [[_day_name(d), *(_to_cell(c, day.get(c.key)) for c in DAY_COLS)] for d, day in enumerate(days)]),
               ([PERIOD_KEY, *(c.header for c in PERIOD_COLS)],
@@ -331,13 +347,38 @@ def to_excel(scenario: dict, path: str | Path) -> None:
         for row in saved:
             ws.append(row)
 
-    custom = [[_custom_cell(k, rule.get(k)) for k, _ in luat_rieng.COLUMNS] for rule in scenario.get("custom") or []]
     # Cả dòng trống: dòng i của bảng là dòng i + 2 của sheet CHỨC VỤ.
     roles = [[_text(role.get("name")) or None,
               ", ".join(t for t in map(_text, role.get("subjects") or []) if t) or None]
              for role in scenario.get("roles") or []]
     write_input(path, staff, (grades, [c.header for c in SUBJECT_COLS], rows), tables,
-                extra=write_saved if saved else None, custom=custom, roles=roles)
+                extra=write_saved if saved else None, rules=luat_sheet_rows(scenario.get("rules") or []),
+                roles=roles)
+
+
+def luat_sheet_rows(rows: list[dict]) -> list[list]:
+    """Các dòng của sheet LUẬT từ các luật của kịch bản (cả dòng trống: dòng i là dòng i + 2 của sheet); cột Luật đọc
+    là ghi câu đọc lại của dòng (dòng ghi sai thì để trống)."""
+    out = []
+    for i, row in enumerate(rows):
+        cells = {k: _custom_cell(k, row.get(k)) for k, _ in luat_rieng.COLUMNS}
+        rule = luat_rieng.parse(cells, i + 2, lambda _: None)
+        group = _text(row.get(luat_rieng.GROUP[0])) or None
+        out.append(luat_row(rule) if rule else [group, *cells.values(), None])
+        out[-1][0] = group
+    return out
+
+
+def rules_to_excel(scenario: dict, path: str | Path) -> None:
+    """File Excel chỉ có các luật (sheet LUẬT) và cách ghi (sheet HƯỚNG DẪN): xuất luật để sửa trong Excel, chép
+    sang trường khác, hoặc làm mẫu luật; nhập lại bằng Nhập từ Excel."""
+    from .template import write_guide, write_luat_sheet
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    write_luat_sheet(wb, luat_sheet_rows(scenario.get("rules") or []))
+    write_guide(wb)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
 
 
 def _custom_cell(key: str, value):
@@ -346,7 +387,7 @@ def _custom_cell(key: str, value):
         return YES if value is True or (isinstance(value, str) and _fold(value) in _YES) else NO
     if key == "group":
         return YES if value is True or (isinstance(value, str) and _fold(value) in _YES) else None
-    if key in ("number", "level"):
+    if key in ("number", "level", "points"):
         return _number(value)
     return _text(value) or None
 
@@ -361,17 +402,15 @@ def _lines(exc: Exception, sheet: str = "") -> list[str]:
 
 
 def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool = True) -> dict:
-    """Câu đọc lại của từng luật riêng (rows; mặc định các luật của kịch bản) và các luật có sẵn đang dùng, theo quy
-    định của kịch bản: {rules: [{text, errors}], built_in: [{group, text, source, hard}]}. Lỗi các sheet khác không
-    chặn (nút Kiểm tra báo)."""
+    """Câu đọc lại của từng luật (rows; mặc định các luật của kịch bản), theo quy định của kịch bản: {rules: [{text,
+    errors, native}]}; native là khóa luật có sẵn nếu dòng ở dạng gốc (chương trình xếp bằng mã hóa riêng). Lỗi các
+    sheet khác không chặn (nút Kiểm tra báo)."""
     from .config import Role
-    from .luat_co_san import co_san
-
-    rows = scenario.get("custom") or [] if rows is None else rows
+    rows = scenario.get("rules") or [] if rows is None else rows
     values: dict = {}
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "kich_ban.xlsx"
-        to_excel({**scenario, "custom": []}, path)
+        to_excel({**scenario, "rules": []}, path)
         try:
             values = read_rules(path) or {}
         except InputError:
@@ -383,10 +422,10 @@ def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool
             errors: list[str] = []
             cells = {k: _custom_cell(k, row.get(k)) for k, _ in luat_rieng.COLUMNS}
             rule = luat_rieng.parse(cells, i + 2, errors.append)
-            out.append({"text": luat_rieng.describe(rule) if rule else None, "errors": errors})
-        built = [{"group": c.group, "text": c.sentence(), "source": c.source, "hard": c.hard}
-                 for c in co_san(None, config.Settings(student_rules=student_rules))]
-    return {"rules": out, "built_in": built}
+            native = luat_co_san.native_of(rule) if rule else None
+            out.append({"text": luat_rieng.describe(rule) if rule else None, "errors": errors,
+                        "native": native.key if native else None})
+    return {"rules": out}
 
 
 def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = config.OVERTIME_MAX,

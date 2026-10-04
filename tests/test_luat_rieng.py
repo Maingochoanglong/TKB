@@ -5,7 +5,7 @@ from collections import Counter
 import openpyxl
 import pytest
 
-from tkb import config, luat_rieng
+from tkb import config, luat_co_san, luat_rieng
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.config import CustomRule
@@ -15,7 +15,7 @@ from tkb.solver import ConflictError, solve
 from tkb.staff import InputError
 from tkb.template import write_staff_template
 
-from .conftest import CURRICULUM, small_staff
+from .conftest import CURRICULUM, small_staff, plain_rules
 
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
 HEAD = [h for _, h in luat_rieng.COLUMNS]
@@ -70,23 +70,25 @@ def test_parse_errors(cells, error):
 def test_read_sheet_and_rules_code(tmp_path):
     path = tmp_path / "vao.xlsx"
     write_staff_template(path, small_staff(), CURRICULUM)
-    assert read_rules(path) == DEFAULTS  # sheet LUẬT RIÊNG trống của file mẫu: như không có luật riêng
+    assert plain_rules(read_rules(path)) == DEFAULTS  # sheet LUẬT của file mẫu: chỉ có các luật có sẵn
     with applied(DEFAULTS):
         empty = code()
     wb = openpyxl.load_workbook(path)
-    ws = wb[luat_rieng.SHEET]
-    assert [c.value for c in ws[1]] == HEAD
-    for r, row in ((2, {"Kiểu luật": "Không xếp vào", "Môn": "Thể dục", "Tiết": "1", "Bắt buộc": "Có"}),
-                   (3, {"Kiểu luật": "Học trước", "Môn": "Toán"})):  # dòng 2, 3 (file mẫu kẻ sẵn dòng trống)
-        for head, value in row.items():
-            ws.cell(r, HEAD.index(head) + 1, value)
+    ws = wb[luat_rieng.RULES_SHEET]
+    head = [c.value for c in ws[1]]
+    assert head[1:-1] == HEAD  # Nhóm | các cột câu luật | Luật đọc là
+    n = len(luat_co_san.default_rows()) + 2  # dòng trống đầu tiên sau các luật có sẵn
+    for r, row in ((n, {"Kiểu luật": "Không xếp vào", "Môn": "Thể dục", "Tiết": "1", "Bắt buộc": "Có"}),
+                   (n + 1, {"Kiểu luật": "Học trước", "Môn": "Toán"})):
+        for h, value in row.items():
+            ws.cell(r, head.index(h) + 1, value)
     wb.save(path)
-    with pytest.raises(InputError, match="LUẬT RIÊNG, dòng 3: kiểu luật Học trước phải ghi cột Môn thứ hai"):
+    with pytest.raises(InputError, match=f"LUẬT, dòng {n + 1}: kiểu luật Học trước phải ghi cột Môn thứ hai"):
         read_rules(path)
-    ws.delete_rows(3)
+    ws.delete_rows(n + 1)
     wb.save(path)
     rules = read_rules(path)
-    assert rules["CUSTOM_RULES"] == [CustomRule("khong_xep", "Thể dục", periods=(1,), hard=True, row=2)]
+    assert rules["CUSTOM_RULES"] == [CustomRule("khong_xep", "Thể dục", periods=(1,), hard=True, row=n)]
     with applied(rules):
         assert code() != empty  # có luật riêng thì mã quy định khác (TKB đã lưu không dùng lại được)
         moved = code()
@@ -186,5 +188,6 @@ def test_diagnosis_names_the_custom_rule():
         _solve(rule)
     lines = str(err.value).splitlines()
     assert "  - LUẬT RIÊNG dòng 12: Toán chỉ xếp vào buổi chiều (bắt buộc)" in lines
-    assert "  - Tối đa tiết mỗi ngày (cột của sheet CHƯƠNG TRÌNH HỌC)" in lines
+    assert ("  - Luật có sẵn: Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1, khi số tiết/tuần <= số ngày (bắt "
+            "buộc)") in lines
     assert config.CUSTOM_RULES == []  # chẩn đoán xong trả lại như cũ

@@ -38,6 +38,11 @@ class SolveError(RuntimeError):
 RELAXED: frozenset[str] = frozenset()
 
 
+def on(key: str) -> bool:
+    """Luật có sẵn `key` có hiệu lực: có dòng ở sheet LUẬT (config.on) và không đang nới để chẩn đoán."""
+    return key not in RELAXED and config.on(key)
+
+
 def ortools_version() -> str:
     import ortools
     return ortools.__version__
@@ -127,9 +132,9 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
             continue
         if course.allowed_days is not None and s[0] not in course.allowed_days:
             continue
-        if course.subject == config.HDTN and s in config.HDTN_FIXED_SLOTS:
+        if course.subject == config.HDTN and s in config.HDTN_FIXED_SLOTS and on("hdtn_co_dinh"):
             continue
-        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS:
+        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS and on("tiet_gvcn"):
             continue
         result.append(s)
     if config.CUSTOM_RULES:  # luật riêng bắt buộc về vị trí (tkb/bo_ghep.py)
@@ -388,6 +393,8 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
         by_teacher.setdefault(g, {}).setdefault((s[0], sess[s].name), []).extend(terms)
     for g in sorted(by_teacher):
         t, busy = problem.teachers[g], by_teacher[g]
+        if not on("buoi_nghi"):
+            continue
         for key in sorted(t.off_sessions):  # buổi nghỉ cố định
             for v in busy.get(key, []):
                 m.Add(v == 0)
@@ -403,7 +410,7 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
                 need = sum(k for _, k in t.off_any) if name is None else n
                 m.Add(sum(pool) >= need)
     # Mỗi buổi GV chỉ dạy ở một cơ sở: o2 = 1 là buổi đó ở cơ sở 2.
-    for g in sorted(by_teacher) if "co_so" not in RELAXED else ():
+    for g in sorted(by_teacher) if on("co_so") else ():
         for d, session in sessions:
             lits = {at2: [v for p in session.periods for v in occ_campus.get((g, (d, p), at2), [])]
                     for at2 in (False, True)}
@@ -417,6 +424,8 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
 
 def _campus_day_switch(m: cp_model.CpModel, occ_campus: dict, weight: int) -> list:
     """Mục tiêu mềm: phạt `weight` mỗi (GV, ngày) dạy ở cả hai cơ sở (sáng một nơi, chiều nơi kia)."""
+    if not weight:  # luật ưu tiên bị bỏ (sheet LUẬT)
+        return []
     by_day: dict[tuple[str, int, bool], list] = {}  # (GV, ngày, lớp ở cơ sở 2?) -> literal
     for (g, s, at2), lits in sorted(occ_campus.items()):
         by_day.setdefault((g, s[0], at2), []).extend(lits)
@@ -439,7 +448,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                     fixed: dict[tuple[int, str], int] | None = None,
                     hint: dict[tuple[int, str], int] | None = None) -> TimetableModel:
     """Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights)."""
-    w = settings.weights
+    w = config.rule_weights(settings.weights)  # điểm ghi ở các dòng luật có sẵn ưu tiên (sheet LUẬT)
     m = cp_model.CpModel()
     slots = problem.slots
     alloc = _Allocation(m, problem, w, fixed)
@@ -511,7 +520,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # Liên tiết: hai tiết liền nhau cùng lớp, cùng nhóm môn (vd TV và TV tăng cường) phải cùng người dạy.
     for by_g in teach.values():
-        if len(by_g) < 2 or "lien_tiet" in RELAXED:
+        if len(by_g) < 2 or not on("lien_tiet"):
             continue
         gs = sorted(by_g)
         for d, session in sessions_all:
@@ -528,7 +537,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
     week = sorted(slots)
     for (cls, group), by_g in teach.items():
         cn = homeroom_of.get(cls)
-        if group not in config.HOMEROOM_PRIORITY or cn not in by_g or len(by_g) < 2 or "gvcn_truoc" in RELAXED:
+        if group not in config.HOMEROOM_PRIORITY or cn not in by_g or len(by_g) < 2 or not on("gvcn_truoc"):
             continue
         for g in sorted(by_g):
             if g == cn:
@@ -556,7 +565,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 by_group.setdefault(subject_group(c.subject), []).append(c)
             # Tiết tăng cường là tiết luyện bài vừa học: trong ngày phải có tiết chính cùng nhóm đứng trước và
             # không có tiết chính nào đứng sau (không cần liền, không cần cùng người dạy, không cần buổi chiều).
-            for extra, main in config.SUBJECT_GROUPS.items() if "tang_cuong" not in RELAXED else ():
+            for extra, main in config.SUBJECT_GROUPS.items() if on("tang_cuong") else ():
                 for te in by_subject.get(extra, []):
                     for mc in by_subject.get(main, []):
                         for d, p in sorted(dom[te.id]):
@@ -581,7 +590,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                     for group, cs in by_group.items():
                         y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in ps}
                         vs = [v for p in ps for v in y[p]]
-                        if len(vs) > config.SESSION_GROUP_LIMIT:
+                        if len(vs) > config.SESSION_GROUP_LIMIT and on("nhom_buoi"):
                             m.Add(sum(vs) <= config.SESSION_GROUP_LIMIT)
                         if group in pairs and vs:
                             pair = m.NewBoolVar(f"pair_{cls}_{d}_{ps[0]}")
@@ -591,7 +600,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                                     if y[ps[i]] and y[ps[k]]:
                                         m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) <= 1)
                     for subject, cs in by_subject.items():
-                        if sum(c.lessons for c in cs) < 2 or "lien_nhau" in RELAXED:
+                        if sum(c.lessons for c in cs) < 2 or not on("lien_nhau"):
                             continue
                         y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in ps}
                         for i in range(len(ps)):
@@ -602,25 +611,26 @@ def build_timetable(problem: Problem, settings: config.Settings,
                                     m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) - sum(y[ps[j]]) <= 1)
 
     # HĐTN linh hoạt: càng gần cuối buổi càng tốt.
+    # Điểm 0: dòng luật ưu tiên tương ứng đã bỏ khỏi sheet LUẬT (các khối dưới đây bỏ qua luôn).
     for c in problem.courses:
-        if c.flex_hdtn:
+        if c.flex_hdtn and w.hdtn_flex_distance:
             objective.append(sum(w.hdtn_flex_distance * distance_to_session_end(s) * x[c.id, s]
                                  for s in dom[c.id] if distance_to_session_end(s) > 0))
 
     # Hạn chế môn nặng ở tiết cuối ngày.
     for c in problem.courses:
-        if c.subject in config.HEAVY_SUBJECTS:
+        if c.subject in config.HEAVY_SUBJECTS and w.heavy_late:
             objective.extend(w.heavy_late * x[c.id, s] for s in dom[c.id]
                              if s[1] in config.HEAVY_LATE_PERIODS)
 
     # Buổi sáng dành cho TV, Toán.
     for c in problem.courses:
-        if c.subject in config.MORNING_SUBJECTS:
+        if c.subject in config.MORNING_SUBJECTS and w.morning_core:
             objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if s[1] not in config.MORNING.periods)
 
     # Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
     days = sorted(config.DAY_SESSIONS)
-    for title, t in problem.teachers.items():
+    for title, t in problem.teachers.items() if w.day_over_preferred or w.day_over_buffer else ():
         target = day_targets(t.max_lessons, slots)
         for d in days:
             terms = [v for s in slots if s[0] == d for v in occ_terms.get((title, s), [])]
@@ -641,6 +651,8 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 by_subject.setdefault(c.subject, []).append(c)
         for subject, courses in by_subject.items():
             cap = math.ceil(sum(c.lessons for c in courses) / len(days))
+            if not (w.core_spread if subject in config.MORNING_SUBJECTS else w.subject_spread):
+                continue
             for d in days:
                 vs = [x[c.id, s] for c in courses for s in dom[c.id] if s[0] == d]
                 if len(vs) <= cap:
@@ -652,7 +664,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # Tiết trống giữa buổi của GV không chủ nhiệm.
     for title, t in problem.teachers.items():
-        if t.class_name:
+        if t.class_name or not w.teacher_gap:
             continue
         for d, sessions in config.DAY_SESSIONS.items():
             for session in sessions:

@@ -1,15 +1,16 @@
-"""Chẩn đoán vì sao không xếp được TKB: luật bắt buộc nào mâu thuẫn, nói bằng tên quy định nhà trường đã ghi.
+"""Chẩn đoán vì sao không xếp được TKB: luật bắt buộc nào mâu thuẫn, nói bằng dòng luật nhà trường đã ghi (sheet LUẬT).
 
 1. `precheck(problem, student_rules)`: đếm trước khi xếp (vài mili giây, gọi ở solver._assignment và khi Kiểm tra
    trên giao diện). Chỉ báo khi chắc chắn không có TKB nào thỏa, vd khối 1 có 14 tiết Tiếng Việt mà "Số tiết tối đa
    một nhóm môn mỗi buổi" = 1 chỉ cho 9 buổi × 1 tiết. Các phép đếm khác nằm sẵn ở allocation.build_problem
    (tổng số tiết vượt khung giờ, GVCN không đủ tiết cho tiết Luôn do GVCN dạy) và solver.allowed_slots.
 2. `diagnose(staff, curriculum, settings, log)`: khi bộ giải không tìm được TKB. Mỗi lần thử là một mô hình CP-SAT
-   tìm nghiệm đầu tiên (solver.feasible) với một số nhóm luật bắt buộc được nới (config hoặc solver.RELAXED):
+   tìm nghiệm đầu tiên (solver.feasible) với một số dòng luật bắt buộc được bỏ (luật có sẵn: config.OFF; luật xếp
+   bằng bộ ghép: bỏ khỏi config.CUSTOM_RULES), mỗi dòng bắt buộc của sheet LUẬT là một nhóm:
    - không nới gì mà vẫn xếp được, hoặc chưa biết: do thiếu thời gian, không phải mâu thuẫn;
    - nới hết các nhóm luật mà vẫn không xếp được: do nhân sự, định mức, quyền dạy;
    - còn lại: lọc bỏ dần từng nhóm luật để còn nhóm nhỏ nhất vẫn mâu thuẫn, rồi thử nới riêng từng luật trong đó.
-   Xếp thật không nới gì (solver.RELAXED rỗng) nên mô hình và mã kết quả không đổi.
+   Xếp thật không nới gì nên mô hình và mã kết quả không đổi.
 """
 from __future__ import annotations
 
@@ -18,15 +19,22 @@ from dataclasses import dataclass, field, replace
 
 from . import config
 from .allocation import Problem, paired_groups, subject_group
-from .rules import LABELS, applied
+from .rules import applied
 from .staff import Teacher, grade_of
 
 SECONDS = 30  # thời lượng mỗi lần thử khi chẩn đoán (đơn vị như THOI_GIAN_TOI_DA)
-ALL = 10 ** 6  # giá trị "không giới hạn" khi nới luật
 
 
-def _q(attr: str) -> str:
-    return f"'{LABELS[attr]}'"
+def _q(key: str, subject: str = "") -> str:
+    """Tên dòng luật có sẵn `key` (dòng của môn `subject` nếu có) như nhà trường thấy, để báo trong phép đếm."""
+    from . import luat_co_san
+    from .luat_rieng import label
+    native = luat_co_san.BY_KEY[key]
+    for r in luat_co_san.rows():
+        if luat_co_san.fits(native, r) and replace(r, group_label="") not in \
+                [replace(c, group_label="") for c in config.CUSTOM_RULES] and (not subject or subject in r.subject):
+            return f"'{label(r)}'"
+    return f"'{key}'"
 
 
 def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
@@ -40,7 +48,7 @@ def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
     sessions = [s for ss in config.DAY_SESSIONS.values() for s in ss]
     pair_sessions = sum(1 for s in sessions if len(s.periods) >= 2)
     n_days = len(config.DAY_SESSIONS)
-    limit = config.SESSION_GROUP_LIMIT
+    limit = config.SESSION_GROUP_LIMIT if config.on("nhom_buoi") else 10 ** 6
     for g in sorted({grade_of(c) for c in problem.classes}):
         req = problem.curriculum[g]
         groups: dict[str, dict[str, int]] = {}
@@ -52,15 +60,14 @@ def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
             n = sum(subjects.values())
             name = " + ".join(problem.subject_labels.get(s, s) for s in subjects)
             if n > limit * len(sessions):
-                out.append(f"Khối {g}: {name} có {n} tiết/tuần nhưng {_q('SESSION_GROUP_LIMIT')} = {limit} chỉ cho "
-                           f"tối đa {limit} × {len(sessions)} buổi = {limit * len(sessions)} tiết")
+                out.append(f"Khối {g}: {name} có {n} tiết/tuần nhưng luật {_q('nhom_buoi')} chỉ cho tối đa "
+                           f"{limit} × {len(sessions)} buổi = {limit * len(sessions)} tiết")
                 continue  # một lỗi cho mỗi nhóm môn là đủ
             if group not in pairs:
                 continue
-            why = f"có {n} tiết/tuần nên phải học thành cặp 2 tiết liền ({_q('PAIR_MIN_LESSONS')} = " \
-                  f"{config.PAIR_MIN_LESSONS})"
+            why = f"có {n} tiết/tuần nên phải học thành cặp 2 tiết liền (luật {_q('ghep_cap')})"
             if limit < 2:
-                out.append(f"Khối {g}: {name} {why} nhưng {_q('SESSION_GROUP_LIMIT')} = {limit}")
+                out.append(f"Khối {g}: {name} {why} nhưng luật {_q('nhom_buoi')}")
             elif n // 2 > pair_sessions:
                 out.append(f"Khối {g}: {name} {why}, cần {n // 2} buổi có từ 2 tiết nhưng khung giờ chỉ có "
                            f"{pair_sessions} buổi như vậy")
@@ -68,67 +75,64 @@ def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
                 (s, k), = subjects.items()
                 daily = config.DAILY_LIMITS.get(s)
                 if daily is not None and daily < 2 and k <= n_days:
-                    out.append(f"Khối {g}: {name} {why} nhưng {_q('DAILY_LIMITS')} của môn này = {daily}")
+                    out.append(f"Khối {g}: {name} {why} nhưng luật {_q('toi_da_ngay', s)}")
     return out
 
 
 @dataclass(frozen=True)
 class _Rule:
-    """Một nhóm luật bắt buộc có thể nới khi chẩn đoán."""
-    label: str  # tên như nhà trường thấy (cột, dòng quy định trong file vào / giao diện)
-    values: tuple = ()  # (hằng số config, giá trị khi nới)
-    flag: str = ""  # cờ solver.RELAXED
-    leave: bool = False  # bỏ cột Buổi Nghỉ của mọi GV
-    custom: int = -1  # chỉ số của luật riêng bắt buộc (config.CUSTOM_RULES) được bỏ khi nới
+    """Một dòng luật bắt buộc có thể bỏ khi chẩn đoán."""
+    label: str  # tên như nhà trường thấy: sheet LUẬT dòng n: câu luật
+    off: str = ""  # luật có sẵn: khóa bỏ (config.OFF)
+    daily: str = ""  # luật có sẵn "tối đa tiết mỗi ngày" của môn này: bỏ môn khỏi config.DAILY_LIMITS
+    custom: int = -1  # luật xếp bằng bộ ghép: chỉ số trong config.CUSTOM_RULES
+
+
+def _matters(key: str, staff: list[Teacher]) -> bool:
+    """Luật có sẵn có tác dụng với dữ liệu này không (không thì không cần thử bỏ)."""
+    return {"tang_cuong": bool(config.SUBJECT_GROUPS), "gvcn_truoc": bool(config.HOMEROOM_PRIORITY),
+            "tiet_gvcn": bool(config.HOMEROOM_PERIODS), "chi_gvcn": bool(config.HOMEROOM_ONLY_SUBJECTS),
+            "hdtn_co_dinh": bool(config.HDTN and config.HDTN_FIXED_SLOTS),
+            "hdtn_ngay": bool(config.HDTN) and set(config.HDTN_FLEX_DAYS) != set(config.DAY_SESSIONS),
+            "buoi_nghi": any(t.off_sessions or t.off_any for t in staff),
+            "co_so": any(t.campus2 for t in staff if t.class_name),
+            "co_so_2": any(t.campus2_only for t in staff)}.get(key, True)
 
 
 def _rules(staff: list[Teacher], settings: config.Settings) -> list[_Rule]:
-    """Các nhóm luật bắt buộc đang có hiệu lực, theo thứ tự thử."""
-    out = []
-    if settings.student_rules:
-        out.append(_Rule(f"{LABELS['SESSION_GROUP_LIMIT']} (sheet QUY ĐỊNH)", (("SESSION_GROUP_LIMIT", ALL),)))
-        out.append(_Rule(f"{LABELS['PAIR_MIN_LESSONS']} (sheet QUY ĐỊNH; cột Không ghép cặp)",
-                         (("PAIR_MIN_LESSONS", ALL),)))
-        if config.DAILY_LIMITS:
-            out.append(_Rule(f"{LABELS['DAILY_LIMITS']} (cột của sheet CHƯƠNG TRÌNH HỌC)", (("DAILY_LIMITS", {}),)))
-        if config.SUBJECT_GROUPS:
-            out.append(_Rule("Tiết tăng cường đứng sau tiết môn chính trong ngày (cột Môn tăng cường)",
-                             flag="tang_cuong"))
-        out.append(_Rule("Các tiết cùng môn trong một buổi phải liền nhau (luật bảo vệ học sinh)", flag="lien_nhau"))
-    out.append(_Rule("Hai tiết liền nhau cùng nhóm môn của một lớp do một người dạy", flag="lien_tiet"))
-    if config.HOMEROOM_PRIORITY:
-        out.append(_Rule(f"Tiết đầu tuần của môn {LABELS['HOMEROOM_PRIORITY']} do GVCN dạy", flag="gvcn_truoc"))
-    if config.HOMEROOM_PERIODS:
-        out.append(_Rule(f"{LABELS['HOMEROOM_PERIODS']}: tiết "
-                         f"{', '.join(map(str, sorted(config.HOMEROOM_PERIODS)))} (sheet QUY ĐỊNH, bảng Tiết)",
-                         (("HOMEROOM_PERIODS", set()),)))
-    if config.HDTN and (config.HDTN_FIXED_SLOTS or set(config.HDTN_FLEX_DAYS) != set(config.DAY_SESSIONS)):
-        out.append(_Rule(f"{LABELS['HDTN_FIXED_SLOTS']}, {LABELS['HDTN_FLEX_DAYS']} (sheet QUY ĐỊNH, bảng Ngày)",
-                         (("HDTN_FIXED_SLOTS", []), ("HDTN_FLEX_DAYS", sorted(config.DAY_SESSIONS)))))
-    if any(t.off_sessions or t.off_any for t in staff):
-        out.append(_Rule("Buổi Nghỉ của giáo viên (sheet NHÂN SỰ)", leave=True))
-    if any(t.campus2 for t in staff if t.class_name):
-        out.append(_Rule("Mỗi buổi một giáo viên chỉ dạy ở một cơ sở (cột Cơ sở 2)", flag="co_so"))
+    """Các dòng luật bắt buộc đang có hiệu lực, theo thứ tự dòng của sheet LUẬT."""
+    from . import luat_co_san
     from .luat_rieng import label
-    out += [_Rule(label(r), custom=i) for i, r in enumerate(config.CUSTOM_RULES) if r.hard]
+    from .program import canonical_subject
+    out = []
+    plain = lambda r: replace(r, group_label="")  # noqa: E731  (cột Nhóm không đổi luật)
+    custom = [plain(r) for r in config.CUSTOM_RULES]
+    for r in luat_co_san.rows():
+        if not r.hard:
+            continue
+        if plain(r) in custom:  # xếp bằng bộ ghép
+            out.append(_Rule(label(r), custom=custom.index(plain(r))))
+            continue
+        native = luat_co_san.native_of(r)
+        if native is None or not config.on(native.key) or (native.student and not settings.student_rules) \
+                or not _matters(native.key, staff):
+            continue
+        if native.key == "toi_da_ngay":
+            out.append(_Rule(label(r), daily=canonical_subject(r.subject)))
+        else:
+            out.append(_Rule(label(r), off=native.key))
     return out
 
 
 @contextmanager
 def _relaxed(rules: list[_Rule]):
-    from . import solver
-
-    old = solver.RELAXED
-    values = {attr: value for r in rules for attr, value in r.values}
     dropped = {r.custom for r in rules if r.custom >= 0}
-    if dropped:
-        values["CUSTOM_RULES"] = [r for i, r in enumerate(config.CUSTOM_RULES) if i not in dropped]
+    daily = {r.daily for r in rules if r.daily}
+    values = {"OFF": config.OFF | {r.off for r in rules if r.off},
+              "DAILY_LIMITS": {s: n for s, n in config.DAILY_LIMITS.items() if s not in daily},
+              "CUSTOM_RULES": [r for i, r in enumerate(config.CUSTOM_RULES) if i not in dropped]}
     with applied(values):
-        solver.RELAXED = frozenset(r.flag for r in rules if r.flag)
-        try:
-            yield
-        finally:
-            solver.RELAXED = old
+        yield
 
 
 @dataclass
@@ -143,11 +147,10 @@ def diagnose(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settin
     from .solver import feasible
 
     rules = _rules(staff, settings)
-    free = [replace(t, off_sessions=frozenset(), off_any=()) for t in staff]
 
     def test(relax: list[_Rule]) -> bool | None:
         with _relaxed(relax):
-            return feasible(free if any(r.leave for r in relax) else staff, curriculum, settings, seconds)
+            return feasible(staff, curriculum, settings, seconds)
 
     log(f"Chẩn đoán: tìm luật bắt buộc làm không xếp được ({len(rules)} nhóm luật, mỗi lần thử tối đa ~{seconds}s)...")
     now = test([])

@@ -63,7 +63,7 @@ def test_import_check_export(server):
     status, data = _call(url, "/api/import", "POST", INPUT_FILE.read_bytes(), app.token,
                          {"X-File-Name": "Truong%20M%E1%BA%ABu.xlsx"})
     assert status == 200 and len(data["scenario"]["staff"]) == 45 and data["name"] == "Truong Mẫu"
-    assert data["sheets"] == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT RIÊNG"]
+    assert data["sheets"] == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT"]
     status, res = _call(url, "/api/check", "POST", {"scenario": data["scenario"], "run": {"overtime_max": 2}}, app.token)
     assert status == 200 and res["errors"] == []
     status, xlsx = _call(url, "/api/export", "POST", {"scenario": data["scenario"], "name": "a/b"}, app.token)
@@ -75,8 +75,8 @@ def test_import_check_export(server):
 
 
 def test_describe_rules(server):
-    """Bộ ghép luật trên trang: câu đọc lại và lỗi của từng luật (cùng hàm với file Excel), các luật có sẵn, và từ
-    vựng của bộ ghép trong schema."""
+    """Bộ ghép luật trên trang: câu đọc lại, lỗi và dạng gốc của từng luật (cùng hàm với file Excel), từ vựng của bộ
+    ghép trong schema, xuất luật và mẫu luật."""
     app, url = server
     _, schema = _call(url, "/api/schema", token=app.token)
     composer = schema["custom"]["composer"]
@@ -89,10 +89,18 @@ def test_describe_rules(server):
             {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True}]
     status, data = _call(url, "/api/describe", "POST", {"scenario": new["scenario"], "rows": rows}, app.token)
     assert status == 200
-    assert data["rules"][0] == {"text": "Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1 (bắt buộc)", "errors": []}
+    assert data["rules"][0] == {"text": "Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1 (bắt buộc)", "errors": [],
+                                "native": None}  # thiếu "khi số tiết/tuần <= số ngày": không phải dạng gốc
     assert data["rules"][1]["text"] is None and "phải có Lớp hoặc Giáo viên" in data["rules"][1]["errors"][0]
     assert data["rules"][2]["text"] == "Tiếng Việt học trước Toán trong buổi (bắt buộc)"
-    assert {c["group"] for c in data["built_in"]} >= {"Cấu trúc", "Bảo vệ học sinh", "Ưu tiên khi xếp giờ"}
+    status, data = _call(url, "/api/describe", "POST", {"scenario": new["scenario"]}, app.token)
+    assert all(r["native"] for r in data["rules"]) and len(data["rules"]) == len(new["scenario"]["rules"])
+    status, xlsx = _call(url, "/api/rules_file", "POST", {"template": True}, app.token)
+    assert status == 200 and xlsx[:2] == b"PK"
+    status, imported = _call(url, "/api/import", "POST", xlsx, app.token)
+    assert imported["sheets"] == ["LUẬT"] and imported["scenario"]["rules"] == new["scenario"]["rules"]
+    status, xlsx = _call(url, "/api/rules_file", "POST", {"scenario": new["scenario"], "name": "a"}, app.token)
+    assert status == 200 and xlsx[:2] == b"PK"
 
 
 def test_blank_template(server, tmp_path):

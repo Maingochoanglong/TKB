@@ -71,7 +71,10 @@ def test_parse_composed_rule():
     (dict(kind="Tự ghép", measure="Số khác nhau", op="<=", number=2, scope="Lớp", count_by="Lớp"),
      "Đếm theo không được trùng"),
     (dict(kind="Tự ghép", measure="Vị trí", op="Chỉ trong", subject="Toán"), "phép đo Vị trí phải ghi ít nhất"),
-    (dict(kind="Tự ghép", measure="Thứ tự", scope="Lớp", subject="Toán"), "phải ghi cột Môn thứ hai"),
+    (dict(kind="Tự ghép", measure="Số tiết", op="<=", number="tải ngày", scope="Lớp"), "phải có Giáo viên và Ngày"),
+    (dict(kind="Tự ghép", measure="Số khác nhau", op="<=", number="tải ngày", scope="Giáo viên", count_by="Lớp"),
+     "cột Số chỉ ghi"),
+    (dict(kind="Tự ghép", measure="Số tiết", op="<=", number=1, points=0), "cột Điểm ghi một số nguyên dương"),
     (dict(kind="Tự ghép", measure="Người dạy", op="Do", subject="Toán"), "phải ghi chức vụ ở cột Giáo viên"),
     (dict(kind="Tự ghép", measure="Đo đạc"), "cột Phép đo ghi một trong"),
     (dict(kind="Tự ghép", measure="Số tiết", op="<=", number=1, scope="Phòng"), "cột Với mỗi ghi các chiều"),
@@ -250,3 +253,38 @@ def test_precheck_finds_impossible_counts():
                      "tiết Tin học nhưng chương trình chỉ có 1"]
     with pytest.raises(ConflictError, match="LUẬT RIÊNG dòng 5"):
         _solve(CustomRule("co_dinh", "Tin học", days=(1, 2), periods=(5,), hard=True, row=5))
+
+
+def test_extensions_count_like_a_hand_count(plain):
+    """Trừ nhãn, ngưỡng theo dữ liệu (tải ngày, số tiết/tuần chia số ngày), "trừ Chủ Nhiệm", Thứ tự "sau" với Môn
+    thứ hai để trống (các môn khác cùng nhóm), Điểm."""
+    import math
+
+    from tkb.solver import day_targets
+    les, p = plain.lessons, plain.problem
+    # Rải đều: mỗi lớp, môn, ngày tối đa ⌈tiết/tuần / số ngày⌉, trừ HĐTN và các môn ưu tiên buổi sáng.
+    per = Counter((l.class_name, l.subject, l.day) for l in les)
+    skip = {config.HDTN} | set(config.MORNING_SUBJECTS)
+    want = sum(max(0, n - math.ceil(p.curriculum[3][s] / 5)) for (c, s, d), n in per.items() if s not in skip)
+    rule = CustomRule("tu_ghep", scope=("lop", "mon", "ngay"), measure="so_tiet", op="<=", derived="tran_ngay",
+                      exclude=("Môn HĐTN", "Ưu tiên buổi sáng"))
+    assert _count(plain, rule) == want
+    # Tải ngày của GV không chủ nhiệm.
+    load = Counter((l.teacher, l.day) for l in les if not p.teachers[l.teacher].class_name)
+    want = sum(max(0, n - day_targets(p.teachers[g].max_lessons, p.slots)[d]) for (g, d), n in load.items())
+    rule = CustomRule("tu_ghep", scope=("gv", "ngay"), measure="so_tiet", op="<=", derived="tai_ngay",
+                      role="trừ chủ nhiệm")
+    assert _count(plain, rule) == want
+    # Tiết tăng cường đứng sau các tiết môn chính cùng nhóm trong ngày (luật có sẵn đúng thì 0; đổi chỗ thì thấy).
+    rule = CustomRule("tu_ghep", tags=("Môn tăng cường",), scope=("lop", "nhom_mon", "ngay"), measure="thu_tu",
+                      op="sau", hard=True)
+    assert _count(plain, rule) == 0
+    tc = next(l for l in les if l.subject == config.TOAN_TC)
+    main = next(l for l in les if (l.class_name, l.day, l.subject) == (tc.class_name, tc.day, config.TOAN))
+    swapped = [l if l not in (tc, main) else type(l)(**{**l.__dict__, "period": (main if l is tc else tc).period})
+               for l in les]
+    assert _count(type(plain)(**{**plain.__dict__, "lessons": swapped}), rule) == 1
+    # Điểm thay cho Mức.
+    rule = CustomRule("tu_ghep", "Toán", measure="vi_tri", op="ngoai", periods=(5, 6, 7), points=50, row=4)
+    assert bo_ghep.weight(bo_ghep.make(rule), config.Weights()) == 50
+    assert luat_rieng.describe(rule) == "Các tiết Toán: không trong tiết 5, 6, 7 (ưu tiên, 50 điểm)"

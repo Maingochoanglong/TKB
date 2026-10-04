@@ -231,11 +231,11 @@ dl.kinds dd { margin: 0; color: var(--muted); font-size: 13.5px; }
   margin-right: 4px; white-space: nowrap; }
 .rule-item b.hard { background: var(--accent-soft); color: var(--accent); }
 .rule-item b.soft { background: var(--surface-2); color: var(--muted); }
-.builtin details { border-top: 1px solid var(--line); padding: 6px 0; }
-.builtin summary { cursor: pointer; font-weight: 600; font-size: 14px; }
-.builtin ul { margin: 6px 0 2px; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; }
-.builtin li small { display: block; color: var(--muted); font-size: 12.5px; }
-.builtin .soft { color: var(--muted); }
+.rule-group { list-style: none; }
+.rule-group h3 { font-size: 14px; margin: 10px 0 6px; }
+.rule-group > ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tag { font-size: 11.5px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted);
+  white-space: nowrap; }
 .say-box { margin: 4px 0 6px; padding: 8px 10px; background: var(--surface-2); border-radius: 6px; font-size: 14px; }
 #rule-errors { margin: 0 0 6px; padding-left: 18px; }
 #rule-errors:empty { display: none; }

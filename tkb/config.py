@@ -221,10 +221,33 @@ class CustomRule:
     tags: tuple[str, ...] = ()  # các nhãn (tiêu đề cột Có/Không của môn, ngày, tiết), vd "Môn nặng"
     group: bool = False  # môn ở cột Môn gồm cả các môn tăng cường cùng nhóm
     when: tuple[tuple[str, int], ...] = ()  # áp dụng khi số tiết/tuần của các môn: (">=", 6), ("<=", -1): -1 là số
-    # ngày học, ("chan", 0), ("le", 0)
+    # ngày học, ("chan", 0), ("le", 0); phạm vi có Môn / Nhóm môn thì xét từng môn / nhóm môn
+    exclude: tuple[str, ...] = ()  # các nhãn bị trừ ra (cột Trừ nhãn), vd "Môn HĐTN"
+    derived: str = ""  # ngưỡng theo dữ liệu thay cho Số (bo_ghep.DERIVED), vd "tai_ngay"
+    points: int | None = None  # luật ưu tiên: điểm trừ mỗi lần không theo (thay cho Mức)
+    group_label: str = ""  # cột Nhóm của sheet LUẬT (chỉ để đọc; không đổi cách xếp)
 
 
-CUSTOM_RULES: list[CustomRule] = []
+CUSTOM_RULES: list[CustomRule] = []  # các dòng của sheet LUẬT xếp bằng bộ ghép (không phải luật có sẵn ở dạng gốc)
+
+# Sheet LUẬT (tkb/luat_co_san.py): mọi luật là một dòng câu ghép, kể cả luật có sẵn. Dòng của luật có sẵn đúng dạng
+# gốc thì xếp bằng mã hóa riêng như trước (mã kết quả không đổi), số và điểm lấy từ dòng; luật có sẵn không còn
+# dòng nào ở dạng gốc thì tắt (OFF).
+RULES_SHEET_ROWS = "LUẬT"
+RULES: list[CustomRule] | None = None  # mọi dòng của sheet LUẬT; None: file không có sheet, dùng các dòng mặc định
+OFF: frozenset[str] = frozenset()  # các luật có sẵn bị tắt (khóa trong luat_co_san.NATIVES)
+WEIGHTS: dict[str, int] = {}  # điểm của luật có sẵn ưu tiên khác mặc định (tên trường của Weights -> điểm)
+
+
+def on(key: str) -> bool:
+    """Luật có sẵn `key` đang bật (có dòng ở dạng gốc trong sheet LUẬT, hoặc file không có sheet LUẬT)."""
+    return key not in OFF
+
+
+def rule_weights(w: "Weights") -> "Weights":
+    """Trọng số xếp giờ theo điểm ghi ở các dòng luật có sẵn ưu tiên (giữ nguyên nếu không đổi)."""
+    from dataclasses import replace
+    return replace(w, **WEIGHTS) if WEIGHTS else w
 
 
 def rule_subjects() -> list[str]:

@@ -1,56 +1,152 @@
-"""Luật có sẵn viết bằng bộ ghép (tkb/luat_co_san.py): kiểm chéo với bộ kiểm tra độc lập, và hạ bằng bộ ghép thay
-cho bản gốc vẫn cho TKB đúng luật."""
+"""Mọi luật là dòng của sheet LUẬT (tkb/luat_co_san.py): dòng mặc định cho đúng mô hình cũ (mã không đổi); sửa số,
+điểm, xóa dòng, đổi Bắt buộc có tác dụng; bộ ghép kiểm chéo với bộ kiểm tra độc lập và hạ thay được luật gốc."""
 import random
 from dataclasses import replace
 
+import openpyxl
 import pytest
 
-from tkb import bo_ghep, checker, config, solver
-from tkb.luat_co_san import GROUPS, co_san
-from tkb.rules import applied
+from tkb import bo_ghep, checker, config, luat_co_san, luat_rieng, solver
+from tkb.rules import DEFAULTS, applied, code, read_rules
+from tkb.template import write_staff_template
 
 from .conftest import CURRICULUM, small_staff
 
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
+NO_FILE_CODE = code()  # mã quy định khi file không ghi gì
+
+
+def _solve(**values):
+    with applied(values):
+        sol = solver.solve(small_staff(general=False), CURRICULUM,
+                           config.Settings(mode=config.MODE_OVERTIME, **SETTINGS), log=lambda *_: None)
+        return sol, checker.check(sol.problem, sol.lessons)
 
 
 @pytest.fixture(scope="module")
 def plain():
-    return solver.solve(small_staff(general=False), CURRICULUM,
-                        config.Settings(mode=config.MODE_OVERTIME, **SETTINGS), log=lambda *_: None)
+    return _solve()[0]
 
 
-def _hard(problem):
-    return [c for c in co_san(problem) if c.hard and c.rule is not None]
+def _hard_rows():
+    return [r for r in luat_co_san.default_rows() if r.hard and r.kind == "tu_ghep"]
 
 
-def _found(problem, lessons, items) -> list:
-    return bo_ghep.violations(problem, lessons, rules=[c.rule for c in items], skip_forced=False)
+def test_default_rows_change_nothing():
+    rows = luat_co_san.default_rows()
+    assert {r.group_label for r in rows} == set(luat_co_san.GROUPS)
+    assert all(luat_co_san.native_of(r) is not None for r in rows)
+    values = luat_co_san.apply(rows)
+    assert values["OFF"] == frozenset() and values["WEIGHTS"] == {} and values["CUSTOM_RULES"] == []
+    assert values["DAILY_LIMITS"] == config.DAILY_LIMITS
+    assert values["SESSION_GROUP_LIMIT"] == config.SESSION_GROUP_LIMIT
+    assert values["PAIR_MIN_LESSONS"] == config.PAIR_MIN_LESSONS
+    with applied(values):
+        assert code() == NO_FILE_CODE
 
 
-def test_every_rule_has_a_sentence_and_a_group(plain):
-    items = co_san(plain.problem)
-    assert {c.group for c in items} <= set(GROUPS) and all(c.sentence() and c.source for c in items)
-    assert sum(1 for c in items if c.rule is not None) >= 12  # phần lớn viết được bằng bộ ghép
-    # Không có lớp cơ sở 2 thì không có luật cơ sở; tắt luật bảo vệ học sinh thì không có nhóm đó.
-    assert not any("cơ sở" in c.text for c in items)
-    assert not any(c.group == "Bảo vệ học sinh" for c in co_san(plain.problem, config.Settings(student_rules=False)))
-    # Quy định của file chỉnh luôn câu luật.
-    with applied({"SESSION_GROUP_LIMIT": 3}):
-        assert any(c.text.endswith("số tiết tối đa 3") for c in co_san(plain.problem))
+def test_template_sheet_reads_back_to_defaults(tmp_path):
+    path = tmp_path / "vao.xlsx"
+    write_staff_template(path, small_staff(), CURRICULUM)
+    wb = openpyxl.load_workbook(path)
+    assert luat_rieng.SHEET not in wb.sheetnames and luat_rieng.RULES_SHEET in wb.sheetnames
+    ws = wb[luat_rieng.RULES_SHEET]
+    head = [c.value for c in ws[1]]
+    assert head[0] == "Nhóm" and head[-1] == "Luật đọc là"
+    assert ws.cell(2, len(head)).value.startswith("Với mỗi lớp, nhóm môn, buổi: mọi tiết: số tiết tối đa 2")
+    rules = read_rules(path)
+    assert len(rules.pop("RULES")) == len(luat_co_san.default_rows())
+    assert rules == DEFAULTS
+    with applied(read_rules(path)):
+        assert code() == NO_FILE_CODE
 
 
-def test_solved_timetable_keeps_every_built_in_rule(plain):
+def _edit(tmp_path, change):
+    """File mẫu với sheet LUẬT sửa theo change(ws, dòng tiêu đề) rồi đọc lại."""
+    path = tmp_path / "vao.xlsx"
+    write_staff_template(path, small_staff(), CURRICULUM)
+    wb = openpyxl.load_workbook(path)
+    ws = wb[luat_rieng.RULES_SHEET]
+    change(ws, [c.value for c in ws[1]])
+    wb.save(path)
+    return read_rules(path)
+
+
+def _row_of(ws, head, text):
+    say = head.index("Luật đọc là") + 1
+    return next(r for r in range(2, ws.max_row + 1) if (ws.cell(r, say).value or "").startswith(text))
+
+
+def test_edit_number_points_delete_and_soften(tmp_path):
+    def change(ws, head):
+        col = {h: i + 1 for i, h in enumerate(head)}
+        ws.cell(_row_of(ws, head, "Với mỗi lớp, nhóm môn, buổi: mọi tiết: số tiết tối đa"), col["Số"], 3)
+        ws.cell(_row_of(ws, head, "Các tiết có nhãn Môn nặng"), col["Điểm"], 2000)
+        ws.delete_rows(_row_of(ws, head, "Mọi tiết ở ô có nhãn Luôn do GVCN dạy"))
+        r = _row_of(ws, head, "Với mỗi lớp, môn: mọi tiết: liền nhau trong buổi")
+        ws.cell(r, col["Bắt buộc"], "Không")
+        ws.cell(r, col["Mức"], 3)
+
+    rules = _edit(tmp_path, change)
+    assert rules["SESSION_GROUP_LIMIT"] == 3
+    assert rules["WEIGHTS"] == {"heavy_late": 2000}
+    assert rules["OFF"] == frozenset({"tiet_gvcn", "lien_nhau"})
+    (soft,) = rules["CUSTOM_RULES"]  # luật có sẵn đổi thành ưu tiên: xếp bằng bộ ghép
+    assert soft.measure == "lien" and not soft.hard and soft.level == 3
+    with applied(rules):
+        assert code() != NO_FILE_CODE
+        assert luat_rieng.label(soft).startswith(f"LUẬT dòng {soft.row}: Với mỗi lớp, môn")
+
+
+def test_deleted_rule_is_off_when_solving():
+    rows = [r for r in luat_co_san.default_rows() if luat_co_san.native_of(r).key != "tiet_gvcn"]
+    sol, errors = _solve(**luat_co_san.apply(rows))
+    assert errors == []
+    with applied({}):  # luật gốc đầy đủ: tiết 1 có thể không do GVCN dạy
+        found = checker.check(sol.problem, sol.lessons)
+    assert all("tiết của GVCN" in e for e in found)
+
+
+def test_legacy_file_rows(tmp_path):
+    """File bản trước: số ở các cột cũ, luật ở sheet LUẬT RIÊNG -> các dòng mặc định với số đó, cộng luật riêng."""
+    path = tmp_path / "vao.xlsx"
+    write_staff_template(path, small_staff(), CURRICULUM)
+    wb = openpyxl.load_workbook(path)
+    del wb[luat_rieng.RULES_SHEET]
+    ws = wb.create_sheet(luat_rieng.SHEET)
+    ws.append(["Kiểu luật", "Môn", "Tiết", "Bắt buộc"])
+    ws.append(["Không xếp vào", "Thể dục", "1", "Có"])
+    rules_ws = wb[config.RULES_SHEET]
+    rules_ws.insert_rows(2)
+    rules_ws.cell(2, 1, "Số tiết tối đa một nhóm môn mỗi buổi")
+    rules_ws.cell(2, 2, 3)
+    program = wb[config.PROGRAM_SHEET]
+    col = program.max_column + 1
+    program.cell(1, col, "Tối đa tiết mỗi ngày")
+    row = next(r for r in range(2, program.max_row + 1) if program.cell(r, 1).value == "Tiếng Anh")
+    program.cell(row, col, 2)
+    wb.save(path)
+    rules = read_rules(path)
+    assert "RULES" not in rules and rules["SESSION_GROUP_LIMIT"] == 3 and rules["OFF"] == frozenset()
+    assert rules["DAILY_LIMITS"] == {config.TIENG_ANH: 2}  # cột cũ có thì là đủ (Toán để trống: không giới hạn)
+    assert [r.kind for r in rules["CUSTOM_RULES"]] == ["khong_xep"]
+    with applied(rules):
+        assert luat_co_san.rows()[0].number == 3  # dòng mặc định lấy số từ cột cũ
+        assert luat_rieng.label(rules["CUSTOM_RULES"][0]).startswith("LUẬT RIÊNG dòng 2")
+
+
+def test_solved_timetable_keeps_every_hard_row(plain):
     assert checker.check(plain.problem, plain.lessons) == []
-    assert _found(plain.problem, plain.lessons, _hard(plain.problem)) == []
+    found = bo_ghep.violations(plain.problem, plain.lessons, rules=_hard_rows(), skip_forced=False)
+    assert found == [], [luat_rieng.describe(L.rule) + ": " + t for L, _, _, t in found]
 
 
 def test_cross_check_with_the_checker(plain):
-    """Đổi chỗ hai tiết của một lớp: luật có sẵn nào bộ ghép thấy bị vi phạm thì bộ kiểm tra độc lập cũng báo lỗi;
-    bộ kiểm tra thấy lỗi luật bảo vệ học sinh thì bộ ghép cũng thấy ở nhóm Bảo vệ học sinh."""
+    """Đổi chỗ hai tiết của một lớp: dòng bắt buộc nào bộ ghép thấy bị vi phạm thì bộ kiểm tra độc lập cũng báo lỗi;
+    bộ kiểm tra thấy lỗi luật bảo vệ học sinh thì bộ ghép cũng thấy ở các dòng Bảo vệ học sinh."""
     rnd = random.Random(0)
-    items = _hard(plain.problem)
-    student = [c for c in items if c.group == "Bảo vệ học sinh"]
+    rows = _hard_rows()
+    student = [r for r in rows if r.group_label == "Bảo vệ học sinh"]
     hits = 0
     for _ in range(40):
         les = list(plain.lessons)
@@ -59,28 +155,20 @@ def test_cross_check_with_the_checker(plain):
         a, b = les[i], les[j]
         les[i] = replace(a, day=b.day, period=b.period)
         les[j] = replace(b, day=a.day, period=a.period)
-        found = _found(plain.problem, les, items)
-        errors = checker.check(plain.problem, les)
-        assert not found or errors
+        found = bo_ghep.violations(plain.problem, les, rules=rows, skip_forced=False)
+        assert not found or checker.check(plain.problem, les)
         if checker._check_student_rules(plain.problem, les):
-            assert _found(plain.problem, les, student)
+            assert bo_ghep.violations(plain.problem, les, rules=student, skip_forced=False)
             hits += 1
-    assert hits >= 5  # phép thử có làm hỏng luật bảo vệ học sinh
+    assert hits >= 5
 
 
-def test_generic_lowering_replaces_the_native_one():
-    """Tắt bản gốc của "các tiết cùng môn liền nhau" và "tiết tăng cường sau tiết chính" (cờ solver.RELAXED), thay
-    bằng chính các câu đó hạ qua bộ ghép: TKB vẫn qua bộ kiểm tra độc lập (kiểm theo bản gốc)."""
-    staff = small_staff(general=False)
-    problem = solver.build_problem(staff, CURRICULUM)
-    rules = [c.rule for c in co_san(problem) if c.rule is not None and c.rule.measure in ("lien", "thu_tu", "di_kem")]
-    assert len(rules) == 5
-    old = solver.RELAXED
-    solver.RELAXED = frozenset({"lien_nhau", "tang_cuong"})
-    try:
-        with applied({"CUSTOM_RULES": [replace(r, row=i + 2) for i, r in enumerate(rules)]}):
-            sol = solver.solve(staff, CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS),
-                               log=lambda *_: None)
-    finally:
-        solver.RELAXED = old
-    assert checker.check(sol.problem, sol.lessons) == []
+@pytest.mark.parametrize("keys", [("lien_nhau", "tang_cuong", "lien_tiet", "gvcn_truoc"), ("nhom_buoi", "tiet_gvcn")])
+def test_generic_lowering_replaces_the_native_one(keys):
+    """Tắt luật gốc và xếp chính các dòng đó bằng bộ ghép: TKB vẫn đúng mọi luật gốc."""
+    rows = [replace(r, row=i + 2) for i, r in enumerate(luat_co_san.default_rows())
+            if luat_co_san.native_of(r).key in keys]
+    sol, errors = _solve(OFF=frozenset(keys), CUSTOM_RULES=rows)
+    assert errors == []
+    with applied({"OFF": frozenset(), "CUSTOM_RULES": []}):
+        assert checker.check(sol.problem, sol.lessons) == []

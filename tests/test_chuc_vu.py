@@ -14,7 +14,7 @@ from tkb.solver import solve
 from tkb.staff import InputError
 from tkb.template import write_staff_template
 
-from .conftest import CURRICULUM, small_staff, teacher
+from .conftest import CURRICULUM, small_staff, teacher, plain_rules
 
 ARTS = Role("GV Năng khiếu", ("Thể dục", "Âm nhạc", "Mỹ thuật"), row=2)
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
@@ -38,7 +38,7 @@ def _sheet(path, rows):
 def test_read_sheet_and_rules_code(tmp_path):
     path = tmp_path / "vao.xlsx"
     write_staff_template(path, small_staff(), CURRICULUM)
-    assert read_rules(path) == DEFAULTS  # sheet CHỨC VỤ trống của file mẫu: như không có
+    assert plain_rules(read_rules(path)) == DEFAULTS  # sheet CHỨC VỤ trống của file mẫu: như không có
     with applied(DEFAULTS):
         empty = code()
     _sheet(path, [["GV Năng khiếu", "Thể dục, Âm nhạc; Mỹ thuật, thể dục"], ["Tiếng Anh", "Tiếng Anh"]])

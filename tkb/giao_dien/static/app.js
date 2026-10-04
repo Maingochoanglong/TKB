@@ -180,14 +180,16 @@ function whoTeaches(name) {
 function renameSubject(from, to) {
   if (!key(from) || key(from) === key(to)) return;
   for (const role of st.scenario.roles) role.subjects = (role.subjects || []).map((s) => (key(s) === key(from) ? to : s));
-  for (const rule of st.scenario.custom) {
-    for (const k of ["subject", "other"]) if (key(rule[k]) === key(from)) rule[k] = to;
+  for (const rule of st.scenario.rules) {
+    for (const k of ["subject", "other"]) rule[k] = listOf(rule[k]).map((x) => (key(x) === key(from) ? to : x)).join(", ");
   }
 }
 function renameRole(from, to) {
   if (!key(from) || key(from) === key(to)) return;
   for (const t of st.scenario.staff) if (key(t.role) === key(from)) t.role = to;
-  for (const rule of st.scenario.custom) if (key(rule.role) === key(from)) rule.role = to;
+  for (const rule of st.scenario.rules) {
+    rule.role = listOf(rule.role).map((x) => (key(x) === key(from) ? to : x)).join(", ");
+  }
 }
 
 // ---------------------------------------------------------------- hộp thoại chi tiết (môn, giáo viên)
@@ -569,7 +571,7 @@ function updateCounts() {
   $("#count-gv").textContent = staff.length || "";
   $("#count-mon").textContent = subjects.length || "";
   $("#count-cv").textContent = S.roles.length + st.scenario.roles.filter(named).length;
-  $("#count-luat").textContent = (st.scenario.custom || []).length || "";
+  $("#count-luat").textContent = (st.scenario.rules || []).length || "";
   const classes = staff.filter(isHomeroom).length;
   const quota = staff.reduce((n, t) => n + (Number.isInteger(t.lessons) ? t.lessons : 0), 0);
   $("#staff-summary").textContent = `${staff.length} người, ${classes} lớp (mỗi Chủ Nhiệm một lớp), tổng định mức ` +
@@ -598,15 +600,17 @@ function parsePasted(text) {
 }
 
 // ---------------------------------------------------------------- tab 5: luật (bộ ghép luật)
-// Mỗi luật là một câu "Với mỗi [phạm vi] · các tiết [điều kiện] · thì [phép đo] [so sánh] [số]" (tkb/bo_ghep.py):
-// chọn một mẫu có sẵn hoặc Tự ghép trong hộp thoại; câu đọc lại và lỗi do máy chủ nói (/api/describe, cùng hàm với
-// file Excel). Từ vựng (phạm vi, phép đo, nhãn) lấy từ schema nên thêm ở Python là trang có.
+// Mọi luật là dòng của sheet LUẬT, đọc như một câu "Với mỗi [phạm vi] · các tiết [điều kiện] · thì [phép đo]
+// [so sánh] [số]" (tkb/bo_ghep.py), kể cả các luật có sẵn (tkb/luat_co_san.py): sửa, xóa, thêm dòng ở hộp thoại ghép
+// câu. Câu đọc lại, lỗi và "dạng gốc" (luật có sẵn chưa sửa dạng) do máy chủ nói (/api/describe, cùng hàm với file
+// Excel). Từ vựng (phạm vi, phép đo, nhãn) lấy từ schema nên thêm ở Python là trang có.
 const CP = () => S.custom.composer;
 const kindOf = (row) => S.custom.kinds.find((k) => k.label === row.kind || k.key === row.kind) || S.custom.kinds[0];
 const measureOf = (row) => CP().measures.find((m) => m.label === row.measure || m.key === row.measure) || null;
 const opLabel = (key) => (CP().ops.find((o) => o.key === key) || {}).label || key;
 const listOf = (v) => String(v ?? "").split(/[,;×]/).map((x) => x.trim()).filter(Boolean);
-let said = null; // {rules: [{text, errors}], built_in: [...]} của /api/describe
+const NATIVE_ONLY = ["nghi_gv", "co_so_2"]; // mẫu chỉ có dạng gốc: chỉ bỏ được (xóa dòng)
+let said = null; // {rules: [{text, errors, native}]} của /api/describe
 let sayTimer = null;
 function sayLater() {
   clearTimeout(sayTimer);
@@ -615,48 +619,48 @@ function sayLater() {
 async function say() {
   said = await api("POST", "/api/describe", { scenario: st.scenario, student_rules: st.run.student_rules });
   renderRuleList();
-  renderBuiltIn();
 }
 function renderRules() {
   renderRuleList();
-  renderBuiltIn();
   sayLater();
 }
+function levelBadge(row) {
+  if (row.hard) return `<b class="hard">Bắt buộc</b>`;
+  return `<b class="soft">${row.points ? `Ưu tiên ${esc(row.points)} điểm` : `Ưu tiên mức ${esc(row.level || 2)}`}</b>`;
+}
 function renderRuleList() {
-  const rows = st.scenario.custom;
-  $("#rule-list").innerHTML = rows.map((row, i) => {
-    const r = said && said.rules[i];
-    const errs = r ? r.errors : [];
-    const text = r && r.text ? r.text.replace(/ \((bắt buộc|ưu tiên mức \d)\)$/, "") : `${kindOf(row).label}…`;
-    return `<li class="rule-item${errs.length ? " bad" : ""}" data-row="${i + 2}">
-      <span class="num">Dòng ${i + 2}</span>
-      <div class="say"><b class="${row.hard ? "hard" : "soft"}">${row.hard ? "Bắt buộc" : `Ưu tiên ${row.level || 2}`}</b>
-        ${esc(text)}${errs.map((e) => `<div class="warn-text">${esc(e)}</div>`).join("")}</div>
-      <span class="nowrap"><button type="button" class="ghost small" data-act="edit-rule" data-i="${i}">Sửa</button>
-        <button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật">✕</button></span></li>`;
+  const rows = st.scenario.rules;
+  const order = [...S.custom.groups];
+  rows.forEach((r) => { if (r.group_label && !order.includes(r.group_label)) order.push(r.group_label); });
+  const group = (row) => row.group_label || S.custom.custom_group;
+  $("#rule-list").innerHTML = order.map((g) => {
+    const items = rows.map((row, i) => [row, i]).filter(([row]) => group(row) === g);
+    if (!items.length) return "";
+    return `<li class="rule-group"><h3>${esc(g)} <span class="muted">(${items.length})</span></h3><ol>${items.map(([row, i]) => {
+      const r = said && said.rules[i];
+      const errs = r ? r.errors : [];
+      const text = r && r.text ? r.text.replace(/ \((bắt buộc|ưu tiên[^)]*)\)$/, "") : `${kindOf(row).label}…`;
+      const native = r && r.native ? `<span class="tag" title="Luật có sẵn ở dạng gốc: chương trình xếp như trước, số và điểm lấy từ dòng này">có sẵn</span>` : "";
+      return `<li class="rule-item${errs.length ? " bad" : ""}" data-row="${i + 2}">
+        <span class="num">Dòng ${i + 2}</span>
+        <div class="say">${levelBadge(row)} ${esc(text)} ${native}${errs.map((e) => `<div class="warn-text">${esc(e)}</div>`).join("")}</div>
+        <span class="nowrap"><button type="button" class="ghost small" data-act="edit-rule" data-i="${i}">Sửa</button>
+          <button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật (bỏ luật này)">✕</button></span></li>`;
+    }).join("")}</ol></li>`;
   }).join("");
   $("#rule-empty").hidden = rows.length > 0;
+  $("#rule-structure").textContent = S.custom.structure;
   updateCounts();
-}
-function renderBuiltIn() {
-  const items = (said && said.built_in) || [];
-  const groups = [...new Set(items.map((c) => c.group))];
-  $("#builtin-list").innerHTML = groups.map((g) => {
-    const list = items.filter((c) => c.group === g);
-    return `<details><summary>${esc(g)} <span class="muted">(${list.length})</span></summary><ul>${list.map((c) =>
-      `<li><span class="${c.hard ? "hard" : "soft"}">${esc(c.text)}</span><small>Chỉnh ở: ${esc(c.source)}</small></li>`)
-      .join("")}</ul></details>`;
-  }).join("");
 }
 function newRule(label) {
   const row = Object.fromEntries(S.custom.columns.map((c) => [c.key, ""]));
-  return { ...row, kind: label, number: null, hard: true, level: null };
+  return { ...row, group_label: S.custom.custom_group, kind: label, number: null, hard: true, level: null, points: null };
 }
 
 // Hộp thoại ghép câu: sửa một bản sao, bấm Xong mới ghi vào kịch bản.
 let ruleEdit = null; // {i (-1: luật mới), row}
 function openRule(i, label) {
-  const row = i < 0 ? newRule(label) : JSON.parse(JSON.stringify(st.scenario.custom[i]));
+  const row = i < 0 ? newRule(label) : JSON.parse(JSON.stringify(st.scenario.rules[i]));
   ruleEdit = { i, row };
   renderComposer();
   $("#rule-dialog").showModal();
@@ -691,27 +695,35 @@ function renderComposer() {
   const block = (k, label, html, note = "") => (uses.has(k) ? formBlock(label, html, note) : "");
   const days = frameDays().map(({ d }) => `Thứ ${d + 2}`);
   const tags = [...CP().tags.subject, ...CP().tags.slot];
+  const groups = [...new Set([...S.custom.groups, row.group_label].filter(Boolean))];
   let html = `<fieldset><legend>Mẫu luật</legend>${formRow("Kiểu luật", `<select data-f="rd" data-k="kind">${
     S.custom.kinds.map((k) => `<option value="${esc(k.label)}" ${k.key === kind.key ? "selected" : ""}>${esc(k.label)}</option>`)
-      .join("")}</select>`, kind.note)}</fieldset>`;
+      .join("")}</select>`, kind.note)}
+    ${formRow("Nhóm", `<select data-f="rd" data-k="group_label">${groups.map((g) =>
+      `<option value="${esc(g)}" ${g === (row.group_label || S.custom.custom_group) ? "selected" : ""}>${esc(g)}</option>`).join("")}</select>`,
+      "Chỉ để xếp các luật cho dễ đọc.")}</fieldset>`;
   if (kind.key === "tu_ghep") {
     html += `<fieldset><legend>Với mỗi</legend>${formBlock("Phạm vi", checks("scope", CP().scopes.map((d) => d.label),
       row.scope), "Chia các tiết thành từng nhóm, vd Lớp + Ngày: luật áp dụng cho mỗi lớp mỗi ngày. Không chọn: cả trường cả tuần.")}
       </fieldset>`;
   }
-  html += `<fieldset><legend>Chỉ xét các tiết</legend>
-    ${field("subject", "Môn", text("subject", 'list="subject-list"'), "Một hoặc nhiều môn, cách nhau bằng dấu phẩy.")}
-    ${uses.has("group") ? formRow("Gồm môn tăng cường", `<input type="checkbox" data-f="rd" data-k="group" ${
-      fold(row.group) === "co" || row.group === true ? "checked" : ""}>`, "Tính cả các môn tăng cường cùng nhóm.") : ""}
-    ${block("tags", "Nhãn", checks("tags", tags, row.tags), "Các cột Có/Không của môn (vd Môn nặng) hoặc của ngày, tiết (vd Luôn do GVCN dạy).")}
-    ${block("grades", "Khối", checks("grades", st.scenario.grades.map(String), row.grades, (g) => `Khối ${g}`))}
-    ${field("classes", "Lớp", text("classes", 'list="class-list"'), "Vd 3/1, 3/2; trống: mọi lớp.")}
-    ${block("days", "Ngày", checks("days", days, row.days))}
-    ${field("periods", "Tiết", text("periods"), "Vd 1 hoặc 5-7.")}
-    ${block("sessions", "Buổi", checks("sessions", SESSIONS(), row.sessions))}
-    ${field("role", m && m.key === "nguoi_day" ? "Do chức vụ" : "Giáo viên", text("role", 'list="role-list"'),
-      "Chức vụ, vd Bộ Môn, Tiếng Anh; nhiều chức vụ cách nhau bằng dấu phẩy.")}</fieldset>`;
+  if (!NATIVE_ONLY.includes(kind.key)) {
+    html += `<fieldset><legend>Chỉ xét các tiết</legend>
+      ${field("subject", "Môn", text("subject", 'list="subject-list"'), "Một hoặc nhiều môn, cách nhau bằng dấu phẩy.")}
+      ${uses.has("group") ? formRow("Gồm môn tăng cường", `<input type="checkbox" data-f="rd" data-k="group" ${
+        fold(row.group) === "co" || row.group === true ? "checked" : ""}>`, "Tính cả các môn tăng cường cùng nhóm.") : ""}
+      ${block("tags", "Nhãn", checks("tags", tags, row.tags), "Các cột Có/Không của môn (vd Môn nặng) hoặc của ngày, tiết (vd Luôn do GVCN dạy); nhiều nhãn ô: ô có một trong các nhãn.")}
+      ${block("exclude", "Trừ nhãn", checks("exclude", tags, row.exclude), "Bỏ các môn, các ô có nhãn này.")}
+      ${block("grades", "Khối", checks("grades", st.scenario.grades.map(String), row.grades, (g) => `Khối ${g}`))}
+      ${field("classes", "Lớp", text("classes", 'list="class-list"'), "Vd 3/1, 3/2; trống: mọi lớp.")}
+      ${block("days", "Ngày", checks("days", days, row.days))}
+      ${field("periods", "Tiết", text("periods"), "Vd 1 hoặc 5-7.")}
+      ${block("sessions", "Buổi", checks("sessions", SESSIONS(), row.sessions))}
+      ${field("role", m && m.key === "nguoi_day" ? "Do chức vụ" : "Giáo viên", text("role", 'list="role-list"'),
+        "Chức vụ, vd Bộ Môn, Tiếng Anh; nhiều chức vụ cách nhau bằng dấu phẩy; \"trừ Chủ Nhiệm\": mọi GV trừ chức vụ đó.")}</fieldset>`;
+  }
   if (kind.key === "tu_ghep") {
+    const derived = m && m.key === "so_tiet" ? 'list="derived-list"' : "";
     html += `<fieldset><legend>Thì</legend>
       ${formRow("Phép đo", `<select data-f="rd" data-k="measure"><option value="">— chọn —</option>${CP().measures.map((x) =>
         `<option value="${esc(x.label)}" ${m && m.key === x.key ? "selected" : ""}>${esc(x.label)}</option>`).join("")}</select>`,
@@ -719,26 +731,32 @@ function renderComposer() {
       ${field("op", "So sánh", `<select data-f="rd" data-k="op"><option value=""></option>${(m ? m.ops : []).map((o) =>
         `<option value="${esc(opLabel(o))}" ${opLabel(o) === row.op || o === row.op ? "selected" : ""}>${esc(opLabel(o))}</option>`)
         .join("")}</select>`)}
-      ${field("number", "Số", `<input type="number" min="0" step="1" data-f="rd" data-k="number" value="${esc(row.number ?? "")}">`)}
+      ${field("number", "Số", `<input type="text" class="short" data-f="rd" data-k="number" value="${esc(row.number ?? "")}" ${derived}>`,
+        derived ? `Một số, hoặc ngưỡng theo dữ liệu: ${CP().derived.join(", ")}.` : "")}
       ${field("count_by", "Đếm theo", `<select data-f="rd" data-k="count_by"><option value=""></option>${CP().scopes.map((d) =>
         `<option value="${esc(d.label)}" ${d.label === row.count_by || d.key === row.count_by ? "selected" : ""}>${esc(d.label)}</option>`)
         .join("")}</select>`)}
-      ${field("other", "Môn thứ hai", text("other", 'list="subject-list"'))}
+      ${field("other", "Môn thứ hai", text("other", 'list="subject-list"'), "Trống: các môn khác (cùng nhóm nếu phạm vi có Nhóm môn).")}
       ${field("when", "Áp dụng khi", text("when"), "Điều kiện trên số tiết/tuần của các môn, vd >= 6, chẵn hoặc <= số ngày.")}
       </fieldset>`;
-  } else {
+  } else if (!NATIVE_ONLY.includes(kind.key)) {
     html += `<fieldset><legend>Thì</legend>
       ${field("number", "Số", `<input type="number" min="1" step="1" data-f="rd" data-k="number" value="${esc(row.number ?? "")}">`)}
       ${field("other", "Môn thứ hai", text("other", 'list="subject-list"'))}</fieldset>`;
   }
+  const soft = !row.hard && !NATIVE_ONLY.includes(kind.key);
   html += `<fieldset><legend>Mức</legend>
-    ${formRow("Bắt buộc", `<input type="checkbox" data-f="rd" data-k="hard" ${row.hard ? "checked" : ""}>`,
-      "TKB phải theo đúng; bỏ đánh dấu là ưu tiên.")}
-    ${row.hard ? "" : formRow("Mức ưu tiên", `<select data-f="rd" data-k="level">${[1, 2, 3].map((n) =>
-      `<option value="${n}" ${Number(row.level || 2) === n ? "selected" : ""}>${n}</option>`).join("")}</select>`, "3 là ưu tiên nhất.")}
+    ${formRow("Bắt buộc", `<input type="checkbox" data-f="rd" data-k="hard" ${row.hard ? "checked" : ""} ${
+      NATIVE_ONLY.includes(kind.key) ? "disabled" : ""}>`, "TKB phải theo đúng; bỏ đánh dấu là ưu tiên.")}
+    ${soft ? formRow("Điểm", `<input type="number" min="1" step="1" data-f="rd" data-k="points" value="${esc(row.points ?? "")}">`,
+      "Điểm trừ mỗi lần không theo; để trống thì theo Mức.") : ""}
+    ${soft && !row.points ? formRow("Mức ưu tiên", `<select data-f="rd" data-k="level">${[1, 2, 3].map((n) =>
+      `<option value="${n}" ${Number(row.level || 2) === n ? "selected" : ""}>${n}</option>`).join("")}</select>`,
+      "1, 2, 3 là 100, 400, 1500 điểm.") : ""}
     </fieldset>`;
   $("#rule-body").innerHTML = html;
   $("#class-list").innerHTML = schoolClasses().map((c) => `<option value="${esc(c)}">`).join("");
+  $("#derived-list").innerHTML = CP().derived.map((d) => `<option value="${esc(d)}">`).join("");
 }
 let previewTimer = null;
 function previewRule() {
@@ -750,7 +768,8 @@ function previewRule() {
         student_rules: st.run.student_rules });
       const r = res.rules[0];
       $("#rule-say").textContent = r.text || "…";
-      $("#rule-errors").innerHTML = r.errors.map((e) => `<li>${esc(e.replace(/^LUẬT RIÊNG, dòng \d+: /, ""))}</li>`).join("");
+      $("#rule-native").hidden = !r.native;
+      $("#rule-errors").innerHTML = r.errors.map((e) => `<li>${esc(e.replace(/^LUẬT, dòng \d+: /, ""))}</li>`).join("");
     } catch (err) { fail(err); }
   }, 250);
 }
@@ -760,23 +779,29 @@ function editRule(el) {
   if (d.f === "rdlist") {
     const list = listOf(row[d.k]).filter((x) => fold(x) !== fold(d.v));
     if (el.checked) list.push(d.v);
+    const tags = [...CP().tags.subject, ...CP().tags.slot];
     const order = { scope: CP().scopes.map((x) => x.label), sessions: SESSIONS(),
-      days: frameDays().map(({ d: n }) => `Thứ ${n + 2}`), grades: st.scenario.grades.map(String),
-      tags: [...CP().tags.subject, ...CP().tags.slot] }[d.k] || [];
+      days: frameDays().map(({ d: n }) => `Thứ ${n + 2}`), grades: st.scenario.grades.map(String), tags, exclude: tags }[d.k] || [];
     list.sort((a, b) => order.indexOf(a) - order.indexOf(b));
     row[d.k] = list.join(", ");
   } else if (d.k === "group") {
     row.group = el.checked ? "Có" : "";
+  } else if (d.k === "number") {
+    const t = el.value.trim();
+    row.number = /^\d+$/.test(t) ? Number(t) : t || null;
   } else {
     row[d.k] = d.k === "level" ? Number(el.value) : readInput(el);
   }
-  if (["kind", "measure", "hard"].includes(d.k)) {
+  if (["kind", "measure", "hard", "points"].includes(d.k)) {
     const uses = shown(row);
     for (const c of S.custom.columns) {
-      if (!["kind", "hard", "level"].includes(c.key) && !uses.has(c.key)) row[c.key] = c.key === "number" ? null : "";
+      if (!["group_label", "kind", "hard", "level", "points"].includes(c.key) && !uses.has(c.key)) {
+        row[c.key] = c.key === "number" ? null : "";
+      }
     }
-    row.level = row.hard ? null : (row.level || 2);
-    renderComposer();
+    if (NATIVE_ONLY.includes(kindOf(row).key)) row.hard = true;
+    if (row.hard) { row.level = null; row.points = null; } else if (!row.points) row.level = row.level || 2;
+    if (d.k !== "points") renderComposer();
   }
   previewRule();
 }
@@ -804,7 +829,7 @@ function renderRun() {
 }
 
 function jumpTo(sheet, row) {
-  const tab = { [S.sheets.staff]: "gv", [S.sheets.custom]: "luat", [S.sheets.roles]: "chucvu" }[sheet] || "mon";
+  const tab = { [S.sheets.staff]: "gv", [S.sheets.luat]: "luat", [S.sheets.custom]: "luat", [S.sheets.roles]: "chucvu" }[sheet] || "mon";
   if (tab === "gv" && staffFilter) { staffFilter = ""; }
   showTab(tab);
   const el = $(`#tab-${tab} [data-row="${row}"]`);
@@ -815,7 +840,7 @@ function jumpTo(sheet, row) {
   el.classList.add("flash");
 }
 function msgItem(text, cls) {
-  const sheets = [S.sheets.staff, S.sheets.program, S.sheets.roles, S.sheets.custom].join("|");
+  const sheets = [S.sheets.staff, S.sheets.program, S.sheets.roles, S.sheets.luat, S.sheets.custom].join("|");
   const m = text.match(new RegExp(`(${sheets})[:,]? *(?:[Dd]òng (\\d+)|.*?[Dd]òng (\\d+))`));
   const body = m ? `<a href="#" data-jump="${esc(m[1])}|${m[2] || m[3]}">${esc(text)}</a>` : esc(text);
   return `<li class="${cls}">${body}</li>`;
@@ -924,7 +949,7 @@ function renderHelp() {
 }
 function renderAll() {
   st.scenario.roles ||= [];
-  st.scenario.custom ||= [];
+  st.scenario.rules ||= [];
   syncPeriods();
   renderGeneral();
   renderDays();
@@ -975,7 +1000,7 @@ const PARTS = [
   { key: "roles", label: "Chức vụ", sheet: "roles", sum: (x) => `${x.roles.filter(named).length} chức vụ GV chuyên biệt` },
   { key: "frame", label: "Khung giờ và quy định chung", sheet: "rules",
     sum: (x) => `${(x.days || []).filter((d) => d.morning_days).length} ngày học, ${(x.periods || []).length} tiết mỗi ngày` },
-  { key: "custom", label: "Luật riêng", sheet: "custom", sum: (x) => `${(x.custom || []).length} luật` },
+  { key: "rules", label: "Luật", sheet: "luat", sum: (x) => `${(x.rules || []).length} luật` },
   { key: "saved", label: "TKB đã xếp", sheet: "saved", sum: () => "giữ TKB nếu vẫn đúng luật" },
 ];
 let importPreset = null; // nút Nhập từ Excel… của một bước: chỉ chọn sẵn phần đó
@@ -984,13 +1009,16 @@ function openImport(data, label, preset) {
   imported = { data, label };
   const src = data.scenario;
   const has = new Set((data.sheets || []).map((name) => Object.keys(S.sheets).find((k) => S.sheets[k] === name)));
-  has.add("staff"); // không có sheet NHÂN SỰ thì chương trình đọc sheet đầu tiên
+  if (src.staff.length) has.add("staff"); // không có sheet NHÂN SỰ thì chương trình đọc sheet đầu tiên
+  if (has.has("custom")) has.add("luat"); // file của bản trước: luật riêng ở sheet LUẬT RIÊNG
   $("#import-file").textContent = label;
   $("#import-parts").innerHTML = PARTS.filter((p) => p.key !== "saved" || src.saved).map((p) => {
     const inFile = has.has(p.sheet);
     const on = preset ? preset.includes(p.key) : true; // nút ở thanh trên: mặc định thay toàn bộ như mở file
     const staffMode = p.key === "staff" ? `<select id="import-staff-mode" aria-label="Cách nhập giáo viên">
-      <option value="replace">thay danh sách đang có</option><option value="append">thêm vào cuối danh sách</option></select>` : "";
+      <option value="replace">thay danh sách đang có</option><option value="append">thêm vào cuối danh sách</option></select>`
+      : p.key === "rules" ? `<select id="import-rules-mode" aria-label="Cách nhập luật">
+      <option value="replace">thay các luật đang có</option><option value="append">thêm vào cuối (luật chưa có)</option></select>` : "";
     return `<div class="import-part ${inFile ? "" : "off"}"><label><input type="checkbox" data-part="${p.key}" ${on ? "checked" : ""}>
       <b>${esc(p.label)}</b></label><span class="muted">sheet ${esc(S.sheets[p.sheet])} · ${inFile ? esc(p.sum(src))
       : "file không có sheet này: lấy giá trị mặc định"}</span>${staffMode}</div>`;
@@ -1001,7 +1029,8 @@ function openImport(data, label, preset) {
 function importChoice() {
   return { parts: $$("#import-parts [data-part]").filter((el) => el.checked).map((el) => el.dataset.part),
     all: $$("#import-parts [data-part]").every((el) => el.checked),
-    append: ($("#import-staff-mode") || {}).value === "append" };
+    append: ($("#import-staff-mode") || {}).value === "append",
+    appendRules: ($("#import-rules-mode") || {}).value === "append" };
 }
 function renderImportNotes() {
   const src = imported.data.scenario;
@@ -1019,15 +1048,18 @@ function renderImportNotes() {
 }
 function applyImport() {
   const { data, label } = imported;
-  const { parts, all, append } = importChoice();
-  if (all && !append) { useImported(data, label); return; }
+  const { parts, all, append, appendRules } = importChoice();
+  if (all && !append && !appendRules) { useImported(data, label); return; }
   const sc = st.scenario;
   const src = data.scenario;
   if (parts.includes("staff")) sc.staff = append ? [...sc.staff, ...src.staff] : src.staff;
   if (parts.includes("subjects")) { sc.subjects = src.subjects; sc.grades = src.grades; }
   if (parts.includes("roles")) sc.roles = src.roles;
   if (parts.includes("frame")) { sc.general = src.general; sc.days = src.days; sc.periods = src.periods; }
-  if (parts.includes("custom")) sc.custom = src.custom;
+  if (parts.includes("rules")) {
+    const same = (a, b) => JSON.stringify({ ...a, group_label: "" }) === JSON.stringify({ ...b, group_label: "" });
+    sc.rules = appendRules ? [...sc.rules, ...src.rules.filter((r) => !sc.rules.some((x) => same(x, r)))] : src.rules;
+  }
   if (parts.includes("saved")) sc.saved = src.saved;
   addImplicitRoles();
   renderAll();
@@ -1241,7 +1273,7 @@ async function onClick(e) {
       openRule(i);
       return;
     case "del-rule":
-      sc.custom.splice(i, 1);
+      sc.rules.splice(i, 1);
       renderRules();
       break;
     case "up":
@@ -1343,11 +1375,30 @@ function wire() {
     changed();
   };
   $("#btn-add-rule").onclick = () => openRule(-1, $("#new-kind").value);
+  $("#btn-rules-export").onclick = async () => {
+    try {
+      const blob = await api("POST", "/api/rules_file", { scenario: st.scenario, name: st.run.name }, { blob: true });
+      downloadBlob(blob, `${st.run.name || "kich_ban"}_luat.xlsx`);
+    } catch (err) { fail(err); }
+  };
+  $("#btn-rules-template").onclick = async () => {
+    try {
+      downloadBlob(await api("POST", "/api/rules_file", { template: true }, { blob: true }), "Mau_Luat.xlsx");
+    } catch (err) { fail(err); }
+  };
+  $("#btn-rules-reset").onclick = async () => {
+    if (!confirm("Thay mọi luật đang có bằng các luật có sẵn mặc định (bỏ các luật riêng và các chỗ đã sửa)?")) return;
+    try {
+      st.scenario.rules = (await api("GET", "/api/new")).scenario.rules;
+      renderRules();
+      changed();
+    } catch (err) { fail(err); }
+  };
   $("#rule-dialog").addEventListener("close", () => {
     const edit = ruleEdit;
     ruleEdit = null;
     if ($("#rule-dialog").returnValue !== "ok" || !edit) return;
-    if (edit.i < 0) st.scenario.custom.push(edit.row); else st.scenario.custom[edit.i] = edit.row;
+    if (edit.i < 0) st.scenario.rules.push(edit.row); else st.scenario.rules[edit.i] = edit.row;
     renderRules();
     changed();
   });

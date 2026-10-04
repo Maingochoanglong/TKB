@@ -36,7 +36,7 @@
   <button type="button" role="tab" data-tab="mon">2. Môn học <span class="count" id="count-mon"></span></button>
   <button type="button" role="tab" data-tab="chucvu">3. Chức vụ <span class="count" id="count-cv"></span></button>
   <button type="button" role="tab" data-tab="gv">4. Giáo viên <span class="count" id="count-gv"></span></button>
-  <button type="button" role="tab" data-tab="luat">5. Luật riêng <span class="count" id="count-luat"></span></button>
+  <button type="button" role="tab" data-tab="luat">5. Luật <span class="count" id="count-luat"></span></button>
   <button type="button" role="tab" data-tab="xep">6. Kiểm tra &amp; xếp TKB</button>
 </nav>
 
@@ -120,31 +120,31 @@
       <datalist id="session-list"></datalist>
     </div>
     <details class="card help"><summary>Giải thích các cột nhân sự</summary><dl id="help-gv"></dl></details>
-    <div class="next"><button type="button" data-go="luat">Tiếp: Luật riêng →</button></div>
+    <div class="next"><button type="button" data-go="luat">Tiếp: Luật →</button></div>
   </section>
 
   <section id="tab-luat" class="tab" role="tabpanel">
     <div class="card">
       <div class="toolbar">
-        <h2>Luật riêng của trường</h2>
+        <h2>Luật xếp thời khóa biểu</h2>
         <div class="actions">
-          <select id="new-kind" aria-label="Kiểu luật mới"></select>
+          <select id="new-kind" aria-label="Mẫu luật mới"></select>
           <button type="button" id="btn-add-rule">+ Thêm luật</button>
-          <button type="button" class="ghost" data-import="custom" title="Lấy các luật từ sheet LUẬT RIÊNG của một file Excel">Nhập từ Excel…</button>
+          <button type="button" class="ghost" data-import="rules" title="Lấy các luật từ sheet LUẬT của một file Excel (thay hoặc thêm vào cuối)">Nhập luật từ Excel…</button>
+          <button type="button" class="ghost" id="btn-rules-export" title="Tải file Excel chỉ có các luật đang soạn (sheet LUẬT)">Xuất luật ra Excel</button>
+          <button type="button" class="ghost" id="btn-rules-template" title="Tải file Excel mẫu luật: các luật có sẵn mặc định">Tải mẫu luật</button>
+          <button type="button" class="ghost" id="btn-rules-reset" title="Thay mọi luật bằng các luật có sẵn mặc định">Về mặc định</button>
         </div>
       </div>
-      <p class="muted">Mỗi luật là một câu: <b>Với mỗi</b> [lớp, giáo viên, ngày, buổi…] · <b>các tiết</b> [môn, nhãn,
-        khối, lớp, ngày, tiết, buổi, giáo viên] · <b>thì</b> [số tiết, số khác nhau, vị trí, liền nhau, theo cặp, thứ tự,
-        đi kèm, người dạy, khoảng cách]. Chọn một <b>mẫu</b> có sẵn hoặc <b>Tự ghép</b>; câu đọc lại hiện ngay khi chọn.
-        <b>Bắt buộc</b>: TKB phải theo đúng; còn lại là <b>ưu tiên</b> mức 1–3 (3 là ưu tiên nhất). Luật bắt buộc mâu
-        thuẫn thì nút Kiểm tra hoặc phần chẩn đoán khi xếp sẽ chỉ ra luật nào.</p>
+      <p class="muted">Mọi luật nằm ở sheet <b>LUẬT</b> của file Excel, mỗi luật một câu: <b>Với mỗi</b> [lớp, giáo viên,
+        ngày, buổi…] · <b>các tiết</b> [môn, nhãn, khối, lớp, ngày, tiết, buổi, giáo viên] · <b>thì</b> [số tiết, số khác
+        nhau, vị trí, liền nhau, theo cặp, thứ tự, đi kèm, người dạy, khoảng cách]. Các luật có sẵn được ghi sẵn: sửa số
+        hoặc điểm để chỉnh, xóa để bỏ, thêm luật mới bằng một mẫu hoặc <b>Tự ghép</b>. Dòng đánh dấu <span class="tag">có
+        sẵn</span> chương trình xếp như trước (cùng mã kết quả nếu không sửa). <b>Bắt buộc</b>: TKB phải theo đúng; còn lại
+        là <b>ưu tiên</b> với điểm trừ mỗi lần không theo.</p>
       <ol id="rule-list" class="rule-list"></ol>
-      <p class="muted" id="rule-empty">Chưa có luật riêng nào: chọn mẫu luật rồi bấm <b>+ Thêm luật</b>.</p>
-    </div>
-    <div class="card">
-      <h2>Luật có sẵn của chương trình</h2>
-      <p class="muted">Viết bằng cùng câu của bộ ghép. Chỉnh bằng các quy định ở bước 1, 2 (dòng "Chỉnh ở").</p>
-      <div id="builtin-list" class="builtin"></div>
+      <p class="muted" id="rule-empty">Chưa có luật nào: bấm <b>Về mặc định</b> để có các luật có sẵn, hoặc thêm luật.</p>
+      <p class="muted" id="rule-structure"></p>
     </div>
     <div class="card">
       <h2>Các mẫu luật và phép đo</h2>
@@ -251,10 +251,11 @@
       <h2>Ghép luật</h2>
       <button value="cancel" class="icon" title="Đóng">✕</button>
     </div>
-    <p class="say-box">Luật đọc là: <b id="rule-say">…</b></p>
+    <p class="say-box">Luật đọc là: <b id="rule-say">…</b> <span class="tag" id="rule-native" hidden>có sẵn</span></p>
     <ul id="rule-errors" class="warn-text"></ul>
     <div id="rule-body" class="detail"></div>
     <datalist id="class-list"></datalist>
+    <datalist id="derived-list"></datalist>
     <div class="actions end">
       <button value="cancel" class="ghost">Hủy</button>
       <button value="ok" class="primary">Xong</button>

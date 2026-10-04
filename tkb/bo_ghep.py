@@ -66,6 +66,7 @@ class Measure:
     count_by: bool = False  # phải ghi cột Đếm theo
     sequence: bool = False  # xét thứ tự các tiết trong buổi: phạm vi phải có Lớp hoặc Giáo viên
     note: str = ""
+    default_op: str = ""  # so sánh khi cột So sánh để trống (thì không bắt buộc ghi)
 
 
 COUNT_OPS = ("<=", ">=", "=")
@@ -82,19 +83,27 @@ MEASURES = (
             note="Các tiết trong mỗi buổi (của mỗi lớp hoặc GV) đứng liền nhau, không có tiết khác xen giữa."),
     Measure("cap", "Theo cặp 2 tiết", (), False, sequence=True,
             note="Mỗi buổi 0 hoặc 2 tiết, 2 tiết đó liền nhau (ưu tiên: không có tiết lẻ đứng một mình)."),
-    Measure("thu_tu", "Thứ tự", (), False, other=True, sequence=True,
-            note="Trong mỗi buổi (hoặc ngày, nếu phạm vi có Ngày) các tiết ở cột Môn đứng trước các tiết Môn thứ hai."),
+    Measure("thu_tu", "Thứ tự", ("truoc", "sau"), False, other=True, sequence=True, default_op="truoc",
+            note="Trong mỗi buổi (hoặc ngày, nếu phạm vi có Ngày) các tiết ở cột Môn đứng trước (hoặc sau) các tiết "
+                 "Môn thứ hai. Môn thứ hai trống và phạm vi có Nhóm môn: các môn khác cùng nhóm."),
     Measure("di_kem", "Đi kèm", (), False, other=True, sequence=True,
-            note="Buổi (hoặc ngày) có tiết ở cột Môn thì cũng có tiết Môn thứ hai."),
-    Measure("nguoi_day", "Người dạy", ("do", "cung_nguoi"), False,
-            note="Các tiết do GV có chức vụ ở cột Giáo viên dạy; hoặc mọi tiết trong mỗi phạm vi do cùng một người."),
+            note="Buổi (hoặc ngày) có tiết ở cột Môn thì cũng có tiết Môn thứ hai. Môn thứ hai trống và phạm vi có "
+                 "Nhóm môn: các môn khác cùng nhóm."),
+    Measure("nguoi_day", "Người dạy", ("do", "cung_nguoi", "lien_cung_nguoi", "dau_tuan"), False,
+            note="Các tiết do GV có chức vụ ở cột Giáo viên dạy; hoặc mọi tiết trong mỗi phạm vi do cùng một người; "
+                 "hoặc hai tiết liền nhau do cùng một người; hoặc tiết đầu tuần do GV có chức vụ ở cột Giáo viên dạy "
+                 "và tiết của người khác không đứng trước tiết đó."),
     Measure("khoang_cach", "Khoảng cách", ("trong_tiet", "cuoi_buoi"), True, sequence=True,
             note="Số tiết trống giữa các tiết trong buổi tối đa ngần ấy; hoặc mỗi tiết cách cuối buổi tối đa ngần "
                  "ấy tiết."),
 )
 MEASURE = {m.key: m for m in MEASURES}
 OPS = {"<=": "Tối đa", ">=": "Tối thiểu", "=": "Đúng", "trong": "Chỉ trong", "ngoai": "Không trong", "do": "Do",
-       "cung_nguoi": "Cùng một người", "trong_tiet": "Tiết trống tối đa", "cuoi_buoi": "Cách cuối buổi tối đa"}
+       "cung_nguoi": "Cùng một người", "lien_cung_nguoi": "Liền nhau cùng người", "dau_tuan": "Tiết đầu tuần do",
+       "trong_tiet": "Tiết trống tối đa", "cuoi_buoi": "Cách cuối buổi tối đa", "truoc": "Trước", "sau": "Sau"}
+# Ngưỡng theo dữ liệu, ghi ở cột Số thay cho một số (phép đo Số tiết).
+DERIVED = {"tai_ngay": "tải ngày", "tai_ngay_1": "tải ngày + 1", "tran_ngay": "số tiết/tuần chia số ngày"}
+NOT = "trừ "  # cột Giáo viên: "trừ Chủ Nhiệm" là mọi GV trừ chức vụ đó
 OP_ALIASES = {"<=": ("≤", "tối đa", "nhiều nhất"), ">=": ("≥", "tối thiểu", "ít nhất"), "=": ("đúng", "bằng")}
 NUMBER_DAYS = -1  # cột Áp dụng khi: "≤ số ngày" (số ngày học trong tuần)
 
@@ -164,6 +173,9 @@ class Luat:
     who: frozenset[str] = frozenset()  # phép đo Người dạy "Do": các chức vụ được dạy
     count_by: str = ""
     when: tuple[tuple[str, int], ...] = ()
+    skip: frozenset[str] = frozenset()  # môn bị trừ (cột Trừ nhãn)
+    roles_not: frozenset[str] = frozenset()  # chức vụ bị trừ (cột Giáo viên "trừ ...")
+    derived: str = ""
 
     @property
     def hard(self) -> bool:
@@ -176,7 +188,8 @@ class Luat:
 
     def teacher(self) -> bool:
         """Cần biết GV dạy từng tiết."""
-        return "gv" in self.scope or self.count_by == "gv" or self.roles is not None or self.measure == "nguoi_day"
+        return ("gv" in self.scope or self.count_by == "gv" or self.roles is not None or bool(self.roles_not)
+                or self.measure == "nguoi_day")
 
 
 def _subject(name: str) -> str:
@@ -198,7 +211,8 @@ def rule_slots(rule: CustomRule) -> set[tuple[int, int]] | None:
     """Các ô khớp cột Ngày, Tiết, Buổi và nhãn ô của luật; None nếu luật không ghi cột nào trong số đó."""
     tags = slot_tags()
     slot_tag = [t for t in rule.tags if t in tags]
-    if not (rule.days or rule.periods or rule.sessions or slot_tag):
+    skip = [t for t in rule.exclude if t in tags]
+    if not (rule.days or rule.periods or rule.sessions or slot_tag or skip):
         return None
     out = set()
     for d, sessions in config.DAY_SESSIONS.items():
@@ -208,8 +222,10 @@ def rule_slots(rule: CustomRule) -> set[tuple[int, int]] | None:
             if rule.sessions and s.name not in rule.sessions:
                 continue
             out |= {(d, p) for p in s.periods if not rule.periods or p in rule.periods}
-    for t in slot_tag:
-        out &= tags[t]
+    if slot_tag:  # nhiều nhãn ô: ô có một trong các nhãn
+        out &= set().union(*(tags[t] for t in slot_tag))
+    for t in skip:
+        out -= tags[t]
     return out
 
 
@@ -241,30 +257,45 @@ PRESETS = {  # mẫu -> (phạm vi, phép đo, so sánh, đếm theo)
 }
 
 
+def role_names(text: str) -> tuple[list[str], list[str]]:
+    """Cột Giáo viên -> (chức vụ được xét, chức vụ bị trừ), vd "trừ Chủ Nhiệm"."""
+    from .staff import normalize
+    keep, drop = [], []
+    for name in names(text):
+        name = normalize(name)
+        (drop if name.startswith(NOT) else keep).append(name[len(NOT):].strip() if name.startswith(NOT) else name)
+    return keep, drop
+
+
 def make(rule: CustomRule) -> Luat:
     """Một luật (mẫu hoặc tự ghép) -> luật chuẩn hóa theo config hiện tại."""
-    from .staff import normalize
     scope, measure, op, count_by = PRESETS.get(rule.kind, (rule.scope, rule.measure, rule.op, rule.count_by))
+    if not op and measure in MEASURE:
+        op = MEASURE[measure].default_op
     group = rule.group or rule.kind == "lien_2"
     slots = rule_slots(rule)
-    roles = frozenset(normalize(r) for r in names(rule.role)) or None
+    keep, drop = role_names(rule.role)
+    roles = frozenset(keep) or None
     who: frozenset[str] = frozenset()
-    if measure == "nguoi_day" and op == "do":
+    if measure == "nguoi_day" and op in ("do", "dau_tuan"):
         who, roles = roles or frozenset(), None
     place: frozenset = frozenset()
     if measure == "vi_tri":
         place, slots = frozenset(slots or ()), None
-    if measure in MEASURE and MEASURE[measure].sequence and not any(d in scope for d in ("ngay", "buoi")):
+    in_session = measure in MEASURE and MEASURE[measure].sequence or (measure, op) == ("nguoi_day", "lien_cung_nguoi")
+    if in_session and not any(d in scope for d in ("ngay", "buoi")):
         scope = (*scope, "buoi")
-    if measure in ("lien", "cap", "khoang_cach") and "ngay" in scope:
+    if (measure in ("lien", "cap", "khoang_cach") or op == "lien_cung_nguoi") and "ngay" in scope:
         scope = tuple("buoi" if d == "ngay" else d for d in scope)
     number = rule.number if rule.number is not None else (1 if rule.kind == "co_dinh" else 0)
+    tags = subject_tags()
+    skip = frozenset(s for t in rule.exclude for s in tags.get(t, ()))
     return Luat(rule=rule, scope=tuple(scope), measure=measure, op=op, number=number,
                 subjects=_subjects(rule, rule.subject, group), grades=frozenset(rule.grades) or None,
                 classes=frozenset(rule.classes) or None, slots=frozenset(slots) if slots is not None else None,
                 roles=roles, place=place,
                 other=frozenset(_subject(n) for n in names(rule.other)) or None, who=who, count_by=count_by,
-                when=rule.when)
+                when=rule.when, skip=skip, roles_not=frozenset(drop), derived=rule.derived)
 
 
 def compiled() -> list[Luat]:
@@ -272,15 +303,21 @@ def compiled() -> list[Luat]:
 
 
 def weight(L: Luat, w: config.Weights) -> int:
-    return w.custom_levels[L.rule.level - 1]
+    """Điểm trừ mỗi lần không theo luật ưu tiên: cột Điểm, không ghi thì theo Mức."""
+    return L.rule.points if L.rule.points is not None else w.custom_levels[L.rule.level - 1]
 
 
-def _when_ok(L: Luat, curriculum: dict[int, dict[str, int]], grade: int) -> bool:
-    """Cột Áp dụng khi: điều kiện trên số tiết/tuần của các môn của luật ở khối này."""
+def _when_ok(L: Luat, curriculum: dict[int, dict[str, int]], grade: int, subject: str | None = None) -> bool:
+    """Cột Áp dụng khi: điều kiện trên số tiết/tuần của các môn của luật ở khối này; phạm vi có Môn (Nhóm môn) thì
+    chỉ tính môn (nhóm môn) của tiết đang xét."""
     if not L.when:
         return True
+    from .allocation import subject_group
     req = curriculum.get(grade, {})
-    n = sum(k for s, k in req.items() if L.subjects is None or s in L.subjects)
+    same = (lambda s: s == subject) if subject is not None and "mon" in L.scope else \
+        (lambda s: subject_group(s) == subject_group(subject)) if subject is not None and "nhom_mon" in L.scope else \
+        (lambda s: True)
+    n = sum(k for s, k in req.items() if (L.subjects is None or s in L.subjects) and s not in L.skip and same(s))
     days = len(config.DAY_SESSIONS)
     for op, value in L.when:
         value = days if value == NUMBER_DAYS else value
@@ -298,9 +335,11 @@ def _class_ok(L: Luat, cls: str, grade: int, curriculum) -> bool:
 _ALL = object()  # mọi môn của luật (L.subjects)
 
 
-def _lesson_ok(L: Luat, cls: str, grade: int, subject: str, curriculum, subjects=_ALL) -> bool:
-    subjects = L.subjects if subjects is _ALL else subjects
-    return (subjects is None or subject in subjects) and _class_ok(L, cls, grade, curriculum)
+def _lesson_ok(L: Luat, cls: str, grade: int, subject: str, curriculum, subjects=_ALL, skip=None) -> bool:
+    subjects, skip = (L.subjects, L.skip) if subjects is _ALL else (subjects, skip or frozenset())
+    return ((subjects is None or subject in subjects) and subject not in skip
+            and (L.grades is None or grade in L.grades) and (L.classes is None or cls in L.classes)
+            and _when_ok(L, curriculum, grade, subject))
 
 
 # --------------------------------------------------------------------------
@@ -340,11 +379,12 @@ class _Source:
         self.problem, self.dom, self.lit, self.teachers_of, self.extra = problem, dom, lit, teachers_of, extra
         self.sess = session_of()
 
-    def atoms(self, L: Luat, subjects=_ALL) -> list[Atom]:
+    def atoms(self, L: Luat, subjects=_ALL, skip=None) -> list[Atom]:
+        """Các tiết của luật; subjects/skip: thay bộ lọc môn của luật (Môn thứ hai)."""
         p, out = self.problem, []
         need_teacher = L.teacher()
         for c in p.courses:
-            if not _lesson_ok(L, c.class_name, c.grade, c.subject, p.curriculum, subjects):
+            if not _lesson_ok(L, c.class_name, c.grade, c.subject, p.curriculum, subjects, skip):
                 continue
             slots = list(self.dom.get(c.id, ())) + [s for cid, s in self.extra if cid == c.id]
             for s in slots:
@@ -355,7 +395,8 @@ class _Source:
                     out.append(Atom(self.lit(c.id, None, s), c.class_name, c.grade, c.subject, s[0], s[1], name))
                     continue
                 for g in self.teachers_of(c.id):
-                    if L.roles is not None and p.teachers[g].role not in L.roles:
+                    role = p.teachers[g].role
+                    if (L.roles is not None and role not in L.roles) or role in L.roles_not:
                         continue
                     out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, g))
         return out
@@ -576,14 +617,33 @@ def _by_period(atoms: list[Atom]) -> dict[int, list[Atom]]:
     return out
 
 
+def threshold(L: Luat, key: tuple, problem) -> int:
+    """Ngưỡng của một nhóm: cột Số, hoặc ngưỡng theo dữ liệu (DERIVED) tính cho nhóm đó."""
+    if not L.derived:
+        return L.number
+    at = dict(zip(L.scope, key))
+    if L.derived in ("tai_ngay", "tai_ngay_1"):  # tải ngày mong muốn của GV (solver.day_targets)
+        from .solver import day_targets
+        t = problem.teachers[at["gv"]]
+        return day_targets(t.max_lessons, problem.slots)[at["ngay"]] + (L.derived == "tai_ngay_1")
+    # tran_ngay: số tiết/tuần của môn ở lớp chia số ngày học, làm tròn lên
+    req = problem.curriculum[grade_of(at["lop"])]
+    return -(-req.get(at["mon"], 0) // len(config.DAY_SESSIONS))
+
+
+def _limit_text(L: Luat, n: int) -> str:
+    return f"{OPS[L.op].lower()} {n}" + (f" = {DERIVED[L.derived]}" if L.derived else "")
+
+
 def _so_tiet(ctx, L, problem, src):
     atoms = src.atoms(L)
     for key, group in _groups(L, atoms, problem, all_keys=L.op in (">=", "=")):
-        text = (lambda v, key=key: f"{_where(L, key, problem)}: {v} tiết ({OPS[L.op].lower()} {L.number})")
+        n = threshold(L, key, problem)
+        text = (lambda v, key=key, n=n: f"{_where(L, key, problem)}: {v} tiết ({_limit_text(L, n)})")
         if L.op in ("<=", "="):
-            ctx.at_most(group, L.number, text=text)
+            ctx.at_most(group, n, text=text)
         if L.op in (">=", "="):
-            ctx.at_least(group, L.number, text=text)
+            ctx.at_least(group, n, text=text)
 
 
 def _so_khac(ctx, L, problem, src):
@@ -660,9 +720,22 @@ def _cap(ctx, L, problem, src):
             ctx.at_most(y[p], 0, neg=near, text=lambda v, key=key, p=p: f"{_where(L, key, problem)}: tiết {p} lẻ")
 
 
+def _second(L: Luat, src) -> list[Atom]:
+    """Các tiết Môn thứ hai; để trống thì là các môn khác của nhóm (phạm vi có Nhóm môn): mọi môn trừ các môn của
+    cột Môn, Nhãn."""
+    if L.other is not None:
+        return src.atoms(L, subjects=L.other)
+    return src.atoms(L, subjects=None, skip=(L.subjects or frozenset()) | L.skip)
+
+
+def _other_names(problem, L: Luat) -> str:
+    return _names(problem, L.other) if L.other is not None else "môn khác cùng nhóm"
+
+
 def _thu_tu(ctx, L, problem, src):
-    first = src.atoms(L)
-    second = src.atoms(L, subjects=L.other)
+    first, second = src.atoms(L), _second(L, src)
+    if L.op == "sau":  # các tiết cột Môn đứng sau: các tiết Môn thứ hai đứng trước
+        first, second = second, first
     groups = dict(_groups(L, first, problem, False))
     others = dict(_groups(L, second, problem, False))
     for key in sorted(set(groups) & set(others), key=repr):
@@ -671,8 +744,8 @@ def _thu_tu(ctx, L, problem, src):
             for pa in sorted(a_at):
                 if pb < pa:
                     ctx.at_most(b_at[pb] + a_at[pa], 1, text=lambda v, key=key, pa=pa, pb=pb:
-                                f"{_where(L, key, problem)}: tiết {pb} ({_names(problem, L.other)}) trước tiết "
-                                f"{pa} ({_names(problem, L.subjects)})")
+                                f"{_where(L, key, problem)}: tiết {pb} đứng trước tiết {pa} (sai thứ tự "
+                                f"{_names(problem, L.subjects)} {OPS[L.op].lower()} {_other_names(problem, L)})")
 
 
 def _names(problem, subjects) -> str:
@@ -681,12 +754,12 @@ def _names(problem, subjects) -> str:
 
 def _di_kem(ctx, L, problem, src):
     groups = _groups(L, src.atoms(L), problem, False)
-    others = dict(_groups(L, src.atoms(L, subjects=L.other), problem, False))
+    others = dict(_groups(L, _second(L, src), problem, False))
     for key, group in groups:
         for a in group:
             ctx.at_most([a], 0, neg=others.get(key, []),
                         text=lambda v, key=key: f"{_where(L, key, problem)}: có {_names(problem, L.subjects)} mà "
-                                                f"không có {_names(problem, L.other)}")
+                                                f"không có {_other_names(problem, L)}")
 
 
 def teacher_ok(L: Luat, t, class_name: str) -> bool:
@@ -709,9 +782,34 @@ def _nguoi_day(ctx, L, problem, src):
         by: dict = defaultdict(list)
         for a in group:
             by[a.teacher].append(a)
-        if len(by) > 1:
+        if len(by) < 2:
+            continue
+        if L.op == "cung_nguoi":
             ctx.at_most([ctx.any(by[g]) for g in sorted(by)], 1,
                         text=lambda v, key=key: f"{_where(L, key, problem)}: {v} người dạy")
+        elif L.op == "lien_cung_nguoi":  # hai tiết liền nhau trong buổi do cùng một người
+            at = {g: _by_period(items) for g, items in by.items()}
+            ps = _periods(group[0])
+            for p1, p2 in zip(ps, ps[1:]):
+                for g1 in sorted(by):
+                    for g2 in sorted(by):
+                        if g1 != g2 and at[g1].get(p1) and at[g2].get(p2):
+                            ctx.at_most(at[g1][p1] + at[g2][p2], 1, text=lambda v, key=key, p1=p1:
+                                        f"{_where(L, key, problem)}: tiết {p1} và tiết {p1 + 1} khác người dạy")
+        else:  # dau_tuan: tiết đầu tuần do người có chức vụ ở cột Giáo viên, người khác không dạy trước tiết đó
+            first = [g for g in sorted(by) if teacher_ok(L, problem.teachers[g], group[0].cls)]
+            if not first:
+                continue
+            mine = [a for g in first for a in by[g]]
+            for g in sorted(by):
+                if g in first:
+                    continue
+                for a in sorted(by[g], key=lambda a: (a.day, a.period)):
+                    before = [b for b in mine if (b.day, b.period) < (a.day, a.period)]
+                    ctx.at_most([a], 0, neg=before, text=lambda v, key=key, a=a:
+                                f"{_where(L, key, problem)}: {problem.teachers[a.teacher].code} dạy "
+                                f"{_day(a.day)} tiết {a.period} trước tiết đầu tuần của "
+                                f"{', '.join(problem.teachers[g].code for g in first)}")
 
 
 def _khoang_cach(ctx, L, problem, src):
@@ -947,10 +1045,10 @@ def validate(problem, sheet: str, role_label) -> list[str]:
             if _subject(name) not in subjects:
                 out.append(f"{sheet} dòng {r.row}: môn '{name}' không có trong chương trình học (hoặc không có tiết "
                            f"nào)")
-        from .staff import normalize
-        for role in names(r.role):
-            if normalize(role) not in roles:
-                out.append(f"{sheet} dòng {r.row}: không có giáo viên nào có chức vụ '{role_label(normalize(role))}'")
+        keep, drop = role_names(r.role)
+        for role in [*keep, *drop]:
+            if role not in roles:
+                out.append(f"{sheet} dòng {r.row}: không có giáo viên nào có chức vụ '{role_label(role)}'")
         for c in r.classes:
             if c not in problem.classes:
                 out.append(f"{sheet} dòng {r.row}: không có lớp '{c}'")

@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from . import config
-from .allocation import Problem, all_slots, manager_allowed, paired_groups, subject_group
+from .allocation import Problem, all_slots, homeroom_only, manager_allowed, paired_groups, subject_group
 from .solver import Lesson
 from .staff import grade_of
 
@@ -67,12 +67,12 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             continue
         grade = grade_of(les.class_name)
         at = f"{les.class_name} {where(les.day, les.period)}"
-        if les.period in config.HOMEROOM_PERIODS and t.class_name != les.class_name:
+        if les.period in config.HOMEROOM_PERIODS and t.class_name != les.class_name and config.on("tiet_gvcn"):
             errors.append(f"{at}: tiết của GVCN nhưng giao cho {t.title}")
         if t.role == config.ROLE_HOMEROOM:
             if t.class_name != les.class_name:
                 errors.append(f"{at}: {t.title} không phải GVCN lớp này")
-        elif les.subject in config.HOMEROOM_ONLY_SUBJECTS:
+        elif les.subject in homeroom_only():
             errors.append(f"{at}: {les.subject} chỉ GVCN được dạy, nhưng giao cho {t.title}")
         elif t.role == config.ROLE_GENERAL:
             if les.subject in config.GENERAL_FORBIDDEN_SUBJECTS:
@@ -122,13 +122,14 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                           f"GVCN dạy {les.subject} lớp {les.class_name}")
 
     # HĐTN: 2 slot cố định + phần còn lại trong các ngày linh hoạt.
+    fixed = config.HDTN_FIXED_SLOTS if config.on("hdtn_co_dinh") else []
     for cls in problem.classes:
         hdtn = [(les.day, les.period) for les in lessons if les.class_name == cls and les.subject == config.HDTN]
-        for s in config.HDTN_FIXED_SLOTS:
+        for s in fixed:
             if hdtn and s not in hdtn:
                 errors.append(f"Lớp {cls}: thiếu HĐTN cố định {where(*s)}")
-        for s in hdtn:
-            if s not in config.HDTN_FIXED_SLOTS and s[0] not in config.HDTN_FLEX_DAYS:
+        for s in hdtn if config.on("hdtn_ngay") else ():
+            if s not in fixed and s[0] not in config.HDTN_FLEX_DAYS:
                 errors.append(f"Lớp {cls}: HĐTN linh hoạt ở {where(*s)} ngoài các ngày cho phép")
 
     errors.extend(_check_teacher_order(problem, lessons))
@@ -148,7 +149,8 @@ def _check_teacher_order(problem: Problem, lessons: list[Lesson]) -> list[str]:
     grid = {(l.class_name, l.day, l.period): l for l in lessons}
     for les in sorted(lessons, key=lambda l: (l.class_name, l.day, l.period)):
         nxt = grid.get((les.class_name, les.day, les.period + 1))
-        if nxt and session_of.get((les.day, les.period + 1)) is session_of[les.day, les.period] \
+        same = session_of.get((les.day, les.period + 1)) is session_of[les.day, les.period]
+        if nxt and config.on("lien_tiet") and same \
                 and subject_group(nxt.subject) == subject_group(les.subject) and nxt.teacher != les.teacher:
             errors.append(f"Lớp {les.class_name} {config.DAYS[les.day]} tiết {les.period}–{les.period + 1}: "
                           f"hai tiết liền {les.subject}/{nxt.subject} do 2 người dạy ({les.teacher}, {nxt.teacher})")
@@ -158,7 +160,7 @@ def _check_teacher_order(problem: Problem, lessons: list[Lesson]) -> list[str]:
         by[les.class_name, subject_group(les.subject)][les.teacher].append((les.day, les.period))
     for (cls, group), per_teacher in sorted(by.items()):
         cn = homeroom.get(cls)
-        if group not in config.HOMEROOM_PRIORITY or cn not in per_teacher:
+        if group not in config.HOMEROOM_PRIORITY or cn not in per_teacher or not config.on("gvcn_truoc"):
             continue
         first = min(per_teacher[cn])
         for g, slots in sorted(per_teacher.items()):
@@ -183,19 +185,19 @@ def _check_teacher_sessions(problem: Problem, lessons: list[Lesson]) -> list[str
             continue
         key = (les.day, periods[les.period])
         at2 = les.class_name in problem.campus2
-        if t.campus2_only and not at2:
+        if t.campus2_only and not at2 and config.on("co_so_2"):
             errors.append(f"{les.class_name} {config.DAYS[les.day]} tiết {les.period}: {t.title} chỉ dạy ở cơ sở 2 "
                           f"nhưng lớp ở cơ sở 1")
         campuses[les.teacher, *key].add(2 if at2 else 1)
         busy[les.teacher].add(key)
-        if key in t.off_sessions:
+        if key in t.off_sessions and config.on("buoi_nghi"):
             errors.append(f"{t.title} có tiết buổi nghỉ {key[1].lower()} {config.DAYS[key[0]]} ({les.class_name} "
                           f"tiết {les.period})")
     for (g, d, name), cs in sorted(campuses.items()):
-        if len(cs) > 1:
+        if len(cs) > 1 and config.on("co_so"):
             errors.append(f"{g} dạy cả hai cơ sở trong buổi {name.lower()} {config.DAYS[d]}")
     sessions = [(d, s.name) for d, ss in config.DAY_SESSIONS.items() for s in ss]
-    for g, t in teachers.items():
+    for g, t in teachers.items() if config.on("buoi_nghi") else ():
         free = [k for k in sessions if k not in t.off_sessions and k not in busy.get(g, set())]
         for name, n in t.off_any:
             need = sum(k for _, k in t.off_any) if name is None else n
@@ -222,7 +224,7 @@ def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
             # Tiết tăng cường sau tiết chính: trong ngày có tiết chính cùng nhóm đứng trước, không có tiết chính
             # nào đứng sau (khối không học môn chính thì không xét).
             day_at = [(p, grid.get((cls, d, p))) for s in sessions for p in s.periods]
-            for extra, main in config.SUBJECT_GROUPS.items():
+            for extra, main in config.SUBJECT_GROUPS.items() if config.on("tang_cuong") else ():
                 if not req.get(main, 0):
                     continue
                 mains = [p for p, s in day_at if s == main]
@@ -235,7 +237,7 @@ def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
                 subjects = [grid.get((cls, d, p)) for p in session.periods]
                 groups = Counter(subject_group(s) for s in subjects if s)
                 for group, n in sorted(groups.items()):
-                    if n > config.SESSION_GROUP_LIMIT:
+                    if n > config.SESSION_GROUP_LIMIT and config.on("nhom_buoi"):
                         errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: {n} tiết nhóm {group} "
                                       f"(tối đa {config.SESSION_GROUP_LIMIT})")
                     at = [p for p, s in zip(session.periods, subjects) if s and subject_group(s) == group]
@@ -243,7 +245,7 @@ def _check_student_rules(problem: Problem, lessons: list[Lesson]) -> list[str]:
                         errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: nhóm {group} phải thành "
                                       f"cặp 2 tiết liền (tiết {', '.join(map(str, at))})")
                 # Môn có từ 2 tiết trong buổi phải học liền nhau.
-                for subject in dict.fromkeys(s for s in subjects if s):
+                for subject in dict.fromkeys(s for s in subjects if s) if config.on("lien_nhau") else ():
                     at = [p for p, s in zip(session.periods, subjects) if s == subject]
                     if len(at) > 1 and at[-1] - at[0] + 1 != len(at):
                         errors.append(f"Lớp {cls} {config.DAYS[d]} buổi {session.name}: môn {subject} không học "

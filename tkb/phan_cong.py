@@ -106,8 +106,9 @@ def teacher_slots(problem: Problem) -> dict[str, int]:
     out = {}
     for g, s in slots.items():
         t = problem.teachers[g]
-        s = {slot for slot in s if (slot[0], sess[slot].name) not in t.off_sessions}
-        for name, n in t.off_any:  # nghỉ n buổi bất kỳ: bớt n buổi có ít ô nhất
+        leave = config.on("buoi_nghi")  # luật Buổi nghỉ của giáo viên (sheet LUẬT)
+        s = {slot for slot in s if not leave or (slot[0], sess[slot].name) not in t.off_sessions}
+        for name, n in t.off_any if leave else ():  # nghỉ n buổi bất kỳ: bớt n buổi có ít ô nhất
             per = Counter((slot[0], sess[slot].name) for slot in s if name is None or sess[slot].name == name)
             s -= {slot for key in sorted(per, key=lambda k: (per[k], k))[:n]
                   for slot in s if (slot[0], sess[slot].name) == key}

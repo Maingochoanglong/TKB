@@ -8,7 +8,7 @@ from tkb.staff import make_teacher, read_staff
 from .du_lieu_mau import CURRICULUM, write_sample_input  # noqa: F401  (CURRICULUM: dùng trong các test)
 
 # Các sheet của file vào V8 do chương trình ghi (file mẫu; file vào cập nhật thêm sheet TKB đã xếp).
-INPUT_SHEETS = ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT RIÊNG", "HƯỚNG DẪN"]
+INPUT_SHEETS = ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT", "HƯỚNG DẪN"]
 # File vào mẫu V8 của trường mẫu tên giả (tests/du_lieu_mau.py), ghi vào thư mục tạm mỗi lần chạy test.
 INPUT_FILE = write_sample_input(Path(tempfile.mkdtemp(prefix="tkb_test_")) / "Input_Mau_V8.xlsx")
 
@@ -17,6 +17,11 @@ INPUT_FILE = write_sample_input(Path(tempfile.mkdtemp(prefix="tkb_test_")) / "In
 def sample_staff():
     """Nhân sự đủ 29 lớp của trường mẫu (tên giả), đọc từ file vào mẫu."""
     return read_staff(INPUT_FILE)
+
+
+def plain_rules(values):
+    """Quy định đọc từ file, bỏ các dòng của sheet LUẬT (RULES: chỉ để ghi lại, không phải giá trị config mặc định)."""
+    return {k: v for k, v in (values or {}).items() if k != "RULES"}
 
 
 def teacher(name: str, title: str, lessons, row: int | None = None):
