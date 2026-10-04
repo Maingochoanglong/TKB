@@ -22,7 +22,7 @@ from .solver import Solution, session_of
 from .staff import Teacher, _find_columns, class_sort_key, clean_name, find_sheet, grade_of, normalize, staff_sheet
 from .style import CellStyle, Style
 from .rules import code as rules_code, subject_columns
-from . import luat_rieng
+from . import luat_co_san, luat_rieng
 from .template import GUIDE_SHEET, write_custom_sheet, write_guide, write_roles_sheet, write_rules_sheet
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
@@ -501,13 +501,16 @@ def role_rows(solution: Solution) -> list[list[str]]:
             for role, subjects in problem.specialists.items() if role in held]
 
 
-def write_updated_staff(solution: Solution, source: str | Path, path: str | Path) -> None:
+def write_updated_staff(solution: Solution, source: str | Path, path: str | Path,
+                        settings: config.Settings | None = None) -> None:
     """Chép file vào, thêm người cần tuyển vào cuối danh sách nhân sự và các cột Mã GV, số tiết thực dạy
     (số tiết bù ở chế độ bù giờ) và số tiết dư. Dòng, cột mới chép style của file vào; đọc lại file này làm file
     vào vẫn được, và sheet config.SAVED_SHEET lưu TKB đã xếp để lần nạp lại giữ nguyên TKB (solver.reuse). Đây là
     bản thống kê gọn theo mẫu file vào: tô nền cả dòng người dạy bù (vàng), người cần tuyển
     (xanh lá), người còn dư tiết (xanh dương); sheet HƯỚNG DẪN (ghi lại mỗi lần) giải thích cả các cột kết quả và
-    màu. File cũng ghi đủ các quy định đã dùng (cột quy định của sheet CHƯƠNG TRÌNH HỌC, sheet QUY ĐỊNH). File ra chỉ
+    màu, rồi liệt kê mọi luật đang dùng bằng câu của bộ ghép luật (tkb/luat_co_san.py; settings: luật bảo vệ học
+    sinh có bật không). File cũng ghi đủ các quy định đã dùng (cột quy định của sheet CHƯƠNG TRÌNH HỌC, sheet QUY
+    ĐỊNH). File ra chỉ
     có chữ, số và màu (plain_values): không ghi chú, không công thức, không cố định dòng/cột, không danh sách thả
     xuống.
 
@@ -593,7 +596,7 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
         old = find_sheet(wb, name)
         if old is not None:
             del wb[old.title]
-    write_guide(wb, _result_notes(solution.problem.overtime_mode()))
+    write_guide(wb, [*_result_notes(solution.problem.overtime_mode()), *luat_co_san.notes(solution.problem, settings)])
     _write_saved(wb, solution, Style.from_file(source))
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

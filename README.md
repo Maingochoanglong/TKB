@@ -48,8 +48,11 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      Cơ sở 2; **Lớp Đang Dạy** đánh dấu trong các lớp của trường (nút Khối k chọn cả khối); **Buổi Nghỉ** đánh dấu buổi
      cố định trên bảng ngày × buổi và ghi số buổi nghỉ thêm bất kỳ: buổi sáng, buổi chiều, hoặc sáng hay chiều đều được
      (GVCN không nghỉ buổi sáng). Trang ghi ra đúng chữ như ghi tay, vd `3/1, 3/2` và `Chiều T5, 2 buổi chiều`.
-   - **Luật riêng**: chọn kiểu luật, điền các ô kiểu đó dùng (ô không dùng bị khóa), đánh dấu Bắt buộc hoặc chọn mức
-     ưu tiên; mỗi dòng hiện luật bằng lời, vd "Thể dục chỉ xếp vào buổi chiều (ưu tiên mức 3)".
+   - **Luật riêng** (bộ ghép luật): chọn một mẫu luật hoặc **Tự ghép** rồi bấm **+ Thêm luật**; hộp thoại ghép câu
+     "Với mỗi [lớp, giáo viên, ngày…] · các tiết [môn, nhãn, khối, lớp, ngày, tiết, buổi, giáo viên] · thì [phép đo]
+     [so sánh] [số]" bằng ô đánh dấu và danh sách chọn, hiện ngay **luật đọc là** (cùng câu chương trình in ra) và lỗi
+     nếu ghép sai, vd "Với mỗi giáo viên, ngày: mọi tiết của GV Bộ Môn: số lớp khác nhau tối đa 3 (bắt buộc)". Thẻ
+     **Luật có sẵn của chương trình** liệt kê mọi luật có sẵn bằng cùng câu, kèm chỗ chỉnh.
 
    Đổi tên một môn thì các chức vụ, luật riêng ghi môn đó đổi theo; đổi tên một chức vụ thì các giáo viên giữ chức vụ
    đó đổi theo.
@@ -266,23 +269,55 @@ GV chuyên biệt không dạy hết).
 - File vào cập nhật ghi thêm sheet này nếu chưa có (các chức vụ GV chuyên biệt đang có), để thấy mỗi chức vụ dạy môn
   nào. Không có sheet, hoặc chỉ có các dòng trùng tên môn, thì cùng mã kết quả, cùng mã quy định như trước.
 
-**Sheet `LUẬT RIÊNG`** (không bắt buộc): luật riêng của trường, **mỗi dòng một luật** thuộc một trong 6 kiểu luật chung,
-không cần sửa code (`tkb/luat_rieng.py`). Cột: `Kiểu luật | Môn | Môn thứ hai | Khối | Ngày | Tiết | Buổi | Giáo viên |
-Số | Bắt buộc | Mức` (thêm cột `Ghi chú` tùy ý). Mỗi kiểu luật chỉ dùng vài cột, cột không dùng để trống.
+**Sheet `LUẬT RIÊNG`** (không bắt buộc): luật riêng của trường, **mỗi dòng một luật**, không cần sửa code. Mỗi luật là
+một câu của **bộ ghép luật** (`tkb/bo_ghep.py`):
 
-| Kiểu luật | Cột dùng | Ví dụ |
+> **Với mỗi** [phạm vi] · **các tiết** [Môn, Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo viên] · **thì** [Phép đo] [So sánh]
+> [Số] · **khi** [Áp dụng khi] · [Bắt buộc / Mức]
+
+Cột: `Kiểu luật | Với mỗi | Môn | Gồm môn tăng cường | Nhãn | Khối | Lớp | Ngày | Tiết | Buổi | Giáo viên | Phép đo |
+So sánh | Số | Đếm theo | Môn thứ hai | Áp dụng khi | Bắt buộc | Mức` (thêm cột `Ghi chú` tùy ý; chương trình tìm cột theo
+tiêu đề nên file theo thứ tự cột cũ vẫn đọc được). `Kiểu luật` là một **mẫu** (điền sẵn phạm vi, phép đo) hoặc
+**Tự ghép** (ghi đủ Với mỗi, Phép đo, So sánh). Cột không dùng để trống.
+
+| Mẫu | Cột dùng | Ví dụ |
 |---|---|---|
-| Không xếp vào | Môn, Khối, Ngày / Tiết / Buổi (ít nhất một) | Thể dục không học tiết 1; Tin học không học Thứ 2 |
-| Chỉ xếp vào | Môn, Khối, Ngày / Tiết / Buổi (ít nhất một) | Thể dục chỉ học buổi chiều |
-| Học 2 tiết liền | Môn, Khối | Tiếng Anh khối 3–5 học thành cặp 2 tiết liền, cùng người dạy |
-| Học trước | Môn, Môn thứ hai, Khối | Tiếng Việt học trước Toán khi cùng buổi |
+| Không xếp vào | Môn, Khối, Lớp, Nhãn, Ngày / Tiết / Buổi (ít nhất một) | Thể dục không học tiết 1; Tin học không học Thứ 2 |
+| Chỉ xếp vào | như trên | Thể dục chỉ học buổi chiều |
+| Học 2 tiết liền | Môn, Khối, Lớp | Tiếng Anh khối 3–5 học thành cặp 2 tiết liền, cùng người dạy |
+| Học trước | Môn, Môn thứ hai, Khối, Lớp | Tiếng Việt học trước Toán khi cùng buổi |
 | Giáo viên tối đa tiết mỗi ngày | Giáo viên (chức vụ; trống: mọi GV), Số | Mỗi GV Tiếng Anh dạy tối đa 5 tiết mỗi ngày |
 | Số lớp học cùng lúc tối đa | Môn, Khối, Số | Phòng Tin học: tối đa 1 lớp mỗi tiết |
+| Cố định vào | Môn, Khối, Lớp, Ngày / Tiết / Buổi | Thể dục lớp 1/1 cố định Thứ 3 tiết 3 |
+| Giáo viên tối đa lớp mỗi ngày | Giáo viên, Số | Mỗi GV Bộ Môn dạy tối đa 3 lớp mỗi ngày |
+| Học ít nhất số ngày | Môn, Khối, Lớp, Số | Tiếng Anh học ít nhất 3 ngày mỗi tuần |
+| Chỉ giáo viên dạy | Môn, Khối, Lớp, Ngày / Tiết / Buổi, Giáo viên | Tin học khối 3 chỉ GV Tin học dạy |
+
+**Tự ghép**: `Với mỗi` ghi các chiều `Lớp, Giáo viên, Môn, Nhóm môn, Khối, Ngày, Buổi, Giờ học, Cơ sở` (trống: cả
+trường cả tuần); các cột điều kiện chọn tiết nào được xét; `Phép đo` là một trong 9 phép đo:
+
+| Phép đo | So sánh | Ví dụ |
+|---|---|---|
+| Số tiết | Tối đa / Tối thiểu / Đúng + Số | Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1 |
+| Số khác nhau | như trên + `Đếm theo` | Với mỗi giáo viên, ngày: số lớp khác nhau tối đa 3 |
+| Vị trí | Chỉ trong / Không trong (Ngày, Tiết, Buổi, nhãn ô) | Các tiết có nhãn Môn nặng: không trong tiết 7 |
+| Liền nhau | — | Với mỗi lớp, môn: các tiết liền nhau trong buổi |
+| Theo cặp 2 tiết | — | Với mỗi lớp: các tiết Tiếng Anh thành cặp 2 tiết liền |
+| Thứ tự | — + `Môn thứ hai` | Với mỗi lớp, ngày: các tiết Toán đứng trước các tiết Toán tăng cường |
+| Đi kèm | — + `Môn thứ hai` | Với mỗi lớp, ngày: có Toán tăng cường thì phải có Toán |
+| Người dạy | Do (+ Giáo viên) / Cùng một người | Các tiết tiết 1: do Chủ Nhiệm dạy |
+| Khoảng cách | Tiết trống tối đa / Cách cuối buổi tối đa + Số | Với mỗi giáo viên: tối đa 0 tiết trống giữa các tiết |
+
+`Nhãn` là tên các cột Có/Không của môn (vd `Môn nặng`, `Ưu tiên buổi sáng`) hoặc của ngày, tiết (vd `Luôn do GVCN dạy`,
+`Hạn chế môn nặng`): thêm một cột Có/Không là có thêm một nhãn. `Gồm môn tăng cường` = Có thì Môn tính cả các môn tăng
+cường cùng nhóm. `Áp dụng khi` đặt điều kiện trên số tiết/tuần của các môn của luật ở từng khối, vd `>= 6, chẵn` hay
+`<= số ngày`. Câu đọc lại của mỗi luật có ở giao diện, ở thông báo lỗi và trong sheet HƯỚNG DẪN của file vào cập nhật.
 
 - **Bắt buộc** `Có`: TKB phải theo đúng (luật cứng, bộ kiểm tra độc lập kiểm lại). `Không` hoặc trống: **ưu tiên**
   (mục tiêu mềm), **Mức** `1`, `2`, `3` (trống là 2): mỗi lần không theo bị trừ 100, 400, 1.500 điểm (mức 3 nặng hơn một
   tiết môn nặng ở tiết 7). Sau khi xếp, màn hình in số lần không theo từng luật ưu tiên.
-- Khối, Ngày, Tiết ghi danh sách: `3, 4`, `3-5`; `Thứ 2, Thứ 4`, `T2-T4`; `1`, `5-7`. Buổi: `Sáng` hoặc `Chiều`.
+- Môn, Lớp, Khối, Ngày, Tiết ghi danh sách: `3, 4`, `3-5`; `Thứ 2, Thứ 4`, `T2-T4`; `1`, `5-7`. Buổi: `Sáng` hoặc
+  `Chiều`.
   Giáo viên: chức vụ như cột Chức Vụ (`Chủ Nhiệm`, `Bộ Môn`, `Quản Lý` hoặc chức vụ GV chuyên biệt, vd `Tiếng Anh`).
 - Ghi sai (kiểu luật lạ, thiếu cột cần, ghi cột không dùng, môn hay chức vụ không có…) thì chương trình báo kèm số dòng.
   Luật bắt buộc mâu thuẫn (với nhau hoặc với các quy định khác) thì chương trình đếm trước hoặc chẩn đoán và chỉ ra
@@ -300,7 +335,7 @@ File vào mẫu trống có sẵn: **`data/Input_Template_V8.xlsx`**. Tạo lạ
 python -m tkb.template data/Mau_Input.xlsx
 ```
 
-File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền mảnh, không cố định dòng/cột, không danh sách thả xuống, không ghi chú trong ô, không sheet ẩn. Gồm 6 sheet: `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (điền sẵn các môn có quy định mặc định và các cột quy định, số tiết để trống), `CHỨC VỤ` (chỉ có dòng tiêu đề), `QUY ĐỊNH` (điền sẵn giá trị mặc định), `LUẬT RIÊNG` (chỉ có dòng tiêu đề) và `HƯỚNG DẪN` (cách ghi từng cột, từng sheet, từng kiểu luật). Cột Lớp, Lớp Đang Dạy định dạng chữ để Excel không đổi `1/1` thành ngày tháng.
+File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền mảnh, không cố định dòng/cột, không danh sách thả xuống, không ghi chú trong ô, không sheet ẩn. Gồm 6 sheet: `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (điền sẵn các môn có quy định mặc định và các cột quy định, số tiết để trống), `CHỨC VỤ` (chỉ có dòng tiêu đề), `QUY ĐỊNH` (điền sẵn giá trị mặc định), `LUẬT RIÊNG` (chỉ có dòng tiêu đề) và `HƯỚNG DẪN` (cách ghi từng cột, từng sheet, từng mẫu luật và phép đo). Cột Lớp, Lớp Đang Dạy định dạng chữ để Excel không đổi `1/1` thành ngày tháng.
 
 ## Cái gì nằm trong file vào, cái gì nằm trong code
 
@@ -327,7 +362,8 @@ File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền m�
    - **Tô màu cả dòng** để biết ai bù, ai thêm: chế độ bù giờ tô **vàng** dòng người dạy bù (vượt định mức); chế độ tuyển thêm tô **xanh lá** dòng người cần tuyển; người còn dư tiết tô **xanh dương**. Trong dòng người dạy bù, **ô môn có tiết bù tô cam**; số tiết bù từng môn ghi bằng chữ ở cột **Môn Dạy Bù**, ví dụ `TV tăng cường 2, TNXH 1`. Dưới bảng có chú thích màu kèm số người, số tiết, ví dụ `Dạy bù (vượt định mức): 28 người, 56 tiết`, `Môn có tiết dạy bù: 40 ô, 56 tiết (số tiết từng môn ở cột Môn Dạy Bù)`, `Cần tuyển thêm: 3 người, 56 tiết`, `Dạy ít hơn định mức (còn dư tiết): 4 người, 17 tiết`.
    - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển, dạy bù và số liệu cơ sở, thai sản, buổi nghỉ, giữ phân công cũ chỉ in ra màn hình.
    - **Chế độ bù giờ mà thiếu tiết:** không ra TKB; file này chỉ có sheet `Thiếu tiết`: **Lớp | Môn | Số Tiết Thiếu | Lý Do** và dòng Tổng.
-3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ các sheet; ghi đủ các quy định đã dùng: thêm cột quy định vào `CHƯƠNG TRÌNH HỌC`, thêm sheet `CHỨC VỤ`, `QUY ĐỊNH`, `LUẬT RIÊNG` nếu file vào chưa có). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (chế độ bù: **Số Tiết Bù**) và **Số Tiết Dư** (định mức − thực dạy, khi dạy ít hơn định mức). Đây cũng là **bản thống kê gọn theo mẫu file vào**: tô nền cả dòng người dạy bù (vàng), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **HƯỚNG DẪN** (viết lại mỗi lần) giải thích cách ghi từng cột, cả các cột kết quả và màu, bằng chữ thường. File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File còn có sheet **TKB đã xếp** (dạng lưới như TKB, mỗi ô môn + Mã GV): nạp lại file này thì TKB được giữ nguyên nếu vẫn đúng luật (mục [Tuyển được người](#tuyển-được-người-giữ-nguyên-tkb)). File gốc không bị sửa.
+3. **`<tên file vào>_cap_nhat.xlsx`**: bản chép của file vào (đủ các sheet; ghi đủ các quy định đã dùng: thêm cột quy định vào `CHƯƠNG TRÌNH HỌC`, thêm sheet `CHỨC VỤ`, `QUY ĐỊNH`, `LUẬT RIÊNG` nếu file vào chưa có). Sheet NHÂN SỰ có thêm các dòng `chưa có` ở cuối (chép style của dòng trên), Số tiết = định mức tuyển; bên phải thêm cột **Mã GV**, **Số Tiết Thực Dạy** (chế độ bù: **Số Tiết Bù**) và **Số Tiết Dư** (định mức − thực dạy, khi dạy ít hơn định mức). Đây cũng là **bản thống kê gọn theo mẫu file vào**: tô nền cả dòng người dạy bù (vàng), người cần tuyển (xanh lá), người còn dư tiết (xanh dương); sheet **HƯỚNG DẪN** (viết lại mỗi lần) giải thích cách ghi từng cột, cả các cột kết quả và màu, bằng chữ thường, rồi liệt kê **mọi luật đang dùng** (luật có
+sẵn của chương trình, luật riêng của trường) bằng câu của bộ ghép luật, kèm chỗ chỉnh. File này dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc, chạy lại thì ghi đè). File còn có sheet **TKB đã xếp** (dạng lưới như TKB, mỗi ô môn + Mã GV): nạp lại file này thì TKB được giữ nguyên nếu vẫn đúng luật (mục [Tuyển được người](#tuyển-được-người-giữ-nguyên-tkb)). File gốc không bị sửa.
 4. **Mọi file kết quả chỉ có chữ, số và màu:** không có ghi chú (comment) trong ô, không có công thức, không cố định dòng/cột, không danh sách thả xuống hay định dạng theo điều kiện. Công thức trong file vào (ví dụ STT `=ROW()-1`) được chép sang file cập nhật dưới dạng giá trị.
 
 **Style:** mọi file ra chép style của sheet NHÂN SỰ trong file vào: phông, cỡ chữ, tiêu đề in đậm, viền, căn lề và chiều cao dòng (làm tròn, ví dụ 24,95 → 25). Bảng ghi tiêu đề cột ở dòng 1 như file vào. Riêng hàng tiết trong TKB cao đủ 2 dòng chữ (môn và giáo viên).
@@ -444,7 +480,9 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/solver.py` | Quy trình giải và mô hình xếp giờ CP-SAT |
 | `tkb/lns.py` | Xếp giờ: CP-SAT khởi đầu rồi các vòng QA → xếp lại từng vùng |
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |
-| `tkb/luat_rieng.py` | Luật riêng của trường (sheet LUẬT RIÊNG): 6 kiểu luật chung, mỗi kiểu một lần cho bộ xếp, kiểm tra, phân công, đếm trước, chẩn đoán |
+| `tkb/luat_rieng.py` | Luật riêng của trường (sheet LUẬT RIÊNG): đọc/ghi các ô, các mẫu luật, câu đọc lại |
+| `tkb/bo_ghep.py` | Bộ ghép luật: phạm vi, điều kiện, 9 phép đo; mỗi phép đo viết một lần cho mô hình CP-SAT, kiểm tra độc lập, QA của LNS, đếm trước, phân công |
+| `tkb/luat_co_san.py` | Luật có sẵn của chương trình viết bằng cùng câu của bộ ghép (hiển thị, kiểm chéo) |
 | `tkb/chan_doan.py` | Quy định mâu thuẫn: đếm trước khi xếp; khi không xếp được thì thử nới từng nhóm luật để chỉ ra luật nào gây ra |
 | `tkb/writer.py` | Xuất Excel |
 | `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |

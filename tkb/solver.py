@@ -22,6 +22,7 @@ from ortools.sat.python import cp_model
 from . import config
 from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
                          subject_group)
+from .bo_ghep import assign_cost
 from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
 from .staff import InputError, Teacher, grade_of, normalize
 
@@ -131,9 +132,9 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
         if not course.homeroom and s[1] in config.HOMEROOM_PERIODS:
             continue
         result.append(s)
-    if config.CUSTOM_RULES:  # luật riêng "Không xếp vào", "Chỉ xếp vào" bắt buộc
+    if config.CUSTOM_RULES:  # luật riêng bắt buộc về vị trí (tkb/bo_ghep.py)
         from .luat_rieng import banned
-        bad = banned(course.subject, course.grade)
+        bad = banned(course.subject, course.grade, course.class_name, problem.curriculum)
         result = [s for s in result if s not in bad]
     if len(result) < course.lessons:
         raise SolveError(f"Lớp {course.class_name}: môn {course.subject} cần {course.lessons} tiết "
@@ -248,6 +249,9 @@ class _Allocation:
                 secondary.append(w.general_on_specialist * a)
             if not isinstance(a, int) and (keep := keep_cost(problem.teachers[g], c.class_name, w)):
                 secondary.append(keep * a)  # giữ khối, lớp của TKB cũ
+            if config.CUSTOM_RULES and not isinstance(a, int) and \
+                    (cost := assign_cost(problem.teachers[g], c, problem.curriculum, w)):
+                secondary.append(cost * a)  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
 
         # Cân bằng phần định mức chưa dùng giữa các GV cùng chức vụ.
         by_role: dict[str, list[Teacher]] = {}
@@ -680,7 +684,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
     # Luật riêng của trường (sheet LUẬT RIÊNG); không có luật nào thì không thêm gì.
     if config.CUSTOM_RULES:
         from .luat_rieng import build
-        objective.extend(build(m, problem, x, dom, occ_terms, w))
+        objective.extend(build(m, problem, x, z, dom, alloc.teachers_of, w))
 
     m.Minimize(sum(objective))
 

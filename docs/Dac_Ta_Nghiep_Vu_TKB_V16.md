@@ -72,6 +72,7 @@
 | 54 | Báo quy định mâu thuẫn | Không xếp được thì chỉ báo "Không tìm được TKB hợp lệ. Thử tăng thời gian…", kể cả khi các luật mâu thuẫn (tăng thời gian không giúp gì) | **Đếm trước khi xếp** (`tkb/chan_doan.py` `precheck`, cả nút Kiểm tra của giao diện): báo ngay khối, môn và quy định mâu thuẫn. **Chẩn đoán khi không xếp được:** thử nới từng nhóm luật bắt buộc để chỉ ra nhóm luật nhỏ nhất không cùng thỏa được và luật nào nới riêng là đủ; hoặc báo do thiếu thời gian, hoặc do nhân sự/quyền dạy (mục 9). Luật và mã kết quả không đổi |
 | 55 | Luật riêng của trường | Mỗi luật mới phải sửa code (solver, checker, QA) | **Sheet `LUẬT RIÊNG`** (không bắt buộc, mục 6.1): mỗi dòng một luật thuộc 6 kiểu luật chung (không xếp vào, chỉ xếp vào, học 2 tiết liền, học trước, GV tối đa tiết mỗi ngày, số lớp học cùng lúc tối đa), bắt buộc hoặc ưu tiên mức 1–3; mỗi kiểu viết code một lần (`tkb/luat_rieng.py`). Giao diện có trang Luật riêng. Phân công thêm bước đổi chéo cho chẵn khi còn phần lẻ trong nhóm ghép cặp. Không có luật riêng thì mã kết quả, mã quy định không đổi |
 | 56 | Chức vụ tự đặt, dạy nhiều môn | GV chuyên biệt chỉ là chức vụ trùng tên một môn và chỉ dạy môn đó; giao diện nhập nhân sự, môn học thành hai bảng rời | **Sheet `CHỨC VỤ`** (không bắt buộc, mục 2.1.2): mỗi dòng một chức vụ GV chuyên biệt do trường đặt tên và **các môn được dạy**, vd `GV Nghệ thuật: Âm nhạc, Mỹ thuật`; GV có Chức Vụ đó chỉ dạy các môn này (mục 4). Chức vụ trùng tên môn không ghi ở sheet vẫn như cũ; dòng ghi đúng như vậy (một môn, cùng tên) tính như không ghi. Môn bộ môn không dạy mà chưa ai dạy được: tuyển chức vụ đầu tiên của sheet dạy môn đó. File vào cập nhật ghi thêm sheet này (các chức vụ GV chuyên biệt đang có). Giao diện thành các bước **Môn học → Chức vụ → Giáo viên**: danh sách gọn, bấm Sửa mở trang chi tiết; bước Chức vụ sửa quyền dạy của Chủ Nhiệm, Bộ Môn, Quản Lý (các cột quy định của môn) và các chức vụ tự đặt; Giáo viên chọn chức vụ từ danh sách, chỉ Chủ Nhiệm ghi Lớp. Không có sheet hoặc chỉ có dòng trùng tên môn thì mã kết quả, mã quy định không đổi |
+| 57 | Bộ ghép luật chung cho mọi luật | Luật riêng chỉ có 6 kiểu cố định, mỗi kiểu viết code riêng ở mọi nơi; luật có sẵn chỉ đọc được qua tên cột quy định | **Bộ ghép luật** (`tkb/bo_ghep.py`, mục 6.1): mọi luật là một câu "Với mỗi [phạm vi] · các tiết [điều kiện] · thì [phép đo] [so sánh] [số] · khi [...] · [mức]" với 9 phép đo (số tiết, số khác nhau, vị trí, liền nhau, theo cặp, thứ tự, đi kèm, người dạy, khoảng cách); mỗi phép đo viết code **một lần** cho mô hình CP-SAT, kiểm tra độc lập, QA của LNS, báo cáo, đếm trước và tầng phân công. Sheet `LUẬT RIÊNG` thêm các cột Với mỗi, Gồm môn tăng cường, Nhãn, Lớp, Phép đo, So sánh, Đếm theo, Áp dụng khi; Kiểu luật là một **mẫu** (6 kiểu cũ và Cố định vào, Giáo viên tối đa lớp mỗi ngày, Học ít nhất số ngày, Chỉ giáo viên dạy) hoặc **Tự ghép**. **Nhãn** là các cột Có/Không của môn, ngày, tiết. **Luật có sẵn** viết bằng cùng câu (`tkb/luat_co_san.py`), liệt kê trong HƯỚNG DẪN của file vào cập nhật và trên giao diện; vẫn mã hóa như cũ, bộ ghép kiểm chéo với bộ kiểm tra độc lập và hạ thay được bản gốc (test). Giao diện: hộp thoại ghép câu, câu đọc lại do chương trình nói. Không có luật riêng thì mã kết quả, mã quy định không đổi |
 
 ---
 
@@ -375,28 +376,63 @@ Ví dụ luật học liền, buổi sáng tiết 1–4:
 
 Mỗi GV tiếng anh dạy 23 tiết; ngoài tiết 1, Thứ 6 tiết 4 và tiết 7, họ chỉ còn 22 slot, nên luôn còn ít nhất 1 tiết Tiếng Anh ở tiết 7 mỗi người.
 
-### 6.1. Luật riêng của trường (sheet `LUẬT RIÊNG`)
+### 6.1. Luật riêng của trường (sheet `LUẬT RIÊNG`): bộ ghép luật
 
-Nhà trường tự thêm luật mà không sửa code: mỗi dòng một luật thuộc một **kiểu luật chung** (`tkb/luat_rieng.py`),
+Nhà trường tự thêm luật mà không sửa code. Mỗi dòng là một câu của **bộ ghép luật** (`tkb/bo_ghep.py`):
+
+> **Với mỗi** [phạm vi] · **các tiết** [điều kiện] · **thì** [phép đo] [so sánh] [số] · **khi** [áp dụng khi] · [mức]
+
 **[Cứng]** khi cột Bắt buộc = Có, không thì **[Mềm]** với mức 1, 2, 3 (`Weights.custom_levels` = 100, 400, 1.500 điểm
-mỗi lần không theo). Môn so khớp tên như các quy định khác; Khối trống là mọi khối; Ngày, Tiết, Buổi trống là mọi giá trị.
+mỗi lần không theo). Kiểu luật là một **mẫu** (điền sẵn phạm vi, phép đo) hoặc **Tự ghép**.
 
-| Kiểu luật | Cứng | Mềm (mỗi lần không theo) |
+- **Phạm vi** (cột Với mỗi): các chiều Lớp, Giáo viên, Môn, Nhóm môn, Khối, Ngày, Buổi, Giờ học (một ô ngày × tiết),
+  Cơ sở; luật áp dụng cho từng nhóm tiết cùng giá trị các chiều đó. Trống: cả trường cả tuần.
+- **Điều kiện**: Môn (danh sách; Gồm môn tăng cường = Có thì cả nhóm môn), Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo
+  viên (chức vụ của người dạy). Cột trống là mọi giá trị. **Nhãn** là tiêu đề các cột Có/Không của sheet CHƯƠNG TRÌNH
+  HỌC (nhãn môn, vd Môn nặng) hoặc của bảng Ngày, Tiết (nhãn ô, vd Luôn do GVCN dạy).
+- **Áp dụng khi**: điều kiện trên số tiết/tuần của các môn của luật ở từng khối (`>= n`, `<= n`, `= n`, `<= số ngày`,
+  `chẵn`, `lẻ`); khối không thỏa thì luật không áp dụng.
+
+| Phép đo | Cứng | Mềm (mỗi lần không theo) |
 |---|---|---|
-| Không xếp vào | Bỏ các ô (ngày, tiết, buổi) đó khỏi miền ô của môn (`solver.allowed_slots`) | Mỗi tiết của môn ở các ô đó |
-| Chỉ xếp vào | Chỉ giữ các ô đó trong miền ô của môn | Mỗi tiết của môn ngoài các ô đó |
-| Học 2 tiết liền | Thêm nhóm môn vào các nhóm ghép cặp (`allocation.paired_groups`): mỗi buổi 0 hoặc 2 tiết liền, cùng người; phân công chia chẵn | Mỗi tiết của nhóm không có tiết cùng nhóm liền trước hay liền sau trong buổi |
-| Học trước | Trong một buổi, không tiết Môn thứ hai nào đứng trước tiết Môn | Mỗi cặp (tiết Môn thứ hai, tiết Môn đứng sau nó) trong buổi |
-| Giáo viên tối đa tiết mỗi ngày | Mỗi GV có chức vụ đó dạy tối đa Số tiết mỗi ngày; phân công tính sức chứa theo đó (`phan_cong.teacher_slots`) | Mỗi tiết vượt |
-| Số lớp học cùng lúc tối đa | Mỗi tiết tối đa Số lớp học môn đó (các khối của luật) | Mỗi lớp vượt |
+| Số tiết (Tối đa / Tối thiểu / Đúng n) | Tổng số tiết của mỗi nhóm so với n; nhóm không có tiết nào cũng tính khi Tối thiểu, Đúng | Mỗi tiết vượt / thiếu |
+| Số khác nhau (+ Đếm theo) | Số giá trị khác nhau (lớp, ngày, cơ sở…) của các tiết mỗi nhóm so với n | Mỗi giá trị vượt / thiếu |
+| Vị trí (Chỉ trong / Không trong) | Bỏ các ô khỏi miền ô (`solver.allowed_slots`); có điều kiện GV thì ràng buộc từng tiết | Mỗi tiết ở ô không nên |
+| Liền nhau | Trong mỗi buổi không có mẫu "tiết – tiết khác – tiết" | Mỗi bộ ba như vậy |
+| Theo cặp 2 tiết | Mỗi buổi 0 hoặc 2 tiết, liền nhau; theo lớp và môn thì là nhóm ghép cặp (`allocation.paired_groups`), phân công chia chẵn | Mỗi tiết không có tiết cùng nhóm liền trước hay liền sau |
+| Thứ tự (+ Môn thứ hai) | Trong mỗi buổi (ngày) không tiết Môn thứ hai nào đứng trước tiết Môn | Mỗi cặp đứng sai |
+| Đi kèm (+ Môn thứ hai) | Buổi (ngày) có tiết Môn thì có tiết Môn thứ hai | Mỗi tiết Môn không có đi kèm |
+| Người dạy (Do / Cùng một người) | Tiết do GV có chức vụ ở cột Giáo viên (Chủ Nhiệm: GVCN của chính lớp); không xét ô thì lọc ngay khi phân công. Hoặc mọi tiết của nhóm do một người | Mỗi tiết trái luật (không xét ô: giá mỗi tiết khi phân công) / mỗi người thừa |
+| Khoảng cách (Tiết trống tối đa / Cách cuối buổi tối đa n) | Số tiết trống giữa các tiết trong buổi ≤ n; hoặc mỗi tiết cách cuối buổi ≤ n | Mỗi tiết trống / mỗi tiết cách xa thêm |
 
-- Luật cứng được kiểm lại độc lập (`checker` gọi `luat_rieng.check`); luật mềm được LNS tính vào QA từng lớp-ngày.
-- Trước khi xếp: báo môn hay chức vụ không có (`validate`); đếm mâu thuẫn chắc chắn (`precheck`): luật vị trí để lại ít ô
-  hơn số tiết, Học 2 tiết liền mà số tiết lẻ, số lớp cùng lúc không đủ ô. Không xếp được: mỗi luật cứng là một nhóm luật
+| Mẫu | Là câu |
+|---|---|
+| Không xếp vào / Chỉ xếp vào | Vị trí, Không trong / Chỉ trong các ô ghi ở Ngày, Tiết, Buổi |
+| Học 2 tiết liền | Với mỗi lớp, buổi: Theo cặp 2 tiết (gồm môn tăng cường) |
+| Học trước | Với mỗi lớp, buổi: Thứ tự Môn trước Môn thứ hai |
+| Giáo viên tối đa tiết mỗi ngày | Với mỗi giáo viên, ngày: Số tiết tối đa n (bắt buộc: phân công tính sức chứa theo đó, `phan_cong.teacher_slots`) |
+| Số lớp học cùng lúc tối đa | Với mỗi giờ học: Số tiết của môn tối đa n |
+| Cố định vào | Với mỗi lớp, giờ học (các ô ghi ở dòng): Số tiết đúng 1 |
+| Giáo viên tối đa lớp mỗi ngày | Với mỗi giáo viên, ngày: Số khác nhau theo Lớp tối đa n |
+| Học ít nhất số ngày | Với mỗi lớp: Số khác nhau theo Ngày tối thiểu n |
+| Chỉ giáo viên dạy | Người dạy: Do chức vụ ở cột Giáo viên |
+
+- Mỗi phép đo viết một lần trên một "ngữ cảnh": cùng hàm dựng ràng buộc CP-SAT (`bo_ghep.build`, cuối
+  `solver.build_timetable`) và đếm số lần không theo trên một TKB (`bo_ghep.violations`). Luật cứng được kiểm lại độc lập
+  (`checker` gọi `luat_rieng.check`); luật mềm được LNS tính vào QA từng lớp-ngày và in số lần không theo sau khi xếp.
+- Trước khi xếp: báo môn, chức vụ hay lớp không có (`validate`); đếm mâu thuẫn chắc chắn (`precheck`): luật vị trí để lại
+  ít ô hơn số tiết, theo cặp mà số tiết lẻ, số lớp cùng lúc không đủ ô, nhóm không đủ tiết có thể có cho Tối thiểu/Đúng
+  (vd cố định Tiếng Anh vào tiết 1 luôn do GVCN), luật cần nhiều tiết hơn chương trình học. Không xếp được: mỗi luật cứng là một nhóm luật
   để chẩn đoán nới thử (mục 9), lỗi in `LUẬT RIÊNG dòng n: <luật bằng lời>`.
 - Phân công: còn phần lẻ trong nhóm ghép cặp thì đổi chéo 1 tiết giữa hai người cùng lẻ, hoặc nhờ người thứ ba có tiết ở
   nhóm không ghép cặp (`phan_cong._Local.repair`). Chỉ chạy khi còn phần lẻ, nên phân công khác không đổi.
 - Không có luật riêng: mô hình y như cũ, mã kết quả và mã quy định không đổi.
+- **Luật có sẵn bằng cùng câu** (`tkb/luat_co_san.py`): mọi luật của chương trình (mục 4–8) được viết thành câu của bộ
+  ghép, nhóm Cấu trúc, Bảo vệ học sinh, HĐTN và GVCN, Người dạy, Lịch giáo viên, Phân công, Ưu tiên khi xếp giờ, kèm chỗ
+  chỉnh; luật có ngưỡng riêng cho từng người, từng lớp (định mức, tải ngày, rải đều) chỉ có câu mô tả. Luật có sẵn vẫn
+  mã hóa như cũ (đổi cách mã hóa là đổi mã kết quả). Test kiểm chéo: TKB xếp ra không vi phạm luật nào theo bộ ghép; đổi
+  chỗ tiết thì bộ ghép và bộ kiểm tra độc lập cùng thấy; tắt bản gốc của "liền nhau", "tiết tăng cường" (cờ chẩn đoán)
+  và hạ chính các câu đó qua bộ ghép thì TKB vẫn qua bộ kiểm tra.
 
 ---
 

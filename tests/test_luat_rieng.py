@@ -76,10 +76,10 @@ def test_read_sheet_and_rules_code(tmp_path):
     wb = openpyxl.load_workbook(path)
     ws = wb[luat_rieng.SHEET]
     assert [c.value for c in ws[1]] == HEAD
-    for r, row in ((2, ["Không xếp vào", "Thể dục", None, None, None, "1", None, None, None, "Có", None]),
-                   (3, ["Học trước", "Toán"])):  # dòng 2, 3 (file mẫu kẻ sẵn dòng trống)
-        for c, value in enumerate(row, start=1):
-            ws.cell(r, c, value)
+    for r, row in ((2, {"Kiểu luật": "Không xếp vào", "Môn": "Thể dục", "Tiết": "1", "Bắt buộc": "Có"}),
+                   (3, {"Kiểu luật": "Học trước", "Môn": "Toán"})):  # dòng 2, 3 (file mẫu kẻ sẵn dòng trống)
+        for head, value in row.items():
+            ws.cell(r, HEAD.index(head) + 1, value)
     wb.save(path)
     with pytest.raises(InputError, match="LUẬT RIÊNG, dòng 3: kiểu luật Học trước phải ghi cột Môn thứ hai"):
         read_rules(path)

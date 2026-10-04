@@ -29,7 +29,7 @@ from pathlib import Path
 
 import openpyxl
 
-from . import config, luat_rieng
+from . import bo_ghep, config, luat_rieng
 from .staff import _NO, _YES, InputError, _fold, clean_name, find_sheet, normalize, subject_key
 
 YES, NO = "Có", "Không"
@@ -685,10 +685,22 @@ def notes() -> list[tuple[str, str]]:
              f"sheet {config.STAFF_SHEET}, GV có Chức Vụ là tên đó chỉ dạy các môn này. Chức vụ không ghi ở đây mà "
              f"trùng tên một môn (vd Tiếng Anh) thì chỉ dạy môn đó. Môn Bộ Môn không dạy mà chưa có GV nào dạy được "
              f"thì chương trình tuyển thêm chức vụ đầu tiên ở đây dạy môn đó (không có thì chức vụ trùng tên môn)."),
-            (luat_rieng.SHEET, "Không bắt buộc. Mỗi dòng một luật riêng của trường: chọn Kiểu luật rồi ghi các cột kiểu "
-                               "đó dùng (cột không dùng để trống). Bắt buộc: Có (luật cứng) hoặc Không (ưu tiên, ô trống "
-                               "là Không); Mức: 1, 2, 3 (chỉ cho luật ưu tiên, trống là 2, 3 là ưu tiên nhất). Khối, Ngày, "
-                               "Tiết ghi danh sách cách nhau bằng dấu phẩy hoặc khoảng, vd 3, 4 hoặc 3-5; Thứ 2, Thứ 4 "
-                               "hoặc T2-T4; 5-7. Buổi: Sáng hoặc Chiều. Giáo viên: chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý "
-                               "hoặc chức vụ GV chuyên biệt, vd Tiếng Anh)."),
-            *((f"{luat_rieng.SHEET}: {k.label}", k.note) for k in luat_rieng.KINDS)]
+            (luat_rieng.SHEET, "Không bắt buộc. Mỗi dòng một luật riêng của trường: chọn Kiểu luật (một mẫu, hoặc Tự "
+                               "ghép) rồi ghi các cột kiểu đó dùng (cột không dùng để trống). Bắt buộc: Có (luật cứng) "
+                               "hoặc Không (ưu tiên, ô trống là Không); Mức: 1, 2, 3 (chỉ cho luật ưu tiên, trống "
+                               "là 2, 3 là ưu tiên nhất). Môn, Lớp, Khối, Ngày, Tiết ghi danh sách cách nhau bằng dấu phẩy "
+                               "hoặc khoảng, vd 3, 4 hoặc 3-5; Thứ 2, Thứ 4 hoặc T2-T4; 5-7. Buổi: Sáng hoặc Chiều. "
+                               "Giáo viên: chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý hoặc chức vụ GV chuyên biệt, vd Tiếng "
+                               "Anh). Nhãn: tên các cột Có/Không của môn (vd Môn nặng) hoặc của ngày, tiết (vd Luôn do "
+                               "GVCN dạy). Gồm môn tăng cường: Có thì Môn tính cả các môn tăng cường cùng nhóm."),
+            *((f"{luat_rieng.SHEET}: {k.label}", k.note) for k in luat_rieng.KINDS),
+            (f"{luat_rieng.SHEET}: Tự ghép, cột Với mỗi",
+             "Chia các tiết thành từng nhóm theo các chiều, vd 'Lớp, Ngày': luật áp dụng cho mỗi lớp mỗi ngày. Các "
+             f"chiều: {', '.join(d.label for d in bo_ghep.SCOPES)}. Trống: cả trường cả tuần."),
+            *((f"{luat_rieng.SHEET}: Tự ghép, Phép đo {m.label}",
+               m.note + (f" So sánh: {', '.join(bo_ghep.OPS[o] for o in m.ops)}." if m.ops else "")
+               + (" Ghi cột Số." if m.number else "") + (" Ghi cột Đếm theo." if m.count_by else "")
+               + (" Ghi cột Môn thứ hai." if m.other else "")) for m in bo_ghep.MEASURES),
+            (f"{luat_rieng.SHEET}: Tự ghép, cột Áp dụng khi",
+             "Chỉ áp dụng cho khối mà số tiết/tuần của các môn ở cột Môn thỏa điều kiện, vd '>= 6, chẵn' hoặc '<= số "
+             "ngày'.")]

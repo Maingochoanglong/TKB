@@ -74,6 +74,27 @@ def test_import_check_export(server):
     assert status == 400 and "luồng" in err["error"]
 
 
+def test_describe_rules(server):
+    """Bộ ghép luật trên trang: câu đọc lại và lỗi của từng luật (cùng hàm với file Excel), các luật có sẵn, và từ
+    vựng của bộ ghép trong schema."""
+    app, url = server
+    _, schema = _call(url, "/api/schema", token=app.token)
+    composer = schema["custom"]["composer"]
+    assert [m["label"] for m in composer["measures"]][:3] == ["Số tiết", "Số khác nhau", "Vị trí"]
+    assert "Môn nặng" in composer["tags"]["subject"] and "Luôn do GVCN dạy" in composer["tags"]["slot"]
+    _, new = _call(url, "/api/new", token=app.token)
+    rows = [{"kind": "Tự ghép", "scope": "Lớp, Ngày", "subject": "Toán", "measure": "Số tiết", "op": "Tối đa",
+             "number": 1, "hard": True},
+            {"kind": "Tự ghép", "measure": "Liền nhau", "hard": False, "level": 3},
+            {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True}]
+    status, data = _call(url, "/api/describe", "POST", {"scenario": new["scenario"], "rows": rows}, app.token)
+    assert status == 200
+    assert data["rules"][0] == {"text": "Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1 (bắt buộc)", "errors": []}
+    assert data["rules"][1]["text"] is None and "phải có Lớp hoặc Giáo viên" in data["rules"][1]["errors"][0]
+    assert data["rules"][2]["text"] == "Tiếng Việt học trước Toán trong buổi (bắt buộc)"
+    assert {c["group"] for c in data["built_in"]} >= {"Cấu trúc", "Bảo vệ học sinh", "Ưu tiên khi xếp giờ"}
+
+
 def test_blank_template(server, tmp_path):
     """Nút Tải file mẫu: đúng file mẫu trống của python -m tkb.template; nhập lại được."""
     import openpyxl

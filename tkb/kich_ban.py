@@ -28,7 +28,7 @@ from pathlib import Path
 
 import openpyxl
 
-from . import config, luat_rieng
+from . import bo_ghep, config, luat_rieng
 from .program import read_program
 from .rules import (DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, MAX_DAYS, NO, PERIOD_COLS, PERIOD_KEY, SUBJECT_COLS, VALUE,
                     YES, _day_name, applied, read_rules, rule_tables, subject_columns)
@@ -80,10 +80,23 @@ def schema() -> dict:
         "custom": {"columns": [{"key": k, "header": h} for k, h in luat_rieng.COLUMNS],
                    "kinds": [{"key": k.key, "label": k.label, "needs": list(k.needs), "uses": list(k.uses),
                               "note": k.note} for k in luat_rieng.KINDS],
-                   "sessions": [config.MORNING.name, config.AFTERNOON.name]},
+                   "sessions": [config.MORNING.name, config.AFTERNOON.name],
+                   "composer": composer()},
         "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "roles": config.ROLES_SHEET,
                    "rules": config.RULES_SHEET, "custom": luat_rieng.SHEET, "saved": config.SAVED_SHEET},
     }
+
+
+def composer() -> dict:
+    """Từ vựng của bộ ghép luật (tkb/bo_ghep.py) cho giao diện: thêm một chiều, phép đo, nhãn ở Python là trang có."""
+    slot = {c.header for c in (*PERIOD_COLS, *DAY_COLS)}
+    tags = bo_ghep.tag_names()
+    return {"scopes": [{"key": d.key, "label": d.label} for d in bo_ghep.SCOPES],
+            "measures": [{"key": m.key, "label": m.label, "ops": list(m.ops), "number": m.number, "other": m.other,
+                          "count_by": m.count_by, "sequence": m.sequence, "note": m.note} for m in bo_ghep.MEASURES],
+            "ops": [{"key": k, "label": v} for k, v in bo_ghep.OPS.items()],
+            "tags": {"subject": [t for t in tags if t not in slot], "slot": [t for t in tags if t in slot]},
+            "compose": list(luat_rieng.COMPOSE)}
 
 
 # ---- đọc file Excel thành kịch bản ----
@@ -331,6 +344,8 @@ def _custom_cell(key: str, value):
     """Ô của sheet LUẬT RIÊNG (cả dòng trống: dòng i của bảng là dòng i + 2 của sheet)."""
     if key == "hard":
         return YES if value is True or (isinstance(value, str) and _fold(value) in _YES) else NO
+    if key == "group":
+        return YES if value is True or (isinstance(value, str) and _fold(value) in _YES) else None
     if key in ("number", "level"):
         return _number(value)
     return _text(value) or None
@@ -343,6 +358,35 @@ def _lines(exc: Exception, sheet: str = "") -> list[str]:
     lines = [line.strip() for line in str(exc).splitlines() if line.strip()]
     lines = lines[1:] if len(lines) > 1 and lines[0].endswith(":") else lines
     return [line if not sheet or line.startswith(sheet) else f"{sheet}: {line}" for line in lines]
+
+
+def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool = True) -> dict:
+    """Câu đọc lại của từng luật riêng (rows; mặc định các luật của kịch bản) và các luật có sẵn đang dùng, theo quy
+    định của kịch bản: {rules: [{text, errors}], built_in: [{group, text, source, hard}]}. Lỗi các sheet khác không
+    chặn (nút Kiểm tra báo)."""
+    from .config import Role
+    from .luat_co_san import co_san
+
+    rows = scenario.get("custom") or [] if rows is None else rows
+    values: dict = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "kich_ban.xlsx"
+        to_excel({**scenario, "custom": []}, path)
+        try:
+            values = read_rules(path) or {}
+        except InputError:
+            values = {"CUSTOM_ROLES": [Role(clean_name(r.get("name") or ""), ()) for r in scenario.get("roles") or []
+                                       if r.get("name")]}
+    with applied(values):
+        out = []
+        for i, row in enumerate(rows):
+            errors: list[str] = []
+            cells = {k: _custom_cell(k, row.get(k)) for k, _ in luat_rieng.COLUMNS}
+            rule = luat_rieng.parse(cells, i + 2, errors.append)
+            out.append({"text": luat_rieng.describe(rule) if rule else None, "errors": errors})
+        built = [{"group": c.group, "text": c.sentence(), "source": c.source, "hard": c.hard}
+                 for c in co_san(None, config.Settings(student_rules=student_rules))]
+    return {"rules": out, "built_in": built}
 
 
 def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = config.OVERTIME_MAX,

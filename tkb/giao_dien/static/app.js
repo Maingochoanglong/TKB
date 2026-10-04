@@ -597,60 +597,188 @@ function parsePasted(text) {
   return rows;
 }
 
-// ---------------------------------------------------------------- tab 5: luật riêng
-// Mỗi dòng một luật thuộc một kiểu luật chung (tkb/luat_rieng.py); ô nào kiểu luật không dùng thì khóa.
+// ---------------------------------------------------------------- tab 5: luật (bộ ghép luật)
+// Mỗi luật là một câu "Với mỗi [phạm vi] · các tiết [điều kiện] · thì [phép đo] [so sánh] [số]" (tkb/bo_ghep.py):
+// chọn một mẫu có sẵn hoặc Tự ghép trong hộp thoại; câu đọc lại và lỗi do máy chủ nói (/api/describe, cùng hàm với
+// file Excel). Từ vựng (phạm vi, phép đo, nhãn) lấy từ schema nên thêm ở Python là trang có.
+const CP = () => S.custom.composer;
 const kindOf = (row) => S.custom.kinds.find((k) => k.label === row.kind || k.key === row.kind) || S.custom.kinds[0];
-const RULE_INPUT = {
-  subject: (v, a) => `<input type="text" list="subject-list" class="wide" ${a} value="${esc(v)}" spellcheck="false">`,
-  other: (v, a) => `<input type="text" list="subject-list" class="wide" ${a} value="${esc(v)}" spellcheck="false">`,
-  sessions: (v, a) => `<input type="text" list="session-list" ${a} value="${esc(v)}" spellcheck="false">`,
-  role: (v, a) => `<input type="text" list="role-list" class="wide" ${a} value="${esc(v)}" spellcheck="false">`,
-  number: (v, a) => `<input type="number" min="1" step="1" ${a} value="${esc(v)}">`,
-};
-function describeRule(row) {
-  const k = kindOf(row).key;
-  const who = (row.subject || "…") + (row.grades ? ` khối ${row.grades}` : "");
-  const where = [row.sessions && `buổi ${String(row.sessions).toLowerCase()}`, row.days,
-    row.periods && `tiết ${row.periods}`].filter(Boolean).join(" ") || "…";
-  const text = {
-    khong_xep: `${who} không xếp vào ${where}`,
-    chi_xep: `${who} chỉ xếp vào ${where}`,
-    lien_2: `${who} học 2 tiết liền`,
-    truoc: `${who} học trước ${row.other || "…"} trong buổi`,
-    gv_ngay: `${row.role ? `mỗi GV ${row.role}` : "mỗi giáo viên"} dạy tối đa ${row.number || "…"} tiết mỗi ngày`,
-    cung_luc: `${who}: tối đa ${row.number || "…"} lớp học cùng lúc`,
-  }[k];
-  return text + (row.hard ? " (bắt buộc)" : ` (ưu tiên mức ${row.level || 2})`);
+const measureOf = (row) => CP().measures.find((m) => m.label === row.measure || m.key === row.measure) || null;
+const opLabel = (key) => (CP().ops.find((o) => o.key === key) || {}).label || key;
+const listOf = (v) => String(v ?? "").split(/[,;×]/).map((x) => x.trim()).filter(Boolean);
+let said = null; // {rules: [{text, errors}], built_in: [...]} của /api/describe
+let sayTimer = null;
+function sayLater() {
+  clearTimeout(sayTimer);
+  sayTimer = setTimeout(() => say().catch(fail), 350);
+}
+async function say() {
+  said = await api("POST", "/api/describe", { scenario: st.scenario, student_rules: st.run.student_rules });
+  renderRuleList();
+  renderBuiltIn();
 }
 function renderRules() {
+  renderRuleList();
+  renderBuiltIn();
+  sayLater();
+}
+function renderRuleList() {
   const rows = st.scenario.custom;
-  const cols = S.custom.columns.filter((c) => !["kind", "hard", "level"].includes(c.key));
-  const head = `<thead><tr><th>Dòng</th><th class="left">Luật đọc là</th><th class="left">Kiểu luật</th>${
-    cols.map((c) => `<th>${esc(c.header)}</th>`).join("")}<th>Bắt buộc</th><th>Mức</th><th></th></tr></thead>`;
-  const body = rows.map((row, i) => {
-    const kind = kindOf(row);
-    const cells = cols.map((c) => {
-      const a = `data-f="rulec" data-i="${i}" data-k="${c.key}" ${kind.uses.includes(c.key) ? "" : "disabled"}`;
-      const make = RULE_INPUT[c.key] || ((v, at) => `<input type="text" ${at} value="${esc(v)}" spellcheck="false">`);
-      return `<td>${make(row[c.key] ?? "", a)}</td>`;
-    }).join("");
-    const levels = [1, 2, 3].map((n) => `<option value="${n}" ${Number(row.level || 2) === n ? "selected" : ""}>${n}</option>`).join("");
-    return `<tr data-row="${i + 2}"><td class="num">${i + 2}</td>
-      <td class="say">${esc(describeRule(row))}</td>
-      <td class="left"><select data-f="rulec" data-i="${i}" data-k="kind">${S.custom.kinds.map((k) =>
-        `<option value="${esc(k.label)}" ${k.key === kind.key ? "selected" : ""}>${esc(k.label)}</option>`).join("")}</select></td>
-      ${cells}
-      <td><input type="checkbox" data-f="rulec" data-i="${i}" data-k="hard" ${row.hard ? "checked" : ""}></td>
-      <td><select data-f="rulec" data-i="${i}" data-k="level" ${row.hard ? "disabled" : ""}>${levels}</select></td>
-      <td><button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật">✕</button></td></tr>`;
+  $("#rule-list").innerHTML = rows.map((row, i) => {
+    const r = said && said.rules[i];
+    const errs = r ? r.errors : [];
+    const text = r && r.text ? r.text.replace(/ \((bắt buộc|ưu tiên mức \d)\)$/, "") : `${kindOf(row).label}…`;
+    return `<li class="rule-item${errs.length ? " bad" : ""}" data-row="${i + 2}">
+      <span class="num">Dòng ${i + 2}</span>
+      <div class="say"><b class="${row.hard ? "hard" : "soft"}">${row.hard ? "Bắt buộc" : `Ưu tiên ${row.level || 2}`}</b>
+        ${esc(text)}${errs.map((e) => `<div class="warn-text">${esc(e)}</div>`).join("")}</div>
+      <span class="nowrap"><button type="button" class="ghost small" data-act="edit-rule" data-i="${i}">Sửa</button>
+        <button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật">✕</button></span></li>`;
   }).join("");
-  $("#rule-table").innerHTML = rows.length ? head + `<tbody>${body}</tbody>` : "";
   $("#rule-empty").hidden = rows.length > 0;
   updateCounts();
+}
+function renderBuiltIn() {
+  const items = (said && said.built_in) || [];
+  const groups = [...new Set(items.map((c) => c.group))];
+  $("#builtin-list").innerHTML = groups.map((g) => {
+    const list = items.filter((c) => c.group === g);
+    return `<details><summary>${esc(g)} <span class="muted">(${list.length})</span></summary><ul>${list.map((c) =>
+      `<li><span class="${c.hard ? "hard" : "soft"}">${esc(c.text)}</span><small>Chỉnh ở: ${esc(c.source)}</small></li>`)
+      .join("")}</ul></details>`;
+  }).join("");
 }
 function newRule(label) {
   const row = Object.fromEntries(S.custom.columns.map((c) => [c.key, ""]));
   return { ...row, kind: label, number: null, hard: true, level: null };
+}
+
+// Hộp thoại ghép câu: sửa một bản sao, bấm Xong mới ghi vào kịch bản.
+let ruleEdit = null; // {i (-1: luật mới), row}
+function openRule(i, label) {
+  const row = i < 0 ? newRule(label) : JSON.parse(JSON.stringify(st.scenario.custom[i]));
+  ruleEdit = { i, row };
+  renderComposer();
+  $("#rule-dialog").showModal();
+  previewRule();
+}
+function shown(row) {
+  // Các cột hiện trong hộp thoại: cột mẫu dùng; Tự ghép thì bớt các cột phép đo không cần.
+  const kind = kindOf(row);
+  const uses = new Set(kind.uses);
+  if (kind.key === "tu_ghep") {
+    const m = measureOf(row);
+    if (!m || !m.ops.length) uses.delete("op");
+    if (!m || !m.number) uses.delete("number");
+    if (!m || !m.count_by) uses.delete("count_by");
+    if (!m || !m.other) uses.delete("other");
+  }
+  return uses;
+}
+function checks(k, values, chosen, label = (v) => v) {
+  const set = new Set(listOf(chosen).map(fold));
+  return `<div class="checks">${values.map((v) => `<label class="check-item"><input type="checkbox" data-f="rdlist"
+    data-k="${k}" data-v="${esc(v)}" ${set.has(fold(v)) ? "checked" : ""}> ${esc(label(v))}</label>`).join("")}</div>`;
+}
+function renderComposer() {
+  const row = ruleEdit.row;
+  const kind = kindOf(row);
+  const uses = shown(row);
+  const m = measureOf(row);
+  const text = (k, attrs = "") => `<input type="text" class="wide" data-f="rd" data-k="${k}" value="${esc(row[k] ?? "")}"
+    spellcheck="false" ${attrs}>`;
+  const field = (k, label, html, note = "") => (uses.has(k) ? formRow(label, html, note) : "");
+  const block = (k, label, html, note = "") => (uses.has(k) ? formBlock(label, html, note) : "");
+  const days = frameDays().map(({ d }) => `Thứ ${d + 2}`);
+  const tags = [...CP().tags.subject, ...CP().tags.slot];
+  let html = `<fieldset><legend>Mẫu luật</legend>${formRow("Kiểu luật", `<select data-f="rd" data-k="kind">${
+    S.custom.kinds.map((k) => `<option value="${esc(k.label)}" ${k.key === kind.key ? "selected" : ""}>${esc(k.label)}</option>`)
+      .join("")}</select>`, kind.note)}</fieldset>`;
+  if (kind.key === "tu_ghep") {
+    html += `<fieldset><legend>Với mỗi</legend>${formBlock("Phạm vi", checks("scope", CP().scopes.map((d) => d.label),
+      row.scope), "Chia các tiết thành từng nhóm, vd Lớp + Ngày: luật áp dụng cho mỗi lớp mỗi ngày. Không chọn: cả trường cả tuần.")}
+      </fieldset>`;
+  }
+  html += `<fieldset><legend>Chỉ xét các tiết</legend>
+    ${field("subject", "Môn", text("subject", 'list="subject-list"'), "Một hoặc nhiều môn, cách nhau bằng dấu phẩy.")}
+    ${uses.has("group") ? formRow("Gồm môn tăng cường", `<input type="checkbox" data-f="rd" data-k="group" ${
+      fold(row.group) === "co" || row.group === true ? "checked" : ""}>`, "Tính cả các môn tăng cường cùng nhóm.") : ""}
+    ${block("tags", "Nhãn", checks("tags", tags, row.tags), "Các cột Có/Không của môn (vd Môn nặng) hoặc của ngày, tiết (vd Luôn do GVCN dạy).")}
+    ${block("grades", "Khối", checks("grades", st.scenario.grades.map(String), row.grades, (g) => `Khối ${g}`))}
+    ${field("classes", "Lớp", text("classes", 'list="class-list"'), "Vd 3/1, 3/2; trống: mọi lớp.")}
+    ${block("days", "Ngày", checks("days", days, row.days))}
+    ${field("periods", "Tiết", text("periods"), "Vd 1 hoặc 5-7.")}
+    ${block("sessions", "Buổi", checks("sessions", SESSIONS(), row.sessions))}
+    ${field("role", m && m.key === "nguoi_day" ? "Do chức vụ" : "Giáo viên", text("role", 'list="role-list"'),
+      "Chức vụ, vd Bộ Môn, Tiếng Anh; nhiều chức vụ cách nhau bằng dấu phẩy.")}</fieldset>`;
+  if (kind.key === "tu_ghep") {
+    html += `<fieldset><legend>Thì</legend>
+      ${formRow("Phép đo", `<select data-f="rd" data-k="measure"><option value="">— chọn —</option>${CP().measures.map((x) =>
+        `<option value="${esc(x.label)}" ${m && m.key === x.key ? "selected" : ""}>${esc(x.label)}</option>`).join("")}</select>`,
+        m ? m.note : "")}
+      ${field("op", "So sánh", `<select data-f="rd" data-k="op"><option value=""></option>${(m ? m.ops : []).map((o) =>
+        `<option value="${esc(opLabel(o))}" ${opLabel(o) === row.op || o === row.op ? "selected" : ""}>${esc(opLabel(o))}</option>`)
+        .join("")}</select>`)}
+      ${field("number", "Số", `<input type="number" min="0" step="1" data-f="rd" data-k="number" value="${esc(row.number ?? "")}">`)}
+      ${field("count_by", "Đếm theo", `<select data-f="rd" data-k="count_by"><option value=""></option>${CP().scopes.map((d) =>
+        `<option value="${esc(d.label)}" ${d.label === row.count_by || d.key === row.count_by ? "selected" : ""}>${esc(d.label)}</option>`)
+        .join("")}</select>`)}
+      ${field("other", "Môn thứ hai", text("other", 'list="subject-list"'))}
+      ${field("when", "Áp dụng khi", text("when"), "Điều kiện trên số tiết/tuần của các môn, vd >= 6, chẵn hoặc <= số ngày.")}
+      </fieldset>`;
+  } else {
+    html += `<fieldset><legend>Thì</legend>
+      ${field("number", "Số", `<input type="number" min="1" step="1" data-f="rd" data-k="number" value="${esc(row.number ?? "")}">`)}
+      ${field("other", "Môn thứ hai", text("other", 'list="subject-list"'))}</fieldset>`;
+  }
+  html += `<fieldset><legend>Mức</legend>
+    ${formRow("Bắt buộc", `<input type="checkbox" data-f="rd" data-k="hard" ${row.hard ? "checked" : ""}>`,
+      "TKB phải theo đúng; bỏ đánh dấu là ưu tiên.")}
+    ${row.hard ? "" : formRow("Mức ưu tiên", `<select data-f="rd" data-k="level">${[1, 2, 3].map((n) =>
+      `<option value="${n}" ${Number(row.level || 2) === n ? "selected" : ""}>${n}</option>`).join("")}</select>`, "3 là ưu tiên nhất.")}
+    </fieldset>`;
+  $("#rule-body").innerHTML = html;
+  $("#class-list").innerHTML = schoolClasses().map((c) => `<option value="${esc(c)}">`).join("");
+}
+let previewTimer = null;
+function previewRule() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(async () => {
+    if (!ruleEdit) return;
+    try {
+      const res = await api("POST", "/api/describe", { scenario: st.scenario, rows: [ruleEdit.row],
+        student_rules: st.run.student_rules });
+      const r = res.rules[0];
+      $("#rule-say").textContent = r.text || "…";
+      $("#rule-errors").innerHTML = r.errors.map((e) => `<li>${esc(e.replace(/^LUẬT RIÊNG, dòng \d+: /, ""))}</li>`).join("");
+    } catch (err) { fail(err); }
+  }, 250);
+}
+function editRule(el) {
+  const d = el.dataset;
+  const row = ruleEdit.row;
+  if (d.f === "rdlist") {
+    const list = listOf(row[d.k]).filter((x) => fold(x) !== fold(d.v));
+    if (el.checked) list.push(d.v);
+    const order = { scope: CP().scopes.map((x) => x.label), sessions: SESSIONS(),
+      days: frameDays().map(({ d: n }) => `Thứ ${n + 2}`), grades: st.scenario.grades.map(String),
+      tags: [...CP().tags.subject, ...CP().tags.slot] }[d.k] || [];
+    list.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    row[d.k] = list.join(", ");
+  } else if (d.k === "group") {
+    row.group = el.checked ? "Có" : "";
+  } else {
+    row[d.k] = d.k === "level" ? Number(el.value) : readInput(el);
+  }
+  if (["kind", "measure", "hard"].includes(d.k)) {
+    const uses = shown(row);
+    for (const c of S.custom.columns) {
+      if (!["kind", "hard", "level"].includes(c.key) && !uses.has(c.key)) row[c.key] = c.key === "number" ? null : "";
+    }
+    row.level = row.hard ? null : (row.level || 2);
+    renderComposer();
+  }
+  previewRule();
 }
 
 // ---------------------------------------------------------------- tab 6: cài đặt chạy, kiểm tra, xếp
@@ -790,7 +918,8 @@ function renderHelp() {
   $("#help-mon").innerHTML = dl(S.subject);
   $("#help-gv").innerHTML = dl(S.staff);
   $("#paste-cols").textContent = S.staff.map((c) => c.header).join(" | ");
-  $("#kind-list").innerHTML = S.custom.kinds.map((k) => `<dt>${esc(k.label)}</dt><dd>${esc(k.note)}</dd>`).join("");
+  $("#kind-list").innerHTML = [...S.custom.kinds.map((k) => `<dt>${esc(k.label)}</dt><dd>${esc(k.note)}</dd>`),
+    ...CP().measures.map((m) => `<dt>Tự ghép · ${esc(m.label)}</dt><dd>${esc(m.note)}</dd>`)].join("");
   $("#new-kind").innerHTML = S.custom.kinds.map((k) => `<option value="${esc(k.label)}">${esc(k.label)}</option>`).join("");
 }
 function renderAll() {
@@ -925,6 +1054,10 @@ function onEdit(e) {
   const el = e.target;
   const d = el.dataset;
   if (!d.f && !d.run) return;
+  if (d.f === "rd" || d.f === "rdlist") {
+    if (e.type === "change" || el.type === "text" || el.type === "number") editRule(el);
+    return;
+  }
   if (d.run) {
     const k = d.run;
     if (k === "time_preset") {
@@ -1011,19 +1144,6 @@ function onEdit(e) {
     }
     t.off = offText(o);
     $("#off-note").innerHTML = offNote(t, i);
-  } else if (d.f === "rulec") {
-    const row = sc.custom[i];
-    row[d.k] = d.k === "level" ? Number(v) : v;
-    if (d.k === "kind" || d.k === "hard") {
-      const kind = kindOf(row);
-      for (const c of S.custom.columns) {
-        if (!["kind", "hard", "level"].includes(c.key) && !kind.uses.includes(c.key)) row[c.key] = c.key === "number" ? null : "";
-      }
-      row.level = row.hard ? null : (row.level || 2);
-      if (done) renderRules();
-    } else {
-      el.closest("tr").querySelector("td.say").textContent = describeRule(row);
-    }
   }
   changed();
 }
@@ -1117,6 +1237,9 @@ async function onClick(e) {
       sc.staff.splice(i, 1);
       renderStaff();
       break;
+    case "edit-rule":
+      openRule(i);
+      return;
     case "del-rule":
       sc.custom.splice(i, 1);
       renderRules();
@@ -1219,12 +1342,15 @@ function wire() {
     renderSubjects();
     changed();
   };
-  $("#btn-add-rule").onclick = () => {
-    st.scenario.custom.push(newRule($("#new-kind").value));
+  $("#btn-add-rule").onclick = () => openRule(-1, $("#new-kind").value);
+  $("#rule-dialog").addEventListener("close", () => {
+    const edit = ruleEdit;
+    ruleEdit = null;
+    if ($("#rule-dialog").returnValue !== "ok" || !edit) return;
+    if (edit.i < 0) st.scenario.custom.push(edit.row); else st.scenario.custom[edit.i] = edit.row;
     renderRules();
     changed();
-    $$("#rule-table tbody tr").pop()?.querySelector("input:not([disabled])")?.focus();
-  };
+  });
   $("#btn-add-staff").onclick = () => {
     st.scenario.staff.push(newStaffRow());
     renderStaff();

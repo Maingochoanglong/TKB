@@ -133,15 +133,21 @@
           <button type="button" class="ghost" data-import="custom" title="Lấy các luật từ sheet LUẬT RIÊNG của một file Excel">Nhập từ Excel…</button>
         </div>
       </div>
-      <p class="muted">Mỗi dòng một luật, chọn một kiểu luật chung rồi điền các ô kiểu đó dùng (ô không dùng bị khóa).
-        <b>Bắt buộc</b>: TKB phải theo đúng; bỏ đánh dấu là <b>ưu tiên</b>, chọn mức 1–3 (3 là ưu tiên nhất). Khối, Ngày,
-        Tiết ghi danh sách, vd <code>3, 4</code>, <code>3-5</code>, <code>Thứ 2, Thứ 4</code>, <code>T2-T4</code>,
-        <code>5-7</code>. Luật bắt buộc mâu thuẫn thì nút Kiểm tra hoặc phần chẩn đoán khi xếp sẽ chỉ ra luật nào.</p>
-      <div class="table-wrap"><table id="rule-table" class="grid"></table></div>
-      <p class="muted" id="rule-empty">Chưa có luật riêng nào: chọn kiểu luật rồi bấm <b>+ Thêm luật</b>.</p>
+      <p class="muted">Mỗi luật là một câu: <b>Với mỗi</b> [lớp, giáo viên, ngày, buổi…] · <b>các tiết</b> [môn, nhãn,
+        khối, lớp, ngày, tiết, buổi, giáo viên] · <b>thì</b> [số tiết, số khác nhau, vị trí, liền nhau, theo cặp, thứ tự,
+        đi kèm, người dạy, khoảng cách]. Chọn một <b>mẫu</b> có sẵn hoặc <b>Tự ghép</b>; câu đọc lại hiện ngay khi chọn.
+        <b>Bắt buộc</b>: TKB phải theo đúng; còn lại là <b>ưu tiên</b> mức 1–3 (3 là ưu tiên nhất). Luật bắt buộc mâu
+        thuẫn thì nút Kiểm tra hoặc phần chẩn đoán khi xếp sẽ chỉ ra luật nào.</p>
+      <ol id="rule-list" class="rule-list"></ol>
+      <p class="muted" id="rule-empty">Chưa có luật riêng nào: chọn mẫu luật rồi bấm <b>+ Thêm luật</b>.</p>
     </div>
     <div class="card">
-      <h2>Các kiểu luật</h2>
+      <h2>Luật có sẵn của chương trình</h2>
+      <p class="muted">Viết bằng cùng câu của bộ ghép. Chỉnh bằng các quy định ở bước 1, 2 (dòng "Chỉnh ở").</p>
+      <div id="builtin-list" class="builtin"></div>
+    </div>
+    <div class="card">
+      <h2>Các mẫu luật và phép đo</h2>
       <dl id="kind-list" class="kinds"></dl>
     </div>
     <div class="next"><button type="button" data-go="xep">Tiếp: Kiểm tra &amp; xếp TKB →</button></div>
@@ -235,6 +241,23 @@
     <div class="actions end">
       <button value="cancel" class="ghost">Hủy</button>
       <button value="apply" id="import-apply" class="primary">Nhập</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="rule-dialog">
+  <form method="dialog">
+    <div class="toolbar">
+      <h2>Ghép luật</h2>
+      <button value="cancel" class="icon" title="Đóng">✕</button>
+    </div>
+    <p class="say-box">Luật đọc là: <b id="rule-say">…</b></p>
+    <ul id="rule-errors" class="warn-text"></ul>
+    <div id="rule-body" class="detail"></div>
+    <datalist id="class-list"></datalist>
+    <div class="actions end">
+      <button value="cancel" class="ghost">Hủy</button>
+      <button value="ok" class="primary">Xong</button>
     </div>
   </form>
 </dialog>

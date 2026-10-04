@@ -5,7 +5,7 @@ import json
 
 import openpyxl
 
-from tkb import config, kich_ban
+from tkb import config, kich_ban, luat_rieng
 from tkb.program import read_program
 from tkb.rules import DEFAULTS, SUBJECT_COLS, applied, code, read_rules
 from tkb.staff import read_saved_timetable, read_staff
@@ -154,7 +154,7 @@ def test_custom_rules_round_trip(tmp_path):
     from tkb.config import CustomRule
 
     scenario, _ = kich_ban.from_excel(INPUT_FILE)
-    assert scenario["custom"] == [] and len(kich_ban.schema()["custom"]["kinds"]) == 6
+    assert scenario["custom"] == [] and len(kich_ban.schema()["custom"]["kinds"]) == len(luat_rieng.KINDS)
     scenario["custom"] = [{"kind": "Chỉ xếp vào", "subject": "Thể dục", "sessions": "Chiều", "hard": False, "level": 3},
                           {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True}]
     out = tmp_path / "ra.xlsx"
@@ -166,7 +166,16 @@ def test_custom_rules_round_trip(tmp_path):
     assert back["custom"][0]["sessions"] == "Chiều" and back["custom"][0]["level"] == 3
     assert back["custom"][1] | {} == {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "grades": "",
                                       "days": "", "periods": "", "sessions": "", "role": "", "number": None,
-                                      "hard": True, "level": None}
+                                      "hard": True, "level": None, "scope": "", "group": "", "tags": "",
+                                      "classes": "", "measure": "", "op": "", "count_by": "", "when": ""}
+    # Luật tự ghép qua kịch bản: ghi ra Excel rồi đọc lại như cũ.
+    back["custom"].append({"kind": "Tự ghép", "scope": "Giáo viên, Ngày", "measure": "Số khác nhau",
+                           "op": "Tối đa", "number": 2, "count_by": "Lớp", "role": "Tiếng Anh", "hard": True})
+    kich_ban.to_excel(back, out)
+    assert read_rules(out)["CUSTOM_RULES"][-1] == CustomRule(
+        "tu_ghep", role="tiếng anh", number=2, hard=True, row=4, scope=("gv", "ngay"), measure="so_khac", op="<=",
+        count_by="lop")
+    back["custom"].pop()
     assert kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"] == []
     back["custom"].append({"kind": "Học trước", "subject": "Toán"})
     assert "LUẬT RIÊNG, dòng 4: kiểu luật Học trước phải ghi cột Môn thứ hai" in \

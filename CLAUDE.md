@@ -82,7 +82,8 @@ JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rul
 detail dialog) → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
 `scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select; the detail
 dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
-counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật riêng →
+counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật riêng (rule composer dialog, list of
+read-back sentences, built-in rules card) →
 Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page.
 Import (`/api/import` → `kich_ban.from_excel` + `sheets_in`) opens a dialog to take only some parts (staff replace/append,
 subjects+grades, roles, frame, custom rules, saved grid) into the current scenario; `/api/template` gives the blank template.
@@ -126,15 +127,27 @@ else a subject-named role; sheet roles nobody holds and nobody needs are dropped
 `rules.code()` leaves out an empty list and rows that only restate a subject-named role, so the codes are unchanged;
 the updated input adds the sheet with the held specialist roles (`writer.role_rows`).
 
-School-specific rules (`tkb/luat_rieng.py`, sheet `LUẬT RIÊNG`, `config.CUSTOM_RULES` of `config.CustomRule`): one row per
-rule of 6 generic kinds (not in / only in day-period-session, 2 consecutive lessons, A before B in a session, teacher max
-per day, max classes at once), hard or soft with level 1–3 (`Weights.custom_levels`). Each kind is coded once:
-`banned` (in `solver.allowed_slots`), `forced_pairs` (in `allocation.paired_groups(req, grade)` — always pass the grade),
-`build` (constraints/objective at the end of `build_timetable`), `qa` (LNS), `check` (checker), `day_cap`
-(`phan_cong.teacher_slots`), `validate`/`precheck`, and one diagnosis family per hard rule. Everything is skipped when
-the list is empty, and `rules.code()` leaves out an empty list, so codes are unchanged. `phan_cong._Local.repair` fixes
-odd shares in paired groups (only runs when some remain). The parse convention of this sheet allows text lists (Khối,
-Ngày, Tiết, Buổi) unlike the Có/Không/number rule columns.
+School-specific rules = the rule composer (`tkb/bo_ghep.py`; sheet `LUẬT RIÊNG` read/written and described in
+`tkb/luat_rieng.py`; `config.CUSTOM_RULES` of `config.CustomRule`). Every rule is one sentence "for each [scope dims
+`SCOPES`] · lessons [subject(+group), tags, grades, classes, days, periods, sessions, teacher role] · then [measure
+`MEASURES`] [op] [number] · when [curriculum condition]", hard or soft level 1–3 (`Weights.custom_levels`). `Kiểu luật`
+is a preset (`luat_rieng.KINDS`, expanded by `bo_ghep.PRESETS`) or "Tự ghép" (columns Với mỗi, Phép đo, So sánh…).
+`bo_ghep.make` normalises a row to a `Luat`; each of the 9 measures is ONE function written against a context: `_Cp`
+lowers it into CP-SAT (`build`, end of `build_timetable`), `_Eval` counts violations on a timetable (`violations` →
+`check`, `qa`, `soft_report`), both over the same atoms (`_Source`: course × allowed slot [× teacher]). Shortcuts read
+the same `Luat`: `banned` (domain cut in `solver.allowed_slots`), `forced_pairs` (in `allocation.paired_groups(req,
+grade)` — always pass the grade), `day_cap` (`phan_cong.teacher_slots`), `allowed` (hard "Người dạy: Do" without slots
+filters eligible teachers in `allocation.build_problem`), `assign_cost` (soft one: `phan_cong._flow`, `_Local._part`,
+`solver._Allocation`), `validate`/`precheck`, one diagnosis family per hard rule. A new measure = one `Measure` + one
+function in `LOWER`; a new tag = a new Có/Không `Col` (tags are column headers, `subject_tags`/`slot_tags`). Everything
+is skipped when the list is empty (all hooks guard on `config.CUSTOM_RULES`), and `rules.code()` leaves out an empty
+list, so codes are unchanged. `phan_cong._Local.repair` fixes odd shares in paired groups (only runs when some remain).
+The parse convention of this sheet allows text lists (Môn, Lớp, Khối, Ngày, Tiết, Buổi, Nhãn) unlike the Có/Không/number
+rule columns. Built-in rules are written in the same grammar in `tkb/luat_co_san.py` (`co_san(problem)`: listed in the
+updated input's HƯỚNG DẪN and the UI); they keep their native encoding (codes!), `CoSan.rule` is the composer version
+used by `tests/test_luat_co_san.py` to cross-check the checker and to show the generic lowering can replace the native
+one. The UI composer dialog builds rows from `kich_ban.composer()` (schema) and asks `/api/describe`
+(`kich_ban.describe`) for the read-back sentence, errors and the built-in list.
 
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
 `solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday

@@ -194,12 +194,12 @@ PAIR_EXCLUDED: set[str] = {TOAN, HDTN}  # Toán: mỗi ngày 1 tiết (DAILY_LIM
 
 
 # --------------------------------------------------------------------------
-# Luật riêng của trường (sheet LUẬT RIÊNG, tkb/luat_rieng.py): mỗi dòng một luật thuộc một kiểu luật chung, bắt
-# buộc hoặc ưu tiên (mức 1–3). Mặc định không có luật riêng nào.
+# Luật riêng của trường (sheet LUẬT RIÊNG, tkb/luat_rieng.py): mỗi dòng một luật, theo một mẫu có sẵn hoặc tự ghép
+# bằng bộ ghép luật (tkb/bo_ghep.py), bắt buộc hoặc ưu tiên (mức 1–3). Mặc định không có luật riêng nào.
 # --------------------------------------------------------------------------
 @dataclass(frozen=True)
 class CustomRule:
-    kind: str  # khóa kiểu luật trong luat_rieng.KINDS, vd "khong_xep"
+    kind: str  # khóa mẫu luật trong luat_rieng.KINDS, vd "khong_xep"; "tu_ghep": tự ghép (các trường cuối)
     subject: str = ""  # môn (tên như trong file vào)
     other: str = ""  # môn thứ hai (luật "Học trước": subject học trước other)
     grades: tuple[int, ...] = ()  # các khối; trống = mọi khối
@@ -211,6 +211,17 @@ class CustomRule:
     hard: bool = False  # bắt buộc; không thì là ưu tiên
     level: int = 2  # mức ưu tiên 1–3 (Weights.custom_levels)
     row: int = 0  # dòng trong sheet LUẬT RIÊNG (để báo lỗi)
+    # Bộ ghép (kiểu "tu_ghep" và các mẫu mới; tkb/bo_ghep.py): "Với mỗi [scope], chỉ xét các tiết [môn, nhãn, khối,
+    # lớp, ngày, tiết, buổi, GV] thì [measure] [op] [number], khi [when]".
+    scope: tuple[str, ...] = ()  # các chiều phạm vi (bo_ghep.SCOPES), vd ("lop", "buoi"); trống = cả trường cả tuần
+    measure: str = ""  # phép đo (bo_ghep.MEASURES)
+    op: str = ""  # so sánh (bo_ghep.OPS)
+    count_by: str = ""  # phép đo "Số khác nhau": đếm theo chiều nào (bo_ghep.SCOPES)
+    classes: tuple[str, ...] = ()  # các lớp; trống = mọi lớp
+    tags: tuple[str, ...] = ()  # các nhãn (tiêu đề cột Có/Không của môn, ngày, tiết), vd "Môn nặng"
+    group: bool = False  # môn ở cột Môn gồm cả các môn tăng cường cùng nhóm
+    when: tuple[tuple[str, int], ...] = ()  # áp dụng khi số tiết/tuần của các môn: (">=", 6), ("<=", -1): -1 là số
+    # ngày học, ("chan", 0), ("le", 0)
 
 
 CUSTOM_RULES: list[CustomRule] = []

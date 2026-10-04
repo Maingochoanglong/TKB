@@ -215,6 +215,10 @@ class App:
         path = self.inside(data.get("path", ""))
         return self._import(path, path.name)
 
+    def describe(self, data: dict):
+        with self.lock:
+            return kich_ban.describe(data["scenario"], data.get("rows"), bool(data.get("student_rules", True)))
+
     def check(self, data: dict):
         run = {**RUN_DEFAULTS, **(data.get("run") or {})}
         run_argv(Path("x"), self.out_dir, "x", run)  # cài đặt chạy sai thì báo lỗi luôn
@@ -388,6 +392,7 @@ class Handler(BaseHTTPRequestHandler):
                                                                  unquote(self.headers.get("X-File-Name") or "")))
             routes = {("GET", "schema"): app.schema, ("GET", "new"): app.new, ("GET", "status"): app.status,
                       ("POST", "import_path"): app.import_path, ("POST", "check"): app.check, ("POST", "run"): app.run,
+                      ("POST", "describe"): app.describe,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
                       ("POST", "settings"): app.settings}
             handler = routes.get((method, name))

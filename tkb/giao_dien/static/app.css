@@ -221,12 +221,26 @@ dl.kinds { margin: 8px 0 0; display: grid; grid-template-columns: minmax(180px, 
 dl.kinds dt { font-weight: 600; font-size: 14px; }
 dl.kinds dd { margin: 0; color: var(--muted); font-size: 13.5px; }
 #new-kind { width: auto; }
-#rule-table select { font: inherit; font-size: 13.5px; padding: 3px 4px; width: auto; max-width: 210px; }
-#rule-table input[type=text] { min-width: 0; width: 72px; }
-#rule-table input.wide { min-width: 0; width: 120px; }
-#rule-table input[type=number] { width: 52px; }
-#rule-table input:disabled, #rule-table select:disabled { opacity: .35; }
-#rule-table td.say { text-align: left; min-width: 250px; font-size: 13px; }
+.rule-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.rule-item { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.rule-item.bad { border-color: var(--danger); background: var(--danger-soft); }
+.rule-item .num { color: var(--muted); font-size: 13px; white-space: nowrap; padding-top: 2px; }
+.rule-item .say { font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.rule-item b.hard, .rule-item b.soft { font-size: 12px; font-weight: 600; padding: 1px 6px; border-radius: 4px;
+  margin-right: 4px; white-space: nowrap; }
+.rule-item b.hard { background: var(--accent-soft); color: var(--accent); }
+.rule-item b.soft { background: var(--surface-2); color: var(--muted); }
+.builtin details { border-top: 1px solid var(--line); padding: 6px 0; }
+.builtin summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.builtin ul { margin: 6px 0 2px; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; }
+.builtin li small { display: block; color: var(--muted); font-size: 12.5px; }
+.builtin .soft { color: var(--muted); }
+.say-box { margin: 4px 0 6px; padding: 8px 10px; background: var(--surface-2); border-radius: 6px; font-size: 14px; }
+#rule-errors { margin: 0 0 6px; padding-left: 18px; }
+#rule-errors:empty { display: none; }
+#rule-dialog { width: min(760px, calc(100vw - 32px)); }
+@media (max-width: 640px) { .rule-item { grid-template-columns: 1fr; } }
 code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--line);
   border-radius: 4px; padding: 0 4px; }
 @media (max-width: 640px) { dl.kinds { grid-template-columns: 1fr; } }

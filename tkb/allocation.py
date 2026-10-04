@@ -337,6 +337,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         supplement_roles[role] = [t.title for t in extra]
         all_teachers.extend(extra)
 
+    teacher_of = {t.title: t for t in all_teachers}
     by_role: dict[str, list[Teacher]] = {}
     for t in all_teachers:
         by_role.setdefault(t.role, []).append(t)
@@ -356,6 +357,13 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                     any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
                 eligible.append(m.title)
                 manager_pool_lessons[m.title] += n
+        if config.CUSTOM_RULES:  # luật riêng bắt buộc "Người dạy" không xét ô: lọc ngay khi phân công
+            from .bo_ghep import allowed
+            kept = [g for g in eligible if allowed(teacher_of[g], cls, grade, subject, curriculum)]
+            if eligible and not kept:
+                raise InputError(f"Lớp {cls}: luật riêng \"Người dạy\" (sheet LUẬT RIÊNG) không để GV nào dạy "
+                                 f"{subject_labels.get(subject, subject)}")
+            eligible = kept
         if not eligible:
             raise InputError(f"Lớp {cls}: không có GV nào được phép dạy môn {subject}")
         courses.append(Course(len(courses), cls, grade, subject, n, eligible))

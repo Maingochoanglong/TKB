@@ -21,6 +21,7 @@ from itertools import combinations
 from . import config
 from .allocation import (Course, Problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
                          sessions_per_week, subject_group, supplement_capacity)
+from .bo_ghep import assign_cost
 from .staff import Teacher, class_sort_key, grade_of
 
 Key = tuple[int, str]  # (course, chức vụ GV)
@@ -137,6 +138,8 @@ def _flow(problem: Problem, w: config.Weights, demand: dict[int, int], base_load
                 continue
             cost = w.overtime_subject_order * subject_rank(c.subject) if t.class_name else 0
             cost += keep_cost(t, c.class_name, w)
+            if config.CUSTOM_RULES:  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
+                cost += assign_cost(t, c, problem.curriculum, w)
             if c.subject in spec and t.role not in problem.specialists:
                 cost += w.general_on_specialist
             arcs[c.id, g] = mcf.add(node_c[c.id], node_t[g], demand[c.id], cost)
@@ -320,6 +323,9 @@ class _Local:
             if self.p.courses[cid].subject in self.spec:
                 cost += w.general_on_specialist * sum(n for g, n in sh.items()
                                                       if teachers[g].role not in self.p.specialists)
+            if config.CUSTOM_RULES:  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
+                c = self.p.courses[cid]
+                cost += sum(assign_cost(teachers[g], c, self.p.curriculum, w) * n for g, n in sh.items())
         for role in sorted({teachers[g].role for g in gs}):
             members = self.role_members[role]
             if len(members) >= 2:
@@ -547,6 +553,8 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
 def _hire_role(problem: Problem, course: Course) -> str:
     """Chức vụ tuyển cho tiết thiếu: bộ môn nếu được dạy môn này, không thì GV chuyên biệt của môn."""
     roles = roles_for_subject(course.subject, problem.specialists)
+    if config.CUSTOM_RULES:  # luật riêng bắt buộc "Người dạy": chỉ chức vụ còn được dạy course này
+        roles = {problem.teachers[g].role for g in course.teachers} & set(roles) or roles
     return config.ROLE_GENERAL if config.ROLE_GENERAL in roles else sorted(roles)[0]
 
 
