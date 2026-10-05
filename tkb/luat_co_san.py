@@ -42,6 +42,9 @@ class Native:
     free: tuple[str, ...] = ()  # cột tham số: khác giá trị vẫn là dạng gốc
     weight: str = ""  # luật ưu tiên: trường của config.Weights nhận điểm của dòng
     student: bool = False  # luật bảo vệ học sinh (tắt cả nhóm bằng --no-student-rules)
+    # Tên dễ đọc của từng dòng (theo thứ tự `rows`), điền {number}, {subject}, {min} (số ở cột Áp dụng khi) của dòng;
+    # dòng đúng dạng gốc đọc bằng tên này (`title`), dòng đã sửa khác dạng gốc đọc bằng câu của bộ ghép.
+    titles: tuple[str, ...] = ()
 
 
 def _w() -> config.Weights:
@@ -56,63 +59,91 @@ def _daily(subject: str, n: int) -> CustomRule:
 NATIVES = (
     Native("nhom_buoi", "Bảo vệ học sinh", lambda: [_r(
         scope=("lop", "nhom_mon", "buoi"), measure="so_tiet", op="<=", number=config.SESSION_GROUP_LIMIT,
-        hard=True)], free=("number",), student=True),
+        hard=True)], free=("number",), student=True,
+        titles=("Mỗi buổi, một lớp học tối đa {number} tiết của một môn, tính chung môn chính với môn tăng cường cùng "
+                "nhóm",)),
     Native("toi_da_ngay", "Bảo vệ học sinh", lambda: [_daily(s, n) for s, n in sorted(config.DAILY_LIMITS.items())],
-           free=("subject", "number"), student=True),
+           free=("subject", "number"), student=True,
+           titles=("Mỗi ngày, một lớp học tối đa {number} tiết {subject}, khi số tiết/tuần của môn không quá số "
+                   "ngày học",)),
     Native("ghep_cap", "Bảo vệ học sinh", lambda: [_r(
         scope=("lop", "nhom_mon", "buoi"), measure="cap", exclude=("Không ghép cặp",),
-        when=((">=", config.PAIR_MIN_LESSONS), ("chan", 0)), hard=True)], free=("when",), student=True),
+        when=((">=", config.PAIR_MIN_LESSONS), ("chan", 0)), hard=True)], free=("when",), student=True,
+        titles=("Môn có từ {min} tiết/tuần trở lên và số tiết chẵn, tính chung môn tăng cường cùng nhóm, học thành "
+                "cặp 2 tiết liền trong buổi; trừ môn có nhãn Không ghép cặp",)),
     Native("lien_nhau", "Bảo vệ học sinh", lambda: [_r(scope=("lop", "mon"), measure="lien", hard=True)],
-           student=True),
+           student=True, titles=("Các tiết của một môn trong cùng buổi phải đứng liền nhau",)),
     Native("tang_cuong", "Bảo vệ học sinh", lambda: [
         _r(tags=("Môn tăng cường",), scope=("lop", "nhom_mon", "ngay"), measure="thu_tu", op="sau", hard=True),
-        _r(tags=("Môn tăng cường",), scope=("lop", "nhom_mon", "ngay"), measure="di_kem", hard=True)], student=True),
+        _r(tags=("Môn tăng cường",), scope=("lop", "nhom_mon", "ngay"), measure="di_kem", hard=True)], student=True,
+        titles=("Trong một ngày, tiết môn tăng cường đứng sau các tiết môn chính cùng nhóm",
+                "Ngày có tiết môn tăng cường thì cũng có tiết môn chính cùng nhóm")),
     Native("hdtn_co_dinh", "HĐTN và GVCN", lambda: [_r(
         tags=("Môn HĐTN", "Tiết HĐTN cố định"), scope=("lop", "o"), measure="so_tiet", op="=", number=1,
-        hard=True)]),
+        hard=True)],
+        titles=("Ở mỗi giờ có nhãn Tiết HĐTN cố định, mỗi lớp học đúng 1 tiết HĐTN",)),
     Native("hdtn_ngay", "HĐTN và GVCN", lambda: [_r(
-        tags=("Môn HĐTN", "Xếp tiết HĐTN còn lại", "Tiết HĐTN cố định"), measure="vi_tri", op="trong", hard=True)]),
+        tags=("Môn HĐTN", "Xếp tiết HĐTN còn lại", "Tiết HĐTN cố định"), measure="vi_tri", op="trong", hard=True)],
+        titles=("Tiết HĐTN chỉ xếp vào giờ có nhãn Tiết HĐTN cố định hoặc Xếp tiết HĐTN còn lại",)),
     Native("hdtn_cuoi_buoi", "HĐTN và GVCN", lambda: [_r(
         tags=("Môn HĐTN", "Xếp tiết HĐTN còn lại"), exclude=("Tiết HĐTN cố định",), scope=("lop",),
         measure="khoang_cach", op="cuoi_buoi", number=0, points=_w().hdtn_flex_distance)],
-        free=("points",), weight="hdtn_flex_distance"),
+        free=("points",), weight="hdtn_flex_distance",
+        titles=("Tiết HĐTN còn lại, ngoài giờ cố định, xếp ở tiết cuối buổi",)),
     Native("tiet_gvcn", "HĐTN và GVCN", lambda: [_r(
-        tags=("Luôn do GVCN dạy",), measure="nguoi_day", op="do", role=config.ROLE_HOMEROOM, hard=True)]),
+        tags=("Luôn do GVCN dạy",), measure="nguoi_day", op="do", role=config.ROLE_HOMEROOM, hard=True)],
+        titles=("Ở giờ có nhãn Luôn do GVCN dạy, lớp học với GV chủ nhiệm",)),
     Native("chi_gvcn", "HĐTN và GVCN", lambda: [_r(
-        tags=("Chỉ GVCN dạy",), measure="nguoi_day", op="do", role=config.ROLE_HOMEROOM, hard=True)]),
+        tags=("Chỉ GVCN dạy",), measure="nguoi_day", op="do", role=config.ROLE_HOMEROOM, hard=True)],
+        titles=("Môn có nhãn Chỉ GVCN dạy thì chỉ GV chủ nhiệm dạy",)),
     Native("lien_tiet", "Người dạy", lambda: [_r(
-        scope=("lop", "nhom_mon", "buoi"), measure="nguoi_day", op="lien_cung_nguoi", hard=True)]),
+        scope=("lop", "nhom_mon", "buoi"), measure="nguoi_day", op="lien_cung_nguoi", hard=True)],
+        titles=("Hai tiết liền nhau của một môn (cùng nhóm) trong buổi do cùng một giáo viên dạy",)),
     Native("gvcn_truoc", "Người dạy", lambda: [_r(
         tags=("GVCN nhận trọn",), scope=("lop", "nhom_mon"), measure="nguoi_day", op="dau_tuan",
-        role=config.ROLE_HOMEROOM, hard=True)]),
-    Native("buoi_nghi", "Lịch giáo viên", lambda: [CustomRule("nghi_gv", hard=True)]),
+        role=config.ROLE_HOMEROOM, hard=True)],
+        titles=("Môn có nhãn GVCN nhận trọn: tiết đầu tuần của lớp do GV chủ nhiệm dạy, tiết của giáo viên khác "
+                "không đứng trước",)),
+    Native("buoi_nghi", "Lịch giáo viên", lambda: [CustomRule("nghi_gv", hard=True)],
+        titles=("Giáo viên không dạy vào buổi nghỉ ghi ở cột Buổi Nghỉ và nghỉ đủ số buổi ghi ở đó",)),
     Native("co_so", "Lịch giáo viên", lambda: [_r(
-        scope=("gv", "buoi"), measure="so_khac", op="<=", number=1, count_by="co_so", hard=True)]),
+        scope=("gv", "buoi"), measure="so_khac", op="<=", number=1, count_by="co_so", hard=True)],
+        titles=("Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở",)),
     Native("doi_co_so", "Lịch giáo viên", lambda: [_r(
         scope=("gv", "ngay"), measure="so_khac", op="<=", number=1, count_by="co_so",
-        points=_w().campus_day_switch)], free=("points",), weight="campus_day_switch"),
-    Native("co_so_2", "Lịch giáo viên", lambda: [CustomRule("co_so_2", hard=True)]),
+        points=_w().campus_day_switch)], free=("points",), weight="campus_day_switch",
+        titles=("Hạn chế để một giáo viên dạy ở cả hai cơ sở trong cùng một ngày",)),
+    Native("co_so_2", "Lịch giáo viên", lambda: [CustomRule("co_so_2", hard=True)],
+        titles=("Giáo viên không chủ nhiệm ghi Cơ sở 2 hoặc Thai Sản chỉ dạy các lớp ở cơ sở 2",)),
     Native("mon_nang", "Ưu tiên khi xếp giờ", lambda: [_r(
         tags=("Môn nặng", "Hạn chế môn nặng"), measure="vi_tri", op="ngoai", points=_w().heavy_late)],
-        free=("points",), weight="heavy_late"),
+        free=("points",), weight="heavy_late",
+        titles=("Tránh xếp môn có nhãn Môn nặng vào giờ có nhãn Hạn chế môn nặng",)),
     Native("buoi_sang", "Ưu tiên khi xếp giờ", lambda: [_r(
         tags=("Ưu tiên buổi sáng",), sessions=(config.MORNING.name,), measure="vi_tri", op="trong",
-        points=_w().morning_core)], free=("points",), weight="morning_core"),
+        points=_w().morning_core)], free=("points",), weight="morning_core",
+        titles=("Môn có nhãn Ưu tiên buổi sáng xếp vào buổi sáng",)),
     Native("tai_ngay", "Ưu tiên khi xếp giờ", lambda: [_r(
         scope=("gv", "ngay"), measure="so_tiet", op="<=", derived="tai_ngay", points=_w().day_over_preferred)],
-        free=("points",), weight="day_over_preferred"),
+        free=("points",), weight="day_over_preferred",
+        titles=("Số tiết mỗi ngày của giáo viên không quá tải ngày, tức số tiết/tuần chia đều cho các ngày",)),
     Native("tai_ngay_1", "Ưu tiên khi xếp giờ", lambda: [_r(
         scope=("gv", "ngay"), measure="so_tiet", op="<=", derived="tai_ngay_1", points=_w().day_over_buffer)],
-        free=("points",), weight="day_over_buffer"),
+        free=("points",), weight="day_over_buffer",
+        titles=("Số tiết mỗi ngày của giáo viên không quá tải ngày + 1 tiết",)),
     Native("rai_deu", "Ưu tiên khi xếp giờ", lambda: [_r(
         exclude=("Môn HĐTN", "Ưu tiên buổi sáng"), scope=("lop", "mon", "ngay"), measure="so_tiet", op="<=",
-        derived="tran_ngay", points=_w().subject_spread)], free=("points",), weight="subject_spread"),
+        derived="tran_ngay", points=_w().subject_spread)], free=("points",), weight="subject_spread",
+        titles=("Mỗi môn, trừ HĐTN và môn ưu tiên buổi sáng, rải đều trong tuần: một ngày không quá số tiết/tuần "
+                "chia số ngày",)),
     Native("rai_deu_sang", "Ưu tiên khi xếp giờ", lambda: [_r(
         tags=("Ưu tiên buổi sáng",), exclude=("Môn HĐTN",), scope=("lop", "mon", "ngay"), measure="so_tiet",
-        op="<=", derived="tran_ngay", points=_w().core_spread)], free=("points",), weight="core_spread"),
+        op="<=", derived="tran_ngay", points=_w().core_spread)], free=("points",), weight="core_spread",
+        titles=("Môn ưu tiên buổi sáng rải đều trong tuần: một ngày không quá số tiết/tuần chia số ngày",)),
     Native("tiet_trong", "Ưu tiên khi xếp giờ", lambda: [_r(
         scope=("gv", "buoi"), role="trừ " + config.ROLE_HOMEROOM, measure="khoang_cach", op="trong_tiet", number=0,
-        points=_w().teacher_gap)], free=("points",), weight="teacher_gap"),
+        points=_w().teacher_gap)], free=("points",), weight="teacher_gap",
+        titles=("Giáo viên, trừ GV chủ nhiệm, không có tiết trống xen giữa các tiết trong buổi",)),
 )
 BY_KEY = {n.key: n for n in NATIVES}
 # Khóa của luật có sẵn dùng chung với cờ chẩn đoán solver.RELAXED.
@@ -129,6 +160,18 @@ def rows() -> list[CustomRule]:
     if config.RULES is not None:
         return list(config.RULES)
     return [*default_rows(), *(replace(r, group_label=r.group_label or CUSTOM_GROUP) for r in config.CUSTOM_RULES)]
+
+
+def title(r: CustomRule) -> str | None:
+    """Tên dễ đọc của dòng ở dạng gốc một luật có sẵn, vd "Mỗi ngày, một lớp học tối đa 1 tiết Toán (…)"; None: dòng
+    không ở dạng gốc (đọc bằng câu của bộ ghép, luat_rieng.composed)."""
+    native = native_of(r)
+    if native is None or not native.titles:
+        return None
+    shape = _shape(r, native.free)
+    i = next((k for k, p in enumerate(native.rows()) if _shape(p, native.free) == shape), 0)
+    least = r.when[0][1] if r.when and r.when[0][0] == ">=" else ""
+    return native.titles[min(i, len(native.titles) - 1)].format(number=r.number, subject=r.subject, min=least)
 
 
 def _names(text: str) -> list[str]:

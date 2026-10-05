@@ -51,8 +51,7 @@ def test_parse_composed_rule():
                           count_by="Lớp", role="Bộ Môn", hard="Có")
     assert errors == [] and rule == CustomRule("tu_ghep", role="bộ môn", number=2, hard=True, row=7,
                                                scope=("gv", "ngay"), measure="so_khac", op="<=", count_by="lop")
-    assert luat_rieng.describe(rule) == ("Với mỗi giáo viên, ngày: mọi tiết của GV Bộ Môn: số lớp khác nhau tối đa 2 "
-                                         "(bắt buộc)")
+    assert luat_rieng.describe(rule) == "Mỗi GV bộ môn, mỗi ngày: dạy tối đa 2 lớp khác nhau (bắt buộc)"
     back, errors = _parse(**{k: v for k, v in luat_rieng.cells(rule).items()})
     assert errors == [] and back == rule  # ghi ra rồi đọc lại như cũ
     rule, errors = _parse(kind="Tự ghép", scope="Lớp × Buổi", subject="Tiếng Việt", group="Có", measure="Liền nhau",
@@ -221,7 +220,7 @@ def test_new_presets():
     assert max(Counter(l.day for l in les if l.subject == "Âm nhạc").values()) == 1  # 2 lớp, 1 GV, 1 lớp/ngày
     assert {sol.problem.teachers[l.teacher].role for l in les if l.subject == config.TIENG_ANH} == {"tiếng anh"}
     assert luat_rieng.describe(rules[0]) == "Thể dục lớp 3/1 cố định vào Thứ 3 tiết 3 (bắt buộc)"
-    assert luat_rieng.describe(rules[3]) == "Tiếng Anh chỉ do Tiếng Anh dạy (bắt buộc)"
+    assert luat_rieng.describe(rules[3]) == "Tiếng Anh chỉ do GV Tiếng Anh dạy (bắt buộc)"
     with applied({"CUSTOM_RULES": [CustomRule("chi_gv", "Kỹ năng sống", role="tiếng anh", hard=True, row=6)]}):
         with pytest.raises(InputError, match="Lớp 3/1: luật riêng \"Người dạy\" .* không để GV nào dạy Kỹ năng sống"):
             build_problem(small_staff(), CURRICULUM, {}, overtime_max=0)
@@ -287,4 +286,4 @@ def test_extensions_count_like_a_hand_count(plain):
     # Điểm thay cho Mức.
     rule = CustomRule("tu_ghep", "Toán", measure="vi_tri", op="ngoai", periods=(5, 6, 7), points=50, row=4)
     assert bo_ghep.weight(bo_ghep.make(rule), config.Weights()) == 50
-    assert luat_rieng.describe(rule) == "Các tiết Toán: không trong tiết 5, 6, 7 (ưu tiên, 50 điểm)"
+    assert luat_rieng.describe(rule) == "Các tiết Toán không xếp vào tiết 5, 6, 7 (ưu tiên thấp)"  # 50 điểm: gần Thấp

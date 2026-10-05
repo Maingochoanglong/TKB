@@ -240,6 +240,15 @@ dl.kinds dd { margin: 0; color: var(--muted); font-size: 13.5px; }
 #rule-errors { margin: 0 0 6px; padding-left: 18px; }
 #rule-errors:empty { display: none; }
 #rule-dialog { width: min(760px, calc(100vw - 32px)); }
+#rule-dialog details.more { margin: 6px 0 2px; border-top: 1px dashed var(--line); padding-top: 6px; }
+#rule-dialog details.more > summary { cursor: pointer; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
+#rule-dialog .when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; }
+#rule-dialog .when input.tiny { width: 64px; }
+#rule-dialog .when select { width: auto; }
+#rule-lost { margin: 0 0 6px; font-size: 13.5px; }
+#rule-dialog .detail { max-height: calc(100vh - 280px); }
+dl.kinds dt.family { grid-column: 1 / -1; font-size: 15px; margin-top: 6px; border-bottom: 1px solid var(--line); }
+dl.kinds dt.family + dd { display: none; }
 @media (max-width: 640px) { .rule-item { grid-template-columns: 1fr; } }
 code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--line);
   border-radius: 4px; padding: 0 4px; }

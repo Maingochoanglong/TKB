@@ -83,7 +83,8 @@ def schema() -> dict:
         "days": [_day_name(d) for d in range(MAX_DAYS)],
         "custom": {"columns": [{"key": k, "header": h} for k, h in (luat_rieng.GROUP, *luat_rieng.COLUMNS)],
                    "kinds": [{"key": k.key, "label": k.label, "needs": list(k.needs), "uses": list(k.uses),
-                              "note": k.note} for k in luat_rieng.KINDS],
+                              "note": k.note, "family": k.family} for k in luat_rieng.KINDS],
+                   "levels": list(luat_rieng.LEVELS),
                    "sessions": [config.MORNING.name, config.AFTERNOON.name],
                    "groups": [*luat_co_san.GROUPS, luat_co_san.CUSTOM_GROUP],
                    "custom_group": luat_co_san.CUSTOM_GROUP,
@@ -102,7 +103,8 @@ def composer() -> dict:
     return {"scopes": [{"key": d.key, "label": d.label} for d in bo_ghep.SCOPES],
             "measures": [{"key": m.key, "label": m.label, "ops": list(m.ops), "number": m.number, "other": m.other,
                           "count_by": m.count_by, "sequence": m.sequence, "note": m.note,
-                          "default_op": m.default_op} for m in bo_ghep.MEASURES],
+                          "default_op": m.default_op, "family": m.family} for m in bo_ghep.MEASURES],
+            "families": list(bo_ghep.FAMILIES),
             "derived": list(bo_ghep.DERIVED.values()),
             "ops": [{"key": k, "label": v} for k, v in bo_ghep.OPS.items()],
             "tags": {"subject": [t for t in tags if t not in slot], "slot": [t for t in tags if t in slot]},
@@ -403,8 +405,8 @@ def _lines(exc: Exception, sheet: str = "") -> list[str]:
 
 def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool = True) -> dict:
     """Câu đọc lại của từng luật (rows; mặc định các luật của kịch bản), theo quy định của kịch bản: {rules: [{text,
-    errors, native}]}; native là khóa luật có sẵn nếu dòng ở dạng gốc (chương trình xếp bằng mã hóa riêng). Lỗi các
-    sheet khác không chặn (nút Kiểm tra báo)."""
+    errors, native, level}]}; native là khóa luật có sẵn nếu dòng ở dạng gốc (chương trình xếp bằng mã hóa riêng),
+    level là mức ưu tiên bằng chữ (dòng ghi Điểm: mức gần nhất). Lỗi các sheet khác không chặn (nút Kiểm tra báo)."""
     from .config import Role
     rows = scenario.get("rules") or [] if rows is None else rows
     values: dict = {}
@@ -424,7 +426,8 @@ def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool
             rule = luat_rieng.parse(cells, i + 2, errors.append)
             native = luat_co_san.native_of(rule) if rule else None
             out.append({"text": luat_rieng.describe(rule) if rule else None, "errors": errors,
-                        "native": native.key if native else None})
+                        "native": native.key if native else None,
+                        "level": luat_rieng.level_label(rule) if rule and not rule.hard else None})
     return {"rules": out}
 
 

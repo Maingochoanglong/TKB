@@ -6,7 +6,8 @@ Nhà trường tự thêm luật mà không cần sửa mã nguồn. Mỗi dòng
 các cột Với mỗi, Phép đo, So sánh. Module này đọc/ghi các ô và nói luật bằng lời; phần xếp (miền ô, mô hình CP-SAT,
 kiểm tra độc lập, QA, phép đếm trước, phân công) nằm ở tkb/bo_ghep.py, viết một lần cho mọi phép đo.
 
-Mỗi luật là bắt buộc (cột Bắt buộc = Có) hoặc ưu tiên (mức 1–3 ở cột Mức, trọng số `config.Weights.custom_levels`).
+Mỗi luật là bắt buộc (cột Bắt buộc = Có) hoặc ưu tiên: cột Mức ghi Thấp, Vừa, Cao, Rất cao (hoặc 1–4, trọng số
+`config.Weights.custom_levels`), hoặc cột Điểm ghi thẳng điểm trừ mỗi lần không theo.
 Không có luật riêng nào (config.CUSTOM_RULES rỗng) thì mô hình dựng ra y như cũ: mã kết quả không đổi.
 
 Khối, Lớp, Ngày, Tiết, Môn, Nhãn ghi danh sách cách nhau bằng dấu phẩy hoặc khoảng, vd "3, 4, 5", "3-5",
@@ -15,6 +16,7 @@ GV chuyên biệt).
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -37,6 +39,7 @@ COLUMNS = (("kind", "Kiểu luật"), ("scope", "Với mỗi"), ("subject", "Mô
 HEADERS = dict(COLUMNS)
 COMPOSE = ("scope", "measure", "op", "count_by", "when", "exclude")  # các cột chỉ dùng khi Tự ghép
 LEVEL = ("hard", "level", "points")  # các cột mức, mọi kiểu luật đều dùng
+LEVELS = ("Thấp", "Vừa", "Cao", "Rất cao")  # cột Mức của luật ưu tiên: mức 1–4 (config.Weights.custom_levels)
 
 
 @dataclass(frozen=True)
@@ -46,47 +49,50 @@ class Kind:
     needs: tuple[str, ...]  # cột phải ghi
     uses: tuple[str, ...]  # cột được ghi (ngoài Kiểu luật, Bắt buộc, Mức)
     note: str
+    family: str = ""  # họ luật (bo_ghep.FAMILIES); Tự ghép lấy họ của phép đo
 
 
 _WHAT = ("subject", "group", "tags", "grades", "classes")
 _PLACE = (*_WHAT, "days", "periods", "sessions")
 KINDS = (
     Kind("khong_xep", "Không xếp vào", ("subject",), _PLACE,
-         "Môn (của các khối ở cột Khối; trống: mọi khối) không học vào các ngày, tiết, buổi ghi ở dòng này (ghi ít "
-         "nhất một trong ba cột), vd Thể dục không học tiết 1; Tin học không học Thứ 2."),
+         "Môn (của các khối ở cột Khối; để trống: mọi khối) không xếp vào các ngày, tiết, buổi ghi ở dòng này (ghi ít "
+         "nhất một trong ba cột), vd Thể dục không xếp vào tiết 1; Tin học không xếp vào Thứ 2.", "Ở đâu"),
     Kind("chi_xep", "Chỉ xếp vào", ("subject",), _PLACE,
-         "Môn chỉ học vào các ngày, tiết, buổi ghi ở dòng này (ghi ít nhất một trong ba cột), vd Thể dục chỉ học buổi "
-         "chiều."),
-    Kind("lien_2", "Học 2 tiết liền", ("subject",), ("subject", "grades", "classes"),
-         "Môn học thành cặp 2 tiết liền, cùng người dạy: mỗi buổi 0 hoặc 2 tiết của môn (cả môn tăng cường cùng nhóm), "
-         "vd Tiếng Anh. Bắt buộc thì số tiết/tuần phải chẵn."),
-    Kind("truoc", "Học trước", ("subject", "other"), ("subject", "other", "grades", "classes"),
-         "Trong một buổi có cả hai môn thì Môn học trước Môn thứ hai, vd Tiếng Việt trước Toán."),
+         "Môn chỉ xếp vào các ngày, tiết, buổi ghi ở dòng này (ghi ít nhất một trong ba cột), vd Thể dục chỉ xếp vào "
+         "buổi chiều.", "Ở đâu"),
+    Kind("co_dinh", "Cố định vào", ("subject",), ("subject", "grades", "classes", "days", "periods", "sessions"),
+         "Mỗi lớp (của các khối, lớp ghi ở dòng này) học đúng 1 tiết của Môn ở mỗi giờ ghi ở cột Ngày, Tiết, Buổi, vd "
+         "Thể dục khối 1 cố định vào Thứ 3 tiết 3.", "Ở đâu"),
     Kind("gv_ngay", "Giáo viên tối đa tiết mỗi ngày", ("number",), ("role", "number"),
-         "Mỗi giáo viên có chức vụ ở cột Giáo viên (trống: mọi giáo viên) dạy tối đa Số tiết mỗi ngày."),
+         "Mỗi giáo viên có chức vụ ở cột Giáo viên (để trống: mọi giáo viên) dạy tối đa Số tiết mỗi ngày.",
+         "Bao nhiêu"),
+    Kind("gv_lop_ngay", "Giáo viên tối đa lớp mỗi ngày", ("number",), ("role", "number"),
+         "Mỗi giáo viên có chức vụ ở cột Giáo viên (để trống: mọi giáo viên) dạy tối đa Số lớp khác nhau mỗi ngày.",
+         "Bao nhiêu"),
     Kind("cung_luc", "Số lớp học cùng lúc tối đa", ("subject", "number"), ("subject", "group", "tags", "grades",
                                                                             "number"),
-         "Môn có tối đa Số lớp học cùng một tiết (cả trường, hoặc các khối ở cột Khối), vd phòng Tin học: 1, sân Thể "
-         "dục: 2."),
-    Kind("co_dinh", "Cố định vào", ("subject",), ("subject", "grades", "classes", "days", "periods", "sessions"),
-         "Mỗi lớp (của các khối, lớp ghi ở dòng này) học đúng 1 tiết của Môn ở mỗi tiết ghi ở cột Ngày, Tiết, Buổi, vd "
-         "Thể dục khối 1 cố định Thứ 3 tiết 3."),
-    Kind("gv_lop_ngay", "Giáo viên tối đa lớp mỗi ngày", ("number",), ("role", "number"),
-         "Mỗi giáo viên có chức vụ ở cột Giáo viên (trống: mọi giáo viên) dạy tối đa Số lớp khác nhau mỗi ngày."),
+         "Môn có tối đa Số lớp học cùng một giờ (cả trường, hoặc các khối ở cột Khối), vd phòng Tin học: 1, sân Thể "
+         "dục: 2.", "Bao nhiêu"),
     Kind("rai_ngay", "Học ít nhất số ngày", ("subject", "number"), (*_WHAT, "number"),
-         "Mỗi lớp học Môn ở ít nhất Số ngày khác nhau trong tuần, vd Tiếng Anh ít nhất 3 ngày."),
+         "Mỗi lớp học Môn ở ít nhất Số ngày khác nhau trong tuần, vd Tiếng Anh ít nhất 3 ngày.", "Bao nhiêu"),
+    Kind("lien_2", "Học 2 tiết liền", ("subject",), ("subject", "grades", "classes"),
+         "Môn học thành cặp 2 tiết liền, cùng người dạy: mỗi buổi 0 hoặc 2 tiết của môn (tính chung môn tăng cường "
+         "cùng nhóm), vd Tiếng Anh. Bắt buộc thì số tiết/tuần phải chẵn.", "Đi cùng nhau"),
+    Kind("truoc", "Học trước", ("subject", "other"), ("subject", "other", "grades", "classes"),
+         "Trong một buổi có cả hai môn thì Môn học trước Môn thứ hai, vd Tiếng Việt trước Toán.", "Đi cùng nhau"),
     Kind("chi_gv", "Chỉ giáo viên dạy", ("subject", "role"), (*_PLACE, "role"),
          "Các tiết của Môn (ở các khối, lớp, ngày, tiết ghi ở dòng này) chỉ do giáo viên có chức vụ ở cột Giáo viên "
-         "dạy, vd Tin học khối 3 chỉ Tin Học dạy; tiết 1 Thứ 2 chỉ Chủ Nhiệm dạy."),
+         "dạy, vd Tin học khối 3 chỉ GV Tin Học dạy; tiết 1 Thứ 2 chỉ GV chủ nhiệm dạy.", "Ai dạy"),
     Kind("nghi_gv", "Buổi nghỉ của giáo viên", (), (),
-         "Giáo viên không dạy ở các buổi nghỉ cố định ghi ở cột Buổi Nghỉ (sheet NHÂN SỰ) và nghỉ đủ số buổi bất kỳ "
-         "ghi ở cột đó. Chỉ ghi Bắt buộc = Có; xóa dòng là bỏ luật."),
+         "Giáo viên không dạy vào các buổi nghỉ ghi ở cột Buổi Nghỉ (sheet NHÂN SỰ) và nghỉ đủ số buổi ghi ở đó. Chỉ "
+         "ghi Bắt buộc = Có; muốn bỏ luật thì xóa dòng.", "Ai dạy"),
     Kind("co_so_2", "Giáo viên chỉ dạy cơ sở 2", (), (),
          "Giáo viên không chủ nhiệm ghi Có ở cột Cơ sở 2 hoặc Thai Sản (sheet NHÂN SỰ) chỉ dạy các lớp ở cơ sở 2. "
-         "Chỉ ghi Bắt buộc = Có; xóa dòng là bỏ luật."),
+         "Chỉ ghi Bắt buộc = Có; muốn bỏ luật thì xóa dòng.", "Ai dạy"),
     Kind("tu_ghep", "Tự ghép", ("measure",), tuple(k for k, _ in COLUMNS[1:] if k not in LEVEL),
-         "Ghép câu luật: Với mỗi [phạm vi], các tiết [Môn, Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo viên] thì [Phép đo] "
-         "[So sánh] [Số], khi [Áp dụng khi]. Xem các phép đo ở dưới."),
+         "Tự ghép câu luật: Với mỗi [phạm vi] · các tiết [Môn, Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo viên] · thì "
+         "[Phép đo] [So sánh] [Số] · khi [Áp dụng khi]. Xem các phép đo ở dưới."),
 )
 BY_KEY = {k.key: k for k in KINDS}
 _BY_LABEL = {subject_key(k.label): k for k in KINDS} | {subject_key(k.key): k for k in KINDS}
@@ -257,11 +263,13 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
                 ok = False
             out[key] = folded in _YES
         elif key == "level":
-            if text not in ("1", "2", "3"):
-                error(f"cột Mức ghi 1, 2 hoặc 3 (3 là ưu tiên nhất), đang ghi {value!r}")
+            words = {subject_key(w): i + 1 for i, w in enumerate(LEVELS)}
+            level = int(text) if text in ("1", "2", "3", "4") else words.get(subject_key(text))
+            if level is None:
+                error(f"cột Mức ghi {', '.join(LEVELS)} (hoặc 1–4, 4 là ưu tiên nhất), đang ghi {value!r}")
                 ok = False
             else:
-                out[key] = int(text)
+                out[key] = level
         elif key == "scope":
             dims = [_lookup(p, SCOPES) for p in bo_ghep.names(text.replace("×", ","))]
             if not dims or None in dims:
@@ -358,12 +366,32 @@ def _role_label(role: str) -> str:
 
 
 def _when_text(when) -> str:
+    """Ô Áp dụng khi, vd ">= 6, chẵn", "<= số ngày" (ngược với `_when`)."""
     return ", ".join("chẵn" if op == "chan" else "lẻ" if op == "le" else
                      f"{op} {'số ngày' if v == bo_ghep.NUMBER_DAYS else v}" for op, v in when)
 
 
+def _when_say(when) -> str:
+    """Áp dụng khi bằng lời, vd "số tiết/tuần của môn từ 6 trở lên và là số chẵn"."""
+    parts = []
+    for op, v in when:
+        n = "số ngày học" if v == bo_ghep.NUMBER_DAYS else v
+        parts.append({"chan": "là số chẵn", "le": "là số lẻ", ">=": f"từ {n} trở lên", "<=": f"không quá {n}",
+                      "=": f"đúng {n}"}[op])
+    return "số tiết/tuần của môn " + " và ".join(parts)
+
+
+def level_label(rule: CustomRule) -> str:
+    """Mức ưu tiên bằng chữ (Thấp, Vừa, Cao, Rất cao); dòng ghi Điểm thì lấy mức có điểm gần nhất."""
+    if rule.points is None:
+        return LEVELS[rule.level - 1]
+    levels = config.Weights().custom_levels
+    i = min(range(len(levels)), key=lambda k: abs(math.log(rule.points / levels[k])))
+    return LEVELS[i]
+
+
 def cells(rule: CustomRule) -> dict:
-    """Các ô của luật khi ghi ra sheet LUẬT RIÊNG ({khóa cột: giá trị}), ngược với `parse`."""
+    """Các ô của luật khi ghi ra sheet LUẬT ({khóa cột: giá trị}), ngược với `parse`."""
     from .rules import NO, YES
     role = ", ".join(_role_label(r) for r in bo_ghep.names(rule.role))
     return {"kind": BY_KEY[rule.kind].label, "scope": ", ".join(SCOPE[d].label for d in rule.scope) or None,
@@ -377,96 +405,143 @@ def cells(rule: CustomRule) -> dict:
             "number": bo_ghep.DERIVED[rule.derived] if rule.derived else rule.number,
             "count_by": SCOPE[rule.count_by].label if rule.count_by else None, "other": rule.other or None,
             "when": _when_text(rule.when) or None, "hard": YES if rule.hard else NO,
-            "level": None if rule.hard or rule.points is not None else rule.level,
+            "level": None if rule.hard or rule.points is not None else LEVELS[rule.level - 1],
             "exclude": ", ".join(rule.exclude) or None, "points": None if rule.hard else rule.points}
 
 
+def _teacher(role: str) -> str:
+    """Chức vụ khi đọc câu: "chủ nhiệm" -> "GV chủ nhiệm", "Tiếng Anh" -> "GV Tiếng Anh", "trừ ..." giữ "trừ"."""
+    if role.startswith(bo_ghep.NOT):
+        return bo_ghep.NOT + _teacher(role[len(bo_ghep.NOT):].strip())
+    name = _role_label(role)
+    if role in (config.ROLE_HOMEROOM, config.ROLE_GENERAL):
+        return f"GV {name.lower()}"
+    return name if _fold(name).startswith(("gv ", "giao vien")) else f"GV {name}"
+
+
+def _teachers(rule: CustomRule) -> str:
+    """Các chức vụ ở cột Giáo viên bằng lời, vd "GV bộ môn", "giáo viên trừ GV chủ nhiệm"."""
+    names = bo_ghep.names(rule.role)
+    keep = [_teacher(r) for r in names if not r.startswith(bo_ghep.NOT)]
+    skip = [_teacher(r[len(bo_ghep.NOT):].strip()) for r in names if r.startswith(bo_ghep.NOT)]
+    return ", ".join(keep) + (f"{' ' if keep else 'giáo viên '}trừ {', '.join(skip)}" if skip else "")
+
+
 def _what(rule: CustomRule) -> str:
-    """Các tiết luật xét, vd "Thể dục khối 3, 4", "các môn Môn nặng lớp 3/1"."""
+    """Các tiết luật xét, vd "Thể dục khối 3, 4", "môn có nhãn Môn nặng lớp 3/1"; trống: mọi tiết."""
     parts = [rule.subject + (" (cả môn tăng cường)" if rule.group else "") if rule.subject else ""]
     tags = [t for t in rule.tags if t not in bo_ghep.slot_tags()]
     if tags:
-        parts.append(f"{'có nhãn' if not rule.subject else '+ nhãn'} {', '.join(tags)}")
+        parts.append(f"{'môn có nhãn' if not rule.subject else '(môn có nhãn'} {', '.join(tags)}"
+                     f"{')' if rule.subject else ''}")
     if rule.grades:
         parts.append(f"khối {', '.join(map(str, rule.grades))}")
     if rule.classes:
         parts.append(f"lớp {', '.join(rule.classes)}")
     skip = [t for t in rule.exclude if t not in bo_ghep.slot_tags()]
     if skip:
-        parts.append(f"trừ nhãn {', '.join(skip)}")
-    return " ".join(p for p in parts if p) or "mọi tiết"
+        parts.append(f"trừ môn có nhãn {', '.join(skip)}")
+    return " ".join(p for p in parts if p)
 
 
 def _where(rule: CustomRule) -> str:
+    """Các giờ học luật ghi, vd "buổi sáng Thứ 2 tiết 1", "giờ có nhãn Hạn chế môn nặng"."""
     slot_tags = [t for t in rule.tags if t in bo_ghep.slot_tags()]
+    skip = [t for t in rule.exclude if t in bo_ghep.slot_tags()]
     return " ".join(filter(None, [
-        ", ".join(s.lower() for s in rule.sessions) and f"buổi {', '.join(s.lower() for s in rule.sessions)}",
+        rule.sessions and f"buổi {', '.join(s.lower() for s in rule.sessions)}",
         rule.days and ", ".join(_day_label(d) for d in rule.days),
         rule.periods and f"tiết {', '.join(map(str, rule.periods))}",
-        slot_tags and f"ở ô có nhãn {' hoặc '.join(slot_tags)}",
-        any(t in bo_ghep.slot_tags() for t in rule.exclude)
-        and f"trừ ô có nhãn {', '.join(t for t in rule.exclude if t in bo_ghep.slot_tags())}"]))
+        slot_tags and f"giờ có nhãn {' hoặc '.join(slot_tags)}",
+        skip and f"trừ giờ có nhãn {', '.join(skip)}"]))
 
 
 def _who(rule: CustomRule) -> str:
-    return f"mỗi GV {cells(rule)['role']}" if rule.role else "mỗi giáo viên"
+    return f"Mỗi {_teachers(rule)}" if rule.role else "Mỗi giáo viên"
 
 
 def describe(rule: CustomRule) -> str:
-    """Luật bằng lời, vd "Thể dục khối 3, 4 không xếp vào tiết 1 (bắt buộc)"."""
+    """Luật bằng lời, vd "Thể dục khối 3, 4 không xếp vào tiết 1 (bắt buộc)". Dòng đúng dạng gốc của một luật có sẵn
+    đọc bằng tên của luật đó (luat_co_san.title)."""
+    from .luat_co_san import title
     who, where = _what(rule), _where(rule)
-    text = {
+    text = title(rule) or {
         "khong_xep": lambda: f"{who} không xếp vào {where}",
         "chi_xep": lambda: f"{who} chỉ xếp vào {where}",
         "lien_2": lambda: f"{who} học 2 tiết liền",
         "truoc": lambda: f"{who} học trước {rule.other} trong buổi",
         "gv_ngay": lambda: f"{_who(rule)} dạy tối đa {rule.number} tiết mỗi ngày",
-        "cung_luc": lambda: f"{who}: tối đa {rule.number} lớp học cùng lúc",
+        "cung_luc": lambda: f"{who} có tối đa {rule.number} lớp học cùng lúc",
         "co_dinh": lambda: f"{who} cố định vào {where}",
         "gv_lop_ngay": lambda: f"{_who(rule)} dạy tối đa {rule.number} lớp mỗi ngày",
         "rai_ngay": lambda: f"{who} học ít nhất {rule.number} ngày mỗi tuần",
-        "chi_gv": lambda: f"{who}{' ' + where if where else ''} chỉ do {cells(rule)['role']} dạy",
-        "nghi_gv": lambda: "Mỗi giáo viên không dạy ở buổi nghỉ ghi ở cột Buổi Nghỉ, nghỉ đủ số buổi bất kỳ",
-        "co_so_2": lambda: "Giáo viên ghi Cơ sở 2 hoặc Thai Sản (không chủ nhiệm) chỉ dạy các lớp ở cơ sở 2",
+        "chi_gv": lambda: f"{who}{' ' + where if where else ''} chỉ do {_teachers(rule)} dạy",
+        "nghi_gv": lambda: "Giáo viên không dạy vào buổi nghỉ ghi ở cột Buổi Nghỉ và nghỉ đủ số buổi ghi ở đó",
+        "co_so_2": lambda: "Giáo viên không chủ nhiệm ghi Cơ sở 2 hoặc Thai Sản chỉ dạy các lớp ở cơ sở 2",
         "tu_ghep": lambda: composed(rule),
     }[rule.kind]()
     return text + level_text(rule)
 
 
 def level_text(rule: CustomRule) -> str:
-    if rule.hard:
-        return " (bắt buộc)"
-    return f" (ưu tiên, {rule.points} điểm)" if rule.points is not None else f" (ưu tiên mức {rule.level})"
+    return " (bắt buộc)" if rule.hard else f" (ưu tiên {level_label(rule).lower()})"
 
 
 def composed(rule: CustomRule) -> str:
-    """Câu của luật tự ghép, vd "Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1"."""
+    """Câu của luật tự ghép, vd "Mỗi lớp, mỗi ngày: học tối đa 1 tiết Toán"."""
     m = MEASURE[rule.measure]
-    scope = ", ".join(SCOPE[d].label.lower() for d in rule.scope)
-    where = _where(rule) if rule.measure != "vi_tri" else ""
-    teach = rule.role and not (rule.measure == "nguoi_day" and rule.op in ("do", "dau_tuan"))
-    teacher = f" của GV {cells(rule)['role']}" if teach else ""
-    what = _what(rule)
-    what = f"{'mọi tiết' if what == 'mọi tiết' else 'các tiết ' + what}{' ' + where if where else ''}{teacher}"
-    other = rule.other or "môn khác cùng nhóm"
-    number = bo_ghep.DERIVED[rule.derived] if rule.derived else rule.number
-    phrase = {
-        "so_tiet": lambda: f"số tiết {OPS[rule.op].lower()} {number}",
-        "so_khac": lambda: f"số {SCOPE[rule.count_by].unit} khác nhau {OPS[rule.op].lower()} {rule.number}",
-        "vi_tri": lambda: f"{OPS[rule.op].lower()} {_where(rule).replace('ở ô', 'ô')}",
-        "lien": lambda: "liền nhau trong buổi",
-        "cap": lambda: "thành cặp 2 tiết liền trong buổi",
-        "thu_tu": lambda: f"đứng {'sau' if rule.op == 'sau' else 'trước'} các tiết {other}",
-        "di_kem": lambda: f"có thì phải có tiết {other}",
-        "nguoi_day": lambda: {"do": f"do {cells(rule)['role']} dạy", "cung_nguoi": "do cùng một người dạy",
-                              "lien_cung_nguoi": "hai tiết liền nhau do cùng một người dạy",
-                              "dau_tuan": f"tiết đầu tuần do {cells(rule)['role']} dạy, tiết của người khác không "
-                                          f"đứng trước"}[rule.op or "do"],
-        "khoang_cach": lambda: (f"tối đa {rule.number} tiết trống giữa các tiết" if rule.op == "trong_tiet"
-                                else f"cách cuối buổi tối đa {rule.number} tiết"),
+    scope = rule.scope
+    teacher_in_scope = "gv" in scope and rule.role
+    parts = [f"mỗi {_teachers(rule) if d == 'gv' and rule.role else SCOPE[d].unit}" for d in scope]
+    where = _where(rule) if m.key != "vi_tri" else ""
+    if where.startswith("giờ"):  # "các tiết ở giờ có nhãn …"
+        where = "ở " + where
+    teach = rule.role and not teacher_in_scope and not (m.key == "nguoi_day" and rule.op in ("do", "dau_tuan"))
+    what = " ".join(filter(None, [_what(rule), where, f"của {_teachers(rule)}" if teach else ""]))
+    some = f"tiết {what}" if what else "tiết"  # "tiết Toán khối 3", "tiết"
+    each = f"các tiết {what}" if what else "các tiết"
+    verb = "dạy" if "gv" in scope else "học" if "lop" in scope else "có"
+    op = {"<=": "tối đa", ">=": "ít nhất", "=": "đúng"}.get(rule.op, "")
+    other = f"tiết {rule.other}" if rule.other else "tiết môn khác cùng nhóm"
+    n = rule.number
+
+    def count() -> str:
+        if rule.derived:
+            limit = {"<=": "không quá", ">=": "ít nhất bằng", "=": "đúng bằng"}[rule.op]
+            return f"số {some} {limit} {bo_ghep.DERIVED[rule.derived]}"
+        return f"{verb} {op} {n} {some}"
+
+    def distinct() -> str:
+        unit = SCOPE[rule.count_by].unit
+        return f"{verb}{' ' + what if what else ''} {op} {n} {unit}{' khác nhau' if n != 1 else ''}"
+
+    def teacher() -> str:
+        role = _teachers(rule)
+        return {"do": f"{each if what else 'mọi tiết'} do {role} dạy",
+                "cung_nguoi": f"{each} do cùng một giáo viên dạy",
+                "lien_cung_nguoi": f"hai {some} liền nhau do cùng một giáo viên dạy",
+                "dau_tuan": f"tiết đầu tuần{' của ' + what if what else ''} do {role} dạy, tiết của giáo viên khác "
+                            f"không đứng trước"}[rule.op or "do"]
+
+    def gap() -> str:
+        if rule.op == "trong_tiet":
+            return f"{each} không có tiết trống xen giữa" if n == 0 else f"tối đa {n} tiết trống giữa {each}"
+        return f"{each} xếp ở tiết cuối buổi" if n == 0 else f"{each} cách cuối buổi không quá {n} tiết"
+
+    body = {
+        "so_tiet": count,
+        "so_khac": distinct,
+        "vi_tri": lambda: f"{each if what else 'mọi tiết'} {'chỉ xếp vào' if rule.op == 'trong' else 'không xếp vào'} "
+                          f"{_where(rule)}",
+        "lien": lambda: f"{each} trong một buổi đứng liền nhau",
+        "cap": lambda: f"{each} xếp thành cặp 2 tiết liền trong buổi",
+        "thu_tu": lambda: f"{each} đứng {'sau' if rule.op == 'sau' else 'trước'} các {other}",
+        "di_kem": lambda: f"có {some} thì cũng có {other}",
+        "nguoi_day": teacher,
+        "khoang_cach": gap,
     }[m.key]()
-    when = f", khi số tiết/tuần {_when_text(rule.when)}" if rule.when else ""
-    text = f"{'Với mỗi ' + scope + ': ' if scope else ''}{what}: {phrase}{when}"
+    when = f", khi {_when_say(rule.when)}" if rule.when else ""
+    text = f"{', '.join(parts)}: {body}{when}" if parts else f"{body}{when}"
     return text[0].upper() + text[1:]
 
 

@@ -89,8 +89,8 @@ def test_describe_rules(server):
             {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True}]
     status, data = _call(url, "/api/describe", "POST", {"scenario": new["scenario"], "rows": rows}, app.token)
     assert status == 200
-    assert data["rules"][0] == {"text": "Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1 (bắt buộc)", "errors": [],
-                                "native": None}  # thiếu "khi số tiết/tuần <= số ngày": không phải dạng gốc
+    assert data["rules"][0] == {"text": "Mỗi lớp, mỗi ngày: học tối đa 1 tiết Toán (bắt buộc)", "errors": [],
+                                "native": None, "level": None}  # thiếu "khi … <= số ngày": không phải dạng gốc
     assert data["rules"][1]["text"] is None and "phải có Lớp hoặc Giáo viên" in data["rules"][1]["errors"][0]
     assert data["rules"][2]["text"] == "Tiếng Việt học trước Toán trong buổi (bắt buộc)"
     status, data = _call(url, "/api/describe", "POST", {"scenario": new["scenario"]}, app.token)

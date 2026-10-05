@@ -137,8 +137,8 @@ def test_updated_staff_file_is_reusable(tmp_path):
     ws = openpyxl.load_workbook(dst).active
     assert ws.cell(len(rows), 1).fill.start_color.rgb[-6:] == writer.HIRE_FILL  # người cần tuyển: xanh lá
     luat = list(openpyxl.load_workbook(dst)["LUẬT"].iter_rows(values_only=True))  # mọi luật đã dùng
-    assert ("Bảo vệ học sinh", "Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1, khi số tiết/tuần <= số ngày "
-            "(bắt buộc)") in [(r[0], r[-1]) for r in luat]
+    assert ("Bảo vệ học sinh", "Mỗi ngày, một lớp học tối đa 1 tiết Toán, khi số tiết/tuần của môn không quá số "
+            "ngày học (bắt buộc)") in [(r[0], r[-1]) for r in luat]
     again = read_staff(dst)
     assert again[-1].name == "chưa có" and again[-1].title == "bộ môn 1"
     assert again[-1].max_lessons == 23

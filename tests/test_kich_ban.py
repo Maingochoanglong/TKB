@@ -70,6 +70,11 @@ def test_schema_follows_rules_columns():
     keys = {c.key for c in SUBJECT_COLS}  # nhóm cột của trang chi tiết môn, cột theo chức vụ: đúng khóa của rules.py
     assert all(k in keys for g in s["subject_groups"] for k in g["keys"])
     assert set(s["role_rules"].values()) <= keys and s["sheets"]["roles"] == "CHỨC VỤ"
+    # Loại luật theo bốn họ: mọi mẫu luật (trừ Tự ghép) và mọi phép đo đều thuộc một họ; mức ưu tiên bằng chữ.
+    families = s["custom"]["composer"]["families"]
+    assert all(k["family"] in families for k in s["custom"]["kinds"] if k["key"] != "tu_ghep")
+    assert all(m["family"] in families for m in s["custom"]["composer"]["measures"])
+    assert s["custom"]["levels"] == ["Thấp", "Vừa", "Cao", "Rất cao"]
 
 
 def test_rules_edited_in_the_scenario_reach_the_file(tmp_path):
@@ -166,7 +171,7 @@ def test_rules_round_trip(tmp_path):
     assert len(scenario["rules"]) == n and all(r["group_label"] for r in scenario["rules"])
     assert all(r["native"] for r in kich_ban.describe(scenario)["rules"])
     assert len(kich_ban.schema()["custom"]["kinds"]) == len(luat_rieng.KINDS)
-    scenario["rules"] += [{"kind": "Chỉ xếp vào", "subject": "Thể dục", "sessions": "Chiều", "hard": False, "level": 3},
+    scenario["rules"] += [{"kind": "Chỉ xếp vào", "subject": "Thể dục", "sessions": "Chiều", "hard": False, "level": "Cao"},
                           {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True},
                           {"kind": "Tự ghép", "scope": "Giáo viên, Ngày", "measure": "Số khác nhau", "op": "Tối đa",
                            "number": 2, "count_by": "Lớp", "role": "Tiếng Anh", "hard": True}]
@@ -179,6 +184,7 @@ def test_rules_round_trip(tmp_path):
                    measure="so_khac", op="<=", count_by="lop")]
     back, _ = kich_ban.from_excel(out)
     assert back["rules"][:n] == scenario["rules"][:n]
+    assert back["rules"][n]["level"] == "Cao"  # cột Mức ghi bằng chữ
     assert back["rules"][n + 1] == {"group_label": "", "kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán",
                                     "grades": "", "days": "", "periods": "", "sessions": "", "role": "",
                                     "number": None, "hard": True, "level": None, "scope": "", "group": "", "tags": "",

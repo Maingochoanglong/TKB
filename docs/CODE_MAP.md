@@ -46,7 +46,7 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
   · Nhu cầu tối đa theo chức vụ để dựng đủ GV bổ sung dự kiến.
 
 ## tkb/bo_ghep.py — Bộ ghép luật: mọi luật viết theo một câu chung, mỗi phép đo viết code một lần cho mọi nơi.
-Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `MEASURES`, `MEASURE`, `OPS`, `DERIVED`, `NOT`, `OP_ALIASES`, `NUMBER_DAYS`, `PRESETS`, `_ALL`, `LOWER`
+Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`, `MEASURE`, `OPS`, `DERIVED`, `NOT`, `OP_ALIASES`, `NUMBER_DAYS`, `PRESETS`, `_ALL`, `LOWER`
 - `class Dim`
 - `class Measure`
 - `subject_tags()` — Nhãn môn: tiêu đề cột Có/Không (và cột số thứ tự) của sheet CHƯƠNG TRÌNH HỌC -> các môn ghi Có (config hiện
@@ -217,6 +217,7 @@ Hằng số: `GROUPS`, `CUSTOM_GROUP`, `STRUCTURE`, `NATIVES`, `BY_KEY`, `STUDEN
 - `_daily(subject, n)`
 - `default_rows()` — Các dòng mặc định của sheet LUẬT: mỗi luật có sẵn ở dạng gốc, số và điểm theo config hiện tại.
 - `rows()` — Các dòng luật đang dùng: sheet LUẬT của file vào; không có sheet thì các dòng mặc định và luật riêng.
+- `title(r)` — Tên dễ đọc của dòng ở dạng gốc một luật có sẵn, vd "Mỗi ngày, một lớp học tối đa 1 tiết Toán (…)"; None: dòng
 - `_names(text)`
 - `_shape(r, free)` — Dòng bỏ đi các phần không làm đổi dạng: số dòng, nhóm, mức và điểm, các cột tham số.
 - `fits(native, r)` — Dòng r là dạng gốc của luật có sẵn (chỉ khác số, điểm).
@@ -225,7 +226,7 @@ Hằng số: `GROUPS`, `CUSTOM_GROUP`, `STRUCTURE`, `NATIVES`, `BY_KEY`, `STUDEN
 - `notes()` — Dòng của sheet HƯỚNG DẪN về phần không phải luật.
 
 ## tkb/luat_rieng.py — Luật riêng của trường: sheet LUẬT RIÊNG, mỗi dòng một luật, theo một mẫu có sẵn (KINDS) hoặc tự ghép.
-Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS`, `COMPOSE`, `LEVEL`, `_WHAT`, `_PLACE`, `KINDS`, `BY_KEY`, `_BY_LABEL`
+Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS`, `COMPOSE`, `LEVEL`, `LEVELS`, `_WHAT`, `_PLACE`, `KINDS`, `BY_KEY`, `_BY_LABEL`
 - `class Kind`
 - `_day_label(d)`
 - `_numbers(text)` — "3, 4, 5", "3-5", "3–5" -> [3, 4, 5]; None nếu có phần không phải số.
@@ -237,14 +238,18 @@ Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS
 - `parse(values, row, error)` — Một dòng của sheet LUẬT RIÊNG ({khóa cột: ô}) -> CustomRule; lỗi gọi error(chữ). Dòng trống: None.
 - `_check_composed(out, place, error)` — Cột nào phải ghi, cột nào để trống theo phép đo của luật tự ghép.
 - `_role_label(role)`
-- `_when_text(when)`
-- `cells(rule)` — Các ô của luật khi ghi ra sheet LUẬT RIÊNG ({khóa cột: giá trị}), ngược với `parse`.
-- `_what(rule)` — Các tiết luật xét, vd "Thể dục khối 3, 4", "các môn Môn nặng lớp 3/1".
-- `_where(rule)`
+- `_when_text(when)` — Ô Áp dụng khi, vd ">= 6, chẵn", "<= số ngày" (ngược với `_when`).
+- `_when_say(when)` — Áp dụng khi bằng lời, vd "số tiết/tuần của môn từ 6 trở lên và là số chẵn".
+- `level_label(rule)` — Mức ưu tiên bằng chữ (Thấp, Vừa, Cao, Rất cao); dòng ghi Điểm thì lấy mức có điểm gần nhất.
+- `cells(rule)` — Các ô của luật khi ghi ra sheet LUẬT ({khóa cột: giá trị}), ngược với `parse`.
+- `_teacher(role)` — Chức vụ khi đọc câu: "chủ nhiệm" -> "GV chủ nhiệm", "Tiếng Anh" -> "GV Tiếng Anh", "trừ ..." giữ "trừ".
+- `_teachers(rule)` — Các chức vụ ở cột Giáo viên bằng lời, vd "GV bộ môn", "giáo viên trừ GV chủ nhiệm".
+- `_what(rule)` — Các tiết luật xét, vd "Thể dục khối 3, 4", "môn có nhãn Môn nặng lớp 3/1"; trống: mọi tiết.
+- `_where(rule)` — Các giờ học luật ghi, vd "buổi sáng Thứ 2 tiết 1", "giờ có nhãn Hạn chế môn nặng".
 - `_who(rule)`
-- `describe(rule)` — Luật bằng lời, vd "Thể dục khối 3, 4 không xếp vào tiết 1 (bắt buộc)".
+- `describe(rule)` — Luật bằng lời, vd "Thể dục khối 3, 4 không xếp vào tiết 1 (bắt buộc)". Dòng đúng dạng gốc của một luật có sẵn
 - `level_text(rule)`
-- `composed(rule)` — Câu của luật tự ghép, vd "Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1".
+- `composed(rule)` — Câu của luật tự ghép, vd "Mỗi lớp, mỗi ngày: học tối đa 1 tiết Toán".
 - `label(rule)` — Tên luật khi báo lỗi: sheet và dòng của luật (dòng mặc định của file không có sheet LUẬT: Luật có sẵn).
 - `banned(subject, grade, class_name, curriculum)` — Ô mà môn của khối (lớp) không được học theo các luật bắt buộc (dùng trong solver.allowed_slots).
 - `forced_pairs(grade, totals)` — Nhóm môn của khối phải học 2 tiết liền theo luật bắt buộc (số tiết chẵn; lẻ thì precheck báo lỗi).
@@ -570,7 +575,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_rules_only_file, test_history_and_leave_as_the_page_writes_them
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
-- `tests/test_luat_co_san.py`: test_default_rows_change_nothing, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_cross_check_with_the_checker, test_generic_lowering_replaces_the_native_one
+- `tests/test_luat_co_san.py`: test_default_rows_change_nothing, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_cross_check_with_the_checker, test_generic_lowering_replaces_the_native_one
 - `tests/test_luat_rieng.py`: test_parse_each_kind, test_parse_errors, test_read_sheet_and_rules_code, test_no_custom_rules_change_nothing, test_hard_rules_hold_and_are_checked, test_soft_rules_are_preferred, test_teacher_day_cap_limits_the_assignment, test_precheck_and_validate, test_diagnosis_names_the_custom_rule
 - `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited, test_reloading_updated_file_keeps_timetable, test_reloading_falls_back_when_saved_timetable_breaks_rules, test_reloading_overtime_result_rewrites_the_same_files
 - `tests/test_phan_cong.py`: test_min_cost_flow_prefers_cheap_paths, test_estimate_overtime_then_missing, test_homeroom_overtime_before_general, test_homeroom_overtime_takes_whole_subjects, test_homeroom_overtime_takes_music_and_art, test_assignment_is_deterministic, test_hires_take_overtime_and_missing_lessons, test_hire_split_limits_pairs_and_orders_by_load

@@ -53,7 +53,7 @@ def test_template_sheet_reads_back_to_defaults(tmp_path):
     ws = wb[luat_rieng.RULES_SHEET]
     head = [c.value for c in ws[1]]
     assert head[0] == "Nhóm" and head[-1] == "Luật đọc là"
-    assert ws.cell(2, len(head)).value.startswith("Với mỗi lớp, nhóm môn, buổi: mọi tiết: số tiết tối đa 2")
+    assert ws.cell(2, len(head)).value.startswith("Mỗi buổi, một lớp học tối đa 2 tiết của một môn")
     rules = read_rules(path)
     assert len(rules.pop("RULES")) == len(luat_co_san.default_rows())
     assert rules == DEFAULTS
@@ -80,10 +80,10 @@ def _row_of(ws, head, text):
 def test_edit_number_points_delete_and_soften(tmp_path):
     def change(ws, head):
         col = {h: i + 1 for i, h in enumerate(head)}
-        ws.cell(_row_of(ws, head, "Với mỗi lớp, nhóm môn, buổi: mọi tiết: số tiết tối đa"), col["Số"], 3)
-        ws.cell(_row_of(ws, head, "Các tiết có nhãn Môn nặng"), col["Điểm"], 2000)
-        ws.delete_rows(_row_of(ws, head, "Mọi tiết ở ô có nhãn Luôn do GVCN dạy"))
-        r = _row_of(ws, head, "Với mỗi lớp, môn: mọi tiết: liền nhau trong buổi")
+        ws.cell(_row_of(ws, head, "Mỗi buổi, một lớp học tối đa"), col["Số"], 3)
+        ws.cell(_row_of(ws, head, "Tránh xếp môn có nhãn Môn nặng"), col["Điểm"], 2000)
+        ws.delete_rows(_row_of(ws, head, "Ở giờ có nhãn Luôn do GVCN dạy"))
+        r = _row_of(ws, head, "Các tiết của một môn trong cùng buổi")
         ws.cell(r, col["Bắt buộc"], "Không")
         ws.cell(r, col["Mức"], 3)
 
@@ -95,7 +95,26 @@ def test_edit_number_points_delete_and_soften(tmp_path):
     assert soft.measure == "lien" and not soft.hard and soft.level == 3
     with applied(rules):
         assert code() != NO_FILE_CODE
-        assert luat_rieng.label(soft).startswith(f"LUẬT dòng {soft.row}: Với mỗi lớp, môn")
+        assert luat_rieng.label(soft) == (f"LUẬT dòng {soft.row}: Mỗi lớp, mỗi môn: các tiết trong một buổi đứng "
+                                          f"liền nhau (ưu tiên cao)")  # khác dạng gốc: câu của bộ ghép
+
+
+def test_built_in_rules_read_as_plain_sentences():
+    """Mỗi luật có sẵn có tên viết tay; tên theo số của dòng; câu không có ký hiệu hay chữ kỹ thuật."""
+    rows = luat_co_san.default_rows()
+    titles = [luat_co_san.title(r) for r in rows]
+    assert all(titles) and len(set(titles)) == len(titles)
+    assert all(len(n.titles) == len(n.rows()) or n.key == "toi_da_ngay" for n in luat_co_san.NATIVES)
+    first = replace(rows[0], number=3)
+    assert luat_co_san.title(first).startswith("Mỗi buổi, một lớp học tối đa 3 tiết")
+    assert luat_co_san.title(replace(rows[0], hard=False)) is None  # khác dạng gốc: đọc bằng câu của bộ ghép
+    for r in rows:
+        for rule in (r, replace(r, hard=not r.hard) if r.kind == "tu_ghep" else r):
+            text = luat_rieng.describe(rule)
+            assert not any(s in text for s in ("<=", ">=", " ô ", "Với mỗi", "mức ")), text
+            assert text.count(":") <= 1, text
+    levels = [luat_rieng.level_label(r) for r in rows if not r.hard]
+    assert levels[:2] == ["Thấp", "Rất cao"]  # 200 điểm: gần Thấp; 10000 điểm: Rất cao
 
 
 def test_deleted_rule_is_off_when_solving():

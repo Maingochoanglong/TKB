@@ -743,31 +743,35 @@ def notes() -> list[tuple[str, str]]:
              f"thì chương trình tuyển thêm chức vụ đầu tiên ở đây dạy môn đó (không có thì chức vụ trùng tên môn)."),
             (luat_rieng.RULES_SHEET,
              "Mọi luật xếp TKB, mỗi dòng một luật, đọc như một câu: Với mỗi [cột Với mỗi] · các tiết [Môn, Nhãn, Khối, "
-             "Lớp, Ngày, Tiết, Buổi, Giáo viên] · thì [Phép đo] [So sánh] [Số] · khi [Áp dụng khi]. File mẫu ghi sẵn "
-             "các luật có sẵn của chương trình: sửa số hoặc Điểm để chỉnh, đổi Bắt buộc, xóa dòng để bỏ luật, thêm "
-             "dòng để có luật mới. Cột Nhóm và Luật đọc là chỉ để đọc (chương trình ghi lại mỗi lần). Kiểu luật: một mẫu "
-             "hoặc Tự ghép; cột kiểu luật không dùng để trống. Bắt buộc: Có (luật cứng) hoặc Không (ưu tiên); luật ưu "
-             "tiên ghi Điểm (điểm trừ mỗi lần không theo) hoặc Mức 1, 2, 3 (100, 400, 1500 điểm). Môn, Lớp, Khối, "
-             "Ngày, Tiết ghi danh sách cách nhau bằng dấu phẩy hoặc khoảng, vd 3, 4 hoặc 3-5; Thứ 2, Thứ 4 hoặc T2-T4; "
-             "5-7. Buổi: Sáng hoặc Chiều. Giáo viên: chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý hoặc chức vụ GV chuyên biệt), "
-             "'trừ Chủ Nhiệm' là mọi giáo viên trừ chức vụ đó. Nhãn, Trừ nhãn: tên các cột Có/Không của môn (vd Môn "
-             "nặng) hoặc của ngày, tiết (vd Luôn do GVCN dạy); nhiều nhãn ô là ô có một trong các nhãn. Gồm môn tăng "
-             "cường: Có thì Môn tính cả các môn tăng cường cùng nhóm. Không có sheet này thì chương trình dùng các "
-             f"luật có sẵn và sheet {luat_rieng.SHEET} (file của bản trước)."),
-            *((f"{luat_rieng.RULES_SHEET}: {k.label}", k.note) for k in luat_rieng.KINDS),
+             "Lớp, Ngày, Tiết, Buổi, Giáo viên] · thì [Phép đo] [So sánh] [Số] · khi [Áp dụng khi]. Mỗi luật trả lời "
+             f"một trong bốn câu hỏi: {', '.join(bo_ghep.FAMILIES)} (các kiểu luật và phép đo xếp theo câu hỏi ở "
+             "dưới). File mẫu ghi sẵn các luật có sẵn của chương trình: sửa số hoặc Điểm để chỉnh, đổi Bắt buộc, xóa "
+             "dòng để bỏ luật, thêm dòng để có luật mới. Cột Nhóm và Luật đọc là chỉ để đọc (chương trình ghi lại mỗi "
+             "lần). Kiểu luật: một mẫu hoặc Tự ghép; cột kiểu luật không dùng để trống. Bắt buộc: Có (luật cứng) hoặc "
+             f"Không (ưu tiên); luật ưu tiên ghi Mức {', '.join(luat_rieng.LEVELS)} (100, 400, 1500, 5000 điểm) hoặc "
+             "ghi thẳng Điểm (điểm trừ mỗi lần không theo). Môn, Lớp, Khối, Ngày, Tiết ghi danh sách cách nhau bằng "
+             "dấu phẩy hoặc khoảng, vd 3, 4 hoặc 3-5; Thứ 2, Thứ 4 hoặc T2-T4; 5-7. Buổi: Sáng hoặc Chiều. Giáo viên: "
+             "chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý hoặc chức vụ GV chuyên biệt), 'trừ Chủ Nhiệm' là mọi giáo viên trừ "
+             "chức vụ đó. Nhãn, Trừ nhãn: tên các cột Có/Không của môn (vd Môn nặng) hoặc của giờ học (ngày, tiết, vd "
+             "Luôn do GVCN dạy); nhiều nhãn giờ học là giờ có một trong các nhãn. Gồm môn tăng cường: Có thì Môn tính "
+             "cả các môn tăng cường cùng nhóm. Không có sheet này thì chương trình dùng các luật có sẵn và sheet "
+             f"{luat_rieng.SHEET} (file của bản trước)."),
+            *((f"{luat_rieng.RULES_SHEET}: {k.family + ' · ' if k.family else ''}{k.label}", k.note)
+              for f in (*bo_ghep.FAMILIES, "") for k in luat_rieng.KINDS if k.family == f),
             (f"{luat_rieng.RULES_SHEET}: Tự ghép, cột Với mỗi",
              "Chia các tiết thành từng nhóm theo các chiều, vd 'Lớp, Ngày': luật áp dụng cho mỗi lớp mỗi ngày. Các "
              f"chiều: {', '.join(d.label for d in bo_ghep.SCOPES)}. Trống: cả trường cả tuần."),
-            *((f"{luat_rieng.RULES_SHEET}: Tự ghép, Phép đo {m.label}",
+            *((f"{luat_rieng.RULES_SHEET}: {m.family} · Tự ghép, Phép đo {m.label}",
                m.note + (f" So sánh: {', '.join(bo_ghep.OPS[o] for o in m.ops)}." if m.ops else "")
                + (" Ghi cột Số." if m.number else "") + (" Ghi cột Đếm theo." if m.count_by else ""))
-              for m in bo_ghep.MEASURES),
+              for f in bo_ghep.FAMILIES for m in bo_ghep.MEASURES if m.family == f),
             (f"{luat_rieng.RULES_SHEET}: Tự ghép, cột Số",
              "Một số nguyên, hoặc (phép đo Số tiết) một ngưỡng theo dữ liệu: "
              f"{', '.join(bo_ghep.DERIVED.values())} (tải ngày: định mức của giáo viên chia theo số tiết của ngày)."),
             (f"{luat_rieng.RULES_SHEET}: Tự ghép, cột Áp dụng khi",
              "Chỉ áp dụng khi số tiết/tuần của các môn ở cột Môn (phạm vi có Môn, Nhóm môn: của từng môn, nhóm môn) ở "
-             "khối đó thỏa điều kiện, vd '>= 6, chẵn' hoặc '<= số ngày'."),
+             "khối đó thỏa điều kiện, vd '>= 6, chẵn' (từ 6 tiết trở lên và chẵn) hoặc '<= số ngày' (không quá số "
+             "ngày học)."),
             ("LUẬT: cấu trúc của TKB", luat_co_san_structure())]
 
 

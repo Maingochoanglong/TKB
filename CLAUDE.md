@@ -82,8 +82,8 @@ JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rul
 detail dialog) → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
 `scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select; the detail
 dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
-counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật riêng (rule composer dialog, list of
-read-back sentences, built-in rules card) →
+counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật (all rules grouped, read-back
+sentences, composer dialog) →
 Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page.
 Import (`/api/import` → `kich_ban.from_excel` + `sheets_in`) opens a dialog to take only some parts (staff replace/append,
 subjects+grades, roles, frame, custom rules, saved grid) into the current scenario; `/api/template` gives the blank template.
@@ -131,7 +131,8 @@ Rules = rows of sheet `LUẬT` (`config.RULES_SHEET_ROWS`), each one sentence of
 cells read/written and described in `tkb/luat_rieng.py` as `config.CustomRule`): "for each [scope dims `SCOPES`] ·
 lessons [subject(+group), tags, excluded tags, grades, classes, days, periods, sessions, teacher role or 'trừ <role>'] ·
 then [measure `MEASURES`] [op] [number or `DERIVED` threshold] · when [curriculum condition, per subject/group if the
-scope has one]", hard or soft (Điểm points, else level 1–3 `Weights.custom_levels`). `Kiểu luật` is a preset
+scope has one]", hard or soft (Điểm points, else Mức Thấp/Vừa/Cao/Rất cao = level 1–4 `Weights.custom_levels`,
+`luat_rieng.LEVELS`; written as words, read as words or 1–4). `Kiểu luật` is a preset
 (`luat_rieng.KINDS`, expanded by `bo_ghep.PRESETS`; `nghi_gv`, `co_so_2` exist only in native form) or "Tự ghép".
 **Built-in rules** are the default rows of `tkb/luat_co_san.py` (`NATIVES`, `default_rows`, written by the template):
 `rules.read_rules` → `luat_co_san.apply(rows)`: a row in a native's exact shape (only number/points differ, `fits`)
@@ -140,7 +141,12 @@ keeps the native encoding (params into `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `P
 `solver.on(key)` which also honours `RELAXED`), every other row goes to `config.CUSTOM_RULES` (composer). No sheet
 `LUẬT` (old file): default rows from the old columns (`rules.LEGACY`: still read, never written or shown) plus sheet
 `LUẬT RIÊNG` rows; so defaults give the same model and codes (`OFF`/`WEIGHTS` are optional attrs of `rules.code()`).
-`config.RULES` holds the sheet rows (None: no sheet, `luat_co_san.rows()` rebuilds them). Each of the 9 measures is ONE
+`config.RULES` holds the sheet rows (None: no sheet, `luat_co_san.rows()` rebuilds them). Read-back sentences (`luat_rieng.describe`, used by the UI, diagnosis, the
+"Luật đọc là" column): a row in a native's shape reads as that native's hand-written title (`Native.titles`,
+`luat_co_san.title`, filled with the row's number/subject), any other row as a plain composed sentence (no `>=`/`<=`,
+one colon, "giờ học" not "ô"). Every preset (`Kind.family`) and measure (`Measure.family`) belongs to one of the four
+`bo_ghep.FAMILIES` (Ở đâu, Bao nhiêu, Đi cùng nhau, Ai dạy): the UI's single "Loại luật" select and the guide are grouped
+by them; the Excel columns are unchanged. Each of the 9 measures is ONE
 function against a context: `_Cp` lowers it into CP-SAT (`build`, end of `build_timetable`), `_Eval` counts violations
 (`violations` → `check`, `qa`, `soft_report`), both over the same atoms (`_Source`: course × allowed slot [× teacher]).
 Shortcuts read the same `Luat`: `banned` (domain cut in `solver.allowed_slots`), `forced_pairs` (in

@@ -10,9 +10,10 @@ from tkb.solver import ConflictError, solve
 from .conftest import CURRICULUM, small_staff
 
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
-GROUP_LIMIT = "'Luật có sẵn: Với mỗi lớp, nhóm môn, buổi: mọi tiết: số tiết tối đa {} (bắt buộc)'"
-PAIRS = ("'Luật có sẵn: Với mỗi lớp, nhóm môn, buổi: các tiết trừ nhãn Không ghép cặp: thành cặp 2 tiết liền trong "
-         "buổi, khi số tiết/tuần >= {}, chẵn (bắt buộc)'")
+GROUP_LIMIT = ("'Luật có sẵn: Mỗi buổi, một lớp học tối đa {} tiết của một môn, tính chung môn chính với môn tăng "
+               "cường cùng nhóm (bắt buộc)'")
+PAIRS = ("'Luật có sẵn: Môn có từ {} tiết/tuần trở lên và số tiết chẵn, tính chung môn tăng cường cùng nhóm, học "
+         "thành cặp 2 tiết liền trong buổi; trừ môn có nhãn Không ghép cặp (bắt buộc)'")
 
 
 def _precheck(staff, **rules):
@@ -37,8 +38,8 @@ def test_session_limit_too_small_for_the_lessons(sample_staff):
 
 def test_pairs_against_daily_limit(sample_staff):
     found = _precheck(sample_staff, PAIR_MIN_LESSONS=4, DAILY_LIMITS={config.TIENG_ANH: 1, config.TOAN: 1})
-    daily = ("'Luật có sẵn: Với mỗi lớp, ngày: các tiết Tiếng Anh: số tiết tối đa 1, khi số tiết/tuần <= số ngày (bắt "
-             "buộc)'")
+    daily = ("'Luật có sẵn: Mỗi ngày, một lớp học tối đa 1 tiết Tiếng Anh, khi số tiết/tuần của môn không quá số "
+             "ngày học (bắt buộc)'")
     assert found == [f"Khối {g}: Tiếng Anh có 4 tiết/tuần nên phải học thành cặp 2 tiết liền (luật {PAIRS.format(4)}) "
                      f"nhưng luật {daily}" for g in (3, 4, 5)]
 
@@ -60,8 +61,8 @@ def test_diagnosis_names_the_rules_in_conflict():
     with applied({"HDTN_FIXED_SLOTS": [(4, 4)], "HDTN_FLEX_DAYS": [4]}), pytest.raises(ConflictError) as err:
         solve(small_staff(), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS), log=log.append)
     limit = GROUP_LIMIT.format(2)[1:-1]
-    flex = ("Luật có sẵn: Các tiết có nhãn Môn HĐTN: chỉ trong ô có nhãn Xếp tiết HĐTN còn lại hoặc Tiết HĐTN cố định "
-            "(bắt buộc)")
+    flex = ("Luật có sẵn: Tiết HĐTN chỉ xếp vào giờ có nhãn Tiết HĐTN cố định hoặc Xếp tiết HĐTN còn lại (bắt "
+            "buộc)")
     assert str(err.value).splitlines() == [
         "Các luật bắt buộc sau không cùng thỏa được, nên không có TKB nào:", f"  - {limit}", f"  - {flex}",
         f"Nới hoặc bỏ một trong các luật trên. Chỉ cần nới riêng một luật này là xếp được: {limit}; {flex}."]

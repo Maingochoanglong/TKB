@@ -128,7 +128,7 @@
       <div class="toolbar">
         <h2>Luật xếp thời khóa biểu</h2>
         <div class="actions">
-          <select id="new-kind" aria-label="Mẫu luật mới"></select>
+          <select id="new-kind" aria-label="Loại luật mới"></select>
           <button type="button" id="btn-add-rule">+ Thêm luật</button>
           <button type="button" class="ghost" data-import="rules" title="Lấy các luật từ sheet LUẬT của một file Excel (thay hoặc thêm vào cuối)">Nhập luật từ Excel…</button>
           <button type="button" class="ghost" id="btn-rules-export" title="Tải file Excel chỉ có các luật đang soạn (sheet LUẬT)">Xuất luật ra Excel</button>
@@ -136,18 +136,18 @@
           <button type="button" class="ghost" id="btn-rules-reset" title="Thay mọi luật bằng các luật có sẵn mặc định">Về mặc định</button>
         </div>
       </div>
-      <p class="muted">Mọi luật nằm ở sheet <b>LUẬT</b> của file Excel, mỗi luật một câu: <b>Với mỗi</b> [lớp, giáo viên,
-        ngày, buổi…] · <b>các tiết</b> [môn, nhãn, khối, lớp, ngày, tiết, buổi, giáo viên] · <b>thì</b> [số tiết, số khác
-        nhau, vị trí, liền nhau, theo cặp, thứ tự, đi kèm, người dạy, khoảng cách]. Các luật có sẵn được ghi sẵn: sửa số
-        hoặc điểm để chỉnh, xóa để bỏ, thêm luật mới bằng một mẫu hoặc <b>Tự ghép</b>. Dòng đánh dấu <span class="tag">có
-        sẵn</span> chương trình xếp như trước (cùng mã kết quả nếu không sửa). <b>Bắt buộc</b>: TKB phải theo đúng; còn lại
-        là <b>ưu tiên</b> với điểm trừ mỗi lần không theo.</p>
+      <p class="muted">Mỗi luật là một câu, trả lời một trong bốn câu hỏi về các tiết: <b>Ở đâu</b> (xếp vào giờ nào),
+        <b>Bao nhiêu</b> (số tiết, số lớp, số ngày), <b>Đi cùng nhau</b> (liền nhau, theo cặp, trước sau) và <b>Ai
+        dạy</b>. Mọi luật nằm ở sheet <b>LUẬT</b> của file Excel, các luật có sẵn được ghi sẵn: sửa số hoặc mức để
+        chỉnh, xóa để bỏ, thêm luật mới bằng một mẫu hoặc <b>Tự ghép</b>. Luật đánh dấu <span class="tag">có
+        sẵn</span> chương trình xếp như trước (cùng mã kết quả nếu không sửa). <b>Bắt buộc</b>: TKB phải theo đúng;
+        <b>ưu tiên</b>: cố theo, mức càng cao càng nặng.</p>
       <ol id="rule-list" class="rule-list"></ol>
       <p class="muted" id="rule-empty">Chưa có luật nào: bấm <b>Về mặc định</b> để có các luật có sẵn, hoặc thêm luật.</p>
       <p class="muted" id="rule-structure"></p>
     </div>
     <div class="card">
-      <h2>Các mẫu luật và phép đo</h2>
+      <h2>Các loại luật</h2>
       <dl id="kind-list" class="kinds"></dl>
     </div>
     <div class="next"><button type="button" data-go="xep">Tiếp: Kiểm tra &amp; xếp TKB →</button></div>
@@ -252,6 +252,8 @@
       <button value="cancel" class="icon" title="Đóng">✕</button>
     </div>
     <p class="say-box">Luật đọc là: <b id="rule-say">…</b> <span class="tag" id="rule-native" hidden>có sẵn</span></p>
+    <p class="warn-text" id="rule-lost" hidden>Luật này sẽ không còn là luật có sẵn: chương trình xếp nó bằng bộ ghép
+      luật nên mã kết quả sẽ khác. Muốn giữ như cũ thì chỉ sửa số hoặc điểm.</p>
     <ul id="rule-errors" class="warn-text"></ul>
     <div id="rule-body" class="detail"></div>
     <datalist id="class-list"></datalist>

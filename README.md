@@ -48,11 +48,16 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      Cơ sở 2; **Lớp Đang Dạy** đánh dấu trong các lớp của trường (nút Khối k chọn cả khối); **Buổi Nghỉ** đánh dấu buổi
      cố định trên bảng ngày × buổi và ghi số buổi nghỉ thêm bất kỳ: buổi sáng, buổi chiều, hoặc sáng hay chiều đều được
      (GVCN không nghỉ buổi sáng). Trang ghi ra đúng chữ như ghi tay, vd `3/1, 3/2` và `Chiều T5, 2 buổi chiều`.
-   - **Luật** (bộ ghép luật, sheet LUẬT): mọi luật, kể cả các luật có sẵn, xếp theo nhóm; dòng đánh dấu **có sẵn**
-     chương trình xếp như trước. **Sửa** mở hộp thoại ghép câu "Với mỗi [lớp, giáo viên, ngày…] · các tiết [môn, nhãn,
-     khối, lớp, ngày, tiết, buổi, giáo viên] · thì [phép đo] [so sánh] [số]" bằng ô đánh dấu và danh sách chọn, hiện
-     ngay **luật đọc là** (cùng câu chương trình in ra) và lỗi nếu ghép sai, vd "Với mỗi giáo viên, ngày: mọi tiết của
-     GV Bộ Môn: số lớp khác nhau tối đa 3 (bắt buộc)". **✕** bỏ luật; chọn một mẫu hoặc **Tự ghép** rồi **+ Thêm luật**.
+   - **Luật** (bộ ghép luật, sheet LUẬT): mọi luật, kể cả các luật có sẵn, xếp theo nhóm, mỗi luật một câu dễ đọc
+     (luật có sẵn có tên riêng, vd "Mỗi buổi, một lớp học tối đa 2 tiết của một môn…") và nhãn **Bắt buộc** hoặc
+     **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **có sẵn** chương trình xếp như trước. **Sửa** mở hộp thoại
+     theo thứ tự câu luật: **Loại luật** (một ô chọn chia theo bốn câu hỏi **Ở đâu**, **Bao nhiêu**, **Đi cùng nhau**,
+     **Ai dạy**, gồm các mẫu và "Tự ghép · <phép đo>") · **Với mỗi** · **Các tiết nào** (Môn, Khối, Lớp; các ô ít dùng
+     nằm trong **Thêm điều kiện**, nhãn môn và nhãn giờ học tách riêng) · **Vào giờ nào** (họ Ở đâu) · **Thì** (Áp dụng
+     khi chọn bằng ô: từ … tiết/tuần trở lên, không quá …/số ngày học, chẵn/lẻ) · **Mức** (Bắt buộc/Ưu tiên và mức;
+     Điểm, Nhóm trong **Nâng cao**). Hộp thoại hiện ngay **luật đọc là** (cùng câu chương trình in ra), lỗi nếu ghép
+     sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (mã kết quả sẽ khác), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
+     đa 3 lớp khác nhau (bắt buộc)". **✕** bỏ luật; chọn loại luật rồi **+ Thêm luật**.
      **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (file chỉ có sheet LUẬT, HƯỚNG DẪN: sửa
      trong Excel, chép sang trường khác), **Tải mẫu luật** (các luật có sẵn mặc định), **Về mặc định**.
 
@@ -123,12 +128,12 @@ Mã thoát: `0` đạt; `1` lỗi file vào hoặc không xếp được; `2` TK
 
 **Khi các quy định mâu thuẫn** (không có TKB nào thỏa), chương trình nói rõ dòng luật nào (sheet LUẬT):
 - Trước khi xếp, chương trình đếm và báo ngay (cả nút Kiểm tra của giao diện), vd `Khối 1: Tiếng Việt có 14 tiết/tuần
-  nhưng luật 'LUẬT dòng 2: Với mỗi lớp, nhóm môn, buổi: mọi tiết: số tiết tối đa 1 (bắt buộc)' chỉ cho tối đa 1 × 9
-  buổi = 9 tiết`.
+  nhưng luật 'LUẬT dòng 2: Mỗi buổi, một lớp học tối đa 1 tiết của một môn, tính chung môn chính với môn tăng cường
+  cùng nhóm (bắt buộc)' chỉ cho tối đa 1 × 9 buổi = 9 tiết`.
 - Phép đếm không thấy mà bộ giải không xếp được thì chương trình **chẩn đoán** (thường dưới vài phút): thử bỏ từng
-  dòng luật bắt buộc rồi báo các dòng ít nhất không cùng thỏa được và dòng nào bỏ riêng là đủ, vd `LUẬT dòng 2: Với
-  mỗi lớp, nhóm môn, buổi: mọi tiết: số tiết tối đa 2` và `LUẬT dòng 9: Các tiết có nhãn Môn HĐTN: chỉ trong ô có nhãn
-  Xếp tiết HĐTN còn lại hoặc Tiết HĐTN cố định`. Nếu nguyên nhân chỉ là thiếu thời gian thì chương trình bảo tăng thời
+  dòng luật bắt buộc rồi báo các dòng ít nhất không cùng thỏa được và dòng nào bỏ riêng là đủ, vd `LUẬT dòng 2: Mỗi
+  buổi, một lớp học tối đa 2 tiết của một môn…` và `LUẬT dòng 9: Tiết HĐTN chỉ xếp vào giờ có nhãn Tiết HĐTN cố định
+  hoặc Xếp tiết HĐTN còn lại`. Nếu nguyên nhân chỉ là thiếu thời gian thì chương trình bảo tăng thời
   gian; nếu bỏ hết vẫn không được thì nguyên nhân ở nhân sự, định mức hoặc quyền dạy.
 
 Chạy test: `python -m pytest -q`
@@ -237,10 +242,10 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 | Ưu tiên buổi sáng | Có: Tiếng Việt, Toán | Mục tiêu mềm: mỗi tiết ở buổi chiều bị trừ điểm, và môn được rải đều hơn trong tuần. |
 
 Ba quy định của bản trước nay là **số của một dòng luật** ở sheet LUẬT: `Tối đa tiết mỗi ngày` (cột của sheet CHƯƠNG
-TRÌNH HỌC; dòng "Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1, khi số tiết/tuần <= số ngày"), `Số tiết tối đa
+TRÌNH HỌC; dòng "Mỗi ngày, một lớp học tối đa 1 tiết Toán, khi số tiết/tuần của môn không quá số ngày học"), `Số tiết tối đa
 một nhóm môn mỗi buổi` và `Ghép cặp khi nhóm môn có từ (tiết/tuần)` (sheet QUY ĐỊNH). File cũ ghi các cột đó vẫn đọc
 được (khi không có sheet LUẬT); file mẫu không còn các cột đó. Các cột Có/Không còn lại là dữ liệu và **nhãn** để các
-dòng luật dùng (vd luật "Các tiết có nhãn Môn nặng: không trong ô có nhãn Hạn chế môn nặng").
+dòng luật dùng (vd luật "Tránh xếp môn có nhãn Môn nặng vào giờ có nhãn Hạn chế môn nặng").
 
 **Sheet `QUY ĐỊNH`**, bảng 1 (`Quy định | Giá trị`):
 
@@ -284,7 +289,17 @@ mỗi lớp mỗi giờ học một tiết, đủ số tiết của chương tr�
 mức, chỉ dạy các môn chức vụ được dạy. Mỗi luật là một câu của **bộ ghép luật** (`tkb/bo_ghep.py`):
 
 > **Với mỗi** [phạm vi] · **các tiết** [Môn, Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo viên] · **thì** [Phép đo] [So sánh]
-> [Số] · **khi** [Áp dụng khi] · [Bắt buộc / Điểm / Mức]
+> [Số] · **khi** [Áp dụng khi] · [Bắt buộc / Mức / Điểm]
+
+Mỗi luật trả lời một trong **bốn câu hỏi** về các tiết, và các mẫu, phép đo xếp theo đó (cột `Kiểu luật`, `Phép đo`
+ghi như cũ; giao diện và sheet HƯỚNG DẪN chia theo bốn câu hỏi):
+
+| Câu hỏi | Mẫu | Phép đo (Tự ghép) |
+|---|---|---|
+| **Ở đâu** | Không xếp vào, Chỉ xếp vào, Cố định vào | Vị trí |
+| **Bao nhiêu** | Giáo viên tối đa tiết mỗi ngày, Giáo viên tối đa lớp mỗi ngày, Số lớp học cùng lúc tối đa, Học ít nhất số ngày | Số tiết, Số khác nhau, Khoảng cách |
+| **Đi cùng nhau** | Học 2 tiết liền, Học trước | Liền nhau, Theo cặp 2 tiết, Thứ tự, Đi kèm |
+| **Ai dạy** | Chỉ giáo viên dạy, Buổi nghỉ của giáo viên, Giáo viên chỉ dạy cơ sở 2 | Người dạy |
 
 Cột: `Nhóm | Kiểu luật | Với mỗi | Môn | Gồm môn tăng cường | Nhãn | Trừ nhãn | Khối | Lớp | Ngày | Tiết | Buổi |
 Giáo viên | Phép đo | So sánh | Số | Đếm theo | Môn thứ hai | Áp dụng khi | Bắt buộc | Mức | Điểm | Luật đọc là` (cột Nhóm
@@ -311,27 +326,31 @@ trường cả tuần); các cột điều kiện chọn tiết nào được x�
 
 | Phép đo | So sánh | Ví dụ |
 |---|---|---|
-| Số tiết | Tối đa / Tối thiểu / Đúng + Số (hoặc `tải ngày`, `tải ngày + 1`, `số tiết/tuần chia số ngày`) | Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1 |
-| Số khác nhau | như trên + `Đếm theo` | Với mỗi giáo viên, ngày: số lớp khác nhau tối đa 3 |
-| Vị trí | Chỉ trong / Không trong (Ngày, Tiết, Buổi, nhãn ô) | Các tiết có nhãn Môn nặng: không trong tiết 7 |
-| Liền nhau | — | Với mỗi lớp, môn: các tiết liền nhau trong buổi |
-| Theo cặp 2 tiết | — | Với mỗi lớp: các tiết Tiếng Anh thành cặp 2 tiết liền |
-| Thứ tự | Trước / Sau + `Môn thứ hai` (trống: các môn khác cùng nhóm) | Với mỗi lớp, nhóm môn, ngày: các tiết có nhãn Môn tăng cường đứng sau các tiết môn khác cùng nhóm |
-| Đi kèm | — + `Môn thứ hai` | Với mỗi lớp, ngày: có Toán tăng cường thì phải có Toán |
-| Người dạy | Do (+ Giáo viên) / Cùng một người / Liền nhau cùng người / Tiết đầu tuần do | Mọi tiết ở ô có nhãn Luôn do GVCN dạy: do Chủ Nhiệm dạy |
-| Khoảng cách | Tiết trống tối đa / Cách cuối buổi tối đa + Số | Với mỗi giáo viên: tối đa 0 tiết trống giữa các tiết |
+| Số tiết | Tối đa / Tối thiểu / Đúng + Số (hoặc `tải ngày`, `tải ngày + 1`, `số tiết/tuần chia số ngày`) | Mỗi lớp, mỗi ngày: học tối đa 1 tiết Toán |
+| Số khác nhau | như trên + `Đếm theo` | Mỗi giáo viên, mỗi ngày: dạy tối đa 3 lớp khác nhau |
+| Vị trí | Chỉ trong / Không trong (Ngày, Tiết, Buổi, nhãn giờ học) | Các tiết môn có nhãn Môn nặng không xếp vào tiết 7 |
+| Liền nhau | — | Mỗi lớp, mỗi môn: các tiết trong một buổi đứng liền nhau |
+| Theo cặp 2 tiết | — | Mỗi lớp: các tiết Tiếng Anh xếp thành cặp 2 tiết liền trong buổi |
+| Thứ tự | Trước / Sau + `Môn thứ hai` (trống: các môn khác cùng nhóm) | Mỗi lớp, mỗi nhóm môn, mỗi ngày: các tiết môn có nhãn Môn tăng cường đứng sau các tiết môn khác cùng nhóm |
+| Đi kèm | — + `Môn thứ hai` | Mỗi lớp, mỗi ngày: có tiết Toán tăng cường thì cũng có tiết Toán |
+| Người dạy | Do (+ Giáo viên) / Cùng một người / Liền nhau cùng người / Tiết đầu tuần do | Các tiết ở giờ có nhãn Luôn do GVCN dạy do GV chủ nhiệm dạy |
+| Khoảng cách | Tiết trống tối đa / Cách cuối buổi tối đa + Số | Mỗi giáo viên, mỗi buổi: các tiết không có tiết trống xen giữa |
 
 `Nhãn`, `Trừ nhãn` là tên các cột Có/Không của môn (vd `Môn nặng`, `Ưu tiên buổi sáng`) hoặc của ngày, tiết (vd `Luôn
-do GVCN dạy`, `Hạn chế môn nặng`): thêm một cột Có/Không là có thêm một nhãn; nhiều nhãn ô là ô có một trong các nhãn.
+do GVCN dạy`, `Hạn chế môn nặng`): thêm một cột Có/Không là có thêm một nhãn; nhiều nhãn giờ học là giờ có một trong
+các nhãn.
 `Giáo viên` ghi chức vụ, hoặc `trừ Chủ Nhiệm` (mọi giáo viên trừ chức vụ đó). `Gồm môn tăng cường` = Có thì Môn tính cả các môn tăng
 cường cùng nhóm. `Áp dụng khi` đặt điều kiện trên số tiết/tuần của các môn của luật ở từng khối, vd `>= 6, chẵn` hay
 `<= số ngày` (phạm vi có Môn, Nhóm môn thì xét từng môn, nhóm môn). Câu đọc lại của mỗi luật có ở giao diện, ở thông
-báo lỗi và ở cột Luật đọc là.
+báo lỗi và ở cột Luật đọc là; dòng ở dạng gốc của một luật có sẵn đọc bằng tên riêng của luật đó (vd "Tránh xếp môn
+có nhãn Môn nặng vào giờ có nhãn Hạn chế môn nặng"), dòng khác đọc bằng câu ghép, không dùng ký hiệu (`>=` đọc là "từ …
+trở lên").
 
 - **Bắt buộc** `Có`: TKB phải theo đúng (luật cứng, bộ kiểm tra độc lập kiểm lại). `Không` hoặc trống: **ưu tiên**
   (mục tiêu mềm): **Điểm** là điểm trừ mỗi lần không theo (các luật có sẵn ghi sẵn điểm, vd môn nặng ở tiết hạn chế
-  1.200), hoặc **Mức** `1`, `2`, `3` (trống là 2): 100, 400, 1.500 điểm. Sau khi xếp, màn hình in số lần không theo
-  từng luật ưu tiên của luật thêm vào.
+  1.200), hoặc **Mức** `Thấp`, `Vừa`, `Cao`, `Rất cao` (hoặc `1`–`4`; trống là Vừa): 100, 400, 1.500, 5.000 điểm.
+  Câu đọc lại ghi mức bằng chữ, dòng ghi Điểm đọc theo mức gần nhất (vd 1.200 điểm là "ưu tiên cao"). Sau khi xếp,
+  màn hình in số lần không theo từng luật ưu tiên của luật thêm vào.
 - Môn, Lớp, Khối, Ngày, Tiết ghi danh sách: `3, 4`, `3-5`; `Thứ 2, Thứ 4`, `T2-T4`; `1`, `5-7`. Buổi: `Sáng` hoặc
   `Chiều`.
   Giáo viên: chức vụ như cột Chức Vụ (`Chủ Nhiệm`, `Bộ Môn`, `Quản Lý` hoặc chức vụ GV chuyên biệt, vd `Tiếng Anh`).

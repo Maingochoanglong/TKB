@@ -42,9 +42,12 @@ def test_parse_each_kind():
     assert luat_rieng.describe(rule) == "Thể dục khối 3, 4, 5 không xếp vào buổi sáng Thứ 2, Thứ 4 tiết 1 (bắt buộc)"
     assert _parse(kind="Chỉ xếp vào", subject="Thể dục", sessions="chiều")[0].sessions == ("Chiều",)
     assert _parse(kind="Học 2 tiết liền", subject="Tiếng Anh", level=3)[0].level == 3
+    assert _parse(kind="Học 2 tiết liền", subject="Tiếng Anh", level="rất cao")[0].level == 4  # Mức ghi bằng chữ
+    assert luat_rieng.cells(CustomRule("lien_2", "Toán", level=3))["level"] == "Cao"  # ghi ra bằng chữ
+    assert config.Weights().custom_levels[3] == 5000
     assert _parse(kind="Học trước", subject="Tiếng Việt", other="Toán")[0].other == "Toán"
     rule = _parse(kind="Giáo viên tối đa tiết mỗi ngày", role="Tiếng Anh", number=5, hard="Có")[0]
-    assert rule.role == "tiếng anh" and luat_rieng.describe(rule) == ("mỗi GV Tiếng Anh dạy tối đa 5 tiết mỗi ngày "
+    assert rule.role == "tiếng anh" and luat_rieng.describe(rule) == ("Mỗi GV Tiếng Anh dạy tối đa 5 tiết mỗi ngày "
                                                                      "(bắt buộc)")
     assert _parse(kind="Số lớp học cùng lúc tối đa", subject="Tin học", number=1)[0].number == 1
     # Ô không ghi gì: không phải luật.
@@ -59,7 +62,7 @@ def test_parse_each_kind():
     (dict(kind="Không xếp vào", subject="Toán", days="Thứ 8"), "cột Ngày ghi Thứ 2 … Thứ 7"),
     (dict(kind="Không xếp vào", subject="Toán", sessions="tối"), "cột Buổi ghi Sáng hoặc Chiều"),
     (dict(kind="Học trước", subject="Toán", other="toán"), "Môn và Môn thứ hai phải khác nhau"),
-    (dict(kind="Học 2 tiết liền", subject="Toán", level=5), "cột Mức ghi 1, 2 hoặc 3"),
+    (dict(kind="Học 2 tiết liền", subject="Toán", level=5), "cột Mức ghi Thấp, Vừa, Cao, Rất cao"),
     (dict(kind="Số lớp học cùng lúc tối đa", subject="Tin học", number=0), "cột Số ghi một số nguyên dương"),
 ])
 def test_parse_errors(cells, error):
@@ -145,7 +148,7 @@ def test_soft_rules_are_preferred():
     assert monday_it(prefer) == 0 and {l.day for l in prefer.lessons if l.subject == config.TIN_HOC} == {4}
     with applied({"CUSTOM_RULES": [CustomRule("khong_xep", "Tin học", days=(0, 1, 2, 3), level=3, row=4)]}):
         assert luat_rieng.soft_report(prefer.problem, prefer.lessons) == [
-            "LUẬT RIÊNG dòng 4: Tin học không xếp vào Thứ 2, Thứ 3, Thứ 4, Thứ 5 (ưu tiên mức 3): 0 lần không theo"]
+            "LUẬT RIÊNG dòng 4: Tin học không xếp vào Thứ 2, Thứ 3, Thứ 4, Thứ 5 (ưu tiên cao): 0 lần không theo"]
         before = sum(1 for l in plain.lessons if l.subject == config.TIN_HOC and l.day < 4)
         assert before > 0 and luat_rieng.soft_report(plain.problem, plain.lessons)[0].endswith(
             f": {before} lần không theo")
@@ -175,7 +178,7 @@ def test_precheck_and_validate():
                      "hết thành cặp 2 tiết"]
     _, found = run(CustomRule("cung_luc", "Tiếng Anh", number=1, hard=True, row=7),
                    CustomRule("chi_xep", "Tiếng Anh", days=(0,), hard=True, row=8))
-    assert found == ["LUẬT RIÊNG dòng 7: Tiếng Anh: tối đa 1 lớp học cùng lúc (bắt buộc): các lớp có tổng 8 tiết "
+    assert found == ["LUẬT RIÊNG dòng 7: Tiếng Anh có tối đa 1 lớp học cùng lúc (bắt buộc): các lớp có tổng 8 tiết "
                      "Tiếng Anh nhưng tối đa 1 lớp × 7 tiết = 7"]
     assert run(CustomRule("lien_2", "Toán", row=6)) == ([], [])  # ưu tiên: không đếm
 
@@ -188,6 +191,6 @@ def test_diagnosis_names_the_custom_rule():
         _solve(rule)
     lines = str(err.value).splitlines()
     assert "  - LUẬT RIÊNG dòng 12: Toán chỉ xếp vào buổi chiều (bắt buộc)" in lines
-    assert ("  - Luật có sẵn: Với mỗi lớp, ngày: các tiết Toán: số tiết tối đa 1, khi số tiết/tuần <= số ngày (bắt "
-            "buộc)") in lines
+    assert ("  - Luật có sẵn: Mỗi ngày, một lớp học tối đa 1 tiết Toán, khi số tiết/tuần của môn không quá số ngày "
+            "học (bắt buộc)") in lines
     assert config.CUSTOM_RULES == []  # chẩn đoán xong trả lại như cũ

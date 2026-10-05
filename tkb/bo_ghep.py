@@ -7,7 +7,7 @@
   Môn nặng, Luôn do GVCN dạy), khối, lớp, ngày, tiết, buổi, chức vụ GV.
 - Phép đo (`MEASURES`): số tiết, số giá trị khác nhau, vị trí, liền nhau, theo cặp, thứ tự, đi kèm, người dạy,
   khoảng cách.
-- Mức: bắt buộc, hoặc ưu tiên mức 1–3 (`config.Weights.custom_levels`).
+- Mức: bắt buộc, hoặc ưu tiên Thấp/Vừa/Cao/Rất cao (mức 1–4, `config.Weights.custom_levels`) hoặc Điểm.
 
 Một luật (dòng của sheet LUẬT RIÊNG, `config.CustomRule`) được chuẩn hóa thành `Luat` (`make`); các mẫu có sẵn
 (luat_rieng.KINDS) chỉ là cách điền sẵn câu. Mỗi phép đo là một hàm viết trên một "ngữ cảnh": cùng hàm đó
@@ -67,35 +67,39 @@ class Measure:
     sequence: bool = False  # xét thứ tự các tiết trong buổi: phạm vi phải có Lớp hoặc Giáo viên
     note: str = ""
     default_op: str = ""  # so sánh khi cột So sánh để trống (thì không bắt buộc ghi)
+    family: str = ""  # họ luật (FAMILIES): giao diện xếp phép đo theo câu hỏi luật trả lời
 
 
 COUNT_OPS = ("<=", ">=", "=")
+# Bốn họ luật: mỗi luật trả lời một câu hỏi về các tiết. Mẫu luật (luat_rieng.KINDS) và phép đo đều thuộc một họ, để
+# giao diện chọn loại luật theo câu hỏi thay vì theo tên kỹ thuật.
+FAMILIES = ("Ở đâu", "Bao nhiêu", "Đi cùng nhau", "Ai dạy")
 MEASURES = (
-    Measure("so_tiet", "Số tiết", COUNT_OPS, True,
-            note="Số tiết trong mỗi phạm vi, vd mỗi lớp mỗi ngày tối đa 1 tiết Toán; mỗi giờ học tối đa 1 lớp Tin "
-                 "học."),
-    Measure("so_khac", "Số khác nhau", COUNT_OPS, True, count_by=True,
-            note="Số giá trị khác nhau ở cột Đếm theo, vd mỗi GV mỗi ngày dạy tối đa 3 lớp; mỗi lớp học Tiếng Anh ít "
-                 "nhất 3 ngày."),
-    Measure("vi_tri", "Vị trí", ("trong", "ngoai"), False,
-            note="Các tiết chỉ nằm trong / không nằm trong các ngày, tiết, buổi (và nhãn ngày, tiết) ghi ở dòng này."),
-    Measure("lien", "Liền nhau", (), False, sequence=True,
-            note="Các tiết trong mỗi buổi (của mỗi lớp hoặc GV) đứng liền nhau, không có tiết khác xen giữa."),
-    Measure("cap", "Theo cặp 2 tiết", (), False, sequence=True,
-            note="Mỗi buổi 0 hoặc 2 tiết, 2 tiết đó liền nhau (ưu tiên: không có tiết lẻ đứng một mình)."),
+    Measure("so_tiet", "Số tiết", COUNT_OPS, True, family="Bao nhiêu",
+            note="Đếm số tiết trong mỗi phạm vi, vd mỗi lớp mỗi ngày học tối đa 1 tiết Toán; mỗi giờ học có tối đa "
+                 "1 tiết Tin học."),
+    Measure("so_khac", "Số khác nhau", COUNT_OPS, True, count_by=True, family="Bao nhiêu",
+            note="Đếm số lớp, ngày, cơ sở… khác nhau (cột Đếm theo), vd mỗi giáo viên mỗi ngày dạy tối đa 3 lớp; mỗi "
+                 "lớp học Tiếng Anh ít nhất 3 ngày."),
+    Measure("vi_tri", "Vị trí", ("trong", "ngoai"), False, family="Ở đâu",
+            note="Các tiết chỉ xếp vào, hoặc không xếp vào, các ngày, tiết, buổi (hoặc giờ có nhãn) ghi ở dòng này."),
+    Measure("lien", "Liền nhau", (), False, sequence=True, family="Đi cùng nhau",
+            note="Các tiết trong một buổi (của mỗi lớp hoặc giáo viên) đứng liền nhau, không có tiết khác xen giữa."),
+    Measure("cap", "Theo cặp 2 tiết", (), False, sequence=True, family="Đi cùng nhau",
+            note="Mỗi buổi học 0 hoặc 2 tiết, 2 tiết đó liền nhau (ưu tiên: hạn chế tiết lẻ đứng một mình)."),
     Measure("thu_tu", "Thứ tự", ("truoc", "sau"), False, other=True, sequence=True, default_op="truoc",
-            note="Trong mỗi buổi (hoặc ngày, nếu phạm vi có Ngày) các tiết ở cột Môn đứng trước (hoặc sau) các tiết "
-                 "Môn thứ hai. Môn thứ hai trống và phạm vi có Nhóm môn: các môn khác cùng nhóm."),
-    Measure("di_kem", "Đi kèm", (), False, other=True, sequence=True,
-            note="Buổi (hoặc ngày) có tiết ở cột Môn thì cũng có tiết Môn thứ hai. Môn thứ hai trống và phạm vi có "
-                 "Nhóm môn: các môn khác cùng nhóm."),
-    Measure("nguoi_day", "Người dạy", ("do", "cung_nguoi", "lien_cung_nguoi", "dau_tuan"), False,
-            note="Các tiết do GV có chức vụ ở cột Giáo viên dạy; hoặc mọi tiết trong mỗi phạm vi do cùng một người; "
-                 "hoặc hai tiết liền nhau do cùng một người; hoặc tiết đầu tuần do GV có chức vụ ở cột Giáo viên dạy "
-                 "và tiết của người khác không đứng trước tiết đó."),
-    Measure("khoang_cach", "Khoảng cách", ("trong_tiet", "cuoi_buoi"), True, sequence=True,
-            note="Số tiết trống giữa các tiết trong buổi tối đa ngần ấy; hoặc mỗi tiết cách cuối buổi tối đa ngần "
-                 "ấy tiết."),
+            family="Đi cùng nhau",
+            note="Trong một buổi (hoặc ngày, nếu Với mỗi có Ngày) tiết của Môn đứng trước (hoặc sau) tiết của Môn thứ "
+                 "hai. Để trống Môn thứ hai và Với mỗi có Nhóm môn: các môn khác cùng nhóm."),
+    Measure("di_kem", "Đi kèm", (), False, other=True, sequence=True, family="Đi cùng nhau",
+            note="Buổi (hoặc ngày) có tiết của Môn thì cũng có tiết của Môn thứ hai. Để trống Môn thứ hai và Với mỗi "
+                 "có Nhóm môn: các môn khác cùng nhóm."),
+    Measure("nguoi_day", "Người dạy", ("do", "cung_nguoi", "lien_cung_nguoi", "dau_tuan"), False, family="Ai dạy",
+            note="Các tiết do giáo viên có chức vụ ở cột Giáo viên dạy; hoặc do cùng một người dạy; hoặc hai tiết liền "
+                 "nhau do cùng một người; hoặc tiết đầu tuần do chức vụ đó dạy, tiết của người khác không đứng trước."),
+    Measure("khoang_cach", "Khoảng cách", ("trong_tiet", "cuoi_buoi"), True, sequence=True, family="Bao nhiêu",
+            note="Số tiết trống xen giữa các tiết trong buổi (0: không có tiết trống); hoặc số tiết từ tiết đó đến "
+                 "cuối buổi (0: ở tiết cuối buổi)."),
 )
 MEASURE = {m.key: m for m in MEASURES}
 OPS = {"<=": "Tối đa", ">=": "Tối thiểu", "=": "Đúng", "trong": "Chỉ trong", "ngoai": "Không trong", "do": "Do",

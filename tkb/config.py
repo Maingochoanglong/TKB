@@ -209,7 +209,7 @@ class CustomRule:
     role: str = ""  # chức vụ của GV (chữ thường); trống = mọi GV
     number: int | None = None  # số trong luật (tối đa tiết mỗi ngày, số lớp cùng lúc)
     hard: bool = False  # bắt buộc; không thì là ưu tiên
-    level: int = 2  # mức ưu tiên 1–3 (Weights.custom_levels)
+    level: int = 2  # mức ưu tiên 1–4: Thấp, Vừa, Cao, Rất cao (Weights.custom_levels)
     row: int = 0  # dòng trong sheet LUẬT RIÊNG (để báo lỗi)
     # Bộ ghép (kiểu "tu_ghep" và các mẫu mới; tkb/bo_ghep.py): "Với mỗi [scope], chỉ xét các tiết [môn, nhãn, khối,
     # lớp, ngày, tiết, buổi, GV] thì [measure] [op] [number], khi [when]".
@@ -303,9 +303,10 @@ class Weights:
     group_grade: int = 20  # mỗi khối một GV không chủ nhiệm dạy
     group_class: int = 5  # mỗi lớp một GV không chủ nhiệm dạy
     odd_pair_share: int = 100_000  # mỗi phần lẻ của một người trong nhóm môn ghép cặp
-    # Luật riêng không bắt buộc (sheet LUẬT RIÊNG), theo mức 1, 2, 3: mỗi lần không theo luật bị trừ ngần ấy điểm
-    # (mức 3 nặng hơn một tiết môn nặng ở tiết 7, mức 1 cỡ một tiết TV/Toán buổi chiều).
-    custom_levels: tuple[int, int, int] = (100, 400, 1_500)
+    # Luật ưu tiên của sheet LUẬT theo cột Mức Thấp, Vừa, Cao, Rất cao (1–4): mỗi lần không theo luật bị trừ ngần
+    # ấy điểm (Cao nặng hơn một tiết môn nặng ở tiết 7, Thấp cỡ một tiết TV/Toán buổi chiều, Rất cao cỡ một lần GV
+    # dạy hai cơ sở trong một ngày).
+    custom_levels: tuple[int, int, int, int] = (100, 400, 1_500, 5_000)
 
 
 # --------------------------------------------------------------------------
