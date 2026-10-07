@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from itertools import combinations
 
 from . import config
-from .allocation import (Course, Problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
+from .allocation import (Course, Problem, keep_cost, overtime_cost, paired_groups, previous_cost, roles_for_subject,
                          sessions_per_week, subject_group, supplement_capacity)
 from .bo_ghep import assign_cost
 from .staff import Teacher, class_sort_key, grade_of
@@ -138,7 +138,7 @@ def _flow(problem: Problem, w: config.Weights, demand: dict[int, int], base_load
             if t.supplementary or (t.class_name and not homeroom_arcs):
                 continue
             cost = w.overtime_subject_order * subject_rank(c.subject) if t.class_name else 0
-            cost += keep_cost(t, c.class_name, w)
+            cost += keep_cost(t, c.class_name, w) + previous_cost(t, c, w)
             if config.CUSTOM_RULES:  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
                 cost += assign_cost(t, c, problem.curriculum, w)
             if c.subject in spec and t.role not in problem.specialists:
@@ -331,6 +331,9 @@ class _Local:
             members = self.role_members[role]
             if len(members) >= 2:
                 cost += w.load_balance * max(teachers[m].max_lessons - self.load[m] for m in members)
+        for cid in cids:  # xếp lại ít xáo trộn: giữ người dạy của TKB cũ
+            c = self.p.courses[cid]
+            cost += sum(previous_cost(teachers[g], c, w) * n for g, n in self.share.get(cid, {}).items())
         for g in gs:
             cost += sum(keep_cost(teachers[g], cls, w) * n for cls, n in self.tcls[g].items())
             cost += w.group_grade * len(self.tgrade[g]) + w.group_class * len(self.tcls[g])

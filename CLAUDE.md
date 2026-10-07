@@ -73,9 +73,14 @@ rewrites `HƯỚNG DẪN` with the result notes, writes the saved timetable grid
 `writer.write_shortage`. The updated input stores the timetable in sheet `TKB đã xếp` (`config.SAVED_SHEET`), a grid like the TKB
 (`Lớp | Tiết | Thứ 2…`, cell "subject\nMã GV", " (bù)" for overtime, row 1 = result code + rules code); reloading
 it (`staff.read_saved_timetable` → `solver.reuse`, teachers matched by Mã GV, `checker.check` must pass, and the
-saved rules code must equal `rules.code()`, else re-solve) skips
-solving, so renaming "chưa có" hires keeps the timetable and the code; `main.py` `GIU_TKB_DA_XEP = False` /
-`--xep-lai` forces a re-solve.
+saved rules code must equal `rules.code()`) skips
+solving, so renaming "chưa có" hires keeps the timetable and the code. Otherwise (checker fails, rules changed) it
+re-solves with **minimal change**: `solver.solve(previous=rows)` → `previous_from` (cells readable with the new
+file) → `Teacher.previous` + `allocation.previous_cost` (`Weights.keep_previous`) in assignment, `_keep_previous` in
+`build_timetable` (`Weights.keep_cell` per moved cell, cells marked " (khóa)" = `config.SAVED_LOCKED` are hard,
+infeasible locks are released and retried; no `AddHint`: OR-Tools 9.15 + interleave_search aborts on hints of an
+infeasible model), `Lesson.locked` writes the mark back, `writer.change_rows` → sheet `Thay đổi`. `main.py`
+`GIU_TKB_DA_XEP = False` / `--xep-lai` re-solves from scratch.
 
 Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 127.0.0.1 (Host check + per-start token
 `X-TKB-Token`, injected into `static/index.html`; files opened/served only inside the output folder, default

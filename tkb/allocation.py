@@ -234,6 +234,14 @@ def keep_cost(t: Teacher, class_name: str, w: config.Weights) -> int:
     return 0 if class_name in t.history else w.keep_class
 
 
+def previous_cost(t: Teacher, course: Course, w: config.Weights) -> int:
+    """Xếp lại ít xáo trộn: giá mỗi tiết t dạy (lớp, môn) của course mà TKB cũ không giao cho t (Teacher.previous).
+    GV không có trong TKB cũ (vd người mới): 0."""
+    if not t.previous:
+        return 0
+    return 0 if (course.class_name, course.subject) in t.previous else w.keep_previous
+
+
 def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                   supplement_counts: dict[str, int] | None = None, overtime_max: int = 0) -> Problem:
     """Dựng bài toán.

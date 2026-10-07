@@ -255,5 +255,5 @@ def test_changed_rules_in_updated_file_solve_again(tmp_path, capsys):
     capsys.readouterr()
     assert main.run(updated, tmp_path / "lan2", thoi_gian_toi_da=10, che_do="tuyen_them") == 0
     out = capsys.readouterr().out
-    assert "khác mặc định: Môn nặng" in out and "xếp lại từ đầu theo quy định mới" in out
+    assert "khác mặc định: Môn nặng" in out and "xếp lại theo quy định mới, giữ TKB cũ" in out
     assert "Dùng lại TKB đã xếp" not in out

@@ -56,8 +56,10 @@ CHAY_TAI_LAP_DUOC = True
 # True : dùng lại đúng TKB đó, không xếp lại, nếu vẫn đúng mọi luật. Vd tuyển được người thì chỉ cần đổi chữ
 #        "chưa có" thành tên người mới rồi chạy: TKB và mã kết quả giữ nguyên, chỉ thêm tên. Cũng dùng được để in
 #        lại đúng TKB của máy khác (vd TKB chạy trên Linux) trên máy này. Sửa file làm TKB cũ sai luật (đổi định
-#        mức, buổi nghỉ...) thì chương trình in lý do rồi xếp lại từ đầu.
-# False: luôn xếp lại từ đầu.
+#        mức, buổi nghỉ, luật, sửa tay ô TKB...) thì chương trình in lý do rồi xếp lại **ít xáo trộn nhất**: giữ
+#        mọi ô được, chỉ dời các tiết cần dời (danh sách ở sheet "Thay đổi" của file thống kê). Ô nào ghi thêm
+#        "(khóa)" ở dòng cuối (vd "Toán" / "Bộ Môn 2 (khóa)") thì giữ nguyên bắt buộc.
+# False: bỏ TKB đó, xếp lại từ đầu (cả trường đổi lịch).
 GIU_TKB_DA_XEP = True
 
 # --- Ít khi phải sửa ---

@@ -139,18 +139,21 @@ Mã thoát: `0` đạt; `1` lỗi file vào hoặc không xếp được; `2` TK
 
 Chạy test: `python -m pytest -q`
 
-## Tuyển được người: giữ nguyên TKB
+## Tuyển được người, đổi giữa năm: giữ nguyên TKB
 
-File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã xếp ở sheet **TKB đã xếp**, dạng lưới như TKB: `Lớp | Tiết | Thứ 2 … Thứ 6`, mỗi ô ghi môn, xuống dòng ghi Mã GV (thêm `(bù)` ở tiết dạy bù); dòng đầu ghi mã kết quả và mã các quy định đã dùng.
+File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã xếp ở sheet **TKB đã xếp**, dạng lưới như TKB: `Lớp | Tiết | Thứ 2 … Thứ 6`, mỗi ô ghi môn, xuống dòng ghi Mã GV (thêm `(bù)` ở tiết dạy bù, `(khóa)` ở ô khóa); dòng đầu ghi mã kết quả và mã các quy định đã dùng.
 
 1. Chạy chế độ tuyển thêm. File vào cập nhật có thêm các dòng `chưa có` (vd Bộ Môn 5–8).
 2. Tuyển được người thì mở file vào cập nhật, **chỉ đổi chữ `chưa có` thành tên người mới**. Không đổi thứ tự dòng, vì giáo viên được khớp theo Mã GV (vd `Bộ Môn 5` là người thứ 5 trong chức vụ Bộ Môn).
 3. Đặt `FILE_VAO` là file đó, `GIU_TKB_DA_XEP = True` (mặc định), rồi chạy. Chương trình in `Dùng lại TKB đã xếp trong file vào`, không xếp lại (chạy vài giây). TKB giữ nguyên từng ô, **mã kết quả giữ nguyên**; TKB và file thống kê ghi tên người mới.
 
 - Chạy ở chế độ nào cũng được: người mới giờ là bộ môn thật, dạy trong định mức, nên không ai phải bù.
-- Trước khi dùng lại, chương trình kiểm tra TKB đó với file vào mới theo mọi luật bắt buộc. Nếu file bị sửa làm TKB cũ sai luật (vd hạ định mức của một người xuống dưới số tiết đang dạy, thêm buổi nghỉ trùng tiết đang dạy, sửa chương trình học), chương trình in lý do rồi **xếp lại từ đầu**.
-- Sửa quy định trong file đó (vd thêm môn nặng) thì chương trình biết quy định đã đổi (mã quy định khác) và **xếp lại từ đầu** theo quy định mới.
-- Muốn xếp lại từ đầu dù TKB cũ vẫn đúng luật: đặt `GIU_TKB_DA_XEP = False` (dòng lệnh: `--xep-lai`).
+- Trước khi dùng lại, chương trình kiểm tra TKB đó với file vào mới theo mọi luật bắt buộc. Nếu file bị sửa làm TKB cũ sai luật (vd một người xin nghỉ một buổi đang có tiết, hạ định mức, sửa chương trình học, sửa tay vài ô TKB) hoặc quy định đã đổi (mã quy định khác, vd thêm môn nặng, thêm luật), chương trình in lý do rồi **xếp lại ít xáo trộn nhất**:
+  - giữ mọi ô được; mỗi ô đổi môn bị trừ điểm nặng (`keep_cell` 5.000, nặng hơn mọi mục tiêu mềm trừ đổi cơ sở trong ngày), phân công ưu tiên giữ người dạy cũ (`keep_previous`);
+  - ô ghi thêm **`(khóa)`** ở dòng cuối (vd `Toán` / `Bộ Môn 2 (khóa)`, gõ tay trong sheet TKB đã xếp) giữ nguyên bắt buộc, cả môn lẫn người dạy; lần sau vẫn ghi `(khóa)`. Ô khóa không xếp được (giờ không học) bị bỏ qua; các ô khóa mâu thuẫn với luật thì chương trình bỏ khóa (in ra) và vẫn giữ TKB cũ nhiều nhất có thể;
+  - màn hình in `So với TKB đã xếp trong file vào: đổi n/m ô`, file thống kê có sheet **Thay đổi** (`Lớp | Thứ | Tiết | Trước | Sau`).
+  - Ví dụ trường mẫu (928 tiết): một giáo viên xin nghỉ chiều Thứ 5 → xếp lại ít xáo trộn đổi **15 ô** (chất lượng còn tốt hơn chút), xếp lại từ đầu đổi 628 ô.
+- Muốn bỏ TKB cũ, xếp lại từ đầu: đặt `GIU_TKB_DA_XEP = False` (dòng lệnh: `--xep-lai`; giao diện: bỏ chọn "Giữ TKB đã xếp").
 - Cũng dùng được để có lại đúng TKB của máy khác: lấy file vào cập nhật của bản chạy trên Linux, chạy trên máy Windows thì ra đúng TKB bản Linux (cùng mã kết quả), và ngược lại.
 
 ## Chạy trên máy khác

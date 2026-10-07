@@ -107,9 +107,12 @@ RULES_SHEET = "QUY ĐỊNH"
 # File vào cập nhật (<file vào>_cap_nhat.xlsx) lưu TKB đã xếp ở sheet này, dạng lưới như TKB: dòng đầu ghi mã kết
 # quả và mã quy định; bảng Lớp | Tiết | Thứ 2 …, mỗi ô ghi môn, xuống dòng ghi Mã GV (thêm " (bù)" ở tiết dạy bù).
 # Nạp lại file đó làm file vào thì chương trình dùng lại TKB này nếu vẫn đúng mọi luật (vd chỉ đổi tên người
-# "chưa có" thành tên người mới tuyển); main.py GIU_TKB_DA_XEP = False (dòng lệnh --xep-lai) thì xếp lại từ đầu.
+# "chưa có" thành tên người mới tuyển); không còn đúng (sửa tay, đổi nhân sự, đổi luật) thì xếp lại **ít xáo trộn
+# nhất**: giữ mọi ô được, ô ghi thêm " (khóa)" thì giữ nguyên bắt buộc. main.py GIU_TKB_DA_XEP = False (dòng lệnh
+# --xep-lai) thì bỏ TKB này, xếp lại từ đầu.
 SAVED_SHEET = "TKB đã xếp"
 SAVED_OVERTIME = "(bù)"
+SAVED_LOCKED = "(khóa)"
 SAVED_CODES = ("Mã kết quả", "Mã quy định")
 
 # Môn chỉ GVCN của lớp được dạy.
@@ -300,6 +303,11 @@ class Weights:
     # trước gom lớp và cân bằng tải.
     keep_grade: int = 60  # mỗi tiết GV dạy khối không nằm trong các khối đang dạy
     keep_class: int = 10  # mỗi tiết GV dạy đúng khối cũ nhưng khác lớp cũ
+    # Xếp lại ít xáo trộn (nạp lại TKB đã xếp không còn đúng): mỗi tiết GV dạy (lớp, môn) không có trong TKB cũ
+    # (đắt hơn dạy thay môn chuyên biệt, rẻ hơn chia lớp-môn), mỗi ô của TKB cũ bị đổi môn (đắt hơn mọi mục tiêu
+    # mềm trừ đổi cơ sở trong ngày).
+    keep_previous: int = 2_000
+    keep_cell: int = 5_000
     group_grade: int = 20  # mỗi khối một GV không chủ nhiệm dạy
     group_class: int = 5  # mỗi lớp một GV không chủ nhiệm dạy
     odd_pair_share: int = 100_000  # mỗi phần lẻ của một người trong nhóm môn ghép cặp

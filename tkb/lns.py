@@ -67,7 +67,8 @@ class _Search:
         s = cp_model.CpSolver()
         _configure(s, self.settings, seconds)
         s.parameters.catch_sigint_signal = False  # Ctrl+C do vòng lặp xử lý (xem improve)
-        if hint is not None:
+        if hint is not None:  # thay gợi ý của mô hình (vd TKB cũ khi xếp lại ít xáo trộn) bằng nghiệm đang có
+            model.ClearHints()
             model.proto.solution_hint.vars.extend(range(self.n))
             model.proto.solution_hint.values.extend(hint)
         status = s.Solve(model)

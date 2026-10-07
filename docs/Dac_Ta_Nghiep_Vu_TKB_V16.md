@@ -76,6 +76,7 @@
 | 58 | Mọi luật nằm trong file Excel (sheet `LUẬT`) | Luật có sẵn viết trong code, chỉ chỉnh tham số qua vài cột; luật riêng ở sheet `LUẬT RIÊNG` | **Sheet `LUẬT`** (mục 6.1): mọi luật xếp TKB là một dòng câu ghép, kể cả 23 luật có sẵn (`tkb/luat_co_san.py`, file mẫu ghi sẵn). Dòng đúng **dạng gốc** của luật có sẵn (chỉ khác số, điểm) xếp như trước, số và điểm lấy từ dòng; xóa dòng là tắt luật; sửa khác dạng gốc (vd đổi sang ưu tiên) thì xếp bằng bộ ghép. Bộ ghép thêm: Trừ nhãn, Điểm, Nhóm, ngưỡng theo dữ liệu (tải ngày, số tiết/tuần chia số ngày), "trừ Chủ Nhiệm", Thứ tự "sau", Môn thứ hai trống là các môn khác cùng nhóm, Người dạy "Liền nhau cùng người" và "Tiết đầu tuần do", Áp dụng khi theo từng môn/nhóm môn. Ba cột cũ (Tối đa tiết mỗi ngày, Số tiết tối đa một nhóm môn mỗi buổi, Ghép cặp khi nhóm môn có từ) nay là số của dòng luật (file cũ vẫn đọc được); các cột Có/Không là **nhãn**. Chẩn đoán bỏ thử từng dòng luật và nêu `LUẬT dòng n`. Giao diện: mọi luật một danh sách, Nhập luật từ Excel, Xuất luật ra Excel, Tải mẫu luật. Để mặc định (hoặc file không có sheet `LUẬT`): mã kết quả, mã quy định không đổi |
 | 59 | Luật dễ đọc, dễ ghép | Câu đọc lại dùng ký hiệu (`>=`, `<=`), hai dấu hai chấm, "ô có nhãn", "tối đa 0 tiết"; hai cửa chọn chồng nhau (13 mẫu, 9 phép đo); hai thang ưu tiên (Mức 1–3, Điểm 10…10000); hộp thoại ghép phẳng khoảng 20 ô | **Luật có sẵn có tên riêng** (`Native.titles`), dòng khác đọc bằng câu ghép tự nhiên (mục 6.1); "giờ học" thay "ô", "GV chủ nhiệm". Mẫu và phép đo chia theo **bốn câu hỏi** Ở đâu, Bao nhiêu, Đi cùng nhau, Ai dạy (giao diện: một ô chọn Loại luật; HƯỚNG DẪN theo câu hỏi). **Mức ưu tiên bằng chữ** Thấp, Vừa, Cao, Rất cao (thêm mức 4 = 5.000 điểm; cột Mức ghi chữ, vẫn đọc 1–3); dòng ghi Điểm đọc theo mức gần nhất. Hộp thoại theo thứ tự câu: Loại luật · Với mỗi · Các tiết nào (Thêm điều kiện) · Vào giờ nào · Thì (Áp dụng khi chọn bằng ô) · Mức (Nâng cao: Điểm, Nhóm); cảnh báo khi sửa làm luật có sẵn mất dạng gốc. Cột Excel không đổi. Mô hình không đổi: mã kết quả, mã quy định không đổi |
 | 60 | TKB giáo viên, chất lượng TKB | Chỉ có TKB theo lớp: giáo viên phải dò mã của mình qua mọi lớp; chất lượng TKB (luật ưu tiên chưa theo được) chỉ in ra màn hình, và chỉ cho luật thêm vào | **`TKB_giao_vien.xlsx`** (mục 11.5): mỗi giáo viên một bảng ngày × tiết (ô ghi lớp, môn), ngắt trang để in mỗi người một trang, kèm sheet Tổng hợp (mỗi người một dòng). **Sheet `Chất lượng`** trong `Thong_Ke.xlsx` (mục 11.3): mỗi dòng luật một dòng, số lần không theo, điểm trừ và ví dụ, đếm bằng bộ ghép luật. Chỉ thêm file và sheet: mã kết quả không đổi |
+| 61 | Đổi giữa năm, xếp lại ít xáo trộn | Nạp lại TKB đã xếp mà không còn đúng luật (một người xin nghỉ một buổi, đổi định mức, sửa tay một ô) hoặc đã sửa quy định thì bỏ cả TKB, xếp lại từ đầu: cả trường đổi lịch | **Xếp lại ít xáo trộn nhất** (mục 11.2): giữ mọi ô được (mỗi ô đổi môn trừ 5.000), giữ người dạy cũ (2.000 mỗi tiết), **ô khóa** ghi `(khóa)` trong sheet TKB đã xếp giữ nguyên bắt buộc; sheet **Thay đổi** liệt kê các ô đổi. Trường mẫu, một GV nghỉ chiều Thứ 5: đổi 15/928 ô (xếp từ đầu: 628). Chỉ đường nạp lại TKB cũ ra mã mới; xếp từ đầu giữ mã |
 
 ---
 
@@ -641,7 +642,15 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
     - mọi Lớp, Môn, Mã GV có trong file vào;
     - mỗi lớp đủ số tiết từng môn;
     - bộ kiểm tra (mục 10) báo đạt mọi luật cứng với file vào mới (định mức, buổi nghỉ, cơ sở, luật học sinh…).
-  - Không đạt thì in tối đa 10 lý do và xếp lại từ đầu.
+  - Không đạt, hoặc mã quy định khác (đã sửa quy định), thì in tối đa 10 lý do và **xếp lại ít xáo trộn nhất**
+    (`solver.solve(previous=...)`): các ô đọc được với file vào mới là TKB cũ (`solver.previous_from`); phân công
+    ưu tiên giữ người dạy (lớp, môn) cũ (`Teacher.previous`, `allocation.previous_cost`, `Weights.keep_previous` =
+    2.000 mỗi tiết); xếp giờ trừ `Weights.keep_cell` = 5.000 mỗi ô cũ đổi môn (`solver._keep_previous`). Ô ghi
+    thêm `(khóa)` (`config.SAVED_LOCKED`, gõ tay) giữ nguyên bắt buộc (môn, và người dạy trừ tiết bù), ghi lại
+    `(khóa)` ở lần sau; ô khóa không có giờ đó thì bỏ qua; các ô khóa làm bài toán vô nghiệm thì bỏ khóa và xếp
+    lại. Không dùng TKB cũ làm nghiệm gợi ý (OR-Tools 9.15 dừng hẳn khi có gợi ý mà vô nghiệm). Sheet **Thay đổi**
+    của file thống kê ghi các ô khác TKB cũ (`writer.change_rows`). `GIU_TKB_DA_XEP = False` (`--xep-lai`): bỏ
+    TKB cũ, xếp từ đầu (mã như lần xếp mới).
   - Giáo viên khớp theo **Mã GV** (chức vụ + số thứ tự, vd `Bộ Môn 5`), nên đổi tên người `chưa có` thành tên người mới tuyển thì TKB và mã kết quả giữ nguyên; không được đổi thứ tự dòng trong cùng chức vụ.
   - Các file ra viết lại giống hệt; style chép từ file vào bỏ qua các màu chương trình tô (`style.MARK_FILLS`).
 

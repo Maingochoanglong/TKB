@@ -40,6 +40,8 @@ class Teacher:
     contract: bool = False  # GV hợp đồng: nhận tiết bù trước GV cùng loại (config.Weights.overtime_*)
     campus2: bool = False  # GVCN: lớp ở cơ sở 2; GV khác: chỉ dạy ở cơ sở 2
     history: frozenset[str] = frozenset()  # các lớp dạy trong TKB cũ (ưu tiên giữ khối, rồi giữ lớp)
+    # Xếp lại ít xáo trộn: các (lớp, môn) GV dạy trong TKB đã xếp nạp lại (solver.solve(previous=...)).
+    previous: frozenset[tuple[str, str]] = frozenset()
     off_sessions: frozenset[tuple[int, str]] = frozenset()  # buổi nghỉ cố định: (ngày 0–4, tên buổi)
     off_any: tuple[tuple[str | None, int], ...] = ()  # nghỉ thêm n buổi bất kỳ: (tên buổi, None = buổi nào cũng được; n)
 
@@ -213,14 +215,15 @@ def staff_sheet(wb):
 @dataclass
 class SavedTimetable:
     """TKB đã xếp đọc từ file vào cập nhật (sheet config.SAVED_SHEET)."""
-    rows: list[tuple]  # (lớp, thứ, tiết, môn, Mã GV, tiết bù?, vị trí trong sheet) như chữ trong file
+    rows: list[tuple]  # (lớp, thứ, tiết, môn, Mã GV, tiết bù?, ô khóa?, vị trí trong sheet) như chữ trong file
     result_code: str | None  # mã kết quả lúc xếp
     rules_code: str | None  # mã các quy định lúc xếp (rules.code)
 
 
 def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
     """Sheet config.SAVED_SHEET của file vào (TKB đã xếp dạng lưới Lớp | Tiết | Thứ 2 …, mỗi ô "môn" xuống dòng
-    "Mã GV", thêm config.SAVED_OVERTIME ở tiết bù). File không có sheet này: None; không có bảng: không có dòng nào."""
+    "Mã GV", thêm config.SAVED_OVERTIME ở tiết bù, config.SAVED_LOCKED ở ô khóa). File không có sheet này: None; không
+    có bảng: không có dòng nào."""
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = find_sheet(wb, config.SAVED_SHEET)
     if ws is None:
@@ -249,12 +252,18 @@ def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
             if _blank(value) or normalize(value) == normalize(config.OFF_LABEL):
                 continue
             lines = [line.strip() for line in str(value).splitlines() if line.strip()]
-            code = lines[-1]
-            overtime = code.endswith(config.SAVED_OVERTIME)
-            if overtime:
-                code = code[:-len(config.SAVED_OVERTIME)].strip()
-            rows.append((cls, day, period, lines[0], code if len(lines) > 1 else "", overtime,
-                         f"dòng {r}, {clean_name(day)}"))
+            flags = {}
+            for flag in (config.SAVED_LOCKED, config.SAVED_OVERTIME):  # "Bộ Môn 2 (bù) (khóa)": cắt từ cuối
+                for i, line in enumerate(lines):
+                    if _fold(line).endswith(_fold(flag)):
+                        lines[i] = line[:-len(flag)].strip()
+                        flags[flag] = True
+            lines = [line for line in lines if line]
+            if not lines:
+                continue
+            code = lines[-1] if len(lines) > 1 else ""
+            rows.append((cls, day, period, lines[0], code, flags.get(config.SAVED_OVERTIME, False),
+                         flags.get(config.SAVED_LOCKED, False), f"dòng {r}, {clean_name(day)}"))
     return SavedTimetable(rows, result_code, rules_code)
 
 

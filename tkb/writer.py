@@ -41,6 +41,8 @@ TEACHER_SUMMARY_SHEET = "Tổng hợp"  # file TKB giáo viên: mỗi người m
 QUALITY_SHEET = "Chất lượng"  # file thống kê: số lần không theo từng dòng luật (sheet LUẬT) của TKB đã xếp
 QUALITY_HEADERS = ("Nhóm", "Luật", "Mức", "Số Lần Không Theo", "Điểm Trừ", "Ví Dụ")
 QUALITY_EXAMPLES = 3  # số chỗ không theo ghi làm ví dụ cho mỗi luật
+CHANGES_SHEET = "Thay đổi"  # file thống kê khi xếp lại ít xáo trộn: các ô khác TKB đã xếp nạp vào
+CHANGES_HEADERS = ("Lớp", "Thứ", "Tiết", "Trước", "Sau")
 TOTAL_HEADER = "Tổng Tiết"
 # File thống kê, trường có lớp ở cơ sở 2: ai dạy ở cả hai cơ sở (các buổi ở cơ sở 2), ai đổi cơ sở trong ngày.
 MOVE_HEADERS = ("Buổi Ở Cơ Sở 2", "Đổi Cơ Sở Trong Ngày")
@@ -478,8 +480,34 @@ def quality_rows(solution: Solution, student_rules: bool = True) -> list[list]:
     return out
 
 
+def solution_cells(solution: Solution) -> list[tuple[str, int, int]]:
+    """Các ô (lớp, ngày, tiết) có tiết học của TKB."""
+    return [(les.class_name, les.day, les.period) for les in solution.lessons]
+
+
+def change_rows(solution: Solution, rows: list[tuple]) -> list[list]:
+    """So TKB mới với TKB đã xếp nạp vào (các dòng của staff.read_saved_timetable): mỗi ô khác (môn hoặc Mã GV) một
+    dòng Lớp | Thứ | Tiết | Trước | Sau ("môn\nMã GV", ô trống là không có tiết), theo thứ tự lớp, thứ, tiết."""
+    problem = solution.problem
+    day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
+    before: dict[tuple, tuple[str, str]] = {}
+    for cls, day, period, subject, code, *_ in rows:
+        if normalize(day) in day_of and str(period).strip().isdigit():
+            before[normalize(cls), day_of[normalize(day)], int(period)] = (str(subject), str(code))
+    after = {(normalize(les.class_name), les.day, les.period):
+             (problem.subject_label(les.subject), problem.teachers[les.teacher].code) for les in solution.lessons}
+    name = {normalize(c): c for c in problem.classes}
+    text = lambda v: f"{v[0]}\n{v[1]}" if v else None  # noqa: E731
+    out = []
+    for key in sorted(set(before) | set(after), key=lambda k: (class_sort_key(name.get(k[0], k[0])), k[1], k[2])):
+        old, new = before.get(key), after.get(key)
+        if old is None or new is None or tuple(map(normalize, old)) != tuple(map(normalize, new)):
+            out.append([name.get(key[0], key[0]), config.DAYS[key[1]], key[2], text(old), text(new)])
+    return out
+
+
 def write_statistics(solution: Solution, path: str | Path, style: Style | None = None,
-                     student_rules: bool = True) -> None:
+                     student_rules: bool = True, changes: list[list] | None = None) -> None:
     """File thống kê: sheet STATS_SHEET là một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù,
     số tiết dư (xem subject_table). Dòng người dạy bù tô vàng (ô môn có tiết bù tô cam, số tiết bù từng môn ở cột
     Môn Dạy Bù), dòng người cần tuyển tô xanh lá, dòng người còn dư tiết tô xanh dương; chú thích dưới bảng. Sheet
@@ -496,6 +524,12 @@ def write_statistics(solution: Solution, path: str | Path, style: Style | None =
     ws = wb.create_sheet(QUALITY_SHEET)
     style.table(ws, list(QUALITY_HEADERS), quality_rows(solution, student_rules), bold_last=True)
     style.fit_columns(ws)
+    if changes is not None:  # xếp lại ít xáo trộn: các ô khác TKB đã xếp nạp vào
+        ws = wb.create_sheet(CHANGES_SHEET)
+        total = len({(c[0], c[1], c[2]) for c in solution_cells(solution)})
+        style.table(ws, list(CHANGES_HEADERS), [*changes, ["Tổng", f"{len(changes)}/{total} ô đổi", None, None, None]],
+                    bold_last=True)
+        style.fit_columns(ws)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
@@ -613,8 +647,9 @@ def _add_subject_rules(wb) -> None:
 
 def _write_saved(wb, solution: Solution, style: Style) -> None:
     """Sheet config.SAVED_SHEET: TKB đã xếp dạng lưới như TKB (Lớp | Tiết | Thứ 2 …), mỗi ô ghi môn, xuống dòng ghi Mã
-    GV (thêm config.SAVED_OVERTIME ở tiết dạy bù); dòng đầu ghi mã kết quả và mã các quy định đã dùng. Nạp lại file
-    vào cập nhật thì chương trình dùng lại TKB này (solver.reuse) nếu quy định không đổi."""
+    GV (thêm config.SAVED_OVERTIME ở tiết dạy bù, config.SAVED_LOCKED ở ô khóa); dòng đầu ghi mã kết quả và mã các
+    quy định đã dùng. Nạp lại file vào cập nhật thì chương trình dùng lại TKB này (solver.reuse) nếu quy định không
+    đổi và vẫn đúng luật, không thì xếp lại ít xáo trộn (solver.solve(previous=...))."""
     if config.SAVED_SHEET in wb.sheetnames:
         del wb[config.SAVED_SHEET]
     ws = wb.create_sheet(config.SAVED_SHEET)
@@ -642,7 +677,8 @@ def _write_saved(wb, solution: Solution, style: Style) -> None:
                 if les is not None:
                     code = problem.teachers[les.teacher].code
                     value = f"{problem.subject_label(les.subject)}\n{code}" + \
-                        (f" {config.SAVED_OVERTIME}" if les.overtime else "")
+                        (f" {config.SAVED_OVERTIME}" if les.overtime else "") + \
+                        (f" {config.SAVED_LOCKED}" if les.locked else "")
                 cell = style.body_cell(ws, r, j, value)
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             ws.row_dimensions[r].height = style.line_height * 2 + 4

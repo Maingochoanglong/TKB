@@ -318,3 +318,43 @@ def test_vietnamese_is_paired_in_grade_one():
     assert check(sol.problem, sol.lessons) == []
     per_session = Counter((l.class_name, l.day, l.period < 5) for l in sol.lessons if l.subject == config.TV)
     assert set(per_session.values()) == {2}  # 14 tiết = 7 cặp liền, mỗi cặp một người dạy
+
+
+def _rows(sol, locked=lambda les: False, move=lambda les: (les.day, les.period)):
+    """Các dòng sheet TKB đã xếp (như staff.read_saved_timetable) của một TKB, có thể khóa hoặc dời vài ô."""
+    p = sol.problem
+    return [(les.class_name, config.DAYS[move(les)[0]], move(les)[1], p.subject_label(les.subject),
+             p.teachers[les.teacher].code, les.overtime, locked(les), "ô") for les in sol.lessons]
+
+
+def test_previous_timetable_is_kept_and_locked_cells_hold(small_solution):
+    """Xếp lại ít xáo trộn: TKB cũ đúng luật thì giữ nguyên hết; ô khóa đánh dấu lại để ghi " (khóa)"."""
+    first = small_solution
+    lock = lambda les: les.class_name == "3/2" and les.day == 2  # noqa: E731
+    sol = solve(small_staff(), CURRICULUM, config.Settings(time_limit=10, workers=4), log=lambda *_: None,
+                previous=_rows(first, lock))
+    cells = lambda s: {(l.class_name, l.day, l.period, l.subject) for l in s.lessons}  # noqa: E731
+    assert cells(sol) == cells(first) and check(sol.problem, sol.lessons) == []
+    assert {(l.class_name, l.day, l.period) for l in sol.lessons if l.locked} == \
+        {(l.class_name, l.day, l.period) for l in first.lessons if lock(l)}
+
+
+def test_locked_cells_that_break_rules_are_released(small_solution):
+    """Ô khóa không xếp được (chiều Thứ 6 không học) bị bỏ qua; ô khóa mâu thuẫn với luật (hai tiết Toán một
+    ngày) thì bỏ khóa và xếp lại, vẫn giữ TKB cũ nhiều nhất có thể."""
+    first = small_solution
+    toan = sorted((l for l in first.lessons if l.class_name == "3/1" and l.subject == config.TOAN),
+                  key=lambda l: (l.day, l.period))
+    a, b = toan[0], next(l for l in toan if l.day != toan[0].day)
+    other = next(l for l in first.lessons if l.class_name == "3/1" and l.day == a.day and l.subject != config.TOAN
+                 and l.period not in config.HOMEROOM_PERIODS and l.subject != config.HDTN)
+    swap = {(b.day, b.period): (other.day, other.period), (other.day, other.period): (b.day, b.period)}
+    rows = _rows(first, locked=lambda l: l in (a, b, other),
+                 move=lambda l: swap.get((l.day, l.period), (l.day, l.period)) if l.class_name == "3/1"
+                 else (l.day, l.period))
+    rows.append(("3/2", config.DAYS[4], 6, "Toán", "Chủ Nhiệm 3/2", False, True, "ô chiều Thứ 6"))
+    log = []
+    sol = solve(small_staff(), CURRICULUM, config.Settings(time_limit=10, workers=4), log=log.append,
+                previous=rows)
+    assert check(sol.problem, sol.lessons) == []
+    assert any("bỏ khóa" in line for line in log) and any("Bỏ qua: ô khóa lớp 3/2 Thứ 6 tiết 6" in line for line in log)
