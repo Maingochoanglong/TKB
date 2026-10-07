@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import datetime
 import tempfile
+from contextlib import ExitStack
 from pathlib import Path
 
 import openpyxl
@@ -410,7 +411,7 @@ def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool
     from .config import Role
     rows = scenario.get("rules") or [] if rows is None else rows
     values: dict = {}
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory() as tmp, ExitStack() as stack:
         path = Path(tmp) / "kich_ban.xlsx"
         to_excel({**scenario, "rules": []}, path)
         try:
@@ -418,7 +419,11 @@ def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool
         except InputError:
             values = {"CUSTOM_ROLES": [Role(clean_name(r.get("name") or ""), ()) for r in scenario.get("roles") or []
                                        if r.get("name")]}
-    with applied(values):
+        stack.enter_context(applied(values))
+        try:  # câu đọc lại ghi Mã GV thay cho họ tên; nhân sự còn lỗi thì đọc như chức vụ
+            bo_ghep.know_staff(read_staff(path))
+        except InputError:
+            pass
         out = []
         for i, row in enumerate(rows):
             errors: list[str] = []
@@ -461,6 +466,7 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
             try:
                 subjects = [s for req in curriculum.values() for s in req] if curriculum else None
                 staff = read_staff(path, subjects=subjects)
+                bo_ghep.know_staff(staff)  # câu đọc lại của luật ghi Mã GV thay cho họ tên
             except InputError as exc:
                 errors += _lines(exc, config.STAFF_SHEET)
                 staff = None

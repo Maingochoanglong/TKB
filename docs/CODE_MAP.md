@@ -62,7 +62,12 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `_all_slots()`
 - `rule_slots(rule)` — Các ô khớp cột Ngày, Tiết, Buổi và nhãn ô của luật; None nếu luật không ghi cột nào trong số đó.
 - `_subjects(rule, text, group)`
-- `role_names(text)` — Cột Giáo viên -> (chức vụ được xét, chức vụ bị trừ), vd "trừ Chủ Nhiệm".
+- `role_names(text)` — Cột Giáo viên -> (GV được xét, GV bị trừ), vd "trừ Chủ Nhiệm"; mỗi tên là chức vụ, Mã GV hoặc họ tên.
+- `person_keys(t)` — Các cách ghi riêng một GV ở cột Giáo viên (chuẩn hóa): Mã GV (vd "bộ môn 3", "chủ nhiệm 1/1") và họ tên (trừ
+- `_person_keys(title, code, name)`
+- `picks(names, t)` — GV t khớp một tên ở cột Giáo viên: chức vụ của t, Mã GV hoặc họ tên của t.
+- `know_staff(teachers)` — Ghi config.PEOPLE (người -> Mã GV) để câu đọc lại ghi Mã GV thay cho họ tên; tên trùng nhau thì bỏ (validate
+- `person(name)` — Mã GV nếu tên ở cột Giáo viên (chuẩn hóa) là một người: Mã GV, hoặc họ tên có trong config.PEOPLE; None: chức
 - `make(rule)` — Một luật (mẫu hoặc tự ghép) -> luật chuẩn hóa theo config hiện tại.
 - `compiled()`
 - `weight(L, w)` — Điểm trừ mỗi lần không theo luật ưu tiên: cột Điểm, không ghi thì theo Mức.
@@ -115,14 +120,16 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `_thu_tu(ctx, L, problem, src)`
 - `_names(problem, subjects)`
 - `_di_kem(ctx, L, problem, src)`
-- `teacher_ok(L, t, class_name)` — Phép đo Người dạy "Do": GV t được dạy tiết của lớp class_name (chủ nhiệm: GVCN của chính lớp đó).
+- `teacher_ok(L, t, class_name)` — Phép đo Người dạy "Do": GV t được dạy tiết của lớp class_name: t có tên (Mã GV, họ tên) ở cột Giáo viên, hoặc
 - `_nguoi_day(ctx, L, problem, src)`
 - `_khoang_cach(ctx, L, problem, src)`
 - `_ban(L)` — Ô bị cắt khỏi miền bởi luật bắt buộc chỉ xét môn, khối, lớp và ô (không xét GV); None nếu không phải.
 - `banned(subject, grade, class_name, curriculum)` — Ô mà môn của khối (lớp) không được học theo các luật bắt buộc (dùng trong solver.allowed_slots).
 - `forced_pairs(grade, totals)` — Nhóm môn của khối phải học thành cặp 2 tiết liền theo luật bắt buộc (số tiết chẵn; lẻ thì precheck báo).
 - `day_cap(teacher)` — Số tiết tối đa mỗi ngày của GV theo luật bắt buộc "mỗi GV mỗi ngày tối đa n tiết" (mọi môn, mọi ô); dùng
+- `busy(teacher)` — Giờ bận của GV: các ô luật bắt buộc Vị trí chỉ xét người dạy (mọi môn, mọi lớp) không cho GV dạy, vd "Bộ Môn 3
 - `_who_rules(hard)`
+- `refusing(t, class_name, grade, subject, curriculum)` — Tầng phân công: các luật bắt buộc "Người dạy: Do" không xét ô không cho GV t nhận tiết môn này của lớp.
 - `allowed(t, class_name, grade, subject, curriculum)` — Tầng phân công: GV t được nhận tiết môn này của lớp theo các luật bắt buộc "Người dạy: Do" không xét ô.
 - `assign_cost(t, course, curriculum, w)` — Tầng phân công: giá mỗi tiết GV t dạy course khi trái luật ưu tiên "Người dạy: Do" không xét ô.
 - `build(m, problem, x, z, dom, teachers_of, w)` — Ràng buộc và mục tiêu của các luật trong mô hình CP-SAT (solver.build_timetable); trả về các số hạng mục tiêu.
@@ -131,7 +138,7 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `soft_counts(problem, lessons)` — Luật ưu tiên -> số lần không theo.
 - `precheck(problem, label, skip)` — Mâu thuẫn chắc chắn của luật bắt buộc, tìm bằng phép đếm; label(luật) là tên luật khi báo; bỏ qua các luật ở
 - `_precheck_at_least(L, problem, label)` — So sánh Tối thiểu, Đúng: nhóm không đủ tiết có thể có (vd ô cố định mà môn không được xếp vào ô đó), hoặc
-- `validate(problem, sheet, role_label)` — Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, chức vụ, lớp không có.
+- `validate(problem, sheet, role_label)` — Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp không có; tên ở cột Giáo viên không phải chức vụ,
 
 ## tkb/chan_doan.py — Chẩn đoán vì sao không xếp được TKB: luật bắt buộc nào mâu thuẫn, nói bằng dòng luật nhà trường đã ghi (sheet LUẬT).
 Hằng số: `SECONDS`
@@ -157,7 +164,7 @@ Hằng số: `SECONDS`
 - `_check_student_rules(problem, lessons)`
 
 ## tkb/config.py — Giá trị mặc định của các luật nghiệp vụ, trọng số mục tiêu và tham số xếp giờ.
-Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `DISPLAY_NAMES`, `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS`, `OFF_LABEL`, `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS`, `ROLE_HOMEROOM`, `ROLE_GENERAL`, `ROLE_MANAGER`, `ROLE_LABELS`, `ROLES_SHEET`, `CUSTOM_ROLES`, `STAFF_SHEET`, `PROGRAM_SHEET`, `RULES_SHEET`, `SAVED_SHEET`, `SAVED_OVERTIME`, `SAVED_LOCKED`, `SAVED_CODES`, `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER`, `HOMEROOM_PERIODS`, `SUPPLEMENT_NAME`, `MODE_HIRE`, `MODE_OVERTIME`, `MODES`, `OVERTIME_ROLES`, `HOMEROOM_OVERTIME_SPECIALIST`, `OVERTIME_MAX`, `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `MORNING_SUBJECTS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED`, `CUSTOM_RULES`, `RULES_SHEET_ROWS`, `RULES`, `OFF`, `WEIGHTS`, `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`, `ORTOOLS_VERSION`
+Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `DISPLAY_NAMES`, `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS`, `OFF_LABEL`, `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS`, `ROLE_HOMEROOM`, `ROLE_GENERAL`, `ROLE_MANAGER`, `ROLE_LABELS`, `ROLES_SHEET`, `CUSTOM_ROLES`, `STAFF_SHEET`, `PROGRAM_SHEET`, `RULES_SHEET`, `SAVED_SHEET`, `SAVED_OVERTIME`, `SAVED_LOCKED`, `SAVED_CODES`, `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER`, `HOMEROOM_PERIODS`, `SUPPLEMENT_NAME`, `MODE_HIRE`, `MODE_OVERTIME`, `MODES`, `OVERTIME_ROLES`, `HOMEROOM_OVERTIME_SPECIALIST`, `OVERTIME_MAX`, `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `MORNING_SUBJECTS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED`, `CUSTOM_RULES`, `PEOPLE`, `RULES_SHEET_ROWS`, `RULES`, `OFF`, `WEIGHTS`, `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`, `ORTOOLS_VERSION`
 - `class Session`
 - `class Role` — Chức vụ GV chuyên biệt nhà trường tự đặt (sheet CHỨC VỤ, đọc ở tkb/rules.py).
 - `class ManagerRule` — Quản lý chỉ dạy môn `subject` của khối `grade`.
@@ -227,7 +234,7 @@ Hằng số: `GROUPS`, `CUSTOM_GROUP`, `STRUCTURE`, `NATIVES`, `BY_KEY`, `STUDEN
 - `notes()` — Dòng của sheet HƯỚNG DẪN về phần không phải luật.
 
 ## tkb/luat_rieng.py — Luật riêng của trường: sheet LUẬT RIÊNG, mỗi dòng một luật, theo một mẫu có sẵn (KINDS) hoặc tự ghép.
-Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS`, `COMPOSE`, `LEVEL`, `LEVELS`, `_WHAT`, `_PLACE`, `KINDS`, `BY_KEY`, `_BY_LABEL`
+Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS`, `COMPOSE`, `LEVEL`, `LEVELS`, `_WHAT`, `_PLACE`, `_BUSY`, `KINDS`, `BY_KEY`, `_BY_LABEL`
 - `class Kind`
 - `_day_label(d)`
 - `_numbers(text)` — "3, 4, 5", "3-5", "3–5" -> [3, 4, 5]; None nếu có phần không phải số.
@@ -243,8 +250,9 @@ Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS
 - `_when_say(when)` — Áp dụng khi bằng lời, vd "số tiết/tuần của môn từ 6 trở lên và là số chẵn".
 - `level_label(rule)` — Mức ưu tiên bằng chữ (Thấp, Vừa, Cao, Rất cao); dòng ghi Điểm thì lấy mức có điểm gần nhất.
 - `cells(rule)` — Các ô của luật khi ghi ra sheet LUẬT ({khóa cột: giá trị}), ngược với `parse`.
-- `_teacher(role)` — Chức vụ khi đọc câu: "chủ nhiệm" -> "GV chủ nhiệm", "Tiếng Anh" -> "GV Tiếng Anh", "trừ ..." giữ "trừ".
-- `_teachers(rule)` — Các chức vụ ở cột Giáo viên bằng lời, vd "GV bộ môn", "giáo viên trừ GV chủ nhiệm".
+- `_teacher(role)` — Chức vụ khi đọc câu: "chủ nhiệm" -> "GV chủ nhiệm", "Tiếng Anh" -> "GV Tiếng Anh", "trừ ..." giữ "trừ"; một
+- `_people(rule)` — Cột Giáo viên chỉ ghi người (Mã GV, họ tên), không ghi chức vụ: câu đọc "Bộ Môn 3 dạy…", không "Mỗi …".
+- `_teachers(rule)` — Các GV ở cột Giáo viên bằng lời, vd "GV bộ môn", "giáo viên trừ GV chủ nhiệm", "Bộ Môn 3".
 - `_what(rule)` — Các tiết luật xét, vd "Thể dục khối 3, 4", "môn có nhãn Môn nặng lớp 3/1"; trống: mọi tiết.
 - `_where(rule)` — Các giờ học luật ghi, vd "buổi sáng Thứ 2 tiết 1", "giờ có nhãn Hạn chế môn nặng".
 - `_who(rule)`
@@ -327,7 +335,7 @@ Hằng số: `MAX_DAYS`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY_KEY`, `DAY_COLS`,
   - `.finish()`
 - `read_rules(path, warn)` — Đọc quy định của file vào: các cột quy định của sheet CHƯƠNG TRÌNH HỌC và sheet QUY ĐỊNH. Trả về {hằng số
 - `_rules_rows(values, warn)` — Các dòng luật (sheet LUẬT; không có thì dòng mặc định theo các cột cũ, cộng sheet LUẬT RIÊNG) -> tham số luật
-- `applied(values)` — Dùng các quy định đọc từ file vào trong khối `with`; ra khỏi khối thì trả lại giá trị cũ.
+- `applied(values)` — Dùng các quy định đọc từ file vào trong khối `with`; ra khỏi khối thì trả lại giá trị cũ (cả config.PEOPLE,
 - `changed(values)` — Tên các quy định trong file khác giá trị mặc định trong tkb/config.py.
 - `_canonical(attr, value)` — Giá trị viết theo một cách duy nhất (tập hợp sắp xếp; tên viết tắt không phụ thuộc thứ tự dòng).
 - `code()` — Mã của các quy định đang dùng (12 chữ số hex): quy định khác nhau thì mã khác nhau, mọi máy cùng mã.
@@ -583,12 +591,12 @@ Hằng số: `ROOT`, `TEMPLATES`
 
 ## tests
 - `tests/test_allocation.py`: test_homeroom_split_sample, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
-- `tests/test_bo_ghep.py`: test_parse_composed_rule, test_parse_errors, test_each_measure_counts_like_a_hand_count, test_composed_hard_rules_hold, test_soft_composed_rule_is_preferred, test_new_presets, test_teacher_rule_filters_the_assignment, test_precheck_finds_impossible_counts, test_extensions_count_like_a_hand_count
+- `tests/test_bo_ghep.py`: test_parse_composed_rule, test_parse_errors, test_each_measure_counts_like_a_hand_count, test_composed_hard_rules_hold, test_soft_composed_rule_is_preferred, test_new_presets, test_teacher_rule_filters_the_assignment, test_precheck_finds_impossible_counts, test_extensions_count_like_a_hand_count, test_parse_busy_and_teacher_names, test_rules_for_one_teacher, test_teacher_names_are_checked
 - `tests/test_chan_doan.py`: test_no_conflict_with_default_rules, test_session_limit_too_small_for_the_lessons, test_pairs_against_daily_limit, test_student_rules_off_skips_the_count, test_solve_stops_before_solving_on_a_counted_conflict, test_diagnosis_names_the_rules_in_conflict, test_diagnosis_of_a_solvable_school_blames_the_time, test_relaxing_rules_changes_nothing_by_default
 - `tests/test_chuc_vu.py`: test_read_sheet_and_rules_code, test_sheet_errors_all_at_once, test_role_with_many_subjects, test_role_subject_errors, test_unknown_role_is_still_an_error, test_role_without_teacher_is_hired_for_forbidden_subjects, test_solve_with_a_role_of_many_subjects, test_custom_rule_for_a_role_of_many_subjects, test_checker_finds_a_subject_outside_the_role, test_scenario_roles_round_trip
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable
-- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_rules_only_file, test_history_and_leave_as_the_page_writes_them
+- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_history_and_leave_as_the_page_writes_them
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
 - `tests/test_luat_co_san.py`: test_default_rows_change_nothing, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_cross_check_with_the_checker, test_generic_lowering_replaces_the_native_one
 - `tests/test_luat_rieng.py`: test_parse_each_kind, test_parse_errors, test_read_sheet_and_rules_code, test_no_custom_rules_change_nothing, test_hard_rules_hold_and_are_checked, test_soft_rules_are_preferred, test_teacher_day_cap_limits_the_assignment, test_precheck_and_validate, test_diagnosis_names_the_custom_rule

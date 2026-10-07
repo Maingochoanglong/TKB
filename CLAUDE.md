@@ -137,7 +137,8 @@ the updated input adds the sheet with the held specialist roles (`writer.role_ro
 
 Rules = rows of sheet `LUẬT` (`config.RULES_SHEET_ROWS`), each one sentence of the rule composer (`tkb/bo_ghep.py`;
 cells read/written and described in `tkb/luat_rieng.py` as `config.CustomRule`): "for each [scope dims `SCOPES`] ·
-lessons [subject(+group), tags, excluded tags, grades, classes, days, periods, sessions, teacher role or 'trừ <role>'] ·
+lessons [subject(+group), tags, excluded tags, grades, classes, days, periods, sessions, teacher: role, Mã GV or name,
+or 'trừ <…>'; matched by `bo_ghep.picks`] ·
 then [measure `MEASURES`] [op] [number or `DERIVED` threshold] · when [curriculum condition, per subject/group if the
 scope has one]", hard or soft (Điểm points, else Mức Thấp/Vừa/Cao/Rất cao = level 1–4 `Weights.custom_levels`,
 `luat_rieng.LEVELS`; written as words, read as words or 1–4). `Kiểu luật` is a preset
@@ -158,11 +159,15 @@ by them; the Excel columns are unchanged. Each of the 9 measures is ONE
 function against a context: `_Cp` lowers it into CP-SAT (`build`, end of `build_timetable`), `_Eval` counts violations
 (`violations` → `check`, `qa`, `soft_report`), both over the same atoms (`_Source`: course × allowed slot [× teacher]).
 Shortcuts read the same `Luat`: `banned` (domain cut in `solver.allowed_slots`), `forced_pairs` (in
-`allocation.paired_groups(req, grade)` — always pass the grade), `day_cap` (`phan_cong.teacher_slots`), `allowed` (hard
-"Người dạy: Do" without slots filters eligible teachers in `allocation.build_problem`), `assign_cost` (soft one:
+`allocation.paired_groups(req, grade)` — always pass the grade), `day_cap` and `busy` (a teacher's busy slots: hard
+"Không xếp vào" with a teacher and no subject; both in `phan_cong.teacher_slots`), `allowed`/`refusing` (hard
+"Người dạy: Do" without slots filters eligible teachers in `allocation.build_problem`; one Mã GV + class = forced
+assignment), `assign_cost` (soft one:
 `phan_cong._flow`, `_Local._part`, `solver._Allocation`), `validate`/`precheck`. Diagnosis (`chan_doan._rules`) tries
 dropping each hard row (native: `OFF`; daily: drop the subject; composer: drop from `CUSTOM_RULES`) and names rows as
-`LUẬT dòng n: <sentence>` (`luat_rieng.label`). A new measure = one `Measure` + one function in `LOWER`; a new tag = a
+`LUẬT dòng n: <sentence>` (`luat_rieng.label`). Sentences show Mã GV, never names: `bo_ghep.know_staff(staff)` fills
+`config.PEOPLE` (name/code → Mã GV; not a rule, restored by `rules.applied`) after the staff is read in `__main__._run`
+and `kich_ban.check`/`describe`; `bo_ghep.person` treats any name with a digit as a Mã GV. A new measure = one `Measure` + one function in `LOWER`; a new tag = a
 new Có/Không `Col`; a new built-in rule = a `Native` + its encoding guarded by `on(key)` (plus `checker`). Everything
 composer-side is skipped when `CUSTOM_RULES` is empty. `tests/test_luat_co_san.py` checks default rows change nothing,
 edits work, the composer cross-checks the checker and its lowering can replace natives. The UI rules step edits

@@ -12,7 +12,8 @@ Không có luật riêng nào (config.CUSTOM_RULES rỗng) thì mô hình dựng
 
 Khối, Lớp, Ngày, Tiết, Môn, Nhãn ghi danh sách cách nhau bằng dấu phẩy hoặc khoảng, vd "3, 4, 5", "3-5",
 "Thứ 2, Thứ 4", "T2-T4", "5-7"; Buổi ghi Sáng/Chiều; Giáo viên ghi chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý hoặc chức vụ
-GV chuyên biệt).
+GV chuyên biệt), hoặc một người: Mã GV (vd "Bộ Môn 3", "Chủ Nhiệm 1/1") hay họ tên. Câu đọc lại ghi Mã GV, không ghi
+họ tên (config.PEOPLE).
 """
 from __future__ import annotations
 
@@ -54,22 +55,26 @@ class Kind:
 
 _WHAT = ("subject", "group", "tags", "grades", "classes")
 _PLACE = (*_WHAT, "days", "periods", "sessions")
+_BUSY = ("khong_xep", "chi_xep")  # mẫu ghi Giáo viên thì để trống Môn được: giờ bận của giáo viên
 KINDS = (
-    Kind("khong_xep", "Không xếp vào", ("subject",), _PLACE,
+    Kind("khong_xep", "Không xếp vào", ("subject",), (*_PLACE, "role"),
          "Môn (của các khối ở cột Khối; để trống: mọi khối) không xếp vào các ngày, tiết, buổi ghi ở dòng này (ghi ít "
-         "nhất một trong ba cột), vd Thể dục không xếp vào tiết 1; Tin học không xếp vào Thứ 2.", "Ở đâu"),
-    Kind("chi_xep", "Chỉ xếp vào", ("subject",), _PLACE,
+         "nhất một trong ba cột), vd Thể dục không xếp vào tiết 1; Tin học không xếp vào Thứ 2. Ghi Giáo viên "
+         "(chức vụ, Mã GV hoặc họ tên) thì chỉ xét tiết của người đó, để trống Môn là mọi môn: giờ bận, vd Bộ Môn 3 "
+         "không dạy Thứ 2 tiết 1.", "Ở đâu"),
+    Kind("chi_xep", "Chỉ xếp vào", ("subject",), (*_PLACE, "role"),
          "Môn chỉ xếp vào các ngày, tiết, buổi ghi ở dòng này (ghi ít nhất một trong ba cột), vd Thể dục chỉ xếp vào "
-         "buổi chiều.", "Ở đâu"),
+         "buổi chiều. Ghi Giáo viên thì chỉ xét tiết của người đó (để trống Môn: mọi môn), vd Bộ Môn 3 chỉ dạy buổi "
+         "sáng.", "Ở đâu"),
     Kind("co_dinh", "Cố định vào", ("subject",), ("subject", "grades", "classes", "days", "periods", "sessions"),
          "Mỗi lớp (của các khối, lớp ghi ở dòng này) học đúng 1 tiết của Môn ở mỗi giờ ghi ở cột Ngày, Tiết, Buổi, vd "
          "Thể dục khối 1 cố định vào Thứ 3 tiết 3.", "Ở đâu"),
     Kind("gv_ngay", "Giáo viên tối đa tiết mỗi ngày", ("number",), ("role", "number"),
-         "Mỗi giáo viên có chức vụ ở cột Giáo viên (để trống: mọi giáo viên) dạy tối đa Số tiết mỗi ngày.",
-         "Bao nhiêu"),
+         "Mỗi giáo viên ghi ở cột Giáo viên (chức vụ, Mã GV hoặc họ tên; để trống: mọi giáo viên) dạy tối đa Số tiết "
+         "mỗi ngày.", "Bao nhiêu"),
     Kind("gv_lop_ngay", "Giáo viên tối đa lớp mỗi ngày", ("number",), ("role", "number"),
-         "Mỗi giáo viên có chức vụ ở cột Giáo viên (để trống: mọi giáo viên) dạy tối đa Số lớp khác nhau mỗi ngày.",
-         "Bao nhiêu"),
+         "Mỗi giáo viên ghi ở cột Giáo viên (chức vụ, Mã GV hoặc họ tên; để trống: mọi giáo viên) dạy tối đa Số lớp "
+         "khác nhau mỗi ngày.", "Bao nhiêu"),
     Kind("cung_luc", "Số lớp học cùng lúc tối đa", ("subject", "number"), ("subject", "group", "tags", "grades",
                                                                             "number"),
          "Môn có tối đa Số lớp học cùng một giờ (cả trường, hoặc các khối ở cột Khối), vd phòng Tin học: 1, sân Thể "
@@ -82,8 +87,9 @@ KINDS = (
     Kind("truoc", "Học trước", ("subject", "other"), ("subject", "other", "grades", "classes"),
          "Trong một buổi có cả hai môn thì Môn học trước Môn thứ hai, vd Tiếng Việt trước Toán.", "Đi cùng nhau"),
     Kind("chi_gv", "Chỉ giáo viên dạy", ("subject", "role"), (*_PLACE, "role"),
-         "Các tiết của Môn (ở các khối, lớp, ngày, tiết ghi ở dòng này) chỉ do giáo viên có chức vụ ở cột Giáo viên "
-         "dạy, vd Tin học khối 3 chỉ GV Tin Học dạy; tiết 1 Thứ 2 chỉ GV chủ nhiệm dạy.", "Ai dạy"),
+         "Các tiết của Môn (ở các khối, lớp, ngày, tiết ghi ở dòng này) chỉ do giáo viên ghi ở cột Giáo viên dạy: "
+         "chức vụ, vd Tin học khối 3 chỉ GV Tin Học dạy; hoặc một người (Mã GV hay họ tên) để chọn ai dạy lớp nào, vd "
+         "Tiếng Anh lớp 3/1 chỉ Tiếng Anh 2 dạy.", "Ai dạy"),
     Kind("nghi_gv", "Buổi nghỉ của giáo viên", (), (),
          "Giáo viên không dạy vào các buổi nghỉ ghi ở cột Buổi Nghỉ (sheet NHÂN SỰ) và nghỉ đủ số buổi ghi ở đó. Chỉ "
          "ghi Bắt buộc = Có; muốn bỏ luật thì xóa dòng.", "Ai dạy"),
@@ -184,7 +190,8 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
     for key, _ in COLUMNS[1:]:
         value = raw.get(key)
         if value is None:
-            if key in kind.needs and not (key == "subject" and raw.get("tags")):
+            if key in kind.needs and not (key == "subject" and (raw.get("tags") or kind.key in _BUSY
+                                                                and raw.get("role") is not None)):
                 error(f"kiểu luật {kind.label} phải ghi cột {HEADERS[key]}")
                 ok = False
             continue
@@ -347,7 +354,8 @@ def _check_composed(out: dict, place: bool, error) -> bool:
     if m.key == "vi_tri" and scope:
         errors.append("phép đo Vị trí không dùng cột Với mỗi (để trống)")
     if m.key == "nguoi_day" and out.get("op") in ("do", "dau_tuan") and not out.get("role"):
-        errors.append(f"phép đo Người dạy, so sánh {OPS[out['op']]} phải ghi chức vụ ở cột Giáo viên")
+        errors.append(f"phép đo Người dạy, so sánh {OPS[out['op']]} phải ghi cột Giáo viên (chức vụ, Mã GV hoặc họ "
+                      f"tên)")
     if m.key == "nguoi_day" and out.get("op") == "cung_nguoi" and not scope:
         errors.append("phép đo Người dạy, so sánh Cùng một người phải ghi cột Với mỗi, vd Lớp, Môn")
     if m.sequence and not {"lop", "gv"} & set(scope):
@@ -410,17 +418,27 @@ def cells(rule: CustomRule) -> dict:
 
 
 def _teacher(role: str) -> str:
-    """Chức vụ khi đọc câu: "chủ nhiệm" -> "GV chủ nhiệm", "Tiếng Anh" -> "GV Tiếng Anh", "trừ ..." giữ "trừ"."""
+    """Chức vụ khi đọc câu: "chủ nhiệm" -> "GV chủ nhiệm", "Tiếng Anh" -> "GV Tiếng Anh", "trừ ..." giữ "trừ"; một
+    người (Mã GV, họ tên) -> Mã GV, vd "Bộ Môn 3"."""
     if role.startswith(bo_ghep.NOT):
         return bo_ghep.NOT + _teacher(role[len(bo_ghep.NOT):].strip())
+    code = bo_ghep.person(role)
+    if code:
+        return code
     name = _role_label(role)
     if role in (config.ROLE_HOMEROOM, config.ROLE_GENERAL):
         return f"GV {name.lower()}"
     return name if _fold(name).startswith(("gv ", "giao vien")) else f"GV {name}"
 
 
+def _people(rule: CustomRule) -> bool:
+    """Cột Giáo viên chỉ ghi người (Mã GV, họ tên), không ghi chức vụ: câu đọc "Bộ Môn 3 dạy…", không "Mỗi …"."""
+    names = bo_ghep.names(rule.role)
+    return bool(names) and all(not r.startswith(bo_ghep.NOT) and bo_ghep.person(r) for r in names)
+
+
 def _teachers(rule: CustomRule) -> str:
-    """Các chức vụ ở cột Giáo viên bằng lời, vd "GV bộ môn", "giáo viên trừ GV chủ nhiệm"."""
+    """Các GV ở cột Giáo viên bằng lời, vd "GV bộ môn", "giáo viên trừ GV chủ nhiệm", "Bộ Môn 3"."""
     names = bo_ghep.names(rule.role)
     keep = [_teacher(r) for r in names if not r.startswith(bo_ghep.NOT)]
     skip = [_teacher(r[len(bo_ghep.NOT):].strip()) for r in names if r.startswith(bo_ghep.NOT)]
@@ -457,7 +475,7 @@ def _where(rule: CustomRule) -> str:
 
 
 def _who(rule: CustomRule) -> str:
-    return f"Mỗi {_teachers(rule)}" if rule.role else "Mỗi giáo viên"
+    return _teachers(rule) if _people(rule) else f"Mỗi {_teachers(rule)}" if rule.role else "Mỗi giáo viên"
 
 
 def describe(rule: CustomRule) -> str:
@@ -466,8 +484,10 @@ def describe(rule: CustomRule) -> str:
     from .luat_co_san import title
     who, where = _what(rule), _where(rule)
     text = title(rule) or {
-        "khong_xep": lambda: f"{who} không xếp vào {where}",
-        "chi_xep": lambda: f"{who} chỉ xếp vào {where}",
+        "khong_xep": lambda: f"{_teachers(rule)} không dạy{' ' + who if who else ''} vào {where}" if rule.role
+        else f"{who} không xếp vào {where}",
+        "chi_xep": lambda: f"{_teachers(rule)} chỉ dạy{' ' + who if who else ''} vào {where}" if rule.role
+        else f"{who} chỉ xếp vào {where}",
         "lien_2": lambda: f"{who} học 2 tiết liền",
         "truoc": lambda: f"{who} học trước {rule.other} trong buổi",
         "gv_ngay": lambda: f"{_who(rule)} dạy tối đa {rule.number} tiết mỗi ngày",
@@ -492,7 +512,8 @@ def composed(rule: CustomRule) -> str:
     m = MEASURE[rule.measure]
     scope = rule.scope
     teacher_in_scope = "gv" in scope and rule.role
-    parts = [f"mỗi {_teachers(rule) if d == 'gv' and rule.role else SCOPE[d].unit}" for d in scope]
+    parts = [_teachers(rule) if d == "gv" and _people(rule) else
+             f"mỗi {_teachers(rule) if d == 'gv' and rule.role else SCOPE[d].unit}" for d in scope]
     where = _where(rule) if m.key != "vi_tri" else ""
     if where.startswith("giờ"):  # "các tiết ở giờ có nhãn …"
         where = "ở " + where
@@ -595,7 +616,7 @@ def soft_report(problem, lessons) -> list[str]:
 
 def validate(problem) -> list[str]:
     """Lỗi ghi của luật riêng chỉ thấy khi có chương trình học và nhân sự: môn, chức vụ hay lớp không có."""
-    return bo_ghep.validate(problem, SHEET, _role_label)
+    return bo_ghep.validate(problem, RULES_SHEET if config.RULES is not None else SHEET, _role_label)
 
 
 def precheck(problem) -> list[str]:

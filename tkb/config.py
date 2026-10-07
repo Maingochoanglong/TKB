@@ -232,6 +232,10 @@ class CustomRule:
 
 
 CUSTOM_RULES: list[CustomRule] = []  # các dòng của sheet LUẬT xếp bằng bộ ghép (không phải luật có sẵn ở dạng gốc)
+# Cột Giáo viên của luật ghi một người (Mã GV hoặc họ tên, chuẩn hóa) -> Mã GV như ghi ở file ra; đặt sau khi đọc nhân
+# sự (bo_ghep.know_staff) để câu đọc lại ghi Mã GV, không ghi họ tên. Không phải quy định (không vào rules.code());
+# rules.applied trả lại giá trị cũ khi ra khỏi khối.
+PEOPLE: dict[str, str] = {}
 
 # Sheet LUẬT (tkb/luat_co_san.py): mọi luật là một dòng câu ghép, kể cả luật có sẵn. Dòng của luật có sẵn đúng dạng
 # gốc thì xếp bằng mã hóa riêng như trước (mã kết quả không đổi), số và điểm lấy từ dòng; luật có sẵn không còn

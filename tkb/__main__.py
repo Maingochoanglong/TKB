@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 from . import config
+from .bo_ghep import know_staff
 from .checker import check
 from .program import read_program
 from .rules import applied, changed, read_rules
@@ -96,6 +97,7 @@ def _run(args, settings: config.Settings) -> int:
     try:
         curriculum = read_program(args.staff)
         staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
+        know_staff(staff)  # câu đọc lại của luật ghi Mã GV thay cho họ tên
         n_subjects = len({s for req in curriculum.values() for s in req})
         print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp; "
               f"chương trình học: {n_subjects} môn (sheet {config.PROGRAM_SHEET}).")

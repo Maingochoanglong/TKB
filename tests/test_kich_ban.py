@@ -196,6 +196,19 @@ def test_rules_round_trip(tmp_path):
         kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"]
 
 
+def test_teacher_rules_read_with_codes():
+    """Luật ghi họ tên ở cột Giáo viên: câu đọc lại ghi Mã GV, không ghi họ tên; tên không có thì Kiểm tra báo lỗi."""
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    name = next(t["name"] for t in scenario["staff"] if t["role"] == "Tiếng Anh")
+    busy = {"kind": "Không xếp vào", "role": name, "days": "Thứ 2", "periods": "2", "hard": True}
+    found = kich_ban.describe(scenario, [busy])["rules"][0]
+    assert found["errors"] == [] and found["text"] == "Tiếng Anh 1 không dạy vào Thứ 2 tiết 2 (bắt buộc)"
+    scenario["rules"].append({**busy, "role": "Không Có Ai"})
+    assert any("không có giáo viên nào có chức vụ, Mã GV hay họ tên 'Không Có Ai'" in e
+               for e in kich_ban.check(scenario, config.MODE_OVERTIME, 2)["errors"])
+    assert config.PEOPLE == {}
+
+
 def test_rules_only_file(tmp_path):
     """Xuất luật ra Excel (chỉ sheet LUẬT, HƯỚNG DẪN) rồi nhập lại: chỉ có phần luật; mẫu luật là các luật có sẵn."""
     scenario = kich_ban.default_scenario()

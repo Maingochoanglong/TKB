@@ -77,6 +77,7 @@
 | 59 | Luật dễ đọc, dễ ghép | Câu đọc lại dùng ký hiệu (`>=`, `<=`), hai dấu hai chấm, "ô có nhãn", "tối đa 0 tiết"; hai cửa chọn chồng nhau (13 mẫu, 9 phép đo); hai thang ưu tiên (Mức 1–3, Điểm 10…10000); hộp thoại ghép phẳng khoảng 20 ô | **Luật có sẵn có tên riêng** (`Native.titles`), dòng khác đọc bằng câu ghép tự nhiên (mục 6.1); "giờ học" thay "ô", "GV chủ nhiệm". Mẫu và phép đo chia theo **bốn câu hỏi** Ở đâu, Bao nhiêu, Đi cùng nhau, Ai dạy (giao diện: một ô chọn Loại luật; HƯỚNG DẪN theo câu hỏi). **Mức ưu tiên bằng chữ** Thấp, Vừa, Cao, Rất cao (thêm mức 4 = 5.000 điểm; cột Mức ghi chữ, vẫn đọc 1–3); dòng ghi Điểm đọc theo mức gần nhất. Hộp thoại theo thứ tự câu: Loại luật · Với mỗi · Các tiết nào (Thêm điều kiện) · Vào giờ nào · Thì (Áp dụng khi chọn bằng ô) · Mức (Nâng cao: Điểm, Nhóm); cảnh báo khi sửa làm luật có sẵn mất dạng gốc. Cột Excel không đổi. Mô hình không đổi: mã kết quả, mã quy định không đổi |
 | 60 | TKB giáo viên, chất lượng TKB | Chỉ có TKB theo lớp: giáo viên phải dò mã của mình qua mọi lớp; chất lượng TKB (luật ưu tiên chưa theo được) chỉ in ra màn hình, và chỉ cho luật thêm vào | **`TKB_giao_vien.xlsx`** (mục 11.5): mỗi giáo viên một bảng ngày × tiết (ô ghi lớp, môn), ngắt trang để in mỗi người một trang, kèm sheet Tổng hợp (mỗi người một dòng). **Sheet `Chất lượng`** trong `Thong_Ke.xlsx` (mục 11.3): mỗi dòng luật một dòng, số lần không theo, điểm trừ và ví dụ, đếm bằng bộ ghép luật. Chỉ thêm file và sheet: mã kết quả không đổi |
 | 61 | Đổi giữa năm, xếp lại ít xáo trộn | Nạp lại TKB đã xếp mà không còn đúng luật (một người xin nghỉ một buổi, đổi định mức, sửa tay một ô) hoặc đã sửa quy định thì bỏ cả TKB, xếp lại từ đầu: cả trường đổi lịch | **Xếp lại ít xáo trộn nhất** (mục 11.2): giữ mọi ô được (mỗi ô đổi môn trừ 5.000), giữ người dạy cũ (2.000 mỗi tiết), **ô khóa** ghi `(khóa)` trong sheet TKB đã xếp giữ nguyên bắt buộc; sheet **Thay đổi** liệt kê các ô đổi. Trường mẫu, một GV nghỉ chiều Thứ 5: đổi 15/928 ô (xếp từ đầu: 628). Chỉ đường nạp lại TKB cũ ra mã mới; xếp từ đầu giữ mã |
+| 62 | Luật cho từng giáo viên | Cột Giáo viên của sheet `LUẬT` chỉ nhận chức vụ: không ghi được giờ bận theo tiết của một người, không chọn được ai dạy lớp nào | Cột Giáo viên nhận **Mã GV hoặc họ tên** (mục 6.1): **giờ bận** (`Không xếp vào` + Giáo viên + Ngày/Tiết, để trống Môn; phân công bớt giờ đó) và **ép phân công** (`Chỉ giáo viên dạy` + Môn + Lớp + một người). Câu đọc lại ghi Mã GV, không ghi họ tên; tên không có hoặc trùng nhau báo lỗi kèm dòng. Không dùng thì mã kết quả không đổi |
 
 ---
 
@@ -399,7 +400,8 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
 - **Phạm vi** (cột Với mỗi): các chiều Lớp, Giáo viên, Môn, Nhóm môn, Khối, Ngày, Buổi, Giờ học (một ô ngày × tiết),
   Cơ sở; luật áp dụng cho từng nhóm tiết cùng giá trị các chiều đó. Trống: cả trường cả tuần.
 - **Điều kiện**: Môn (danh sách; Gồm môn tăng cường = Có thì cả nhóm môn), Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo
-  viên (chức vụ của người dạy). Cột trống là mọi giá trị. **Nhãn** là tiêu đề các cột Có/Không của sheet CHƯƠNG TRÌNH
+  viên (chức vụ của người dạy, hoặc một người: Mã GV như `Bộ Môn 3`, `Chủ Nhiệm 1/1`, hay họ tên; `bo_ghep.picks`).
+  Cột trống là mọi giá trị. **Nhãn** là tiêu đề các cột Có/Không của sheet CHƯƠNG TRÌNH
   HỌC (nhãn môn, vd Môn nặng) hoặc của bảng Ngày, Tiết (nhãn ô, vd Luôn do GVCN dạy).
 - **Áp dụng khi**: điều kiện trên số tiết/tuần của các môn của luật ở từng khối (`>= n`, `<= n`, `= n`, `<= số ngày`,
   `chẵn`, `lẻ`); khối không thỏa thì luật không áp dụng.
@@ -413,12 +415,12 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
 | Theo cặp 2 tiết | Mỗi buổi 0 hoặc 2 tiết, liền nhau; theo lớp và môn thì là nhóm ghép cặp (`allocation.paired_groups`), phân công chia chẵn | Mỗi tiết không có tiết cùng nhóm liền trước hay liền sau |
 | Thứ tự (+ Môn thứ hai) | Trong mỗi buổi (ngày) không tiết Môn thứ hai nào đứng trước tiết Môn | Mỗi cặp đứng sai |
 | Đi kèm (+ Môn thứ hai) | Buổi (ngày) có tiết Môn thì có tiết Môn thứ hai | Mỗi tiết Môn không có đi kèm |
-| Người dạy (Do / Cùng một người) | Tiết do GV có chức vụ ở cột Giáo viên (Chủ Nhiệm: GVCN của chính lớp); không xét ô thì lọc ngay khi phân công. Hoặc mọi tiết của nhóm do một người | Mỗi tiết trái luật (không xét ô: giá mỗi tiết khi phân công) / mỗi người thừa |
+| Người dạy (Do / Cùng một người) | Tiết do GV ghi ở cột Giáo viên (chức vụ; Chủ Nhiệm: GVCN của chính lớp; hoặc đúng người ghi Mã GV, họ tên); không xét ô thì lọc ngay khi phân công. Hoặc mọi tiết của nhóm do một người | Mỗi tiết trái luật (không xét ô: giá mỗi tiết khi phân công) / mỗi người thừa |
 | Khoảng cách (Tiết trống tối đa / Cách cuối buổi tối đa n) | Số tiết trống giữa các tiết trong buổi ≤ n; hoặc mỗi tiết cách cuối buổi ≤ n | Mỗi tiết trống / mỗi tiết cách xa thêm |
 
 | Mẫu | Là câu |
 |---|---|
-| Không xếp vào / Chỉ xếp vào | Vị trí, Không trong / Chỉ trong các ô ghi ở Ngày, Tiết, Buổi |
+| Không xếp vào / Chỉ xếp vào | Vị trí, Không trong / Chỉ trong các ô ghi ở Ngày, Tiết, Buổi; ghi Giáo viên thì bỏ trống Môn được: **giờ bận** của người đó (bắt buộc, mọi môn, mọi lớp: phân công bớt các ô đó khỏi sức chứa, `bo_ghep.busy`) |
 | Học 2 tiết liền | Với mỗi lớp, buổi: Theo cặp 2 tiết (gồm môn tăng cường) |
 | Học trước | Với mỗi lớp, buổi: Thứ tự Môn trước Môn thứ hai |
 | Giáo viên tối đa tiết mỗi ngày | Với mỗi giáo viên, ngày: Số tiết tối đa n (bắt buộc: phân công tính sức chứa theo đó, `phan_cong.teacher_slots`) |
@@ -426,12 +428,14 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
 | Cố định vào | Với mỗi lớp, giờ học (các ô ghi ở dòng): Số tiết đúng 1 |
 | Giáo viên tối đa lớp mỗi ngày | Với mỗi giáo viên, ngày: Số khác nhau theo Lớp tối đa n |
 | Học ít nhất số ngày | Với mỗi lớp: Số khác nhau theo Ngày tối thiểu n |
-| Chỉ giáo viên dạy | Người dạy: Do chức vụ ở cột Giáo viên |
+| Chỉ giáo viên dạy | Người dạy: Do GV ở cột Giáo viên; ghi Lớp và một người là **ép phân công** (chỉ người đó nhận các tiết, nếu chức vụ cho phép dạy môn) |
 
 - Mỗi phép đo viết một lần trên một "ngữ cảnh": cùng hàm dựng ràng buộc CP-SAT (`bo_ghep.build`, cuối
   `solver.build_timetable`) và đếm số lần không theo trên một TKB (`bo_ghep.violations`). Luật cứng được kiểm lại độc lập
   (`checker` gọi `luat_rieng.check`); luật mềm được LNS tính vào QA từng lớp-ngày và in số lần không theo sau khi xếp.
-- Trước khi xếp: báo môn, chức vụ hay lớp không có (`validate`); đếm mâu thuẫn chắc chắn (`precheck`): luật vị trí để lại
+- Câu đọc lại, thông báo lỗi và file ra ghi **Mã GV**, không ghi họ tên (`config.PEOPLE`, đặt sau khi đọc nhân sự bằng
+  `bo_ghep.know_staff`). Mã GV đánh số theo thứ tự dòng: thêm, xóa dòng nhân sự thì đổi; luật lâu dài nên ghi họ tên.
+- Trước khi xếp: báo môn, chức vụ, người hay lớp không có, họ tên trùng nhiều người (`validate`); đếm mâu thuẫn chắc chắn (`precheck`): luật vị trí để lại
   ít ô hơn số tiết, theo cặp mà số tiết lẻ, số lớp cùng lúc không đủ ô, nhóm không đủ tiết có thể có cho Tối thiểu/Đúng
   (vd cố định Tiếng Anh vào tiết 1 luôn do GVCN), luật cần nhiều tiết hơn chương trình học. Không xếp được: mỗi luật cứng là một nhóm luật
   để chẩn đoán nới thử (mục 9), lỗi in `LUẬT RIÊNG dòng n: <luật bằng lời>`.

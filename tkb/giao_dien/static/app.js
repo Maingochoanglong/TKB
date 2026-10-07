@@ -745,6 +745,23 @@ function whenFromBuilder() {
   v("when_max").disabled = v("when_days").checked;
   return parts.join(", ");
 }
+// Mã GV của từng dòng nhân sự, như chương trình đánh số khi đọc sheet NHÂN SỰ: Chủ Nhiệm + lớp; chức vụ khác + số
+// thứ tự trong chức vụ theo thứ tự dòng. Dùng để gợi ý cột Giáo viên của luật.
+function teacherCodes() {
+  const count = {};
+  const out = [];
+  for (const t of st.scenario.staff) {
+    const role = String(t.role || "").trim();
+    if (!role) continue;
+    if (isHomeroomRole(role)) {
+      if (String(t.class || "").trim()) out.push(`${role} ${String(t.class).trim()}`);
+      continue;
+    }
+    count[key(role)] = (count[key(role)] || 0) + 1;
+    out.push(`${role} ${count[key(role)]}`);
+  }
+  return out;
+}
 function renderComposer() {
   const row = ruleEdit.row;
   const kind = kindOf(row);
@@ -769,8 +786,12 @@ function renderComposer() {
     block("tags", "Giờ có nhãn", checks("tags", CP().tags.slot, row.tags),
       "Giờ học đánh dấu Có ở các cột của sheet QUY ĐỊNH (vd Hạn chế môn nặng); nhiều nhãn: giờ có một trong các nhãn."),
   ].join("");
-  const role = field("role", m && m.key === "nguoi_day" ? "Do chức vụ" : "Giáo viên", text("role", 'list="role-list"'),
-    "Chức vụ, vd Bộ Môn, Tiếng Anh; nhiều chức vụ cách nhau bằng dấu phẩy; \"trừ Chủ Nhiệm\": mọi giáo viên trừ chức vụ đó.");
+  const who = [...S.roles, ...st.scenario.roles.map(named).filter(Boolean), ...teacherCodes()];
+  $("#teacher-list").innerHTML = [...new Set(who)].map((r) => `<option value="${esc(r)}">`).join("");
+  const role = field("role", m && m.key === "nguoi_day" ? "Do giáo viên" : "Giáo viên",
+    text("role", 'list="teacher-list"'),
+    "Chức vụ (vd Bộ Môn, Tiếng Anh), hoặc một người: Mã GV (vd Bộ Môn 3, Chủ Nhiệm 1/1) hay họ tên; nhiều tên " +
+    "cách nhau bằng dấu phẩy; \"trừ Chủ Nhiệm\": mọi giáo viên trừ chức vụ đó. Câu đọc lại ghi Mã GV.");
   const w = whenParts(row.when);
   const whenBuilder = uses.has("when") && !w.raw ? formBlock("Áp dụng khi", `<div class="when">
       số tiết/tuần của môn từ <input type="number" min="1" class="tiny" data-f="rd" data-k="when_min" value="${esc(w.min)}"> trở lên;

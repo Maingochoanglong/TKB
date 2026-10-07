@@ -609,8 +609,9 @@ def _rules_rows(values: dict, warn) -> dict:
 
 @contextmanager
 def applied(values: dict[str, object] | None):
-    """Dùng các quy định đọc từ file vào trong khối `with`; ra khỏi khối thì trả lại giá trị cũ."""
-    old = {attr: getattr(config, attr) for attr in (values or {})}
+    """Dùng các quy định đọc từ file vào trong khối `with`; ra khỏi khối thì trả lại giá trị cũ (cả config.PEOPLE,
+    đặt sau khi đọc nhân sự)."""
+    old = {attr: getattr(config, attr) for attr in (*(values or {}), "PEOPLE")}
     try:
         for attr, value in (values or {}).items():
             setattr(config, attr, value)
@@ -752,7 +753,11 @@ def notes() -> list[tuple[str, str]]:
              "ghi thẳng Điểm (điểm trừ mỗi lần không theo). Môn, Lớp, Khối, Ngày, Tiết ghi danh sách cách nhau bằng "
              "dấu phẩy hoặc khoảng, vd 3, 4 hoặc 3-5; Thứ 2, Thứ 4 hoặc T2-T4; 5-7. Buổi: Sáng hoặc Chiều. Giáo viên: "
              "chức vụ (Chủ Nhiệm, Bộ Môn, Quản Lý hoặc chức vụ GV chuyên biệt), 'trừ Chủ Nhiệm' là mọi giáo viên trừ "
-             "chức vụ đó. Nhãn, Trừ nhãn: tên các cột Có/Không của môn (vd Môn nặng) hoặc của giờ học (ngày, tiết, vd "
+             "chức vụ đó; hoặc một người: Mã GV (vd Bộ Môn 3, Chủ Nhiệm 1/1, đánh số theo thứ tự dòng của sheet "
+             f"{config.STAFF_SHEET}) hay họ tên (hai người trùng tên thì ghi Mã GV), vd giờ bận: Không xếp vào, "
+             "Giáo viên Bộ Môn 3, Thứ 2, tiết 1 (để trống Môn); ép phân công: Chỉ giáo viên dạy, Môn Tiếng Anh, Lớp "
+             "3/1, Giáo viên Tiếng Anh 2. Câu đọc lại ghi Mã GV, không ghi họ tên. Nhãn, Trừ nhãn: tên các cột "
+             "Có/Không của môn (vd Môn nặng) hoặc của giờ học (ngày, tiết, vd "
              "Luôn do GVCN dạy); nhiều nhãn giờ học là giờ có một trong các nhãn. Gồm môn tăng cường: Có thì Môn tính "
              "cả các môn tăng cường cùng nhóm. Không có sheet này thì chương trình dùng các luật có sẵn và sheet "
              f"{luat_rieng.SHEET} (file của bản trước)."),

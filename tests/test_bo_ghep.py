@@ -74,7 +74,8 @@ def test_parse_composed_rule():
     (dict(kind="Tự ghép", measure="Số khác nhau", op="<=", number="tải ngày", scope="Giáo viên", count_by="Lớp"),
      "cột Số chỉ ghi"),
     (dict(kind="Tự ghép", measure="Số tiết", op="<=", number=1, points=0), "cột Điểm ghi một số nguyên dương"),
-    (dict(kind="Tự ghép", measure="Người dạy", op="Do", subject="Toán"), "phải ghi chức vụ ở cột Giáo viên"),
+    (dict(kind="Tự ghép", measure="Người dạy", op="Do", subject="Toán"),
+     "phải ghi cột Giáo viên (chức vụ, Mã GV hoặc họ tên)"),
     (dict(kind="Tự ghép", measure="Đo đạc"), "cột Phép đo ghi một trong"),
     (dict(kind="Tự ghép", measure="Số tiết", op="<=", number=1, scope="Phòng"), "cột Với mỗi ghi các chiều"),
     (dict(kind="Tự ghép", measure="Số tiết", op="<=", number=1, tags="Môn khó"), "cột Nhãn ghi tên các cột"),
@@ -222,7 +223,7 @@ def test_new_presets():
     assert luat_rieng.describe(rules[0]) == "Thể dục lớp 3/1 cố định vào Thứ 3 tiết 3 (bắt buộc)"
     assert luat_rieng.describe(rules[3]) == "Tiếng Anh chỉ do GV Tiếng Anh dạy (bắt buộc)"
     with applied({"CUSTOM_RULES": [CustomRule("chi_gv", "Kỹ năng sống", role="tiếng anh", hard=True, row=6)]}):
-        with pytest.raises(InputError, match="Lớp 3/1: luật riêng \"Người dạy\" .* không để GV nào dạy Kỹ năng sống"):
+        with pytest.raises(InputError, match="Lớp 3/1: không GV nào được dạy Kỹ năng sống theo LUẬT RIÊNG dòng 6"):
             build_problem(small_staff(), CURRICULUM, {}, overtime_max=0)
 
 
@@ -287,3 +288,93 @@ def test_extensions_count_like_a_hand_count(plain):
     rule = CustomRule("tu_ghep", "Toán", measure="vi_tri", op="ngoai", periods=(5, 6, 7), points=50, row=4)
     assert bo_ghep.weight(bo_ghep.make(rule), config.Weights()) == 50
     assert luat_rieng.describe(rule) == "Các tiết Toán không xếp vào tiết 5, 6, 7 (ưu tiên thấp)"  # 50 điểm: gần Thấp
+
+
+def _two_english():
+    """Trường nhỏ có hai GV Tiếng Anh: "TA" (Tiếng Anh 1) và "Cô Lan" (Tiếng Anh 2)."""
+    from .conftest import teacher
+    return [*small_staff(general=False), teacher("Cô Lan", "tiếng anh 2", 23, row=10)]
+
+
+def test_parse_busy_and_teacher_names():
+    """Không xếp vào / Chỉ xếp vào ghi Giáo viên thì bỏ trống Môn được (giờ bận); cột Giáo viên ghi Mã GV hay họ tên."""
+    rule, errors = _parse(kind="Không xếp vào", role="Bộ Môn 3", days="Thứ 2", periods="1", hard="Có")
+    assert errors == [] and rule == CustomRule("khong_xep", role="bộ môn 3", days=(0,), periods=(1,), hard=True, row=7)
+    assert luat_rieng.describe(rule) == "Bộ Môn 3 không dạy vào Thứ 2 tiết 1 (bắt buộc)"
+    assert luat_rieng.cells(rule)["role"] == "Bộ Môn 3"
+    back, errors = _parse(**luat_rieng.cells(rule))
+    assert errors == [] and back == rule
+    _, errors = _parse(kind="Không xếp vào", days="Thứ 2", hard="Có")
+    assert any("phải ghi cột Môn" in e for e in errors)
+    rule, _ = _parse(kind="Chỉ xếp vào", subject="Toán", role="Chủ Nhiệm", sessions="Sáng")
+    assert luat_rieng.describe(rule) == "GV chủ nhiệm chỉ dạy Toán vào buổi sáng (ưu tiên vừa)"
+    rule, _ = _parse(kind="Giáo viên tối đa tiết mỗi ngày", role="Tiếng Anh 2", number=3, hard="Có")
+    assert luat_rieng.describe(rule) == "Tiếng Anh 2 dạy tối đa 3 tiết mỗi ngày (bắt buộc)"
+
+
+def test_rules_for_one_teacher(plain):
+    """Cột Giáo viên ghi một người (Mã GV hoặc họ tên): đếm như đếm tay, xếp thật đạt, phân công chỉ cho người đó,
+    câu đọc lại ghi Mã GV thay cho họ tên."""
+    # Giờ bận theo tiết (không ghi Môn): đếm các tiết của đúng người đó ở các ô đó.
+    gym = next(les for les in plain.lessons if les.teacher == "thể dục 1")
+    busy = CustomRule("khong_xep", role="td", days=(gym.day,), sessions=(_session(gym.period),), hard=True, row=2)
+    by_hand = sum(1 for les in plain.lessons if les.teacher == "thể dục 1" and les.day == gym.day
+                  and _session(les.period) == _session(gym.period))
+    assert _count(plain, busy) == by_hand > 0
+    assert _count(plain, CustomRule("khong_xep", role="an", days=(gym.day,), hard=True)) == sum(
+        1 for les in plain.lessons if les.teacher == "âm nhạc 1" and les.day == gym.day)
+    with applied({"CUSTOM_RULES": [busy]}):
+        from tkb.phan_cong import teacher_slots
+        p = build_problem(small_staff(general=False), CURRICULUM, {}, overtime_max=4)
+        bad = {(gym.day, q) for q in (MORNING if _session(gym.period) == "Sáng" else (5, 6, 7))}
+        assert bo_ghep.busy(p.teachers["thể dục 1"]) == bad and bo_ghep.busy(p.teachers["âm nhạc 1"]) == set()
+    with applied({}):
+        p0 = build_problem(small_staff(general=False), CURRICULUM, {}, overtime_max=4)
+        before = teacher_slots(p0)["thể dục 1"]
+    with applied({"CUSTOM_RULES": [busy]}):
+        assert teacher_slots(p)["thể dục 1"] == before - len(bad)
+
+    # Ép phân công: Tiếng Anh lớp 3/1 chỉ Tiếng Anh 2 dạy (Mã GV), lớp 3/2 chỉ người tên "TA" dạy (họ tên).
+    rules = [busy, CustomRule("chi_gv", "Tiếng Anh", classes=("3/1",), role="tiếng anh 2", hard=True, row=3),
+             CustomRule("chi_gv", "Tiếng Anh", classes=("3/2",), role="ta", hard=True, row=4)]
+    with applied({"CUSTOM_RULES": rules}):
+        p = build_problem(_two_english(), CURRICULUM, {}, overtime_max=4)
+        english = {c.class_name: c.teachers for c in p.courses if c.subject == config.TIENG_ANH}
+        assert english == {"3/1": ["tiếng anh 2"], "3/2": ["tiếng anh 1"]}
+        sol = solve(_two_english(), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS),
+                    log=lambda *_: None)
+        assert check(sol.problem, sol.lessons) == []
+        les = sol.lessons
+        assert {l.teacher for l in les if l.subject == config.TIENG_ANH and l.class_name == "3/1"} == {"tiếng anh 2"}
+        assert {l.teacher for l in les if l.subject == config.TIENG_ANH and l.class_name == "3/2"} == {"tiếng anh 1"}
+        assert not [l for l in les if l.teacher == "thể dục 1" and (l.day, l.period) in bad]
+        assert [n for _, n, _, _ in bo_ghep.violations(sol.problem, sol.lessons, hard=True)] == []
+        # Câu đọc lại ghi Mã GV (config.PEOPLE), không ghi họ tên.
+        bo_ghep.know_staff(_two_english())
+        text = luat_rieng.describe(rules[2])
+        assert text == "Tiếng Anh lớp 3/2 chỉ do tiếng anh 1 dạy (bắt buộc)"  # luật ghi họ tên "TA"
+        assert luat_rieng.describe(CustomRule("chi_xep", role="cô lan", sessions=("Sáng",), hard=True)) == \
+            "tiếng anh 2 chỉ dạy vào buổi sáng (bắt buộc)"
+    assert config.PEOPLE == {}  # ra khỏi rules.applied thì trả lại như cũ
+
+
+def test_teacher_names_are_checked():
+    """Tên ở cột Giáo viên không phải chức vụ, Mã GV hay họ tên của ai, hoặc là họ tên của hai người: báo lỗi rõ
+    dòng; ép phân công cho người không được dạy môn đó: lỗi ghi dòng luật."""
+    from .conftest import teacher
+    staff = [*small_staff(general=False), teacher("TA", "tiếng anh 2", 23, row=10)]  # hai người tên "TA"
+    rules = [CustomRule("khong_xep", role="cô hoa", days=(0,), hard=True, row=5),
+             CustomRule("gv_ngay", role="ta", number=3, hard=True, row=6),
+             CustomRule("gv_ngay", role="tiếng anh 9", number=3, hard=True, row=7),
+             CustomRule("gv_ngay", role="tiếng anh 2, chủ nhiệm 3/1, trừ td", number=5, hard=True, row=8)]
+    with applied({"CUSTOM_RULES": rules}):
+        p = build_problem(staff, CURRICULUM, {}, overtime_max=4)
+        assert luat_rieng.validate(p) == [
+            "LUẬT RIÊNG dòng 5: không có giáo viên nào có chức vụ, Mã GV hay họ tên 'Cô Hoa'",
+            "LUẬT RIÊNG dòng 6: có 2 giáo viên tên 'Ta', ghi Mã GV để chỉ rõ người",
+            "LUẬT RIÊNG dòng 7: không có giáo viên nào có chức vụ, Mã GV hay họ tên 'Tiếng Anh 9'"]
+    rule = CustomRule("chi_gv", "Tin học", classes=("3/1",), role="tiếng anh 2", hard=True, row=9)
+    with applied({"CUSTOM_RULES": [rule]}):
+        with pytest.raises(InputError, match="Lớp 3/1: không GV nào được dạy Tin học theo LUẬT RIÊNG dòng 9: Tin học "
+                                             "lớp 3/1 chỉ do Tiếng Anh 2 dạy"):
+            build_problem(staff, CURRICULUM, {}, overtime_max=4)

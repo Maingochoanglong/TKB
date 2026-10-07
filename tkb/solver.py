@@ -963,10 +963,11 @@ def _assignment(staff: list[Teacher], curriculum: dict[int, dict[str, int]], set
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
     if config.CUSTOM_RULES:
-        from .luat_rieng import SHEET, validate
+        from .luat_rieng import RULES_SHEET, SHEET, validate
         wrong = validate(base)
         if wrong:
-            raise InputError(f"Sheet {SHEET} có {len(wrong)} lỗi:\n  " + "\n  ".join(wrong))
+            sheet = RULES_SHEET if config.RULES is not None else SHEET
+            raise InputError(f"Sheet {sheet} có {len(wrong)} lỗi:\n  " + "\n  ".join(wrong))
     conflicts = precheck(base, settings.student_rules)
     if conflicts:
         raise ConflictError("Các quy định mâu thuẫn nhau, không có TKB nào thỏa:\n  - " + "\n  - ".join(conflicts))

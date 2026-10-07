@@ -21,6 +21,7 @@ câu để hiển thị và kiểm chéo.
 """
 from __future__ import annotations
 
+import functools
 import itertools
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -95,8 +96,9 @@ MEASURES = (
             note="Buổi (hoặc ngày) có tiết của Môn thì cũng có tiết của Môn thứ hai. Để trống Môn thứ hai và Với mỗi "
                  "có Nhóm môn: các môn khác cùng nhóm."),
     Measure("nguoi_day", "Người dạy", ("do", "cung_nguoi", "lien_cung_nguoi", "dau_tuan"), False, family="Ai dạy",
-            note="Các tiết do giáo viên có chức vụ ở cột Giáo viên dạy; hoặc do cùng một người dạy; hoặc hai tiết liền "
-                 "nhau do cùng một người; hoặc tiết đầu tuần do chức vụ đó dạy, tiết của người khác không đứng trước."),
+            note="Các tiết do giáo viên ghi ở cột Giáo viên (chức vụ, Mã GV hoặc họ tên) dạy; hoặc do cùng một người "
+                 "dạy; hoặc hai tiết liền nhau do cùng một người; hoặc tiết đầu tuần do giáo viên đó dạy, tiết của "
+                 "người khác không đứng trước."),
     Measure("khoang_cach", "Khoảng cách", ("trong_tiet", "cuoi_buoi"), True, sequence=True, family="Bao nhiêu",
             note="Số tiết trống xen giữa các tiết trong buổi (0: không có tiết trống); hoặc số tiết từ tiết đó đến "
                  "cuối buổi (0: ở tiết cuối buổi)."),
@@ -107,7 +109,7 @@ OPS = {"<=": "Tối đa", ">=": "Tối thiểu", "=": "Đúng", "trong": "Chỉ 
        "trong_tiet": "Tiết trống tối đa", "cuoi_buoi": "Cách cuối buổi tối đa", "truoc": "Trước", "sau": "Sau"}
 # Ngưỡng theo dữ liệu, ghi ở cột Số thay cho một số (phép đo Số tiết).
 DERIVED = {"tai_ngay": "tải ngày", "tai_ngay_1": "tải ngày + 1", "tran_ngay": "số tiết/tuần chia số ngày"}
-NOT = "trừ "  # cột Giáo viên: "trừ Chủ Nhiệm" là mọi GV trừ chức vụ đó
+NOT = "trừ "  # cột Giáo viên: "trừ Chủ Nhiệm" là mọi GV trừ chức vụ đó (hay trừ người đó)
 OP_ALIASES = {"<=": ("≤", "tối đa", "nhiều nhất"), ">=": ("≥", "tối thiểu", "ít nhất"), "=": ("đúng", "bằng")}
 NUMBER_DAYS = -1  # cột Áp dụng khi: "≤ số ngày" (số ngày học trong tuần)
 
@@ -171,14 +173,14 @@ class Luat:
     grades: frozenset[int] | None
     classes: frozenset[str] | None
     slots: frozenset[tuple[int, int]] | None  # ô được xét; None = mọi ô
-    roles: frozenset[str] | None  # chức vụ GV được xét; None = mọi GV
+    roles: frozenset[str] | None  # GV được xét (chức vụ, Mã GV, họ tên; xem `picks`); None = mọi GV
     place: frozenset[tuple[int, int]] = frozenset()  # phép đo Vị trí: các ô ghi ở dòng
     other: frozenset[str] | None = None  # Môn thứ hai
-    who: frozenset[str] = frozenset()  # phép đo Người dạy "Do": các chức vụ được dạy
+    who: frozenset[str] = frozenset()  # phép đo Người dạy "Do": các GV được dạy (chức vụ, Mã GV, họ tên)
     count_by: str = ""
     when: tuple[tuple[str, int], ...] = ()
     skip: frozenset[str] = frozenset()  # môn bị trừ (cột Trừ nhãn)
-    roles_not: frozenset[str] = frozenset()  # chức vụ bị trừ (cột Giáo viên "trừ ...")
+    roles_not: frozenset[str] = frozenset()  # GV bị trừ (cột Giáo viên "trừ ...")
     derived: str = ""
 
     @property
@@ -262,13 +264,53 @@ PRESETS = {  # mẫu -> (phạm vi, phép đo, so sánh, đếm theo)
 
 
 def role_names(text: str) -> tuple[list[str], list[str]]:
-    """Cột Giáo viên -> (chức vụ được xét, chức vụ bị trừ), vd "trừ Chủ Nhiệm"."""
+    """Cột Giáo viên -> (GV được xét, GV bị trừ), vd "trừ Chủ Nhiệm"; mỗi tên là chức vụ, Mã GV hoặc họ tên."""
     from .staff import normalize
     keep, drop = [], []
     for name in names(text):
         name = normalize(name)
         (drop if name.startswith(NOT) else keep).append(name[len(NOT):].strip() if name.startswith(NOT) else name)
     return keep, drop
+
+
+def person_keys(t) -> frozenset[str]:
+    """Các cách ghi riêng một GV ở cột Giáo viên (chuẩn hóa): Mã GV (vd "bộ môn 3", "chủ nhiệm 1/1") và họ tên (trừ
+    tên "chưa có" của người tuyển thêm)."""
+    return _person_keys(t.title, t.code, t.name)
+
+
+@functools.lru_cache(maxsize=None)
+def _person_keys(title: str, code: str, name: str) -> frozenset[str]:
+    from .staff import normalize
+    name = normalize(name)
+    named = {name} if name and name != normalize(config.SUPPLEMENT_NAME) else set()
+    return frozenset({title, normalize(code)} | named)
+
+
+def picks(names: frozenset[str], t) -> bool:
+    """GV t khớp một tên ở cột Giáo viên: chức vụ của t, Mã GV hoặc họ tên của t."""
+    return t.role in names or not names.isdisjoint(person_keys(t))
+
+
+def know_staff(teachers) -> None:
+    """Ghi config.PEOPLE (người -> Mã GV) để câu đọc lại ghi Mã GV thay cho họ tên; tên trùng nhau thì bỏ (validate
+    báo). Gọi trong rules.applied, sau khi đọc nhân sự."""
+    from .staff import normalize
+    count = Counter(normalize(t.name) for t in teachers)
+    people = {}
+    for t in teachers:
+        for k in person_keys(t):
+            if k != normalize(t.name) or count[k] == 1:
+                people[k] = t.code
+    config.PEOPLE = people
+
+
+def person(name: str) -> str | None:
+    """Mã GV nếu tên ở cột Giáo viên (chuẩn hóa) là một người: Mã GV, hoặc họ tên có trong config.PEOPLE; None: chức
+    vụ. Chức vụ không có chữ số (staff.read_staff) nên tên có chữ số là Mã GV."""
+    if name in config.PEOPLE:
+        return config.PEOPLE[name]
+    return name.title() if any(ch.isdigit() for ch in name) else None
 
 
 def make(rule: CustomRule) -> Luat:
@@ -387,6 +429,8 @@ class _Source:
         """Các tiết của luật; subjects/skip: thay bộ lọc môn của luật (Môn thứ hai)."""
         p, out = self.problem, []
         need_teacher = L.teacher()
+        ok = {g: (L.roles is None or picks(L.roles, t)) and not picks(L.roles_not, t)
+              for g, t in p.teachers.items()} if need_teacher else {}
         for c in p.courses:
             if not _lesson_ok(L, c.class_name, c.grade, c.subject, p.curriculum, subjects, skip):
                 continue
@@ -399,8 +443,7 @@ class _Source:
                     out.append(Atom(self.lit(c.id, None, s), c.class_name, c.grade, c.subject, s[0], s[1], name))
                     continue
                 for g in self.teachers_of(c.id):
-                    role = p.teachers[g].role
-                    if (L.roles is not None and role not in L.roles) or role in L.roles_not:
+                    if not ok[g]:
                         continue
                     out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, g))
         return out
@@ -674,8 +717,9 @@ def _vi_tri(ctx, L, problem, src):
     bad = bad_slots(L)
     for a in src.atoms(L):
         if (a.day, a.period) in bad:
-            ctx.at_most([a], 0, text=lambda v, a=a: f"lớp {a.cls} có {_label(problem, a.subject)} {_day(a.day)} "
-                                                    f"tiết {a.period}")
+            who = f"{problem.teachers[a.teacher].code} dạy " if a.teacher is not None and L.roles is not None else ""
+            ctx.at_most([a], 0, text=lambda v, a=a, who=who: f"{who}lớp {a.cls} có {_label(problem, a.subject)} "
+                                                             f"{_day(a.day)} tiết {a.period}")
 
 
 def _lien(ctx, L, problem, src):
@@ -767,7 +811,10 @@ def _di_kem(ctx, L, problem, src):
 
 
 def teacher_ok(L: Luat, t, class_name: str) -> bool:
-    """Phép đo Người dạy "Do": GV t được dạy tiết của lớp class_name (chủ nhiệm: GVCN của chính lớp đó)."""
+    """Phép đo Người dạy "Do": GV t được dạy tiết của lớp class_name: t có tên (Mã GV, họ tên) ở cột Giáo viên, hoặc
+    có chức vụ ở đó (chủ nhiệm: GVCN của chính lớp đó)."""
+    if not L.who.isdisjoint(person_keys(t)):
+        return True
     if t.role == config.ROLE_HOMEROOM:
         return config.ROLE_HOMEROOM in L.who and t.class_name == class_name
     return t.role in L.who
@@ -896,8 +943,20 @@ def day_cap(teacher) -> int | None:
     caps = [L.number for L in compiled()
             if L.hard and L.measure == "so_tiet" and L.op in ("<=", "=") and L.scope == ("gv", "ngay")
             and L.subjects is None and L.grades is None and L.classes is None and L.slots is None
-            and (L.roles is None or teacher.role in L.roles)]
+            and (L.roles is None or picks(L.roles, teacher)) and not picks(L.roles_not, teacher)]
     return min(caps) if caps else None
+
+
+def busy(teacher) -> set[tuple[int, int]]:
+    """Giờ bận của GV: các ô luật bắt buộc Vị trí chỉ xét người dạy (mọi môn, mọi lớp) không cho GV dạy, vd "Bộ Môn 3
+    không dạy Thứ 2 tiết 1"; dùng trong phan_cong.teacher_slots."""
+    out: set[tuple[int, int]] = set()
+    for L in compiled():
+        if L.hard and L.measure == "vi_tri" and L.roles is not None and L.subjects is None and not L.skip \
+                and L.grades is None and L.classes is None and not L.when \
+                and picks(L.roles, teacher) and not picks(L.roles_not, teacher):
+            out |= bad_slots(L)
+    return out
 
 
 def _who_rules(hard: bool) -> list[Luat]:
@@ -905,10 +964,15 @@ def _who_rules(hard: bool) -> list[Luat]:
             and L.slots is None]
 
 
+def refusing(t, class_name: str, grade: int, subject: str, curriculum) -> list[Luat]:
+    """Tầng phân công: các luật bắt buộc "Người dạy: Do" không xét ô không cho GV t nhận tiết môn này của lớp."""
+    return [L for L in _who_rules(True)
+            if _lesson_ok(L, class_name, grade, subject, curriculum) and not teacher_ok(L, t, class_name)]
+
+
 def allowed(t, class_name: str, grade: int, subject: str, curriculum) -> bool:
     """Tầng phân công: GV t được nhận tiết môn này của lớp theo các luật bắt buộc "Người dạy: Do" không xét ô."""
-    return all(teacher_ok(L, t, class_name) for L in _who_rules(True)
-               if _lesson_ok(L, class_name, grade, subject, curriculum))
+    return not refusing(t, class_name, grade, subject, curriculum)
 
 
 def assign_cost(t, course, curriculum, w: config.Weights) -> int:
@@ -1040,9 +1104,11 @@ def _precheck_at_least(L: Luat, problem, label) -> list[str]:
 
 
 def validate(problem, sheet: str, role_label) -> list[str]:
-    """Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, chức vụ, lớp không có."""
+    """Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp không có; tên ở cột Giáo viên không phải chức vụ,
+    Mã GV hay họ tên của ai, hoặc là họ tên của nhiều người."""
     subjects = {s for req in problem.curriculum.values() for s, n in req.items() if n > 0}
     roles = {t.role for t in problem.teachers.values()}
+    found = Counter(k for t in problem.teachers.values() for k in person_keys(t))
     out = []
     for r in config.CUSTOM_RULES:
         for name in [*names(r.subject), *names(r.other)]:
@@ -1051,8 +1117,12 @@ def validate(problem, sheet: str, role_label) -> list[str]:
                            f"nào)")
         keep, drop = role_names(r.role)
         for role in [*keep, *drop]:
-            if role not in roles:
-                out.append(f"{sheet} dòng {r.row}: không có giáo viên nào có chức vụ '{role_label(role)}'")
+            if found[role] > 1 and role not in roles:
+                out.append(f"{sheet} dòng {r.row}: có {found[role]} giáo viên tên '{role_label(role)}', ghi Mã GV để "
+                           f"chỉ rõ người")
+            elif not found[role] and role not in roles:
+                out.append(f"{sheet} dòng {r.row}: không có giáo viên nào có chức vụ, Mã GV hay họ tên "
+                           f"'{role_label(role)}'")
         for c in r.classes:
             if c not in problem.classes:
                 out.append(f"{sheet} dòng {r.row}: không có lớp '{c}'")

@@ -95,6 +95,7 @@ def _real_teachers(problem: Problem) -> list[str]:
 def teacher_slots(problem: Problem) -> dict[str, int]:
     """GV -> số ô giờ có thể dạy (hợp các ô được phép của những course người đó được dạy, trừ buổi nghỉ). Vd GV
     không chủ nhiệm không dạy tiết 1 (của GVCN) và các ô HĐTN cố định của mọi lớp."""
+    from .bo_ghep import busy
     from .luat_rieng import day_cap
     from .solver import allowed_slots, session_of  # solver nhập module này: nhập muộn để tránh vòng lặp
     sess = session_of()
@@ -112,6 +113,8 @@ def teacher_slots(problem: Problem) -> dict[str, int]:
             per = Counter((slot[0], sess[slot].name) for slot in s if name is None or sess[slot].name == name)
             s -= {slot for key in sorted(per, key=lambda k: (per[k], k))[:n]
                   for slot in s if (slot[0], sess[slot].name) == key}
+        if config.CUSTOM_RULES:  # luật bắt buộc Vị trí chỉ xét người dạy: giờ bận của GV
+            s -= busy(t)
         cap = day_cap(t) if config.CUSTOM_RULES else None  # luật riêng: GV tối đa tiết mỗi ngày
         out[g] = len(s) if cap is None else sum(min(cap, k) for k in Counter(d for d, _ in s).values())
     return out

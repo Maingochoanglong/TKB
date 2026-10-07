@@ -312,16 +312,16 @@ và Luật đọc là chỉ để đọc, chương trình ghi lại; thêm cột
 
 | Mẫu | Cột dùng | Ví dụ |
 |---|---|---|
-| Không xếp vào | Môn, Khối, Lớp, Nhãn, Ngày / Tiết / Buổi (ít nhất một) | Thể dục không học tiết 1; Tin học không học Thứ 2 |
-| Chỉ xếp vào | như trên | Thể dục chỉ học buổi chiều |
+| Không xếp vào | Môn, Khối, Lớp, Nhãn, Ngày / Tiết / Buổi (ít nhất một), Giáo viên | Thể dục không học tiết 1; Tin học không học Thứ 2; **giờ bận**: Giáo viên `Bộ Môn 3`, Thứ 2, tiết 1, để trống Môn |
+| Chỉ xếp vào | như trên | Thể dục chỉ học buổi chiều; Giáo viên `Bộ Môn 3` chỉ dạy buổi sáng |
 | Học 2 tiết liền | Môn, Khối, Lớp | Tiếng Anh khối 3–5 học thành cặp 2 tiết liền, cùng người dạy |
 | Học trước | Môn, Môn thứ hai, Khối, Lớp | Tiếng Việt học trước Toán khi cùng buổi |
-| Giáo viên tối đa tiết mỗi ngày | Giáo viên (chức vụ; trống: mọi GV), Số | Mỗi GV Tiếng Anh dạy tối đa 5 tiết mỗi ngày |
+| Giáo viên tối đa tiết mỗi ngày | Giáo viên (chức vụ hoặc một người; trống: mọi GV), Số | Mỗi GV Tiếng Anh dạy tối đa 5 tiết mỗi ngày |
 | Số lớp học cùng lúc tối đa | Môn, Khối, Số | Phòng Tin học: tối đa 1 lớp mỗi tiết |
 | Cố định vào | Môn, Khối, Lớp, Ngày / Tiết / Buổi | Thể dục lớp 1/1 cố định Thứ 3 tiết 3 |
 | Giáo viên tối đa lớp mỗi ngày | Giáo viên, Số | Mỗi GV Bộ Môn dạy tối đa 3 lớp mỗi ngày |
 | Học ít nhất số ngày | Môn, Khối, Lớp, Số | Tiếng Anh học ít nhất 3 ngày mỗi tuần |
-| Chỉ giáo viên dạy | Môn, Khối, Lớp, Ngày / Tiết / Buổi, Giáo viên | Tin học khối 3 chỉ GV Tin học dạy |
+| Chỉ giáo viên dạy | Môn, Khối, Lớp, Ngày / Tiết / Buổi, Giáo viên | Tin học khối 3 chỉ GV Tin học dạy; **ép phân công**: Tiếng Anh lớp 3/1 chỉ `Tiếng Anh 2` dạy |
 | Buổi nghỉ của giáo viên | (chỉ Bắt buộc) | Theo cột Buổi Nghỉ của sheet NHÂN SỰ |
 | Giáo viên chỉ dạy cơ sở 2 | (chỉ Bắt buộc) | Theo cột Cơ sở 2, Thai Sản của sheet NHÂN SỰ |
 
@@ -343,7 +343,8 @@ trường cả tuần); các cột điều kiện chọn tiết nào được x�
 `Nhãn`, `Trừ nhãn` là tên các cột Có/Không của môn (vd `Môn nặng`, `Ưu tiên buổi sáng`) hoặc của ngày, tiết (vd `Luôn
 do GVCN dạy`, `Hạn chế môn nặng`): thêm một cột Có/Không là có thêm một nhãn; nhiều nhãn giờ học là giờ có một trong
 các nhãn.
-`Giáo viên` ghi chức vụ, hoặc `trừ Chủ Nhiệm` (mọi giáo viên trừ chức vụ đó). `Gồm môn tăng cường` = Có thì Môn tính cả các môn tăng
+`Giáo viên` ghi chức vụ, hoặc `trừ Chủ Nhiệm` (mọi giáo viên trừ chức vụ đó), hoặc **một người**: Mã GV (`Bộ Môn 3`,
+`Chủ Nhiệm 1/1`, như ở các file ra) hay họ tên. `Gồm môn tăng cường` = Có thì Môn tính cả các môn tăng
 cường cùng nhóm. `Áp dụng khi` đặt điều kiện trên số tiết/tuần của các môn của luật ở từng khối, vd `>= 6, chẵn` hay
 `<= số ngày` (phạm vi có Môn, Nhóm môn thì xét từng môn, nhóm môn). Câu đọc lại của mỗi luật có ở giao diện, ở thông
 báo lỗi và ở cột Luật đọc là; dòng ở dạng gốc của một luật có sẵn đọc bằng tên riêng của luật đó (vd "Tránh xếp môn
@@ -357,8 +358,17 @@ trở lên").
   màn hình in số lần không theo từng luật ưu tiên của luật thêm vào.
 - Môn, Lớp, Khối, Ngày, Tiết ghi danh sách: `3, 4`, `3-5`; `Thứ 2, Thứ 4`, `T2-T4`; `1`, `5-7`. Buổi: `Sáng` hoặc
   `Chiều`.
-  Giáo viên: chức vụ như cột Chức Vụ (`Chủ Nhiệm`, `Bộ Môn`, `Quản Lý` hoặc chức vụ GV chuyên biệt, vd `Tiếng Anh`).
-- Ghi sai (kiểu luật lạ, thiếu cột cần, ghi cột không dùng, môn hay chức vụ không có…) thì chương trình báo kèm số dòng.
+  Giáo viên: chức vụ như cột Chức Vụ (`Chủ Nhiệm`, `Bộ Môn`, `Quản Lý` hoặc chức vụ GV chuyên biệt, vd `Tiếng Anh`),
+  hoặc một người: Mã GV (`Bộ Môn 3`: người thứ 3 có chức vụ Bộ Môn theo thứ tự dòng của sheet NHÂN SỰ; `Chủ Nhiệm 1/1`)
+  hay họ tên (hai người trùng tên thì phải ghi Mã GV). Câu đọc lại, thông báo lỗi và file ra luôn ghi **Mã GV**, không
+  ghi họ tên. Thêm hay xóa một dòng nhân sự làm đổi số thứ tự trong Mã GV của những người sau đó: luật ghi theo người
+  lâu dài nên ghi họ tên.
+  - **Giờ bận theo tiết**: `Không xếp vào`, Giáo viên `Bộ Môn 3`, Ngày `Thứ 2`, Tiết `1`, để trống Môn: người đó không
+    dạy giờ đó (bắt buộc), phân công cũng tính bớt giờ đó. Khác cột Buổi Nghỉ của sheet NHÂN SỰ (nghỉ cả buổi).
+  - **Ép phân công**: `Chỉ giáo viên dạy`, Môn `Tiếng Anh`, Lớp `3/1`, Giáo viên `Tiếng Anh 2`: chỉ người đó nhận các
+    tiết đó (người đó phải được dạy môn này theo chức vụ). Không ai nhận được thì chương trình báo lỗi kèm dòng luật.
+- Ghi sai (kiểu luật lạ, thiếu cột cần, ghi cột không dùng, môn, chức vụ hay người không có, họ tên trùng nhau…) thì
+  chương trình báo kèm số dòng.
   Luật bắt buộc mâu thuẫn (với nhau hoặc với các quy định khác) thì chương trình đếm trước hoặc chẩn đoán và chỉ ra
   đúng dòng luật, vd `LUẬT dòng 27: Tiếng Anh khối 3, 4, 5 học 2 tiết liền (bắt buộc)`.
 - "Học 2 tiết liền" bắt buộc: số tiết/tuần phải chẵn, mỗi người dạy số tiết chẵn ở lớp đó (phân công tự đổi chéo để

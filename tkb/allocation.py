@@ -372,12 +372,16 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                     any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
                 eligible.append(m.title)
                 manager_pool_lessons[m.title] += n
-        if config.CUSTOM_RULES:  # luật riêng bắt buộc "Người dạy" không xét ô: lọc ngay khi phân công
-            from .bo_ghep import allowed
-            kept = [g for g in eligible if allowed(teacher_of[g], cls, grade, subject, curriculum)]
+        if config.CUSTOM_RULES:  # luật bắt buộc "Người dạy" không xét ô (vd Chỉ giáo viên dạy): lọc khi phân công
+            from .bo_ghep import refusing
+            from .luat_rieng import label
+            refused = {g: refusing(teacher_of[g], cls, grade, subject, curriculum) for g in eligible}
+            kept = [g for g in eligible if not refused[g]]
             if eligible and not kept:
-                raise InputError(f"Lớp {cls}: luật riêng \"Người dạy\" (sheet LUẬT RIÊNG) không để GV nào dạy "
-                                 f"{subject_labels.get(subject, subject)}")
+                rules = dict.fromkeys(label(L.rule) for g in eligible for L in refused[g])
+                raise InputError(f"Lớp {cls}: không GV nào được dạy {subject_labels.get(subject, subject)} theo "
+                                 f"{'; '.join(rules)} (tên ở cột Giáo viên phải là chức vụ, Mã GV hay họ tên của người "
+                                 f"được dạy môn này)")
             eligible = kept
         if not eligible:
             raise InputError(f"Lớp {cls}: không có GV nào được phép dạy môn {subject}")
