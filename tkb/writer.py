@@ -36,6 +36,11 @@ OVERTIME_DETAIL_HEADER = "Môn Dạy Bù"  # file thống kê: số tiết bù t
 SPARE_HEADER = "Số Tiết Dư"  # file vào cập nhật: định mức − thực dạy (người dạy ít hơn định mức)
 STATS_SHEET = "Thống kê"
 SHORTAGE_SHEET = "Thiếu tiết"
+TEACHER_SHEET = "Giáo viên"  # file TKB giáo viên: mỗi người một bảng, in mỗi người một trang
+TEACHER_SUMMARY_SHEET = "Tổng hợp"  # file TKB giáo viên: mỗi người một dòng, ô ghi lớp
+QUALITY_SHEET = "Chất lượng"  # file thống kê: số lần không theo từng dòng luật (sheet LUẬT) của TKB đã xếp
+QUALITY_HEADERS = ("Nhóm", "Luật", "Mức", "Số Lần Không Theo", "Điểm Trừ", "Ví Dụ")
+QUALITY_EXAMPLES = 3  # số chỗ không theo ghi làm ví dụ cho mỗi luật
 TOTAL_HEADER = "Tổng Tiết"
 # File thống kê, trường có lớp ở cơ sở 2: ai dạy ở cả hai cơ sở (các buổi ở cơ sở 2), ai đổi cơ sở trong ngày.
 MOVE_HEADERS = ("Buổi Ở Cơ Sở 2", "Đổi Cơ Sở Trong Ngày")
@@ -118,11 +123,7 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
                   style.text_width(header[2]) + LABEL_PAD]
         for i, width in enumerate(widths + [day_width] * len(days), start=1):
             ws.column_dimensions[get_column_letter(i)].width = round(width, 1)
-        # In: khổ ngang, co vừa 1 trang theo chiều rộng.
-        ws.page_setup.orientation = "landscape"
-        ws.page_setup.fitToWidth = 1
-        ws.page_setup.fitToHeight = 0
-        ws.sheet_properties.pageSetUpPr.fitToPage = True
+        _print_setup(ws)
         top = 1
         for cls in classes:
             ws.row_dimensions[top].height = style.row_height
@@ -181,6 +182,120 @@ def write_timetable(solution: Solution, path: str | Path, style: Style | None = 
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     _grade_sheets(wb, solution, style, with_codes, classes)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
+
+
+def _print_setup(ws) -> None:
+    """In: khổ ngang, co vừa 1 trang theo chiều rộng (thiết lập in, không phải định dạng ô)."""
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+
+def _teacher_cell(solution: Solution, les) -> str:
+    """Ô TKB giáo viên: lớp (lớp ở cơ sở 2 ghi thêm "(CS2)"), xuống dòng môn; tiết dạy bù ghi thêm " (bù)"."""
+    problem = solution.problem
+    cls = f"{les.class_name} (CS2)" if les.class_name in problem.campus2 else les.class_name
+    return f"{cls}\n{problem.subject_label(les.subject)}{' (bù)' if les.overtime else ''}"
+
+
+def _teacher_blocks(ws, solution: Solution, style: Style, teachers: list[Teacher]) -> None:
+    """Sheet TEACHER_SHEET: mỗi giáo viên một bảng BUỔI | TIẾT | các ngày, dòng tựa ghi tên, Mã GV, số tiết; ngắt
+    trang sau mỗi bảng để in mỗi người một trang."""
+    from openpyxl.worksheet.pagebreak import Break
+    problem = solution.problem
+    names = teacher_labels(problem.teachers)
+    grid = {(les.teacher, les.day, les.period): les for les in solution.lessons}
+    load = solution.teacher_load()
+    days = sorted(config.DAY_SESSIONS)
+    rows = session_rows()
+    day_periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
+    header = ["BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
+    texts = {line for les in solution.lessons for line in _teacher_cell(solution, les).split("\n")}
+    day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[2:], config.OFF_LABEL, *texts]))
+    widths = [max(style.text_width(t) for t in [header[0], *(s.name.upper() for s, _ in rows)]) + LABEL_PAD,
+              style.text_width(header[1]) + LABEL_PAD]
+    for i, width in enumerate(widths + [day_width] * len(days), start=1):
+        ws.column_dimensions[get_column_letter(i)].width = round(width, 1)
+    _print_setup(ws)
+    top = 1
+    for t in teachers:
+        title = f"{names[t.title]} ({t.code}): {load[t.title]} tiết" if names[t.title] != t.code else \
+            f"{t.code}: {load[t.title]} tiết"
+        _merge(ws, style, top, 1, top, len(header), title)
+        ws.row_dimensions[top].height = style.row_height
+        for col, text in enumerate(header, start=1):
+            style.header_cell(ws, top + 1, col, text)
+        ws.row_dimensions[top + 1].height = style.row_height
+        first = top + 2
+        r = first
+        for session in dict.fromkeys(s for s, _ in rows):
+            n = sum(1 for s, _ in rows if s is session)
+            _merge(ws, style, r, 1, r + n - 1, 1, session.name.upper())
+            r += n
+        for j, (_, period) in enumerate(rows):
+            r = first + j
+            lines = 2  # lớp + môn
+            style.body_cell(ws, r, 2, period)
+            for i, d in enumerate(days):
+                value = None
+                if period not in day_periods[d]:
+                    value = config.OFF_LABEL
+                elif (les := grid.get((t.title, d, period))) is not None:
+                    value = _teacher_cell(solution, les)
+                    lines = max(lines, style.lines(value, day_width))
+                style.body_cell(ws, r, 3 + i, value)
+            ws.row_dimensions[r].height = max(style.row_height, style.line_height * lines)
+        last = first + len(rows) - 1
+        ws.row_breaks.append(Break(id=last))
+        top = last + BLOCK_GAP + 1
+
+
+def _teacher_summary(ws, solution: Solution, style: Style, teachers: list[Teacher]) -> None:
+    """Sheet TEACHER_SUMMARY_SHEET: mỗi giáo viên một dòng, mỗi cột một (ngày, tiết), ô ghi lớp dạy giờ đó."""
+    problem = solution.problem
+    names = teacher_labels(problem.teachers)
+    grid = {(les.teacher, les.day, les.period): les.class_name for les in solution.lessons}
+    columns = [(d, p) for d in sorted(config.DAY_SESSIONS) for s in config.DAY_SESSIONS[d] for p in s.periods]
+    head = [style.staff_headers["name"], CODE_HEADER]
+    for c, text in enumerate(head, start=1):
+        _merge(ws, style, 1, c, 2, c, None)
+        style.header_cell(ws, 1, c, text)
+    c = len(head) + 1
+    for d in sorted(config.DAY_SESSIONS):
+        ps = [p for dd, p in columns if dd == d]
+        _merge(ws, style, 1, c, 1, c + len(ps) - 1, None)
+        style.header_cell(ws, 1, c, config.DAYS[d].upper())
+        for k, p in enumerate(ps):
+            style.header_cell(ws, 2, c + k, p)
+        c += len(ps)
+    for r in (1, 2):
+        ws.row_dimensions[r].height = style.row_height
+    for i, t in enumerate(teachers, start=3):
+        values = [names[t.title] if names[t.title] != t.code else None, t.code,
+                  *(grid.get((t.title, d, p)) for d, p in columns)]
+        for col, v in enumerate(values, start=1):
+            style.body_cell(ws, i, col, v)
+        ws.row_dimensions[i].height = style.row_height
+    style.fit_columns(ws, first_row=2, minimum=4)
+    _print_setup(ws)
+    ws.print_title_rows = "1:2"
+
+
+def write_teacher_timetable(solution: Solution, path: str | Path, style: Style | None = None) -> None:
+    """File TKB giáo viên: sheet TEACHER_SHEET (mỗi giáo viên một bảng ngày × tiết, ô ghi lớp và môn, ngắt trang để
+    in mỗi người một trang) và sheet TEACHER_SUMMARY_SHEET (mỗi giáo viên một dòng, ô ghi lớp). Chỉ giáo viên có
+    tiết dạy, theo thứ tự file vào (staff_rows)."""
+    style = style or Style()
+    teaching = {les.teacher for les in solution.lessons}
+    teachers = [t for t in staff_rows(solution) if t.title in teaching]
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = TEACHER_SHEET
+    _teacher_blocks(ws, solution, style, teachers)
+    _teacher_summary(wb.create_sheet(TEACHER_SUMMARY_SHEET), solution, style, teachers)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
@@ -324,11 +439,52 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
     return legend
 
 
-def write_statistics(solution: Solution, path: str | Path, style: Style | None = None) -> None:
-    """File thống kê: một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù, số tiết dư (xem
-    subject_table). Dòng người dạy bù tô vàng (ô môn có tiết bù tô cam, số tiết bù từng môn ở cột Môn Dạy Bù),
-    dòng người cần tuyển tô xanh lá, dòng người còn dư tiết tô xanh dương; chú thích dưới bảng. Chỉ chữ, số và
-    màu: không cố định dòng/cột, không ghi chú, không công thức."""
+def quality_rows(solution: Solution, student_rules: bool = True) -> list[list]:
+    """Chất lượng của TKB: mỗi dòng luật đang dùng (sheet LUẬT, luat_co_san.rows()) một dòng Nhóm | Luật (câu đọc
+    lại) | Mức | Số lần không theo | Điểm trừ (luật ưu tiên) | Ví dụ, đếm bằng bộ ghép luật trên TKB đã xếp (cùng
+    cách đếm với kiểm tra độc lập và QA). Luật bắt buộc luôn 0 khi TKB đạt kiểm tra; cuối bảng là dòng Tổng điểm trừ.
+    student_rules False (--no-student-rules): các luật bảo vệ học sinh đã tắt khi xếp, ghi "tắt"."""
+    from . import bo_ghep, luat_co_san
+    rules = luat_co_san.rows()
+    off = set() if student_rules else {id(r) for r in rules
+                                       if (n := luat_co_san.native_of(r)) is not None and n.student}
+    # Mẫu chỉ có dạng gốc (Buổi nghỉ, Giáo viên chỉ dạy cơ sở 2) không có phép đo: bộ kiểm tra độc lập kiểm.
+    checked = {id(r) for r in rules if not bo_ghep.make(r).measure}
+    found = bo_ghep.violations(solution.problem, solution.lessons, skip_forced=False,
+                               rules=[r for r in rules if id(r) not in off | checked])
+    count: Counter = Counter()
+    examples: dict[int, list[str]] = defaultdict(list)
+    for L, n, _, text in found:
+        count[id(L.rule)] += n
+        if text and len(examples[id(L.rule)]) < QUALITY_EXAMPLES:
+            examples[id(L.rule)].append(text)
+    w = config.rule_weights(config.Weights())
+    out = []
+    for r in rules:
+        say = luat_rieng.describe(r)
+        say = say[:say.rfind(" (")] if say.endswith(")") else say  # mức ghi ở cột riêng
+        level = "Bắt buộc" if r.hard else f"Ưu tiên {luat_rieng.level_label(r).lower()}"
+        if id(r) in off:
+            out.append([r.group_label or None, say, level, "tắt", None, "luật bảo vệ học sinh tắt khi xếp"])
+            continue
+        if id(r) in checked:
+            out.append([r.group_label or None, say, level, None, None, "kiểm bằng bộ kiểm tra độc lập"])
+            continue
+        n = count[id(r)]
+        points = None if r.hard else n * bo_ghep.weight(bo_ghep.make(r), w)
+        out.append([r.group_label or None, say, level, n, points, "; ".join(examples[id(r)]) or None])
+    out.append(["Tổng", None, None, sum(x[3] for x in out if isinstance(x[3], int)),
+                sum(x[4] or 0 for x in out), None])
+    return out
+
+
+def write_statistics(solution: Solution, path: str | Path, style: Style | None = None,
+                     student_rules: bool = True) -> None:
+    """File thống kê: sheet STATS_SHEET là một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù,
+    số tiết dư (xem subject_table). Dòng người dạy bù tô vàng (ô môn có tiết bù tô cam, số tiết bù từng môn ở cột
+    Môn Dạy Bù), dòng người cần tuyển tô xanh lá, dòng người còn dư tiết tô xanh dương; chú thích dưới bảng. Sheet
+    QUALITY_SHEET: chất lượng của TKB theo từng dòng luật (quality_rows). Chỉ chữ, số và màu: không cố định
+    dòng/cột, không ghi chú, không công thức."""
     style = style or Style()
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -337,6 +493,9 @@ def write_statistics(solution: Solution, path: str | Path, style: Style | None =
     last = style.table(ws, header, rows, bold_last=True)
     legend = _mark_rows(ws, solution, header, last + 2, style)
     style.fit_columns(ws, skip_rows=legend)  # chú thích tràn sang các ô trống bên phải, không nới cột
+    ws = wb.create_sheet(QUALITY_SHEET)
+    style.table(ws, list(QUALITY_HEADERS), quality_rows(solution, student_rules), bold_last=True)
+    style.fit_columns(ws)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 

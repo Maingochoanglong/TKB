@@ -14,7 +14,8 @@ from .rules import code as rules_code
 from .solver import ShortageError, SolveError, ortools_version, reuse, solve
 from .staff import InputError, grade_of, read_saved_timetable, read_staff
 from .style import Style
-from .writer import campus_paths, write_shortage, write_statistics, write_timetable, write_updated_staff
+from .writer import (campus_paths, write_shortage, write_statistics, write_teacher_timetable, write_timetable,
+                     write_updated_staff)
 
 
 def use_utf8_output() -> None:
@@ -36,6 +37,8 @@ def main(argv: list[str] | None = None) -> int:
                                         "tiết thì là bảng tiết thiếu (mặc định <thư mục output>/Thong_Ke.xlsx)")
     ap.add_argument("--roles-out", help="File TKB ghi thêm chức vụ (Mã GV) trong mỗi ô "
                                         "(mặc định <thư mục output>/TKB_chuc_vu.xlsx; hai cơ sở thì tách như -o)")
+    ap.add_argument("--teachers-out", help="File TKB giáo viên: mỗi giáo viên một bảng, in mỗi người một trang "
+                                           "(mặc định <thư mục output>/TKB_giao_vien.xlsx)")
     ap.add_argument("--time-limit", type=float, default=1200,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 1200; 0 = không giới hạn: xếp "
                          "lại từng vùng đến khi hết cải thiện)")
@@ -89,6 +92,7 @@ def _run(args, settings: config.Settings) -> int:
     staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
     stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
     roles_out = Path(args.roles_out) if args.roles_out else output.parent / "TKB_chuc_vu.xlsx"
+    teachers_out = Path(args.teachers_out) if args.teachers_out else output.parent / "TKB_giao_vien.xlsx"
     try:
         curriculum = read_program(args.staff)
         staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
@@ -135,8 +139,10 @@ def _run(args, settings: config.Settings) -> int:
         for path, classes in campus_paths(base, solution.problem):
             write_timetable(solution, path, style, with_codes=with_codes, classes=classes)
             timetables.append(path)
+    write_teacher_timetable(solution, teachers_out, style)
+    timetables.append(teachers_out)
     write_updated_staff(solution, args.staff, staff_out)
-    write_statistics(solution, stats_out, style)
+    write_statistics(solution, stats_out, style, settings.student_rules)
 
     load = solution.teacher_load()
     extra = solution.used_supplements()

@@ -26,7 +26,8 @@ def test_run_writes_outputs(tmp_path):
     assert code == 0
     # TKB.xlsx chỉ có thời khóa biểu; nhân sự và thống kê nằm ở Thong_Ke.xlsx.
     assert openpyxl.load_workbook(out_dir / "TKB.xlsx").sheetnames == ["Khối 3"]
-    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê"]
+    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê", "Chất lượng"]
+    assert openpyxl.load_workbook(out_dir / "TKB_giao_vien.xlsx").sheetnames == ["Giáo viên", "Tổng hợp"]
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
     assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *(None,) * 5, "Bộ Môn 1", 8, 15)  # 5 cột không bắt buộc trống
     stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê")
@@ -281,7 +282,7 @@ def test_reloading_overtime_result_rewrites_the_same_files(tmp_path, capsys):
         ws = wb[sheet] if sheet else wb.active
         return [[(c.value, c.fill.start_color.rgb if c.fill.fill_type else None) for c in row]
                 for row in ws.iter_rows()]
-    for name in ("TKB.xlsx", "TKB_chuc_vu.xlsx", "Thong_Ke.xlsx"):
+    for name in ("TKB.xlsx", "TKB_chuc_vu.xlsx", "TKB_giao_vien.xlsx", "Thong_Ke.xlsx"):
         assert cells(tmp_path / "a" / name) == cells(tmp_path / "b" / name), name
     assert cells(tmp_path / "a" / "nhan_su_cap_nhat.xlsx", "NHÂN SỰ") == \
         cells(tmp_path / "b" / "nhan_su_cap_nhat_cap_nhat.xlsx", "NHÂN SỰ")

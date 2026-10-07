@@ -4,10 +4,10 @@ Sinh tự động bởi `python tools/code_map.py --write`, đừng sửa tay. B
 
 
 ## main.py — Xếp thời khóa biểu: chỉ cần sửa các hằng số bên dưới rồi bấm nút Run (▶) để chạy.
-Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `CHAY_TAI_LAP_DUOC`, `GIU_TKB_DA_XEP`, `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_THONG_KE`, `SO_LUONG`, `BASE_DIR`
+Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC_SINH`, `THOI_GIAN_TOI_DA`, `CHAY_TAI_LAP_DUOC`, `GIU_TKB_DA_XEP`, `FILE_TKB`, `FILE_TKB_CHUC_VU`, `FILE_TKB_GIAO_VIEN`, `FILE_THONG_KE`, `SO_LUONG`, `BASE_DIR`
 - `_blank(value)`
 - `_resolve(path)` — Đường dẫn tương đối tính từ thư mục dự án; để trống = chính thư mục dự án.
-- `run(file_vao, thu_muc_out, file_tkb, thoi_gian_toi_da, luat_hoc_sinh, chay_tai_lap_duoc, so_luong, che_do, so_tiet_bu_toi_da, file_thong_ke, file_tkb_chuc_vu, giu_tkb_da_xep)` — Chạy xếp TKB; trả về 0 nếu thành công, 3 nếu chế độ bù giờ thiếu tiết.
+- `run(file_vao, thu_muc_out, file_tkb, thoi_gian_toi_da, luat_hoc_sinh, chay_tai_lap_duoc, so_luong, che_do, so_tiet_bu_toi_da, file_thong_ke, file_tkb_chuc_vu, giu_tkb_da_xep, file_tkb_giao_vien)` — Chạy xếp TKB; trả về 0 nếu thành công, 3 nếu chế độ bù giờ thiếu tiết.
 
 ## giao_dien.py — Mở giao diện web xếp thời khóa biểu: bấm nút Run (▶) để chạy, trình duyệt tự mở trang nhập liệu.
 
@@ -464,7 +464,7 @@ Hằng số: `STAFF_HEADERS`, `STAFF_WIDTHS`, `RULES_WIDTHS`, `GUIDE_SHEET`, `GU
 - `main(argv)`
 
 ## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (số tiết từng môn của mỗi giáo viên); file vào
-Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `OVERTIME_DETAIL_HEADER`, `SPARE_HEADER`, `STATS_SHEET`, `SHORTAGE_SHEET`, `TOTAL_HEADER`, `MOVE_HEADERS`, `OVERTIME_FILL`, `HIRE_FILL`, `OVERTIME_LEGEND`, `HIRE_LEGEND`, `SPARE_FILL`, `SPARE_LEGEND`, `OVERTIME_CELL_FILL`, `OVERTIME_CELL_LEGEND`, `CAMPUS_FILES`, `OLD_NOTES_SHEET`, `LIST_SHEET`, `_ROW_FORMULA`
+Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `OVERTIME_DETAIL_HEADER`, `SPARE_HEADER`, `STATS_SHEET`, `SHORTAGE_SHEET`, `TEACHER_SHEET`, `TEACHER_SUMMARY_SHEET`, `QUALITY_SHEET`, `QUALITY_HEADERS`, `QUALITY_EXAMPLES`, `TOTAL_HEADER`, `MOVE_HEADERS`, `OVERTIME_FILL`, `HIRE_FILL`, `OVERTIME_LEGEND`, `HIRE_LEGEND`, `SPARE_FILL`, `SPARE_LEGEND`, `OVERTIME_CELL_FILL`, `OVERTIME_CELL_LEGEND`, `CAMPUS_FILES`, `OLD_NOTES_SHEET`, `LIST_SHEET`, `_ROW_FORMULA`
 - `teacher_labels(teachers, with_codes)` — Chức vụ -> tên hiển thị dưới tên môn trong TKB.
 - `session_rows()` — Các hàng của bảng TKB: (buổi, tiết trong ngày). Cột TIẾT ghi tiết trong ngày: sáng 1–4, chiều 5–7.
 - `_merge(ws, style, r1, c1, r2, c2, value)`
@@ -472,6 +472,11 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `staff_rows(solution)` — GV thật theo thứ tự file gốc, sau đó GV bổ sung được dùng.
 - `campus_paths(path, problem)` — Các file TKB cần ghi: (đường dẫn, các lớp; None = cả trường). Trường có lớp ở cơ sở 2 thì tách thành
 - `write_timetable(solution, path, style, with_codes, classes)` — File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics).
+- `_print_setup(ws)` — In: khổ ngang, co vừa 1 trang theo chiều rộng (thiết lập in, không phải định dạng ô).
+- `_teacher_cell(solution, les)` — Ô TKB giáo viên: lớp (lớp ở cơ sở 2 ghi thêm "(CS2)"), xuống dòng môn; tiết dạy bù ghi thêm " (bù)".
+- `_teacher_blocks(ws, solution, style, teachers)` — Sheet TEACHER_SHEET: mỗi giáo viên một bảng BUỔI | TIẾT | các ngày, dòng tựa ghi tên, Mã GV, số tiết; ngắt
+- `_teacher_summary(ws, solution, style, teachers)` — Sheet TEACHER_SUMMARY_SHEET: mỗi giáo viên một dòng, mỗi cột một (ngày, tiết), ô ghi lớp dạy giờ đó.
+- `write_teacher_timetable(solution, path, style)` — File TKB giáo viên: sheet TEACHER_SHEET (mỗi giáo viên một bảng ngày × tiết, ô ghi lớp và môn, ngắt trang để
 - `_stats_name(t)`
 - `campus_moves(solution)` — GV dạy ở cả hai cơ sở -> (các buổi ở cơ sở 2, vd "Sáng T3"; các ngày sáng một cơ sở, chiều cơ sở kia,
 - `subject_table(solution, style)` — Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết | Số Tiết/Tuần | Số Tiết Bù | (Môn Dạy Bù) |
@@ -479,7 +484,8 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `row_marks(solution, spare)` — GV -> (màu nền, số tiết): người dạy bù (số tiết bù) và người cần tuyển thêm (số tiết thực dạy); spare: thêm
 - `overtime_cells(solution)` — (GV, môn) -> số tiết dạy bù (vượt định mức) của GV đó trong môn đó (chế độ bù giờ).
 - `_mark_rows(ws, solution, header, top, style)` — Tô nền dòng người dạy bù, người cần tuyển và người còn dư tiết (bảng bắt đầu ở dòng 1); trong dòng người
-- `write_statistics(solution, path, style)` — File thống kê: một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù, số tiết dư (xem
+- `quality_rows(solution, student_rules)` — Chất lượng của TKB: mỗi dòng luật đang dùng (sheet LUẬT, luat_co_san.rows()) một dòng Nhóm | Luật (câu đọc
+- `write_statistics(solution, path, style, student_rules)` — File thống kê: sheet STATS_SHEET là một bảng số tiết từng môn của mỗi giáo viên, kèm định mức, số tiết bù,
 - `write_shortage(rows, path, style)` — File thống kê khi chế độ bù giờ không đủ: sheet SHORTAGE_SHEET liệt kê các tiết không ai dạy được.
 - `_copy_style(src, dst)`
 - `plain_values(wb, cached)` — Chỉ giữ chữ, số và màu: bỏ mọi ghi chú (comment), cố định dòng/cột, lọc, danh sách thả xuống, định dạng theo
@@ -585,4 +591,4 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_staff.py`: test_bad_lessons, test_duplicates_rejected, test_read_sample_staff, test_program_file_is_read_as_written, test_subject_names_match_rules_loosely, test_columns_and_auto_numbering, test_numbered_titles_are_rejected, test_old_headers_are_rejected, test_class_errors, test_class_turned_into_date, test_program_sheet_aliases_and_total_row, test_missing_program_sheet_is_an_error, test_all_errors_at_once, test_named_classes_and_optional_columns, test_optional_column_errors
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_is_plain, test_saved_input_template_is_up_to_date, test_blank_template, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
-- `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style
+- `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_teacher_timetable, test_quality_sheet, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style

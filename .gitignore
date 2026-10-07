@@ -4,7 +4,7 @@ __pycache__/
 out/
 out_run*.log
 # Kết quả khi THU_MUC_OUT = "" (ghi ra thư mục dự án): có tên giáo viên thật, không đưa lên repo.
-/TKB.xlsx
+/TKB*.xlsx
 /Thong_Ke.xlsx
 /*_cap_nhat.xlsx
 .venv/

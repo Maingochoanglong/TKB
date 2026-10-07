@@ -64,11 +64,14 @@ GIU_TKB_DA_XEP = True
 
 # Tên file xuất ra trong THU_MUC_OUT: FILE_TKB chỉ gồm thời khóa biểu (các sheet Khối); FILE_TKB_CHUC_VU là cùng TKB,
 # mỗi ô thêm dòng chức vụ (Mã GV) để theo dõi. Trường có lớp ở cơ sở 2 (cột Cơ sở 2) thì mỗi file TKB tách thành
-# hai: ..._diem_chinh (các lớp cơ sở 1) và ..._diem_phu (các lớp cơ sở 2), vd TKB_diem_chinh.xlsx, TKB_diem_phu.xlsx; FILE_THONG_KE là một bảng: mỗi giáo viên một dòng (tên, chức vụ), số
+# hai: ..._diem_chinh (các lớp cơ sở 1) và ..._diem_phu (các lớp cơ sở 2), vd TKB_diem_chinh.xlsx, TKB_diem_phu.xlsx;
+# FILE_TKB_GIAO_VIEN là TKB của từng giáo viên (mỗi người một bảng, in mỗi người một trang, kèm bảng tổng hợp);
+# FILE_THONG_KE là một bảng: mỗi giáo viên một dòng (tên, chức vụ), số
 # tiết từng môn người đó dạy và tổng số tiết. Dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển, dạy bù
 # chỉ in ra màn hình.
 FILE_TKB = "TKB.xlsx"
 FILE_TKB_CHUC_VU = "TKB_chuc_vu.xlsx"
+FILE_TKB_GIAO_VIEN = "TKB_giao_vien.xlsx"
 FILE_THONG_KE = "Thong_Ke.xlsx"
 
 # Số luồng tìm kiếm song song của bộ giải (mỗi luồng chạy một chiến lược khác nhau).
@@ -98,7 +101,7 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MU
         luat_hoc_sinh: bool = LUAT_HOC_SINH, chay_tai_lap_duoc: bool = CHAY_TAI_LAP_DUOC,
         so_luong: int = SO_LUONG, che_do: str = CHE_DO, so_tiet_bu_toi_da: int = SO_TIET_BU_TOI_DA,
         file_thong_ke: str = FILE_THONG_KE, file_tkb_chuc_vu: str = FILE_TKB_CHUC_VU,
-        giu_tkb_da_xep: bool = GIU_TKB_DA_XEP) -> int:
+        giu_tkb_da_xep: bool = GIU_TKB_DA_XEP, file_tkb_giao_vien: str = FILE_TKB_GIAO_VIEN) -> int:
     """Chạy xếp TKB; trả về 0 nếu thành công, 3 nếu chế độ bù giờ thiếu tiết."""
     try:
         from tkb import config
@@ -141,7 +144,8 @@ def run(file_vao: str | Path = FILE_VAO, thu_muc_out: str | Path | None = THU_MU
 
     argv = [str(source), "-o", str(out_dir / file_tkb), "--time-limit", str(limit),
             "--workers", str(so_luong), "--mode", che_do, "--max-overtime", str(so_tiet_bu_toi_da),
-            "--stats-out", str(out_dir / file_thong_ke), "--roles-out", str(out_dir / file_tkb_chuc_vu)]
+            "--stats-out", str(out_dir / file_thong_ke), "--roles-out", str(out_dir / file_tkb_chuc_vu),
+            "--teachers-out", str(out_dir / file_tkb_giao_vien)]
     if not luat_hoc_sinh:
         argv.append("--no-student-rules")
     if not chay_tai_lap_duoc:

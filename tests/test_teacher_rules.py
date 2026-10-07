@@ -209,8 +209,11 @@ def test_cli_splits_timetables_by_campus(tmp_path):
     write_staff_template(src, _set(small_staff(), "chủ nhiệm 3/2", campus2=True), CURRICULUM)
     out = tmp_path / "out"
     assert main([str(src), "-o", str(out / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
-    assert sorted(p.name for p in out.glob("TKB*.xlsx")) == [
-        "TKB_chuc_vu_diem_chinh.xlsx", "TKB_chuc_vu_diem_phu.xlsx", "TKB_diem_chinh.xlsx", "TKB_diem_phu.xlsx"]
+    assert sorted(p.name for p in out.glob("TKB*.xlsx")) == [  # TKB giáo viên không tách theo cơ sở
+        "TKB_chuc_vu_diem_chinh.xlsx", "TKB_chuc_vu_diem_phu.xlsx", "TKB_diem_chinh.xlsx", "TKB_diem_phu.xlsx",
+        "TKB_giao_vien.xlsx"]
+    ws = openpyxl.load_workbook(out / "TKB_giao_vien.xlsx")["Giáo viên"]
+    assert any("3/2 (CS2)" in str(c.value) for row in ws.iter_rows() for c in row)  # lớp ở cơ sở 2 ghi rõ
     titles = lambda name: [c.value for c in openpyxl.load_workbook(out / name)["Khối 3"]["A"]  # noqa: E731
                            if c.value not in (None, "LỚP")]
     assert titles("TKB_diem_chinh.xlsx") == titles("TKB_chuc_vu_diem_chinh.xlsx") == ["3/1"]

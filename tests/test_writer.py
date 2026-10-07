@@ -80,7 +80,7 @@ def test_statistics_file_is_one_table(tmp_path):
     sol = _solve_small(general=True)
     out = tmp_path / "Thong_Ke.xlsx"
     writer.write_statistics(sol, out, STYLE)
-    assert openpyxl.load_workbook(out).sheetnames == ["Thống kê"]
+    assert openpyxl.load_workbook(out).sheetnames == ["Thống kê", "Chất lượng"]
     rows = _stats(out)
     header = rows[0]
     # Tên, chức vụ (Mã GV), số tiết từng môn (chỉ các môn có người dạy), tổng tiết, định mức, tiết bù, tiết dư.
@@ -94,6 +94,66 @@ def test_statistics_file_is_one_table(tmp_path):
     assert rows[1][:2] == ("CN A", "Chủ Nhiệm 3/1") and rows[1][-4] == load["chủ nhiệm 3/1"]
     assert rows[1][header.index("HĐTN")] == 3 and rows[1][header.index("Tiếng Anh")] is None  # ô trống: không dạy
     assert rows[-1][0] == "Tổng" and rows[-1][-4] == 64  # 2 lớp × 32 tiết
+
+
+def test_teacher_timetable(tmp_path):
+    """TKB giáo viên: mỗi người một bảng (ngắt trang sau mỗi bảng), mỗi tiết đúng một lần ở đúng ô; bảng tổng hợp
+    mỗi người một dòng."""
+    sol = _solve_small(general=True)
+    out = tmp_path / "TKB_giao_vien.xlsx"
+    writer.write_teacher_timetable(sol, out, STYLE)
+    wb = openpyxl.load_workbook(out)
+    assert wb.sheetnames == ["Giáo viên", "Tổng hợp"]
+    ws = wb["Giáo viên"]
+    teaching = [t for t in writer.staff_rows(sol) if t.title in {les.teacher for les in sol.lessons}]
+    titles = [r for r in range(1, ws.max_row + 1) if ws.cell(r, 2).value is None and ws.cell(r, 1).value
+              and str(ws.cell(r, 1).value).endswith("tiết")]
+    assert len(titles) == len(teaching) and len(ws.row_breaks.brk) == len(teaching)
+    assert ws.cell(titles[0], 1).value == f"CN A (Chủ Nhiệm 3/1): {sol.teacher_load()['chủ nhiệm 3/1']} tiết"
+    assert [ws.cell(titles[0] + 1, c).value for c in range(1, 8)] == [
+        "BUỔI", "TIẾT", "THỨ 2", "THỨ 3", "THỨ 4", "THỨ 5", "THỨ 6"]
+    rows = writer.session_rows()
+    seen = []
+    for t, top in zip(teaching, titles):
+        for j, (_, period) in enumerate(rows):
+            assert ws.cell(top + 2 + j, 2).value == period
+            for d in range(5):
+                v = ws.cell(top + 2 + j, 3 + d).value
+                if v and v != config.OFF_LABEL:
+                    cls, subject = v.split("\n")
+                    seen.append((t.title, d, period, cls, subject))
+    want = [(les.teacher, les.day, les.period, les.class_name, sol.problem.subject_label(les.subject))
+            for les in sol.lessons]
+    assert sorted(seen) == sorted(want)
+    assert ws.page_setup.orientation == "landscape"
+    summary = list(wb["Tổng hợp"].iter_rows(values_only=True))
+    assert summary[0][:3] == ("Họ và Tên", "Mã GV", "THỨ 2") and summary[1][2:4] == (1, 2)
+    assert [r[1] for r in summary[2:]] == [t.code for t in teaching]
+    assert sum(1 for r in summary[2:] for v in r[2:] if v) == len(sol.lessons)
+
+
+def test_quality_sheet(tmp_path):
+    """Chất lượng: mỗi dòng luật một dòng; luật bắt buộc 0 lần không theo (TKB đạt kiểm tra); luật ưu tiên thêm vào
+    đếm như soft_report (bộ ghép luật)."""
+    from tkb import luat_co_san
+    from tkb.config import CustomRule
+    from tkb.rules import applied
+    soft = CustomRule("khong_xep", "Toán", periods=(1, 2, 3, 4), level=3, row=40)  # cố ý khó theo
+    with applied({"CUSTOM_RULES": [soft]}):
+        sol = _solve_small(general=True)
+        rows = writer.quality_rows(sol)
+        assert len(rows) == len(luat_co_san.rows()) + 1 and rows[-1][0] == "Tổng"
+        assert all(r[3] in (0, None) for r in rows[:-1] if r[2] == "Bắt buộc")
+        mine = rows[-2]
+        assert mine[1] == "Toán không xếp vào tiết 1, 2, 3, 4" and mine[2] == "Ưu tiên cao"
+        from tkb import bo_ghep
+        n = bo_ghep.soft_counts(sol.problem, sol.lessons)[soft]
+        assert mine[3] == n > 0 and mine[4] == n * 1500 and mine[5].count(";") == min(n, 3) - 1
+        assert rows[-1][4] == sum(r[4] or 0 for r in rows[:-1])
+        out = tmp_path / "Thong_Ke.xlsx"
+        writer.write_statistics(sol, out, STYLE)
+    sheet = list(openpyxl.load_workbook(out)["Chất lượng"].iter_rows(values_only=True))
+    assert sheet[0] == writer.QUALITY_HEADERS and len(sheet) == len(rows) + 1
 
 
 def test_supplement_in_statistics(tmp_path):

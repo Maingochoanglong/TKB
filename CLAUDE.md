@@ -5,13 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-SAT. Input: one Excel file with
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
 only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code; both split into `*_diem_chinh`/`*_diem_phu` when
-the file has campus-2 classes, `writer.campus_paths`), `Thong_Ke.xlsx` (one table: lessons per subject
+the file has campus-2 classes, `writer.campus_paths`), `TKB_giao_vien.xlsx` (`writer.write_teacher_timetable`: one
+block per teacher, a page break after each, plus sheet `Tổng hợp` one row per teacher), `Thong_Ke.xlsx` (sheet
+`Chất lượng` = `writer.quality_rows`: violations/points per row of sheet LUẬT counted with `bo_ghep.violations`; sheet
+`Thống kê`, one table: lessons per subject
 per teacher + total, quota, overtime, spare, and with campus 2 who moves between campuses (`campus_moves`); spare rows blue; overtime rows yellow, their overtime subject cells orange, per-subject overtime in the text column `Môn Dạy Bù` (`Lesson.overtime`); in
 `bu_gio` with a shortage only the sheet `Thiếu tiết`), `<input>_cap_nhat.xlsx` (input + hires + result columns incl. `Số Tiết Dư`; rows coloured: overtime
 yellow, hire green, spare blue, explained in the rewritten `HƯỚNG DẪN` sheet — the simple stats in input layout;
 it also writes all rules used and the saved timetable grid `TKB đã xếp`). Output files hold
 plain values and colours only: no cell comments, formulas, frozen panes, dropdowns or conditional formats
-(`writer.plain_values`). Code comments,
+(`writer.plain_values`); print setup (landscape, fit to width, page breaks) is allowed. Code comments,
 docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules

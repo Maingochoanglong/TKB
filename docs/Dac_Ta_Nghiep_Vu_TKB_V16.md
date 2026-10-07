@@ -75,6 +75,7 @@
 | 57 | Bộ ghép luật chung cho mọi luật | Luật riêng chỉ có 6 kiểu cố định, mỗi kiểu viết code riêng ở mọi nơi; luật có sẵn chỉ đọc được qua tên cột quy định | **Bộ ghép luật** (`tkb/bo_ghep.py`, mục 6.1): mọi luật là một câu "Với mỗi [phạm vi] · các tiết [điều kiện] · thì [phép đo] [so sánh] [số] · khi [...] · [mức]" với 9 phép đo (số tiết, số khác nhau, vị trí, liền nhau, theo cặp, thứ tự, đi kèm, người dạy, khoảng cách); mỗi phép đo viết code **một lần** cho mô hình CP-SAT, kiểm tra độc lập, QA của LNS, báo cáo, đếm trước và tầng phân công. Sheet `LUẬT RIÊNG` thêm các cột Với mỗi, Gồm môn tăng cường, Nhãn, Lớp, Phép đo, So sánh, Đếm theo, Áp dụng khi; Kiểu luật là một **mẫu** (6 kiểu cũ và Cố định vào, Giáo viên tối đa lớp mỗi ngày, Học ít nhất số ngày, Chỉ giáo viên dạy) hoặc **Tự ghép**. **Nhãn** là các cột Có/Không của môn, ngày, tiết. **Luật có sẵn** viết bằng cùng câu (`tkb/luat_co_san.py`), liệt kê trong HƯỚNG DẪN của file vào cập nhật và trên giao diện; vẫn mã hóa như cũ, bộ ghép kiểm chéo với bộ kiểm tra độc lập và hạ thay được bản gốc (test). Giao diện: hộp thoại ghép câu, câu đọc lại do chương trình nói. Không có luật riêng thì mã kết quả, mã quy định không đổi |
 | 58 | Mọi luật nằm trong file Excel (sheet `LUẬT`) | Luật có sẵn viết trong code, chỉ chỉnh tham số qua vài cột; luật riêng ở sheet `LUẬT RIÊNG` | **Sheet `LUẬT`** (mục 6.1): mọi luật xếp TKB là một dòng câu ghép, kể cả 23 luật có sẵn (`tkb/luat_co_san.py`, file mẫu ghi sẵn). Dòng đúng **dạng gốc** của luật có sẵn (chỉ khác số, điểm) xếp như trước, số và điểm lấy từ dòng; xóa dòng là tắt luật; sửa khác dạng gốc (vd đổi sang ưu tiên) thì xếp bằng bộ ghép. Bộ ghép thêm: Trừ nhãn, Điểm, Nhóm, ngưỡng theo dữ liệu (tải ngày, số tiết/tuần chia số ngày), "trừ Chủ Nhiệm", Thứ tự "sau", Môn thứ hai trống là các môn khác cùng nhóm, Người dạy "Liền nhau cùng người" và "Tiết đầu tuần do", Áp dụng khi theo từng môn/nhóm môn. Ba cột cũ (Tối đa tiết mỗi ngày, Số tiết tối đa một nhóm môn mỗi buổi, Ghép cặp khi nhóm môn có từ) nay là số của dòng luật (file cũ vẫn đọc được); các cột Có/Không là **nhãn**. Chẩn đoán bỏ thử từng dòng luật và nêu `LUẬT dòng n`. Giao diện: mọi luật một danh sách, Nhập luật từ Excel, Xuất luật ra Excel, Tải mẫu luật. Để mặc định (hoặc file không có sheet `LUẬT`): mã kết quả, mã quy định không đổi |
 | 59 | Luật dễ đọc, dễ ghép | Câu đọc lại dùng ký hiệu (`>=`, `<=`), hai dấu hai chấm, "ô có nhãn", "tối đa 0 tiết"; hai cửa chọn chồng nhau (13 mẫu, 9 phép đo); hai thang ưu tiên (Mức 1–3, Điểm 10…10000); hộp thoại ghép phẳng khoảng 20 ô | **Luật có sẵn có tên riêng** (`Native.titles`), dòng khác đọc bằng câu ghép tự nhiên (mục 6.1); "giờ học" thay "ô", "GV chủ nhiệm". Mẫu và phép đo chia theo **bốn câu hỏi** Ở đâu, Bao nhiêu, Đi cùng nhau, Ai dạy (giao diện: một ô chọn Loại luật; HƯỚNG DẪN theo câu hỏi). **Mức ưu tiên bằng chữ** Thấp, Vừa, Cao, Rất cao (thêm mức 4 = 5.000 điểm; cột Mức ghi chữ, vẫn đọc 1–3); dòng ghi Điểm đọc theo mức gần nhất. Hộp thoại theo thứ tự câu: Loại luật · Với mỗi · Các tiết nào (Thêm điều kiện) · Vào giờ nào · Thì (Áp dụng khi chọn bằng ô) · Mức (Nâng cao: Điểm, Nhóm); cảnh báo khi sửa làm luật có sẵn mất dạng gốc. Cột Excel không đổi. Mô hình không đổi: mã kết quả, mã quy định không đổi |
+| 60 | TKB giáo viên, chất lượng TKB | Chỉ có TKB theo lớp: giáo viên phải dò mã của mình qua mọi lớp; chất lượng TKB (luật ưu tiên chưa theo được) chỉ in ra màn hình, và chỉ cho luật thêm vào | **`TKB_giao_vien.xlsx`** (mục 11.5): mỗi giáo viên một bảng ngày × tiết (ô ghi lớp, môn), ngắt trang để in mỗi người một trang, kèm sheet Tổng hợp (mỗi người một dòng). **Sheet `Chất lượng`** trong `Thong_Ke.xlsx` (mục 11.3): mỗi dòng luật một dòng, số lần không theo, điểm trừ và ví dụ, đếm bằng bộ ghép luật. Chỉ thêm file và sheet: mã kết quả không đổi |
 
 ---
 
@@ -597,13 +598,14 @@ Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn h�
 
 ## 11. Đầu ra
 
-Bốn file, ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: chỉ `Thong_Ke.xlsx` với sheet `Thiếu tiết`):
+Năm file, ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: chỉ `Thong_Ke.xlsx` với sheet `Thiếu tiết`):
 
 | File | Nội dung |
 |---|---|
 | `TKB.xlsx` | **Chỉ thời khóa biểu**: các sheet Khối (mục 11.1). Trường có lớp ở cơ sở 2: tách thành `TKB_diem_chinh.xlsx` (lớp cơ sở 1) và `TKB_diem_phu.xlsx` (lớp cơ sở 2) |
 | `TKB_chuc_vu.xlsx` | Cùng TKB, mỗi ô thêm dòng thứ 3 là chức vụ (Mã GV), để theo dõi ai dạy tiết nào. Hai cơ sở: tách như `TKB.xlsx` |
-| `Thong_Ke.xlsx` | Một bảng: số tiết từng môn của mỗi giáo viên (mục 11.3) |
+| `TKB_giao_vien.xlsx` | TKB của từng giáo viên, in mỗi người một trang, và bảng tổng hợp (mục 11.5) |
+| `Thong_Ke.xlsx` | Số tiết từng môn của mỗi giáo viên và chất lượng TKB theo từng dòng luật (mục 11.3) |
 | `<tên file vào>_cap_nhat.xlsx` | File vào cập nhật, dùng lại làm file vào lần sau (mục 11.2) |
 
 ### 11.1. `TKB.xlsx`
@@ -645,7 +647,7 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
 
 ### 11.3. File thống kê `Thong_Ke.xlsx`
 
-Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xlsx`), style theo file vào, tiêu đề cột ở dòng 1; cột tên, chức vụ và dòng tiêu đề cố định khi cuộn:
+Sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xlsx`), style theo file vào, tiêu đề cột ở dòng 1:
 
 | Cột | Nội dung |
 |---|---|
@@ -665,6 +667,11 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
 - **Tô nền cả dòng:** chế độ bù giờ tô **vàng** (`FFEB9C`) dòng người dạy bù (tổng tiết vượt định mức); chế độ tuyển thêm tô **xanh lá** (`C6EFCE`) dòng người cần tuyển; người còn dư tiết tô **xanh dương** (`DDEBF7`). Trong dòng người dạy bù, **ô môn có tiết bù tô cam** (`F4B183`); số tiết bù từng môn ghi bằng chữ ở cột **Môn Dạy Bù** (`<môn> <n>, …`): đó đúng là các tiết mà chế độ tuyển thêm giao cho người mới. Không có ghi chú (comment) trong ô. Dưới bảng, cách một dòng, có chú thích: ô màu và dòng chữ `Dạy bù (vượt định mức): <số người> người, <số tiết bù> tiết`, `Môn có tiết dạy bù: <số ô> ô, <số tiết> tiết (số tiết từng môn ở cột Môn Dạy Bù)`, `Cần tuyển thêm: <số người> người, <số tiết> tiết`, `Dạy ít hơn định mức (còn dư tiết): <số người> người, <số tiết> tiết`. Không ai bù, không ai tuyển, không ai dư thì không tô, không chú thích.
 - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển (số tiết thiếu), dạy bù và cảnh báo **chỉ in ra màn hình** (mục 11.4).
 - **Chế độ bù giờ mà thiếu tiết** (mục 7.2): file chỉ có sheet **`Thiếu tiết`**: **Lớp | Môn | Số Tiết Thiếu | Lý Do**, cuối bảng dòng Tổng.
+- Sheet **`Chất lượng`** (`writer.quality_rows`): mỗi dòng luật đang dùng (sheet LUẬT, mục 6.1) một dòng **Nhóm | Luật**
+  (câu đọc lại) **| Mức | Số Lần Không Theo | Điểm Trừ | Ví Dụ** (3 chỗ đầu), cuối bảng dòng Tổng. Đếm bằng bộ ghép luật
+  (`bo_ghep.violations`) trên TKB đã xếp, cùng cách đếm với QA của LNS. Luật bắt buộc: 0 (TKB đã qua bộ kiểm tra độc
+  lập); hai mẫu chỉ có dạng gốc (Buổi nghỉ, Giáo viên chỉ dạy cơ sở 2) ghi "kiểm bằng bộ kiểm tra độc lập"; chạy với
+  `--no-student-rules` thì các luật bảo vệ học sinh ghi "tắt". Điểm trừ = số lần × điểm của dòng (cột Điểm, hoặc Mức).
 
 ### 11.4. Màn hình và mã thoát
 
@@ -677,6 +684,17 @@ Chỉ một sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xls
   - `3`: chế độ bù giờ thiếu tiết (không ra TKB, chỉ có bảng tiết thiếu).
 
 ---
+
+### 11.5. TKB giáo viên `TKB_giao_vien.xlsx`
+
+Mẫu `data/Output_Template_TKB_Giao_Vien_V8.xlsx`, style theo file vào (`writer.write_teacher_timetable`):
+- Sheet **`Giáo viên`**: mỗi giáo viên có tiết dạy (thứ tự file nhân sự, rồi người cần tuyển) một bảng `BUỔI | TIẾT |
+  THỨ 2 … THỨ 6` như bảng một lớp của `TKB.xlsx`; dòng tựa `<tên> (<Mã GV>): <n> tiết` (tên trống: chỉ Mã GV). Mỗi ô
+  ghi lớp, xuống dòng môn; tiết dạy bù thêm `(bù)`; lớp ở cơ sở 2 thêm `(CS2)`; ô không học ghi `Nghỉ`. Ngắt trang sau
+  mỗi bảng (in mỗi người một trang), khổ ngang, co vừa chiều rộng.
+- Sheet **`Tổng hợp`**: mỗi giáo viên một dòng (Họ và Tên, Mã GV), mỗi cột một (thứ, tiết) với hai dòng tiêu đề (thứ
+  gộp ô, rồi số tiết), ô ghi lớp; in lặp hai dòng tiêu đề.
+- Không tách theo cơ sở (một giáo viên có thể dạy cả hai cơ sở).
 
 ## 12. Cấu hình
 
