@@ -112,8 +112,10 @@ class _Search:
             over = max(0, k - math.ceil(total[cls, subject] / days))
             cost[cls, d] += over * (w.core_spread if subject in config.MORNING_SUBJECTS else w.subject_spread)
         by_teacher_day = defaultdict(list)
-        for les in lessons:
-            by_teacher_day[les.teacher, les.day].append(les)
+        for les in lessons:  # tiết bù của người mới cũng thuộc lịch người bù (problem.covers, như mô hình)
+            for who in (les.teacher, problem.covers.get((les.course_id, les.teacher))):
+                if who:
+                    by_teacher_day[who, les.day].append(les)
         for (g, d), items in sorted(by_teacher_day.items()):
             t = problem.teachers[g]
             over = len(items) - day_targets(t.max_lessons, problem.slots)[d]

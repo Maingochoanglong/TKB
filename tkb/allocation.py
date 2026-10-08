@@ -41,6 +41,9 @@ class Problem:
     subject_labels: dict[str, str] = field(default_factory=dict)  # môn -> tên như ghi trong file vào
     subject_order: list[str] = field(default_factory=list)  # các môn theo thứ tự dòng trong file vào
     campus2: frozenset[str] = frozenset()  # các lớp ở cơ sở 2 (cột Cơ sở 2 trên dòng Chủ Nhiệm)
+    # (course, người tuyển mới) -> người bù: các tiết đó là tiết bù của người bù (chế độ bù giờ dạy đúng các ô này),
+    # nên khi xếp giờ cũng chiếm lịch của người bù (solver.build_timetable). Chỉ có ở bài toán xếp giờ (solver.solve).
+    covers: dict[tuple[int, str], str] = field(default_factory=dict)
 
     def overtime_mode(self) -> bool:
         return self.overtime_max > 0

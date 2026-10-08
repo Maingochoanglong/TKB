@@ -1,5 +1,6 @@
 """Luật riêng của trường (tkb/luat_rieng.py, sheet LUẬT RIÊNG): đọc, xếp đúng luật bắt buộc, ưu tiên luật mềm,
 kiểm tra độc lập, đếm trước khi xếp và chẩn đoán."""
+import sys
 from collections import Counter
 
 import openpyxl
@@ -16,6 +17,7 @@ from tkb.staff import InputError
 from tkb.template import write_staff_template
 
 from .conftest import CURRICULUM, small_staff, plain_rules
+from .test_reproducible import REFERENCE
 
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
 HEAD = [h for _, h in luat_rieng.COLUMNS]
@@ -101,7 +103,10 @@ def test_read_sheet_and_rules_code(tmp_path):
 
 def test_no_custom_rules_change_nothing():
     plain, _ = _solve()
-    assert plain.fingerprint() == "51DE-A8CB-6CB7"  # mã tham chiếu của trường nhỏ (tests/test_reproducible.py)
+    expected = REFERENCE.get(sys.platform, {}).get(config.MODE_OVERTIME)
+    if expected is None:
+        pytest.skip(f"chưa có mã chuẩn cho {sys.platform}")
+    assert plain.fingerprint() == expected  # mã tham chiếu của trường nhỏ (tests/test_reproducible.py)
 
 
 def test_hard_rules_hold_and_are_checked():

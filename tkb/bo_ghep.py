@@ -420,9 +420,10 @@ def _key(dim: str, a: Atom, problem):
 class _Source:
     """Các tiết có thể có (mỗi course × ô trong miền × GV): từ biến của mô hình, hoặc từ một TKB."""
 
-    def __init__(self, problem, dom: dict[int, list], lit, teachers_of, extra=()):
+    def __init__(self, problem, dom: dict[int, list], lit, teachers_of, extra=(), relabel=None):
         from .solver import session_of
         self.problem, self.dom, self.lit, self.teachers_of, self.extra = problem, dom, lit, teachers_of, extra
+        self.relabel = relabel or {}  # (course, GV trong mô hình) -> GV tính cho luật (người bù, Problem.covers)
         self.sess = session_of()
 
     def atoms(self, L: Luat, subjects=_ALL, skip=None) -> list[Atom]:
@@ -443,18 +444,19 @@ class _Source:
                     out.append(Atom(self.lit(c.id, None, s), c.class_name, c.grade, c.subject, s[0], s[1], name))
                     continue
                 for g in self.teachers_of(c.id):
-                    if not ok[g]:
+                    t = self.relabel.get((c.id, g), g)
+                    if not ok[t]:
                         continue
-                    out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, g))
+                    out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, t))
         return out
 
 
-def _cp_source(problem, x, z, dom, teachers_of) -> _Source:
+def _cp_source(problem, x, z, dom, teachers_of, relabel=None) -> _Source:
     def lit(cid, g, s):
         if g is None or len(teachers_of[cid]) == 1:
             return x[cid, s]
         return z[cid, g, s]
-    return _Source(problem, dom, lit, lambda cid: teachers_of[cid])
+    return _Source(problem, dom, lit, lambda cid: teachers_of[cid], relabel=relabel)
 
 
 def _domains(problem) -> dict[int, list]:
@@ -989,11 +991,16 @@ def build(m, problem, x: dict, z: dict, dom: dict, teachers_of: dict, w: config.
     if not rules:
         return []
     ctx, src = _Cp(m, w), _cp_source(problem, x, z, dom, teachers_of)
+    # Tiết bù do người mới dạy (Problem.covers) ở chế độ bù giờ là tiết của người bù, cùng ô: luật bắt buộc theo GV
+    # phải đúng cả khi tính các tiết đó cho người bù.
+    covered = _cp_source(problem, x, z, dom, teachers_of, relabel=problem.covers) if problem.covers else None
     for i, L in enumerate(rules):
         if forced(L) or (_ban(L) is not None and L.measure == "vi_tri"):
             continue
         ctx.use(L, i)
         LOWER[L.measure](ctx, L, problem, src)
+        if covered is not None and L.hard and L.teacher() and L.measure != "nguoi_day":
+            LOWER[L.measure](ctx, L, problem, covered)
     return ctx.objective
 
 
