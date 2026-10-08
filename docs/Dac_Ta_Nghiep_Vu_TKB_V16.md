@@ -466,7 +466,7 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
 
 Chọn chế độ bằng `CHE_DO` trong `main.py` hoặc `--mode` khi chạy dòng lệnh.
 
-Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi ô). Trước khi xếp, chương trình **dự toán** (mục 8.1) và in ra: tổng tiết cần dạy chia theo GVCN, GV chuyên biệt, quản lý, bộ môn, tiết bù và tiết thiếu; biên bù (đã bù / tối đa có thể bù, theo GVCN và bộ môn).
+Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi ô). Khi xếp giờ, mỗi tiết bù chiếm lịch của cả người mới (chế độ tuyển) lẫn người bù (chế độ bù giờ): TKB giữ mọi luật của cả hai người (không dạy 2 lớp cùng lúc, buổi nghỉ, mỗi buổi một cơ sở, luật bắt buộc theo giáo viên ở sheet `LUẬT`), và tải ngày, tiết trống, dạy hai cơ sở trong ngày của người bù đều tính cả tiết bù. Trước khi xếp, chương trình **dự toán** (mục 8.1) và in ra: tổng tiết cần dạy chia theo GVCN, GV chuyên biệt, quản lý, bộ môn, tiết bù và tiết thiếu; biên bù (đã bù / tối đa có thể bù, theo GVCN và bộ môn).
 
 ### 7.1. Chế độ tuyển thêm (`tuyen_them`)
 
@@ -477,7 +477,7 @@ Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi �
   - **Định mức tuyển** = Số tiết lớn nhất của các giáo viên cùng chức vụ trong file vào. Chức vụ chưa có ai thì lấy Số tiết lớn nhất của các giáo viên không chủ nhiệm, không quản lý.
   - Là một người thật sẽ tuyển: không dạy 2 lớp cùng lúc, không dạy tiết 1 (của GVCN), không quá định mức tuyển.
 - Chia tiết cho người mới (`tach_tiet_bu`):
-  - tiết bù của một người ở một lớp giao trọn cho một người mới;
+  - tiết bù của một người ở một lớp giao trọn cho một người mới; một người mới không nhận tiết của cùng một lớp-môn từ hai người bù (để biết mỗi ô bù là của ai);
   - mỗi người mới tối đa **một cặp tiết mỗi buổi** (9 cặp/tuần), vì các tiết ghép cặp (mục 6) phải liền nhau;
   - số người = ít nhất có thể theo định mức và giới hạn cặp; người số nhỏ nhận nhiều tiết hơn.
 - Trong danh sách nhân sự, người mới ghi **định mức tuyển đầy đủ** (ví dụ 23), kèm số tiết thực dạy.

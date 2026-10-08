@@ -515,7 +515,7 @@ Dưới đây là các quy tắc với giá trị mặc định. Phần lớn s�
 - **Bù hết mức vẫn thiếu thì báo lỗi, không tuyển thêm, không ra TKB**: màn hình in từng lớp, môn, số tiết thiếu và cách sửa; `Thong_Ke.xlsx` có sheet `Thiếu tiết`; mã thoát 3.
 
 **Chế độ tuyển thêm** (`CHE_DO = "tuyen_them"`)
-- **Cùng TKB với chế độ bù**: các tiết bù chuyển cho người mới, người mới dạy đúng các ô đó; cộng thêm các tiết còn thiếu (nếu có).
+- **Cùng TKB với chế độ bù**: các tiết bù chuyển cho người mới, người mới dạy đúng các ô đó; cộng thêm các tiết còn thiếu (nếu có). Khi xếp, mỗi ô bù giữ luật của cả hai người: người bù cũng không dạy hai lớp cùng lúc, không có tiết trong buổi nghỉ, mỗi buổi một cơ sở; tải ngày và tiết trống của người bù tính cả tiết bù.
 - Người mới có chức vụ `<chức vụ> n+1, n+2…`, tên `chưa có`, định mức bằng Số tiết lớn nhất của giáo viên cùng chức vụ trong file vào (chức vụ chưa có ai thì lấy của các giáo viên không chủ nhiệm, không quản lý).
 - Tiết bù của một người ở một lớp giao trọn cho một người mới; mỗi người mới tối đa một cặp tiết mỗi buổi; người số nhỏ nhận nhiều tiết hơn.
 - Không dạy hai lớp cùng lúc, không dạy tiết 1.

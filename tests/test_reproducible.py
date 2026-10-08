@@ -36,8 +36,8 @@ def test_same_timetable_across_runs(mode):
 # nếu khác mã thì máy đó không ra cùng TKB (thường do khác phiên bản OR-Tools). Đổi mô hình thì cập nhật lại mã.
 # Hai chế độ cùng TKB, chỉ khác người dạy các ô bù nên khác mã.
 REFERENCE = {
-    "linux": {config.MODE_HIRE: "4CCD-C868-AF11", config.MODE_OVERTIME: "51DE-A8CB-6CB7"},
-    "win32": {config.MODE_HIRE: "4CCD-C868-AF11", config.MODE_OVERTIME: "51DE-A8CB-6CB7"},
+    "linux": {config.MODE_HIRE: "5444-2BE7-93B3", config.MODE_OVERTIME: "1F0E-EA75-72A3"},
+    "win32": {config.MODE_HIRE: "5444-2BE7-93B3", config.MODE_OVERTIME: "1F0E-EA75-72A3"},
 }
 
 
