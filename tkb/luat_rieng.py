@@ -126,6 +126,31 @@ def _numbers(text: str) -> list[int] | None:
     return sorted(set(out))
 
 
+def _class(text: str) -> str:
+    """Tên lớp ở cột Lớp: lớp của sheet LỚP ghi khác hoa thường vẫn khớp; không có sheet LỚP thì giữ như ghi."""
+    from .staff import _school, canonical_class
+    return _school()[1].get(_fold(canonical_class(text)), text)
+
+
+def _grades(text: str) -> list[int | str] | None:
+    """"3, 4", "3-5" -> [3, 4, 5]; tên khối chữ giữ như ghi (vd "Lá, Chồi"); None nếu có khối 0 hoặc khoảng sai."""
+    from .staff import _fold, grade_key, parse_grade
+    known = {_fold(str(c.grade)): c.grade for c in config.CLASSES}  # cách viết tên khối của sheet LỚP
+    out: list[int | str] = []
+    for part in re.split(r"[,;]", text):
+        part = part.strip()
+        if not part:
+            continue
+        numbers = _numbers(part)
+        if numbers is None and re.search(r"\d\s*[-–]\s*\d", part):
+            return None
+        grades = numbers if numbers is not None else [known.get(_fold(part), parse_grade(part))]
+        if 0 in grades:
+            return None
+        out += grades
+    return sorted(set(out), key=grade_key)
+
+
 def _days(text: str) -> list[int] | None:
     """Tên các ngày học (khung giờ, tkb/khung_gio.py): "Thứ 2, Thứ 4", "T2-T4" -> [0, 2] / [0, 1, 2]. Khung giờ đặt tên
     ngày kiểu "Thứ n" (như mặc định) thì còn nhận cả Thứ 2 … Thứ 7 chưa phải ngày học và cách ghi số "2, 3" như trước."""
@@ -215,14 +240,14 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
         elif key == "role":  # "trừ Chủ Nhiệm": mọi GV trừ chức vụ đó
             out[key] = ", ".join(normalize(r) for r in bo_ghep.names(text))
         elif key == "grades":
-            grades = _numbers(text)
-            if not grades or 0 in grades:
-                error(f"cột Khối ghi số khối, vd '3, 4' hoặc '3-5', đang ghi {value!r}")
+            grades = _grades(text)
+            if not grades:
+                error(f"cột Khối ghi tên các khối, vd '3, 4', '3-5' hoặc 'Lá', đang ghi {value!r}")
                 ok = False
             else:
                 out[key] = tuple(grades)
         elif key == "classes":
-            out[key] = tuple(dict.fromkeys(bo_ghep.names(text)))
+            out[key] = tuple(dict.fromkeys(_class(c) for c in bo_ghep.names(text)))
         elif key == "days":
             days = _days(text)
             if not days:

@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from . import config
 from .config import CustomRule
-from .staff import grade_of
+from .staff import grade_key, grade_of
 
 
 # --------------------------------------------------------------------------
@@ -503,7 +503,7 @@ def _universe(L: Luat, problem) -> list[tuple]:
                and (L.subjects is None or any(problem.curriculum[grade_of(c)].get(s, 0) for s in L.subjects))]
     slots = sorted(s for s in _all_slots() if L.slots is None or s in L.slots)
     sess = session_of()
-    values = {"lop": classes, "khoi": sorted({grade_of(c) for c in classes}), "ngay": sorted({d for d, _ in slots}),
+    values = {"lop": classes, "khoi": sorted({grade_of(c) for c in classes}, key=grade_key), "ngay": sorted({d for d, _ in slots}),
               "buoi": sorted({(d, sess[(d, p)].name) for d, p in slots}), "o": slots}
     if any(d not in values for d in L.scope):
         return []
@@ -1053,7 +1053,7 @@ def precheck(problem, label, skip: set[int] = frozenset()) -> list[str]:
             continue
         r = L.rule
         classes = [c for c in problem.classes if _class_ok(L, c, grade_of(c), problem.curriculum)]
-        grades = sorted({grade_of(c) for c in classes})
+        grades = sorted({grade_of(c) for c in classes}, key=grade_key)
         subjects = sorted(L.subjects or ())
         if _ban(L) is not None:
             for g in grades:
@@ -1134,4 +1134,8 @@ def validate(problem, sheet: str, role_label) -> list[str]:
         for c in r.classes:
             if c not in problem.classes:
                 out.append(f"{sheet} dòng {r.row}: không có lớp '{c}'")
+        for g in r.grades:
+            if isinstance(g, str) and g not in problem.curriculum:
+                out.append(f"{sheet} dòng {r.row}: không có khối '{g}' (các khối: "
+                           f"{', '.join(map(str, sorted(problem.curriculum, key=grade_key)))})")
     return out

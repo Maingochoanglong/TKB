@@ -98,6 +98,21 @@ ROLES_SHEET = "CHỨC VỤ"
 # Mặc định không có: GV chuyên biệt là chức vụ trùng tên môn.
 CUSTOM_ROLES: list[Role] = []
 
+
+@dataclass(frozen=True)
+class SchoolClass:
+    """Một lớp của sheet LỚP (không bắt buộc, đọc ở tkb/rules.py): tên lớp và tên khối tùy ý, lớp có thể không có
+    GVCN."""
+    name: str  # tên lớp như ghi trong file, vd "1/1", "Lá 2"
+    grade: int | str  # khối: số nếu ghi toàn chữ số, không thì tên khối như ghi (vd "Lá")
+    campus2: bool = False  # lớp ở cơ sở 2
+    row: int = 0  # dòng trong sheet LỚP (để báo lỗi)
+
+
+CLASSES_SHEET = "LỚP"
+# Mặc định không có: danh sách lớp lấy từ các dòng Chủ Nhiệm, khối là các chữ số đầu tên lớp.
+CLASSES: tuple[SchoolClass, ...] = ()
+
 # File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"
 PROGRAM_SHEET = "CHƯƠNG TRÌNH HỌC"
@@ -131,7 +146,7 @@ class ManagerRule:
     Số tiết dạy đúng bằng cột Số tiết của quản lý (giới hạn bởi số tiết khả dụng).
     """
     subject: str
-    grade: int
+    grade: int | str  # tên khối (staff.parse_grade)
     classes: tuple[str, ...] | None = None
 
 
@@ -205,7 +220,7 @@ class CustomRule:
     kind: str  # khóa mẫu luật trong luat_rieng.KINDS, vd "khong_xep"; "tu_ghep": tự ghép (các trường cuối)
     subject: str = ""  # môn (tên như trong file vào)
     other: str = ""  # môn thứ hai (luật "Học trước": subject học trước other)
-    grades: tuple[int, ...] = ()  # các khối; trống = mọi khối
+    grades: tuple[int | str, ...] = ()  # các khối (staff.parse_grade); trống = mọi khối
     days: tuple[int, ...] = ()  # các ngày (0 = Thứ 2); trống = mọi ngày
     periods: tuple[int, ...] = ()  # các tiết; trống = mọi tiết
     sessions: tuple[str, ...] = ()  # các buổi (tên buổi, vd "Sáng"); trống = mọi buổi

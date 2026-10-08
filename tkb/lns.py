@@ -28,7 +28,7 @@ from ortools.sat.python import cp_model
 
 from . import config, khung_gio
 from .solver import TimetableModel, _configure, day_targets, distance_to_session_end, session_of
-from .staff import class_sort_key, grade_of
+from .staff import class_sort_key, grade_key, grade_of
 
 
 @dataclass
@@ -172,7 +172,7 @@ class _Search:
                  limits["GV dùng chung"]) for s in groups]
         grade = {c: grade_of(c) for c in classes}
         grades = sorted(set(grade.values()), key=lambda g: (-round(sum(by_class[c] for c in classes if grade[c] == g)),
-                                                             g))
+                                                             grade_key(g)))
         out += [("khối", f"khối {g}", self.free([c for c in classes if grade[c] == g], days), limits["khối"])
                 for g in grades]
         pairs = sorted(itertools.combinations(days, 2), key=lambda p: (-round(by_day[p[0]] + by_day[p[1]]), p))

@@ -20,11 +20,13 @@ from openpyxl.worksheet.datavalidation import DataValidationList
 
 from . import config, khung_gio
 from .solver import Solution, session_of
-from .staff import Teacher, _find_columns, class_sort_key, clean_name, find_sheet, grade_of, normalize, staff_sheet
+from .staff import (Teacher, _find_columns, class_sort_key, clean_name, find_sheet, grade_key, grade_of, normalize,
+                    staff_sheet)
 from .style import CellStyle, Style
 from .rules import code as rules_code, subject_columns
 from . import luat_rieng
-from .template import GUIDE_SHEET, write_guide, write_luat_sheet, write_roles_sheet, write_rules_sheet
+from .template import (GUIDE_SHEET, write_classes_sheet, write_guide, write_luat_sheet, write_roles_sheet,
+                       write_rules_sheet)
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -108,6 +110,11 @@ def session_rows() -> list[GridRow]:
     return rows
 
 
+def _sheet_title(text: str) -> str:
+    """Tên sheet Excel hợp lệ: bỏ các ký tự Excel không cho dùng ([ ] : * ? / \\), tối đa 31 ký tự."""
+    return re.sub(r"[\[\]:*?/\\]", "-", text)[:31]
+
+
 def _merge(ws, style: Style, r1: int, c1: int, r2: int, c2: int, value) -> None:
     for r in range(r1, r2 + 1):
         for c in range(c1, c2 + 1):
@@ -132,8 +139,8 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
     title = {c: c for c in problem.classes}  # cột LỚP chỉ ghi tên lớp (cơ sở 2 đã tách file riêng)
     chosen = problem.classes if classes is None else classes
-    for grade in sorted({grade_of(c) for c in chosen}):
-        ws = wb.create_sheet(f"Khối {grade}")
+    for grade in sorted({grade_of(c) for c in chosen}, key=grade_key):
+        ws = wb.create_sheet(_sheet_title(f"Khối {grade}"))
         classes = sorted((c for c in chosen if grade_of(c) == grade), key=class_sort_key)
         widths = [max(style.text_width(t) for t in [header[0], *(title[c] for c in classes)]),
                   max(style.text_width(t) for t in [header[1], *(row.session.upper() for row in rows)]) + LABEL_PAD,
@@ -795,6 +802,12 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     _add_subject_rules(wb)
     program = find_sheet(wb, config.PROGRAM_SHEET)
     after = wb.worksheets.index(program) + 1 if program is not None else None
+    classes = find_sheet(wb, config.CLASSES_SHEET)
+    if classes is None:  # trống: lớp vẫn lấy từ các dòng Chủ Nhiệm
+        write_classes_sheet(wb, [], after)
+        after = after and after + 1
+    elif after is not None and wb.worksheets.index(classes) == after:
+        after += 1
     if find_sheet(wb, config.ROLES_SHEET) is None:
         write_roles_sheet(wb, role_rows(solution), after)
         after = after and after + 1

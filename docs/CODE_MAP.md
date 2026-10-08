@@ -164,9 +164,10 @@ Hằng số: `SECONDS`
 - `_check_student_rules(problem, lessons)`
 
 ## tkb/config.py — Giá trị mặc định của các luật nghiệp vụ, trọng số mục tiêu và tham số xếp giờ.
-Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `DISPLAY_NAMES`, `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS`, `OFF_LABEL`, `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS`, `ROLE_HOMEROOM`, `ROLE_GENERAL`, `ROLE_MANAGER`, `ROLE_LABELS`, `ROLES_SHEET`, `CUSTOM_ROLES`, `STAFF_SHEET`, `PROGRAM_SHEET`, `RULES_SHEET`, `SAVED_SHEET`, `SAVED_OVERTIME`, `SAVED_LOCKED`, `SAVED_CODES`, `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER`, `HOMEROOM_PERIODS`, `SUPPLEMENT_NAME`, `MODE_HIRE`, `MODE_OVERTIME`, `MODES`, `OVERTIME_ROLES`, `HOMEROOM_OVERTIME_SPECIALIST`, `OVERTIME_MAX`, `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `MORNING_SUBJECTS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED`, `CUSTOM_RULES`, `PEOPLE`, `RULES_SHEET_ROWS`, `RULES`, `OFF`, `WEIGHTS`, `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`, `ORTOOLS_VERSION`
+Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `DISPLAY_NAMES`, `DAYS`, `MORNING`, `AFTERNOON`, `DAY_SESSIONS`, `OFF_LABEL`, `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS`, `ROLE_HOMEROOM`, `ROLE_GENERAL`, `ROLE_MANAGER`, `ROLE_LABELS`, `ROLES_SHEET`, `CUSTOM_ROLES`, `CLASSES_SHEET`, `CLASSES`, `STAFF_SHEET`, `PROGRAM_SHEET`, `RULES_SHEET`, `SAVED_SHEET`, `SAVED_OVERTIME`, `SAVED_LOCKED`, `SAVED_CODES`, `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER`, `HOMEROOM_PERIODS`, `SUPPLEMENT_NAME`, `MODE_HIRE`, `MODE_OVERTIME`, `MODES`, `OVERTIME_ROLES`, `HOMEROOM_OVERTIME_SPECIALIST`, `OVERTIME_MAX`, `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, `MORNING_SUBJECTS`, `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED`, `CUSTOM_RULES`, `PEOPLE`, `RULES_SHEET_ROWS`, `RULES`, `OFF`, `WEIGHTS`, `LNS_START_SHARE`, `LNS_START_MAX`, `LNS_REGION_LIMITS`, `LNS_HOTSPOTS`, `LNS_SHARED_CLASSES`, `LNS_MIN_GAIN`, `LNS_MAX_ROUNDS`, `ORTOOLS_VERSION`
 - `class Session`
 - `class Role` — Chức vụ GV chuyên biệt nhà trường tự đặt (sheet CHỨC VỤ, đọc ở tkb/rules.py).
+- `class SchoolClass` — Một lớp của sheet LỚP (không bắt buộc, đọc ở tkb/rules.py): tên lớp và tên khối tùy ý, lớp có thể không có
 - `class ManagerRule` — Quản lý chỉ dạy môn `subject` của khối `grade`.
 - `class CustomRule`
 - `on(key)` — Luật có sẵn `key` đang bật (có dòng ở dạng gốc trong sheet LUẬT, hoặc file không có sheet LUẬT).
@@ -202,6 +203,9 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGE
 - `_text(value)`
 - `_read_staff_rows(wb, warnings)` — Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua). File không có sheet
 - `_read_program_rows(wb)` — Các khối và các dòng (môn, {khối: số tiết}) của sheet CHƯƠNG TRÌNH HỌC đúng như trong file.
+- `_read_class_rows(wb)` — Các lớp của sheet LỚP đúng như chữ trong file (dòng trống giữa bảng giữ lại: lớp i là dòng i + 2 của sheet).
+- `_grade_name(class_name)` — Tên khối của một lớp để vẽ trang (lớp không rõ khối: chuỗi trống).
+- `_grade(value)` — Tên khối trong kịch bản: số nếu ghi toàn chữ số, chữ nếu ghi chữ, None nếu trống.
 - `_from_cell(col, value)`
 - `_json_value(value)`
 - `_read_saved(wb)`
@@ -216,7 +220,7 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGE
 - `default_scenario()` — Kịch bản trống như file mẫu (python -m tkb.template): chưa có nhân sự, các môn có quy định mặc định với số tiết
 - `_to_cell(col, value)`
 - `_staff_row(row)`
-- `to_excel(scenario, path)` — Ghi kịch bản ra file vào V8 (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, CHỨC VỤ, QUY ĐỊNH, LUẬT RIÊNG, HƯỚNG
+- `to_excel(scenario, path)` — Ghi kịch bản ra file vào V8 (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, LỚP, CHỨC VỤ, QUY ĐỊNH, LUẬT, HƯỚNG
 - `luat_sheet_rows(rows)` — Các dòng của sheet LUẬT từ các luật của kịch bản (cả dòng trống: dòng i là dòng i + 2 của sheet); cột Luật đọc
 - `rules_to_excel(scenario, path)` — File Excel chỉ có các luật (sheet LUẬT) và cách ghi (sheet HƯỚNG DẪN): xuất luật để sửa trong Excel, chép
 - `_custom_cell(key, value)` — Ô của sheet LUẬT RIÊNG (cả dòng trống: dòng i của bảng là dòng i + 2 của sheet).
@@ -267,6 +271,8 @@ Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS
 - `class Kind`
 - `_day_label(d)`
 - `_numbers(text)` — "3, 4, 5", "3-5", "3–5" -> [3, 4, 5]; None nếu có phần không phải số.
+- `_class(text)` — Tên lớp ở cột Lớp: lớp của sheet LỚP ghi khác hoa thường vẫn khớp; không có sheet LỚP thì giữ như ghi.
+- `_grades(text)` — "3, 4", "3-5" -> [3, 4, 5]; tên khối chữ giữ như ghi (vd "Lá, Chồi"); None nếu có khối 0 hoặc khoảng sai.
 - `_days(text)` — Tên các ngày học (khung giờ, tkb/khung_gio.py): "Thứ 2, Thứ 4", "T2-T4" -> [0, 2] / [0, 1, 2]. Khung giờ đặt tên
 - `_blank(value)`
 - `_lookup(text, items)` — Tìm theo nhãn, khóa hoặc tên khác (không phân biệt hoa thường, dấu cách).
@@ -331,7 +337,10 @@ Hằng số: `MANAGER_BONUS`
 - `_hire_role(problem, course)` — Chức vụ tuyển cho tiết thiếu: bộ môn nếu được dạy môn này, không thì GV chuyên biệt của môn.
 - `tach_tiet_bu(problem, plan, staff, include_missing)` — Chức vụ -> người tuyển mới (số nhỏ nhận nhiều tiết hơn), mỗi người là các (course, người bù, số tiết);
 
-## tkb/program.py — Đọc chương trình học: cột 'Môn học' và các cột 'Khối k'.
+## tkb/program.py — Đọc chương trình học: cột 'Môn học' và các cột 'Khối <tên>' (tên khối tùy ý, vd "Khối 1", "Khối Lá").
+Hằng số: `_GRADE_HEAD`
+- `grade_head(value)` — Tiêu đề cột "Khối <tên>" -> tên khối (staff.parse_grade); cột khác: None.
+- `grade_columns(ws)` — Dòng tiêu đề, cột Môn học và {khối: cột} của sheet chương trình học; None nếu không có dòng tiêu đề có cột Môn
 - `_rule_names()`
 - `canonical_subject(name)` — Tên môn dùng khi dựng bài toán: tên trong config nếu khớp một môn có luật, không thì giữ tên trong file.
 - `read_program(path)` — Đọc sheet "CHƯƠNG TRÌNH HỌC" của file vào.
@@ -364,6 +373,8 @@ Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY
   - `.subjects(ws)` — Đọc các cột quy định sau các cột Khối; trả về True nếu sheet có ít nhất một cột quy định.
   - `.custom(ws, attr)` — Bảng có dòng tiêu đề chứa cột Kiểu luật; mỗi dòng sau đó là một luật (dòng trống bỏ qua). Sheet LUẬT
   - `.roles(ws)` — Bảng có dòng tiêu đề chứa cột Chức vụ; các dòng sau là các chức vụ (dòng trống bỏ qua). Tên môn kiểm
+  - `.program_grades(ws)` — Các khối của sheet chương trình học (cột Khối <tên>): {tên viết thường bỏ dấu: khối}.
+  - `.classes(ws, grades)` — Bảng có dòng tiêu đề chứa cột Lớp; các dòng sau là các lớp (dòng trống bỏ qua): tên lớp tùy ý, Khối (tên
   - `.frame()` — Khung giờ của file (DAYS, DAY_SESSIONS, MORNING, AFTERNOON; {} nếu file không ghi): đọc xong sheet QUY ĐỊNH
   - `.finish()`
 - `read_rules(path, warn)` — Đọc quy định của file vào: các cột quy định của sheet CHƯƠNG TRÌNH HỌC và sheet QUY ĐỊNH. Trả về {hằng số
@@ -375,6 +386,7 @@ Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY
 - `_yn(on)`
 - `rule_tables()` — Ba bảng của sheet QUY ĐỊNH theo config hiện tại: [(tiêu đề, các dòng)].
 - `role_rows()` — Các dòng của sheet CHỨC VỤ theo config hiện tại: [tên chức vụ, các môn cách nhau bằng dấu phẩy].
+- `class_rows()` — Các dòng của sheet LỚP theo config hiện tại: [lớp, khối, Có/Không ở cơ sở 2].
 - `luat_headers()` — Tiêu đề sheet LUẬT: Nhóm, các cột câu luật, Luật đọc là (chương trình ghi, khi đọc bỏ qua).
 - `luat_row(rule)` — Một dòng của sheet LUẬT (cùng thứ tự cột với luat_headers).
 - `luat_rows()` — Các dòng của sheet LUẬT theo config hiện tại: mọi luật, kể cả luật có sẵn (luat_co_san.rows).
@@ -457,9 +469,16 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_A
 - `subject_key(name)` — Khóa so khớp tên môn/chức vụ: không phân biệt hoa thường, dấu câu và chữ "và".
 - `role_errors(teachers, subjects)` — Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý, không có trong sheet CHỨC VỤ (config.CUSTOM_ROLES) và không trùng
 - `canonical_title(role, index, class_name)`
-- `parse_class(value)` — Cột Lớp: khối/số thứ tự, vd "1/1", hoặc khối + tên lớp, vd "1D15" (khối là các chữ số đầu).
-- `grade_of(class_name)` — Khối của một lớp: các chữ số đầu tên lớp, vd "1/2" và "1D15" đều là khối 1.
-- `class_sort_key(class_name)` — Sắp lớp theo khối, rồi phần chữ, rồi số: "1/2" trước "1/10", "1D9" trước "1D15".
+- `_numbered_class(text)` — Tên lớp theo cách ghi có khối ở đầu: "1/1", "1 / 1" -> "1/1"; "1d15" -> "1D15"; cách ghi khác: None.
+- `canonical_class(value)` — Tên lớp ở sheet LỚP: lớp ghi có khối ở đầu viết theo một cách ("1 / 1" -> "1/1"), tên khác giữ như ghi.
+- `_school()` — Các lớp của sheet LỚP (config.CLASSES): ({tên: lớp}, {tên viết thường bỏ dấu: tên}); trống nếu file không có
+- `parse_class(value)` — Cột Lớp: một lớp của sheet LỚP (tên tùy ý); file không có sheet LỚP thì khối/số thứ tự, vd "1/1", hoặc khối +
+- `parse_grade(value)` — Tên khối (cột Khối <tên> của sheet CHƯƠNG TRÌNH HỌC, cột Khối của sheet LỚP, LUẬT): ghi toàn chữ số thì là số
+- `natural_key(text)` — Thứ tự tự nhiên của chữ: phần số so theo số ("Lá 2" trước "Lá 10"), phần chữ không phân biệt hoa thường, dấu.
+- `grade_key(grade)` — Thứ tự khối: các khối số theo số (1 < 2 < 10), rồi các khối tên chữ theo thứ tự tự nhiên.
+- `grade_of(class_name)` — Khối của một lớp: cột Khối của sheet LỚP; lớp không có ở đó thì các chữ số đầu tên lớp, vd "1/2" và "1D15"
+- `class_campus2(class_name)` — Lớp ghi Có ở cột Cơ sở 2 của sheet LỚP (lớp ở cơ sở 2 còn có thể đánh dấu ở dòng Chủ Nhiệm).
+- `class_sort_key(class_name)` — Sắp lớp theo khối (grade_key), rồi theo tên: "1/2" trước "1/10", "1D9" trước "1D15", "Lá 2" trước "Lá 10".
 - `_fold(text)` — Chữ thường, bỏ dấu tiếng Việt (so khớp "Chiều T5" với "chieu thu 5").
 - `parse_yes(value, column)` — Cột Có/Không: trống hoặc "Không" là không; "Có", "x", "1" là có.
 - `parse_classes(value)` — Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy hoặc chấm phẩy.
@@ -477,7 +496,7 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_A
 - `_check_extras(teachers)` — Lỗi của các cột không bắt buộc cần cả danh sách mới kiểm được (lớp trong Lớp Đang Dạy, thai sản, buổi nghỉ).
 - `validate(teachers)` — Báo mọi lỗi trùng lặp cùng lúc (mỗi lỗi một dòng).
 - `read_staff(path, subjects)` — Đọc sheet nhân sự; `subjects`: các môn của chương trình học để kiểm tra chức vụ (None = không kiểm).
-- `classes_from_staff(teachers)`
+- `class_list(teachers)` — Các lớp của trường: sheet LỚP (lớp có thể không có GVCN); file không có sheet LỚP thì lớp của các dòng Chủ
 
 ## tkb/style.py — Style của các file ra, chép từ sheet NHÂN SỰ của file vào (font, viền, căn lề, nền, chiều cao dòng).
 Hằng số: `DEFAULT_ROW_HEIGHT`, `MAX_COLUMN_WIDTH`, `STAFF_HEADERS`, `MARK_FILLS`
@@ -507,10 +526,11 @@ Hằng số: `STAFF_HEADERS`, `STAFF_WIDTHS`, `RULES_WIDTHS`, `GUIDE_SHEET`, `GU
 - `_program_sheet(wb, grades, heads, rows)` — Sheet CHƯƠNG TRÌNH HỌC: Môn học | Khối ... | các cột quy định `heads`; mỗi dòng một môn.
 - `write_rules_sheet(wb, index, tables)` — Sheet QUY ĐỊNH ở vị trí `index`: ba bảng (quy định chung, ngày, tiết), cách nhau một dòng trống. `tables`:
 - `write_roles_sheet(wb, rows, index)` — Sheet CHỨC VỤ ở vị trí `index`: Chức vụ | Môn được dạy, các dòng `rows` (không có thì theo các chức vụ đang
+- `write_classes_sheet(wb, rows, index)` — Sheet LỚP ở vị trí `index`: Lớp | Khối | Cơ sở 2, các dòng `rows` (không có thì theo các lớp của sheet LỚP
 - `write_luat_sheet(wb, rows, index)` — Sheet LUẬT ở vị trí `index`: tiêu đề và các dòng luật (không có thì theo các luật đang dùng, kể cả luật có
 - `write_guide(wb, extra, index)` — Sheet HƯỚNG DẪN: cách ghi từng sheet, từng cột, rồi các dòng `extra` (vd giải thích kết quả).
-- `write_input(path, staff, program, tables, extra, rules, roles)` — Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
-- `write_staff_template(path, teachers, curriculum)` — Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), CHỨC VỤ, QUY ĐỊNH, LUẬT
+- `write_input(path, staff, program, tables, extra, rules, roles, classes)` — Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
+- `write_staff_template(path, teachers, curriculum)` — Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), LỚP, CHỨC VỤ, QUY ĐỊNH,
 - `main(argv)`
 
 ## tkb/truong_mau.py — Trường mẫu tên giả: dữ liệu minh họa cho test, CI, file mẫu đầu ra và nút "Xem thử với trường mẫu" của giao diện
@@ -524,6 +544,7 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `class GridRow` — Một hàng của bảng TKB: tiết thứ k của một buổi. Khung giờ mỗi ngày một khác (tkb/khung_gio.py) thì hàng đó có
   - `.period(d)`
 - `session_rows()` — Các hàng của bảng TKB theo khung giờ: mỗi buổi (theo thứ tự trong ngày) có số hàng bằng số tiết nhiều nhất của
+- `_sheet_title(text)` — Tên sheet Excel hợp lệ: bỏ các ký tự Excel không cho dùng ([ ] : * ? / \), tối đa 31 ký tự.
 - `_merge(ws, style, r1, c1, r2, c2, value)`
 - `_grade_sheets(wb, solution, style, with_codes, classes)`
 - `staff_rows(solution)` — GV thật theo thứ tự file gốc, sau đó GV bổ sung được dùng.
@@ -665,6 +686,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
+- `tests/test_lop.py`: test_grade_names_and_order, test_class_sheet_is_read, test_class_sheet_errors, test_homeroom_only_subject_needs_a_homeroom_teacher, test_empty_or_same_class_sheet_keeps_the_timetable, test_class_without_homeroom_end_to_end, test_scenario_keeps_classes_and_grade_names
 - `tests/test_luat_co_san.py`: test_default_rows_change_nothing, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_rule_switched_off_is_kept_but_not_used, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_cross_check_with_the_checker, test_generic_lowering_replaces_the_native_one
 - `tests/test_luat_rieng.py`: test_parse_each_kind, test_parse_errors, test_read_sheet_and_rules_code, test_no_custom_rules_change_nothing, test_hard_rules_hold_and_are_checked, test_soft_rules_are_preferred, test_teacher_day_cap_limits_the_assignment, test_precheck_and_validate, test_diagnosis_names_the_custom_rule
 - `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited, test_reloading_updated_file_keeps_timetable, test_reloading_falls_back_when_saved_timetable_breaks_rules, test_reloading_keeps_locked_cells_and_changes_little, test_reloading_overtime_result_rewrites_the_same_files
@@ -675,5 +697,5 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_staff.py`: test_bad_lessons, test_duplicates_rejected, test_read_sample_staff, test_program_file_is_read_as_written, test_subject_names_match_rules_loosely, test_columns_and_auto_numbering, test_numbered_titles_are_rejected, test_old_headers_are_rejected, test_class_errors, test_class_turned_into_date, test_program_sheet_aliases_and_total_row, test_missing_program_sheet_is_an_error, test_all_errors_at_once, test_named_classes_and_optional_columns, test_optional_column_errors
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_overtime_lessons_keep_the_leave_of_the_teacher, test_overtime_of_a_general_teacher_never_clashes, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_is_plain, test_saved_input_template_is_up_to_date, test_blank_template, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
-- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_timetable_view_swap_and_undo, test_free_time_frame
+- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step
 - `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_teacher_timetable, test_quality_sheet, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style

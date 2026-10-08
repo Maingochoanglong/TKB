@@ -135,7 +135,8 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
             continue
         if course.subject == config.HDTN and s in config.HDTN_FIXED_SLOTS and on("hdtn_co_dinh"):
             continue
-        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS and on("tiet_gvcn"):
+        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS and on("tiet_gvcn") \
+                and course.class_name not in problem.no_homeroom:
             continue
         result.append(s)
     if config.CUSTOM_RULES:  # luật riêng bắt buộc về vị trí (tkb/bo_ghep.py)

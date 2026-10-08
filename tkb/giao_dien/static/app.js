@@ -131,18 +131,28 @@ const UNDO = { label: "Hoàn tác", fn: undo };
 const done = (html) => notify(html, "", UNDO); // báo việc vừa làm kèm nút Hoàn tác (thay cho hỏi lại trước khi xóa)
 
 // ---------------------------------------------------------------- ô nhập theo loại ô
-// Loại ô: yes (Có/Không), int / order (số nguyên dương), text, role (chức vụ).
+// Loại ô: yes (Có/Không), int / order (số nguyên dương), text, role (chức vụ), class (tên lớp), grade (khối: chọn
+// trong các khối của bước 2, 3).
 function input(kind, value, attrs, cls = "") {
   const a = Object.entries(attrs).map(([k, v]) => `data-${k}="${esc(v)}"`).join(" ");
   if (kind === "yes") return `<input type="checkbox" ${a} ${value ? "checked" : ""}>`;
   if ((kind === "int" || kind === "order") && (value === null || value === undefined || typeof value === "number")) {
     return `<input type="number" min="0" step="1" ${a} value="${esc(value)}" class="${cls}">`;
   }
-  const list = kind === "role" ? 'list="role-list"' : "";
+  if (kind === "grade") {
+    const grades = (st && st.scenario.grades) || [];
+    const cur = String(value ?? "");
+    const opts = [`<option value=""></option>`, ...grades.map((g) =>
+      `<option value="${esc(g)}" ${String(g) === cur ? "selected" : ""}>Khối ${esc(g)}</option>`)];
+    if (cur && !grades.some((g) => String(g) === cur)) opts.push(`<option value="${esc(cur)}" selected>Khối ${esc(cur)} (chưa có)</option>`);
+    return `<select ${a} data-grade="1" class="${cls}">${opts.join("")}</select>`;
+  }
+  const list = kind === "role" ? 'list="role-list"' : kind === "class" ? 'list="class-list"' : "";
   return `<input type="text" ${a} ${list} value="${esc(value)}" class="${cls}" spellcheck="false">`;
 }
 function readInput(el) {
   if (el.type === "checkbox") return el.checked;
+  if (el.dataset.grade) return toGrade(el.value);
   if (el.type === "number") {
     if (el.value === "") return null;
     const n = Number(el.value);
@@ -228,7 +238,7 @@ const rulesOf = (name) => (st.scenario.subjects.find((s) => key(s.name) === key(
 const HOMEROOM = () => S.roles[0];
 const isHomeroomRole = (role) => key(role) === key(HOMEROOM());
 const isHomeroom = (t) => isHomeroomRole(t.role);
-// Chức vụ của một ô Chức Vụ: tên chức vụ có sẵn hoặc chức vụ của bước 3 cùng khóa; không có thì null.
+// Chức vụ của một ô Chức Vụ: tên chức vụ có sẵn hoặc chức vụ của bước 4 cùng khóa; không có thì null.
 function roleOf(text) {
   const k = key(text);
   if (!k) return null;
@@ -238,7 +248,7 @@ function roleOf(text) {
   return i >= 0 ? { name: st.scenario.roles[i].name, index: i } : null;
 }
 const teachersOf = (name) => st.scenario.staff.filter((t) => key(t.role) && key(t.role) === key(name)).length;
-// Như kich_ban.from_excel: chức vụ trùng tên môn mà nhân sự đang dùng thành một chức vụ của bước 3.
+// Như kich_ban.from_excel: chức vụ trùng tên môn mà nhân sự đang dùng thành một chức vụ của bước 4.
 function addImplicitRoles() {
   const subjects = Object.fromEntries(subjectNames().map((n) => [key(n), n]));
   for (const t of st.scenario.staff) {
@@ -308,7 +318,7 @@ function renderDetail() {
       if (g.keys.includes(RR().general_forbidden)) {
         const roles = sc.roles.filter((r) => (r.subjects || []).some((x) => key(x) === key(s.name))).map(named);
         extra = `<p class="muted">Chức vụ GV chuyên biệt dạy môn này: <b>${esc(roles.join(", ") || "chưa có")}</b>
-          (chọn ở bước 3, Chức vụ).</p>`;
+          (chọn ở bước 4, Chức vụ).</p>`;
       }
       html += `<fieldset><legend>${esc(g.label)}</legend>${cols.map((c) =>
         formRow(c.header, input(c.kind, (s.rules || {})[c.key], { f: "rule", i, k: c.key }), c.note)).join("")}${extra}</fieldset>`;
@@ -319,7 +329,8 @@ function renderDetail() {
     html = `<fieldset>${S.staff.map((c) => {
       let field = input(c.kind, t[c.key], { f: "staff", i, k: c.key }, "wide");
       if (c.key === "role") field = roleSelect(t.role, i);
-      if (c.key === "class" && !isHomeroom(t)) field = `<input type="text" disabled placeholder="Chỉ Chủ Nhiệm ghi Lớp">`;
+      if (c.key === "class") field = isHomeroom(t) ? input("class", t.class, { f: "staff", i, k: "class" }, "wide")
+        : `<input type="text" disabled placeholder="Chỉ Chủ Nhiệm ghi Lớp">`;
       if (c.key === "history") return formBlock(c.header, `<div id="hist-box">${historyBox(t, i)}</div>`, c.note);
       if (c.key === "off") return formBlock(c.header, `<div id="off-box">${offBox(t, i)}</div>`, c.note);
       return formRow(c.header, field, c.note);
@@ -337,22 +348,31 @@ function formBlock(label, html, note = "") {
 const fold = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d")
   .replace(/\s+/g, " ").trim();
 const classKey = (c) => String(c ?? "").toLowerCase().replace(/\s+/g, "");
-function classOrder(c) { // như staff.class_sort_key: khối, phần chữ, số
-  const m = String(c).match(/^(\d+)\D*?(\p{L}*)(\d*)$/u);
-  return m ? [Number(m[1]), m[2].toUpperCase(), Number(m[3] || 0)] : [Infinity, String(c), 0];
-}
-const byClass = (a, b) => {
-  const [x, y] = [classOrder(a), classOrder(b)];
-  return x[0] - y[0] || (x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : 0) || x[2] - y[2];
+// Tên khối như staff.parse_grade: toàn chữ số là số, trống là null.
+const toGrade = (text) => {
+  const t = String(text ?? "").trim().replace(/\s+/g, " ");
+  return t === "" ? null : /^\d+$/.test(t) ? Number(t) : t;
 };
-function schoolClasses() { // các lớp của trường: cột Lớp của các dòng Chủ Nhiệm
+const natural = (a, b) => String(a).localeCompare(String(b), "vi", { numeric: true, sensitivity: "base" });
+function classGrade(c) { // khối của lớp: sheet LỚP (bước 3); lớp không có ở đó: các chữ số đầu tên lớp
+  const known = (st?.scenario.classes || []).find((x) => classKey(x.name) === classKey(c));
+  if (known) return known.grade ?? "";
+  const m = String(c).match(/^\d+/);
+  return m ? Number(m[0]) : "";
+}
+const gradeRank = (g) => { const i = (st?.scenario.grades || []).findIndex((x) => String(x) === String(g)); return i < 0 ? 1e6 : i; };
+const byClass = (a, b) => gradeRank(classGrade(a)) - gradeRank(classGrade(b)) || natural(classGrade(a), classGrade(b))
+  || natural(a, b);
+const hasClassList = () => (st?.scenario.classes || []).some((c) => String(c.name || "").trim());
+function schoolClasses() { // các lớp của trường: sheet LỚP (bước 3); trống thì cột Lớp của các dòng Chủ Nhiệm
+  const sc = st.scenario;
+  const names = hasClassList() ? sc.classes.map((c) => String(c.name || "").trim())
+    : sc.staff.filter(isHomeroom).map((t) => String(t.class || "").trim());
   const seen = new Map();
-  for (const t of st.scenario.staff) {
-    const c = String(t.class || "").trim();
-    if (isHomeroom(t) && c && !seen.has(classKey(c))) seen.set(classKey(c), c);
-  }
+  for (const c of names) if (c && !seen.has(classKey(c))) seen.set(classKey(c), c);
   return [...seen.values()].sort(byClass);
 }
+const homeroomOf = (cls) => st.scenario.staff.find((t) => isHomeroom(t) && classKey(t.class) === classKey(cls));
 const histList = (t) => String(t.history || "").split(/[,;]/).map((c) => c.trim()).filter(Boolean);
 function setHistory(t, list) {
   const known = new Set(schoolClasses().map(classKey));
@@ -363,18 +383,18 @@ function setHistory(t, list) {
 function historyBox(t, i) {
   if (isHomeroom(t)) return `<p class="muted">Chủ Nhiệm dạy lớp mình; cột này dành cho GV bộ môn, chuyên biệt.</p>`;
   const classes = schoolClasses();
-  if (!classes.length) return `<p class="muted">Chưa có lớp nào: ghi Lớp cho các Chủ Nhiệm trước.</p>`;
+  if (!classes.length) return `<p class="muted">Chưa có lớp nào: ghi các lớp ở bước 3 hoặc Lớp của các Chủ Nhiệm.</p>`;
   const chosen = new Set(histList(t).map(classKey));
-  const grades = [...new Set(classes.map((c) => classOrder(c)[0]))];
+  const grades = [...new Set(classes.map((c) => String(classGrade(c))))];
   const rows = grades.map((g) => {
-    const list = classes.filter((c) => classOrder(c)[0] === g);
+    const list = classes.filter((c) => String(classGrade(c)) === g);
     return `<div class="grade-row"><button type="button" class="ghost small" data-act="hist-grade" data-i="${i}" data-g="${g}"
       title="Chọn hoặc bỏ cả khối">Khối ${g}</button><div class="checks">${list.map((c) => `<label class="check-item">
       <input type="checkbox" data-f="hist" data-i="${i}" data-c="${esc(c)}" ${chosen.has(classKey(c)) ? "checked" : ""}> ${esc(c)}</label>`).join("")}</div></div>`;
   }).join("");
   const known = new Set(classes.map(classKey));
   const unknown = histList(t).filter((c) => !known.has(classKey(c)));
-  return rows + unknown.map((c) => `<p class="warn-text">Không có Chủ Nhiệm lớp "${esc(c)}"
+  return rows + unknown.map((c) => `<p class="warn-text">Không có lớp "${esc(c)}"
     <button type="button" class="icon" data-act="hist-drop" data-i="${i}" data-c="${esc(c)}" title="Bỏ lớp này">✕</button></p>`).join("");
 }
 // Khung giờ của kịch bản: các buổi (tên tùy ý) và các ngày học (dòng có ít nhất một tiết), theo thứ tự; d là chỉ số
@@ -523,7 +543,7 @@ function renderSubjects() {
       <th class="left">Quy định khác</th><th></th></tr></thead>`;
     body = sc.subjects.map((s, i) => {
       const [who, ok] = whoTeaches(s.name);
-      const whoText = ok ? esc(who.join(", ")) : `<span class="warn-text" title="Bộ Môn không dạy môn này và chưa có chức vụ nào dạy: thêm chức vụ ở bước 3">⚠ chưa có ai</span>`;
+      const whoText = ok ? esc(who.join(", ")) : `<span class="warn-text" title="Bộ Môn không dạy môn này và chưa có chức vụ nào dạy: thêm chức vụ ở bước 4">⚠ chưa có ai</span>`;
       return `<tr data-row="${nums[i] ?? ""}" ${hit(search.subjects, s.name) ? "" : "hidden"}>
       <td class="num">${nums[i] ?? "—"}</td>
       <td class="left stick">${input("text", s.name, { f: "subject", i, k: "name" }, "wide")}</td>
@@ -563,6 +583,66 @@ function subjectChecks(opts) {
       <input type="checkbox" ${attrs} ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}> ${esc(named(s))}</label>`;
   }).join("")}</div>`;
 }
+// ---------------------------------------------------------------- lớp và khối (bước 3, sheet LỚP)
+// Danh sách lớp không bắt buộc: tên lớp, khối tùy ý, lớp có thể không có Chủ Nhiệm. Trống: lớp là cột Lớp của các dòng
+// Chủ Nhiệm (ghi dạng 1/1 hoặc 1A, khối là các chữ số đầu).
+function addGrade(name) {
+  const sc = st.scenario;
+  const nums = sc.grades.filter((g) => typeof g === "number");
+  const g = name ?? (nums.length ? Math.max(...nums) : 0) + 1;
+  sc.grades.push(g);
+  sc.subjects.forEach((s) => { s.lessons ||= {}; s.lessons[String(g)] = null; });
+  return g;
+}
+function renameGrade(from, to) { // tên khối đổi ở mọi bước: số tiết của môn, lớp, Quản lý dạy khối, cột Khối của luật
+  const sc = st.scenario;
+  sc.grades = sc.grades.map((g) => (String(g) === String(from) ? to : g));
+  for (const s of sc.subjects) {
+    const lessons = {};
+    for (const [k, n] of Object.entries(s.lessons || {})) lessons[k === String(from) ? String(to) : k] = n;
+    s.lessons = lessons;
+    if (String((s.rules || {})[RR().manager_grade] ?? "") === String(from)) s.rules[RR().manager_grade] = to;
+  }
+  for (const c of sc.classes || []) if (String(c.grade ?? "") === String(from)) c.grade = to;
+  for (const r of sc.rules || []) {
+    if (!String(r.grades ?? "").trim()) continue;
+    r.grades = listOf(r.grades).map((x) => (fold(x) === fold(from) ? String(to) : x)).join(", ");
+  }
+}
+function renderClasses() {
+  const sc = st.scenario;
+  sc.classes ||= [];
+  const count = (g) => sc.classes.filter((c) => String(c.grade ?? "") === String(g)).length;
+  $("#grade-list").innerHTML = sc.grades.map((g, i) => `<span class="grade-item">
+    <input type="text" class="short" data-f="grade" data-i="${i}" value="${esc(g)}" aria-label="Tên khối" spellcheck="false">
+    <span class="muted">${hasClassList() ? `${count(g)} lớp` : ""}</span>
+    <button type="button" class="icon" data-act="del-grade" data-i="${i}" title="Bỏ khối này">✕</button></span>`).join("")
+    || `<p class="muted">Chưa có khối nào.</p>`;
+  const head = `<thead><tr><th>Dòng</th><th class="left">Lớp</th><th>Khối</th><th>Cơ sở 2</th>
+    <th class="left">Chủ Nhiệm</th><th></th></tr></thead>`;
+  const body = sc.classes.map((c, i) => {
+    const t = String(c.name || "").trim() ? homeroomOf(c.name) : null;
+    const who = t ? esc(String(t.name || "").trim() || "(chưa có tên)")
+      : `<span class="muted">chưa có: các môn chia cho giáo viên khác</span>`;
+    return `<tr data-row="${i + 2}"><td class="num">${i + 2}</td>
+      <td class="left">${input("text", c.name, { f: "class", i, k: "name" })}</td>
+      <td>${input("grade", c.grade, { f: "class", i, k: "grade" })}</td>
+      <td>${input("yes", c.campus2, { f: "class", i, k: "campus2" })}</td>
+      <td class="left">${who}</td>
+      <td><button type="button" class="icon" data-act="del-class" data-i="${i}" title="Xóa lớp">✕</button></td></tr>`;
+  }).join("");
+  $("#class-table").innerHTML = sc.classes.length ? head + `<tbody>${body}</tbody>` : "";
+  $("#class-table").parentElement.hidden = !sc.classes.length;
+  const homerooms = sc.staff.filter((t) => isHomeroom(t) && String(t.class || "").trim()).length;
+  const without = sc.classes.filter((c) => String(c.name || "").trim() && !homeroomOf(c.name)).length;
+  $("#class-summary").innerHTML = hasClassList()
+    ? `${sc.classes.filter(named).length} lớp${without ? `, ${without} lớp chưa có Chủ Nhiệm (các môn của lớp chia cho
+      giáo viên khác; môn chỉ GVCN dạy thì phải có Chủ Nhiệm)` : ""}. Chủ Nhiệm chọn Lớp trong danh sách này (bước 5).`
+    : `Chưa ghi lớp nào: lớp là cột Lớp của ${homerooms} Chủ Nhiệm (bước 5), ghi dạng khối/số thứ tự (vd 1/1) hoặc khối
+      rồi tên lớp (vd 1A). Ghi danh sách lớp ở đây để đặt tên lớp tùy ý (vd Lá 1) hoặc có lớp chưa có Chủ Nhiệm.`;
+  updateCounts();
+}
+
 function roleCard(title, badge, teachers, body, extra = "") {
   return `<div class="card role" ${extra}><div class="toolbar"><h2>${title} <span class="badge">${esc(badge)}</span></h2>
     <span class="muted">${teachers} giáo viên</span></div>${body}</div>`;
@@ -575,7 +655,7 @@ function renderRoles() {
     .sort((a, b) => a.rules[rr.homeroom_fill] - b.rules[rr.homeroom_fill]).map(named);
   const cards = [
     roleCard(esc(cn), "mặc định", teachersOf(cn), `
-      <p class="muted">Dạy lớp chủ nhiệm của mình (cột Lớp ở bước 4) và các tiết <i>Luôn do GVCN dạy</i> (bước 1).</p>
+      <p class="muted">Dạy lớp chủ nhiệm của mình (cột Lớp ở bước 5) và các tiết <i>Luôn do GVCN dạy</i> (bước 1).</p>
       <h3>Nhận trọn các môn</h3>${subjectChecks((s, i, only) => ({ checked: s.rules[rr.homeroom_take],
         attrs: `data-f="rule" data-i="${i}" data-k="${rr.homeroom_take}"` }))}
       <h3>Chỉ GVCN được dạy</h3>${subjectChecks((s, i) => ({ checked: s.rules[rr.homeroom_only],
@@ -589,8 +669,8 @@ function renderRoles() {
     roleCard(esc(ql), "mặc định", teachersOf(ql), `
       <p class="muted">Chỉ dạy môn có ghi khối ở đây (cột Quản lý dạy khối), các lớp của khối đó.</p>
       <div class="checks">${sc.subjects.map((s, i) => named(s) ? `<label class="check-item grade">
-        ${input("int", (s.rules || {})[rr.manager_grade], { f: "rule", i, k: rr.manager_grade })} ${esc(named(s))}</label>` : "").join("")}</div>
-      <small>Ghi khối (vd 4) cạnh môn Quản Lý dạy; để trống là không dạy.</small>`),
+        ${input("grade", (s.rules || {})[rr.manager_grade], { f: "rule", i, k: rr.manager_grade })} ${esc(named(s))}</label>` : "").join("")}</div>
+      <small>Chọn khối (vd 4) cạnh môn Quản Lý dạy; để trống là không dạy.</small>`),
     ...sc.roles.map((role, i) => roleCard(
       `<input type="text" class="role-name" data-f="role" data-i="${i}" data-k="name" value="${esc(role.name)}"
         placeholder="Tên chức vụ, vd GV Nghệ thuật" spellcheck="false">`,
@@ -601,7 +681,7 @@ function renderRoles() {
       ${(role.subjects || []).filter((x) => !subjectNames().some((n) => key(n) === key(x))).map((x) =>
         `<p class="warn-text">Môn "${esc(x)}" không có ở bước 2.</p>`).join("")}
       ${!(role.subjects || []).length ? `<p class="warn-text">Chưa chọn môn nào.</p>` : teachersOf(role.name) ? "" :
-        `<p class="muted">Chưa có giáo viên nào giữ chức vụ này (chọn ở bước 4).</p>`}
+        `<p class="muted">Chưa có giáo viên nào giữ chức vụ này (chọn ở bước 5).</p>`}
       <div class="actions end"><button type="button" class="danger ghost" data-act="del-role" data-i="${i}">Xóa chức vụ</button></div>`,
       `data-row="${i + 2}"`)),
   ];
@@ -622,7 +702,7 @@ function renderRoleHints() {
         <button type="button" class="ghost small" data-act="add-role-for" data-s="${esc(named(s))}">+ Thêm chức vụ "${esc(named(s))}"</button></li>`);
     } else if (!roles.some((role) => teachersOf(role.name))) {
       hints.push(`<li class="warn">Môn <b>${esc(named(s))}</b>: chưa có giáo viên nào giữ chức vụ
-        ${esc(roles.map(named).join(", "))} (thêm ở bước 4).</li>`);
+        ${esc(roles.map(named).join(", "))} (thêm ở bước 5).</li>`);
     }
   }
   $("#role-hints").innerHTML = hints.length ? `<ul class="msgs">${hints.join("")}</ul>` : "";
@@ -642,7 +722,7 @@ function roleSelect(value, i) {
   let opts = `<option value="" ${role || String(value || "").trim() ? "" : "selected"}>— chọn —</option>`;
   opts += [...new Set(names)].map((n) => `<option value="${esc(n)}" ${role && key(role.name) === key(n) ? "selected" : ""}>${esc(n)}</option>`).join("");
   if (!role && String(value || "").trim()) {
-    opts += `<option value="${esc(value)}" selected>${esc(value)} (chưa có ở bước 3)</option>`;
+    opts += `<option value="${esc(value)}" selected>${esc(value)} (chưa có ở bước 4)</option>`;
   }
   return `<select data-f="staff" data-i="${i}" data-k="role" class="${role || !String(value || "").trim() ? "" : "bad"}">${opts}</select>`;
 }
@@ -672,7 +752,7 @@ function renderStaff() {
     return `<tr data-row="${i + 2}" ${show ? "" : "hidden"}><td class="num">${i + 2}</td>
     <td class="left stick">${input("text", t.name, { f: "staff", i, k: "name" }, "wide")}</td>
     <td>${roleSelect(t.role, i)}</td>
-    <td>${isHomeroom(t) ? input("text", t.class, { f: "staff", i, k: "class" }, "short") : `<span class="muted">—</span>`}</td>
+    <td>${isHomeroom(t) ? input("class", t.class, { f: "staff", i, k: "class" }, "short") : `<span class="muted">—</span>`}</td>
     <td>${input("int", t.lessons, { f: "staff", i, k: "lessons" })}</td>
     <td class="left chips">${staffChips(t)}</td>
     <td class="nowrap">
@@ -683,6 +763,7 @@ function renderStaff() {
   }).join("");
   const none = search.staff && !shown ? noHit(7, search.staff) : "";
   $("#staff-table").innerHTML = head + `<tbody>${body}${none}</tbody>`;
+  $("#class-list").innerHTML = schoolClasses().map((c) => `<option value="${esc(c)}">`).join("");
   const names = [...new Set([...S.roles, ...st.scenario.roles.map(named).filter(Boolean)])];
   $("#staff-filter").innerHTML = `<option value="">Mọi chức vụ</option>${names.map((n) =>
     `<option value="${esc(n)}" ${key(n) === key(staffFilter) ? "selected" : ""}>${esc(n)} (${teachersOf(n)})</option>`).join("")}
@@ -700,10 +781,12 @@ function updateCounts() {
   $("#count-mon").textContent = subjects.length || "";
   $("#count-cv").textContent = S.roles.length + st.scenario.roles.filter(named).length;
   $("#count-luat").textContent = (st.scenario.rules || []).filter((r) => !r.off).length || "";
-  const classes = staff.filter(isHomeroom).length;
+  const classes = schoolClasses().length;
+  $("#count-lop").textContent = classes || "";
   const quota = staff.reduce((n, t) => n + (Number.isInteger(t.lessons) ? t.lessons : 0), 0);
-  $("#staff-summary").textContent = `${staff.length} người, ${classes} lớp (mỗi Chủ Nhiệm một lớp), tổng định mức ` +
-    `${quota} tiết/tuần. Chức Vụ chọn trong các chức vụ của bước 3; chỉ Chủ Nhiệm ghi Lớp. Bấm Sửa để ghi Thai Sản, ` +
+  $("#staff-summary").textContent = `${staff.length} người, ${classes} lớp ` +
+    `${hasClassList() ? "(bước 3)" : "(mỗi Chủ Nhiệm một lớp)"}, tổng định mức ` +
+    `${quota} tiết/tuần. Chức Vụ chọn trong các chức vụ của bước 4; chỉ Chủ Nhiệm ghi Lớp. Bấm Sửa để ghi Thai Sản, ` +
     `Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ.`;
 }
 
@@ -1132,7 +1215,8 @@ function renderRun() {
 
 // Bước của một sheet: lỗi đọc lại ghi tên sheet ở đầu câu (NHÂN SỰ, CHƯƠNG TRÌNH HỌC, CHỨC VỤ, QUY ĐỊNH, LUẬT…).
 function sheetTab(sheet) {
-  return { [S.sheets.staff]: "gv", [S.sheets.program]: "mon", [S.sheets.roles]: "chucvu", [S.sheets.rules]: "khung",
+  return { [S.sheets.staff]: "gv", [S.sheets.program]: "mon", [S.sheets.classes]: "lop", [S.sheets.roles]: "chucvu",
+    [S.sheets.rules]: "khung",
     [S.sheets.luat]: "luat", [S.sheets.custom]: "luat", [S.sheets.saved]: "tkb" }[sheet] || null;
 }
 // Sheet và các dòng một câu lỗi nói tới, vd "NHÂN SỰ: Dòng 12, 15: …" -> {sheet: "NHÂN SỰ", rows: [12, 15]}.
@@ -1171,6 +1255,10 @@ function whoAt(sheet, row) {
     return s ? `Môn ${named(s) || "(chưa đặt tên)"}` : "";
   }
   if (sheet === S.sheets.roles) return sc.roles[row - 2] ? `Chức vụ ${named(sc.roles[row - 2])}` : "";
+  if (sheet === S.sheets.classes) {
+    const c = (sc.classes || [])[row - 2];
+    return c ? `Lớp ${String(c.name || "").trim() || `dòng ${row} (chưa có tên)`}` : "";
+  }
   if (sheet === S.sheets.luat || sheet === S.sheets.custom) {
     const text = said?.rules[row - 2]?.text?.replace(/ \((bắt buộc|ưu tiên[^)]*)\)$/, "");
     const r = sc.rules[row - 2]; // luật ghi chưa đủ (chưa đọc được thành câu): ghi kiểu luật và môn
@@ -1181,7 +1269,7 @@ function whoAt(sheet, row) {
 }
 function friendly(text) {
   const names = Object.values(S.sheets).sort((a, b) => b.length - a.length).join("|");
-  const m = text.match(new RegExp(`^(${names})(?:[:,]? *[Dd]òng ([\\d, ]+))?(?:, (Khối \\d+))?[:,] *(.*)$`, "s"));
+  const m = text.match(new RegExp(`^(${names})(?:[:,]? *[Dd]òng ([\\d, ]+))?(?:, (Khối [^:,]+))?[:,] *(.*)$`, "s"));
   if (!m) return text;
   const rows = (m[2] || "").split(/[ ,]+/).filter(Boolean).map(Number);
   const who = rows.length === 1 ? whoAt(m[1], rows[0])
@@ -1200,7 +1288,7 @@ function msgItem(text, cls) {
 // Sửa xong 1,5 giây thì kiểm tra nhanh (đọc lại như khi chạy, không dự toán). Lỗi chia về bước theo sheet ghi trong
 // câu: tab có dấu ⚠ số lỗi hoặc ✓, đầu mỗi bước có hộp lỗi của bước đó (bấm vào lỗi để tới đúng dòng). Lỗi không
 // thuộc sheet nào về bước Kiểm tra & xếp.
-const STEP_TABS = ["khung", "mon", "chucvu", "gv", "luat", "xep"];
+const STEP_TABS = ["khung", "mon", "lop", "chucvu", "gv", "luat", "xep"];
 let stepErrors = []; // lỗi của lần kiểm tra gần nhất (tô đỏ nhạt các dòng có lỗi, cả khi bước dựng lại)
 let lastCheck = null; // kết quả kiểm tra gần nhất (vẽ lại khi có câu đọc lại của luật)
 let checkTimer = null;
@@ -1214,7 +1302,7 @@ async function quickCheck() {
   const seq = ++checkSeq;
   const res = await api("POST", "/api/check", { scenario: st.scenario, run: st.run, quick: true });
   if (seq === checkSeq) renderStepChecks(res);
-  if (st.scenario.saved) refreshTkb(); // dấu của bước 7: TKB còn đúng luật với dữ liệu vừa sửa không
+  if (st.scenario.saved) refreshTkb(); // dấu của bước 8: TKB còn đúng luật với dữ liệu vừa sửa không
 }
 // Tô đỏ nhạt các dòng có lỗi của một bước (data-row là số dòng trong sheet của file Excel).
 function markRows(tab) {
@@ -1325,7 +1413,7 @@ async function pollOnce() {
   $("#run-status").hidden = true;
   if (s.exit !== null) renderResult(s);
   if (repairing) await afterRepair(s).catch(fail);
-  else if (st.scenario.saved) refreshTkb(); // nút Xếp lại của bước 7 dùng được lại
+  else if (st.scenario.saved) refreshTkb(); // nút Xếp lại của bước 8 dùng được lại
 }
 const num = (n) => Number(n).toLocaleString("vi-VN");
 const STOPS = { "đã tối ưu": "đã tối ưu (không còn cách xếp tốt hơn)", "hết thời gian": "hết thời gian đặt",
@@ -1386,7 +1474,7 @@ function renderResult(s) {
   </div>`;
 }
 
-// ---------------------------------------------------------------- thời khóa biểu (bước 7)
+// ---------------------------------------------------------------- thời khóa biểu (bước 8)
 // TKB đã xếp của kịch bản (scenario.saved: các dòng của sheet TKB đã xếp) vẽ thành lưới theo lớp hoặc theo giáo viên.
 // Máy chủ đọc lưới và kiểm mọi luật bắt buộc như khi dùng lại TKB (kich_ban.Grid, /api/timetable); bấm hai ô cùng
 // lớp thì đổi chữ của hai ô trong scenario.saved, thêm chữ (khóa), rồi kiểm lại. Xếp lại = chạy như nút Xếp TKB với
@@ -1403,7 +1491,7 @@ let tkbLoading = null;
 let repairing = false;
 const cellKey = (cls, d, p) => `${cls}|${d}|${p}`;
 const tkbCell = (k) => tkb && tkb.byKey.get(k);
-const gradeOf = (cls) => classOrder(cls)[0];
+const gradeOf = (cls) => (tkb?.grades || {})[cls] ?? String(classGrade(cls));
 const hireName = (name) => fold(name) === fold(S.saved_marks.hire);
 
 function savedGet(c) { return ((st.scenario.saved || [])[c.r - 1] || [])[c.c - 1] ?? null; }
@@ -1694,7 +1782,7 @@ function showTkbError(i) {
   for (const el of els) { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
 }
 
-// Xếp lại từ bước 7: như nút Xếp TKB, luôn giữ TKB đã xếp, thời gian ngắn; xong thì lấy TKB mới vào kịch bản.
+// Xếp lại từ bước 8: như nút Xếp TKB, luôn giữ TKB đã xếp, thời gian ngắn; xong thì lấy TKB mới vào kịch bản.
 async function repairRun() {
   const limit = Number(st.run.time_limit) > 0 ? Math.min(Number(st.run.time_limit), REPAIR_TIME) : REPAIR_TIME;
   await api("POST", "/api/run", { scenario: st.scenario, run: { ...st.run, keep_saved: true, time_limit: limit } });
@@ -1718,7 +1806,7 @@ async function afterRepair(s) {
   const file = (s.summary?.files || []).find((p) => /_cap_nhat\.xlsx$/i.test(p));
   if (!file || ![0, 2].includes(s.exit)) {
     renderTkb();
-    notify(`Xếp lại không ra TKB: ${esc((s.summary?.error || "xem nhật ký ở bước 6").replace(/^LỖI: /, ""))}`, "error",
+    notify(`Xếp lại không ra TKB: ${esc((s.summary?.error || "xem nhật ký ở bước 7").replace(/^LỖI: /, ""))}`, "error",
       { label: "Xem nhật ký", fn: () => showTab("xep") });
     return;
   }
@@ -1730,7 +1818,7 @@ async function afterRepair(s) {
   await takeSaved(file, s.summary.code, note);
 }
 // Lấy TKB đã xếp (và danh sách nhân sự nếu lần chạy thêm người cần tuyển) từ file vào cập nhật của lần chạy vào kịch
-// bản, mở bước 7, tô các ô khác TKB trước đó. Các phần khác của kịch bản giữ như đang soạn.
+// bản, mở bước 8, tô các ô khác TKB trước đó. Các phần khác của kịch bản giữ như đang soạn.
 async function takeSaved(path, code, note = "") {
   const before = st.scenario.saved && tkb ? new Map(tkb.cells.map((c) => [cellKey(c.cls, c.d, c.p), `${c.subject}|${c.code}`])) : null;
   const data = await api("POST", "/api/import_path", { path });
@@ -1754,7 +1842,7 @@ async function takeSaved(path, code, note = "") {
   }
   notify((code ? `Mã TKB <b>${esc(code)}</b>. ` : "") + esc(note) + (tkbChanged.size ? `Đổi ${tkbChanged.size} ô so với trước (tô vàng). `
     : before ? "Không ô nào đổi. " : "") + (hires > 0 ? `Thêm ${hires} người cần tuyển ("${esc(S.saved_marks.hire)}") ở bước Giáo viên. ` : "") +
-    "Các file Excel ở bước 6.", "ok", { label: "Tới bước 6", fn: () => showTab("xep") });
+    "Các file Excel ở bước 7.", "ok", { label: "Tới bước 7", fn: () => showTab("xep") });
 }
 
 // ---------------------------------------------------------------- dựng cả trang
@@ -1774,11 +1862,13 @@ function renderHelp() {
 function renderAll() {
   st.scenario.roles ||= [];
   st.scenario.rules ||= [];
+  st.scenario.classes ||= [];
   syncPeriods();
   renderGeneral();
   renderDays();
   renderPeriods();
   renderSubjects();
+  renderClasses();
   renderRoles();
   renderStaff();
   renderRules();
@@ -1789,7 +1879,8 @@ function renderAll() {
   if (st.scenario.saved) refreshTkb(); else renderTkb();
 }
 // Mỗi bước dựng lại khi mở: bước Chức vụ sửa quy định của môn, bước Môn học hiện ai dạy, nên luôn khớp nhau.
-const RENDER_TAB = { mon: () => renderSubjects(), chucvu: () => renderRoles(), gv: () => renderStaff(),
+const RENDER_TAB = { mon: () => renderSubjects(), lop: () => renderClasses(), chucvu: () => renderRoles(),
+  gv: () => renderStaff(),
   luat: () => renderRules(), tkb: () => refreshTkb() };
 function showTab(name) {
   if (!$(`#tab-${name}`)) name = "khung";
@@ -1810,7 +1901,7 @@ async function newScenario() {
 }
 // Số tiết bù nhiều nhất của một người trong TKB đã xếp (ô ghi "(bù)" ở dòng Mã GV). Cài đặt chạy không nằm trong file
 // Excel: mở file cập nhật xếp với số tiết bù tối đa lớn hơn cài đặt đang có thì nâng lên, không thì TKB đó bị coi là
-// vượt định mức (bước 7 báo lỗi, xếp lại thành thiếu tiết).
+// vượt định mức (bước 8 báo lỗi, xếp lại thành thiếu tiết).
 function savedOvertime(grid) {
   const flag = fold(S.saved_marks.overtime);
   const count = {};
@@ -1830,18 +1921,18 @@ function fitOvertime(grid) {
   if (need <= Number(st.run.overtime_max)) return "";
   st.run.overtime_max = need;
   renderRun();
-  return ` Số tiết bù tối đa đặt thành ${need} theo TKB đã xếp trong file (đổi ở bước 6).`;
+  return ` Số tiết bù tối đa đặt thành ${need} theo TKB đã xếp trong file (đổi ở bước 7).`;
 }
 function useImported(data, label) {
   st = { scenario: data.scenario, run: { ...S.run_defaults, ...(st ? st.run : {}), name: data.name }, label };
   staffBaseline = null;
-  const fit = st.scenario.saved ? fitOvertime(st.scenario.saved) : ""; // trước khi vẽ: bước 7 kiểm với cài đặt đúng
+  const fit = st.scenario.saved ? fitOvertime(st.scenario.saved) : ""; // trước khi vẽ: bước 8 kiểm với cài đặt đúng
   hideStart();
   renderAll();
   changed();
   const warns = data.warnings.map((w) => `<li>${esc(w)}</li>`).join("");
   notify(`Đã mở ${esc(label)}: ${st.scenario.staff.length} dòng nhân sự, ${st.scenario.subjects.length} môn.` +
-    (st.scenario.saved ? " File có TKB đã xếp (xem ở bước 7): xếp lại sẽ giữ TKB đó nếu vẫn đúng luật, sai thì chỉ sửa chỗ cần." : "") + fit +
+    (st.scenario.saved ? " File có TKB đã xếp (xem ở bước 8): xếp lại sẽ giữ TKB đó nếu vẫn đúng luật, sai thì chỉ sửa chỗ cần." : "") + fit +
     (warns ? `<ul>${warns}</ul>` : ""), warns ? "" : "ok");
 }
 
@@ -1875,7 +1966,7 @@ async function startWith(how) {
     useImported({ ...data, warnings: [] }, "Trường mẫu (tên giả)");
     showTab("xep");
     notify("Đã mở trường mẫu tên giả (29 lớp, 45 giáo viên). Bấm <b>Kiểm tra</b> rồi <b>Xếp TKB</b> để xem chương " +
-      "trình làm gì; các bước 1–5 cho xem dữ liệu.", "ok", back ? UNDO : null);
+      "trình làm gì; các bước 1–6 cho xem dữ liệu.", "ok", back ? UNDO : null);
   }
 }
 
@@ -1886,6 +1977,7 @@ const PARTS = [
   { key: "staff", label: "Giáo viên", sheet: "staff", sum: (x) => `${x.staff.length} dòng` },
   { key: "subjects", label: "Môn học và quy định của môn", sheet: "program",
     sum: (x) => `${x.subjects.filter(named).length} môn, khối ${x.grades.join(", ")}` },
+  { key: "classes", label: "Lớp", sheet: "classes", sum: (x) => `${(x.classes || []).filter(named).length} lớp` },
   { key: "roles", label: "Chức vụ", sheet: "roles", sum: (x) => `${x.roles.filter(named).length} chức vụ GV chuyên biệt` },
   { key: "frame", label: "Khung giờ và quy định chung", sheet: "rules",
     sum: (x) => `${(x.days || []).filter((d) => d.morning_days).length} ngày học, ${(x.periods || []).length} tiết mỗi ngày` },
@@ -1945,6 +2037,7 @@ function applyImport() {
   if (parts.includes("rules")) staffBaseline = null;
   if (parts.includes("staff")) sc.staff = append ? [...sc.staff, ...src.staff] : src.staff;
   if (parts.includes("subjects")) { sc.subjects = src.subjects; sc.grades = src.grades; }
+  if (parts.includes("classes")) sc.classes = src.classes || [];
   if (parts.includes("roles")) sc.roles = src.roles;
   if (parts.includes("frame")) { sc.general = src.general; sc.sessions = src.sessions; sc.days = src.days; sc.periods = src.periods; }
   if (parts.includes("rules")) {
@@ -2065,6 +2158,23 @@ function onEdit(e) {
     const order = subjectNames().map(key);
     role.subjects.sort((a, b) => order.indexOf(key(a)) - order.indexOf(key(b)));
     renderRoleHints();
+  } else if (d.f === "grade") {
+    const from = sc.grades[i];
+    const to = toGrade(v);
+    if (done && to !== null && String(to) !== String(from) && !sc.grades.some((g) => String(g) === String(to))) {
+      renameGrade(from, to);
+      renderClasses();
+      renderSubjects();
+    } else if (done && String(to) !== String(from)) {
+      el.value = from;
+      notify(to === null ? "Tên khối không được để trống" : `Đã có khối "${esc(to)}"`, "warn");
+      return;
+    } else if (!done) {
+      return; // đổi tên khi rời ô (đổi theo ở mọi bước)
+    }
+  } else if (d.f === "class") {
+    sc.classes[i][d.k] = v;
+    if (done) renderClasses();
   } else if (d.f === "staff") {
     const t = sc.staff[i];
     t[d.k] = v;
@@ -2128,7 +2238,7 @@ async function onClick(e) {
       return;
     case "hist-grade": {
       const t = sc.staff[i];
-      const grade = schoolClasses().filter((c) => String(classOrder(c)[0]) === btn.dataset.g);
+      const grade = schoolClasses().filter((c) => String(classGrade(c)) === btn.dataset.g);
       const chosen = new Set(histList(t).map(classKey));
       const all = grade.every((c) => chosen.has(classKey(c)));
       const keys = new Set(grade.map(classKey));
@@ -2223,7 +2333,51 @@ async function onClick(e) {
       renderRoles();
       renderRoleList();
       done(`Đã xóa chức vụ "${esc(named(role) || "(chưa đặt tên)")}"` +
-        (n ? `: ${n} giáo viên đang giữ chức vụ này chưa có chức vụ (chọn lại ở bước 4).` : "."));
+        (n ? `: ${n} giáo viên đang giữ chức vụ này chưa có chức vụ (chọn lại ở bước 5).` : "."));
+      break;
+    }
+    case "add-grade": {
+      const name = toGrade($("#new-grade").value);
+      if (name !== null && sc.grades.some((g) => String(g) === String(name))) {
+        notify(`Đã có khối "${esc(name)}"`, "warn");
+        return;
+      }
+      const g = addGrade(name);
+      $("#new-grade").value = "";
+      renderClasses();
+      notify(`Đã thêm khối ${esc(g)}: ghi số tiết của khối ở bước 2 (Môn học).`, "ok");
+      break;
+    }
+    case "del-grade": {
+      const g = sc.grades[i];
+      sc.grades.splice(i, 1);
+      sc.subjects.forEach((s) => { delete (s.lessons || {})[String(g)]; });
+      renderClasses();
+      done(`Đã bỏ khối ${esc(g)}${sc.classes.some((c) => String(c.grade ?? "") === String(g))
+        ? " (các lớp của khối này chưa có khối: chọn lại)" : ""}.`);
+      break;
+    }
+    case "add-class": {
+      const last = sc.classes[sc.classes.length - 1];
+      sc.classes.push({ name: "", grade: last ? last.grade : (sc.grades[0] ?? null), campus2: false });
+      renderClasses();
+      $(`#class-table [data-f="class"][data-i="${sc.classes.length - 1}"][data-k="name"]`)?.focus();
+      break;
+    }
+    case "del-class": {
+      const [c] = sc.classes.splice(i, 1);
+      renderClasses();
+      done(`Đã xóa lớp "${esc(String(c.name || "").trim() || "(chưa có tên)")}".`);
+      break;
+    }
+    case "classes-from-homeroom": {
+      const have = new Set(sc.classes.map((c) => classKey(c.name)));
+      const add = sc.staff.filter((t) => isHomeroom(t) && String(t.class || "").trim() && !have.has(classKey(t.class)))
+        .map((t) => ({ name: String(t.class).trim(), grade: toGrade(classGrade(t.class)), campus2: !!t.campus2 }));
+      if (!add.length) { notify("Không có lớp nào của Chủ Nhiệm mà danh sách chưa có.", "warn"); return; }
+      sc.classes = [...sc.classes.filter(named), ...add].sort((a, b) => byClass(a.name, b.name));
+      renderClasses();
+      done(`Đã thêm ${add.length} lớp của các Chủ Nhiệm.`);
       break;
     }
     case "del-staff": {
@@ -2356,9 +2510,7 @@ function wire() {
   $("#staff-filter").onchange = (e) => { staffFilter = e.target.value; renderStaff(); };
   $("#btn-add-grade").onclick = () => {
     const sc = st.scenario;
-    const g = (sc.grades.length ? Math.max(...sc.grades) : 0) + 1;
-    sc.grades.push(g);
-    sc.subjects.forEach((s) => { s.lessons[String(g)] = null; });
+    addGrade(null);
     renderSubjects();
     changed();
   };
@@ -2369,6 +2521,7 @@ function wire() {
     sc.grades.pop();
     sc.subjects.forEach((s) => { delete s.lessons[String(g)]; });
     renderSubjects();
+    renderClasses();
     changed();
     done(`Đã bớt cột Khối ${g}.`);
   };

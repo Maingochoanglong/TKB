@@ -85,6 +85,7 @@
 | 67 | Đổi người dạy trên trang, phát hành TKB.exe | Đổi người dạy một môn của một lớp phải tự ghi luật Chỉ giáo viên dạy ở bước Luật; TKB.exe chỉ tải được ở Actions (cần đăng nhập, hết hạn sau 90 ngày) | Bước 7: chọn một tiết rồi chọn **người dạy** môn đó của lớp (các người được dạy, bỏ qua luật Chỉ giáo viên dạy đang có; chỉ môn không có phần GVCN dạy): trang ghi hoặc sửa luật **Chỉ giáo viên dạy** (Môn, Lớp, người), rồi Xếp lại phần còn lại đổi người dạy, giữ TKB cũ nhiều nhất (trường mẫu: Tiếng Anh lớp 1/1 sang người khác, đổi 19/928 ô). Đẩy tag `v*` thì workflow Đóng gói đăng `TKB_Windows.zip` ở trang **Releases** kèm ghi chú cài đặt. Mã kết quả không đổi |
 | 68 | Tiết bù giữ luật của người bù | Tiết bù được xếp như tiết của người mới rồi mới trả về người bù: GVCN có thể có tiết bù trong buổi đã xin nghỉ, bộ môn dạy bù có thể dạy hai lớp cùng lúc (kiểm tra luật báo KHÔNG ĐẠT); tải ngày, tiết trống của người bù không tính tiết bù, nên sheet `Chất lượng` (trường mẫu 28.140) lệch với chi phí bộ giải in ra (20.940) | Khi xếp giờ, mỗi tiết bù chiếm lịch của cả người mới và người bù (`Problem.covers`, mục 7): không trùng giờ, buổi nghỉ, mỗi buổi một cơ sở, luật bắt buộc theo giáo viên ở sheet `LUẬT`; tải ngày, tiết trống, dạy hai cơ sở trong ngày tính cả tiết bù. Một người mới không nhận tiết của cùng một lớp-môn từ hai người bù. Hai chế độ vẫn cùng vị trí môn. Trường mẫu: chi phí 25.140, bằng đúng sheet `Chất lượng` (GVCN vượt tải ngày 80 + 9 lần còn 71 + 1). File của trường (Linux, 1200): bộ giải báo 28.220 nhưng sheet `Chất lượng` là 39.120; nay 35.080 và 34.780 (vượt tải ngày + 1: 20 lần còn 6). Mã kết quả đổi |
 | 69 | Khung giờ tự do | Khung giờ chỉ là số tiết sáng/chiều chung cho mọi ngày và cột Có/Không học sáng, chiều của Thứ 2 … Thứ 7 (ngày học liền nhau từ Thứ 2, đúng hai buổi Sáng/Chiều); không ghi được chiều Thứ 5 có 4 tiết, Chủ nhật, buổi Tối hay tên ngày khác | Bảng Ngày của sheet `QUY ĐỊNH`: mỗi ngày học một dòng (tên tùy ý), mỗi cột `Buổi <tên>` ghi số tiết của buổi đó trong ngày (mục 3); bước Khung giờ của giao diện sửa thẳng bảng ngày × buổi. Cột Buổi Nghỉ, cột Ngày/Buổi của sheet `LUẬT` đọc theo tên ngày, tên buổi của khung giờ (`tkb/khung_gio.py`); file TKB ghi mỗi buổi đủ số hàng của ngày dài nhất. Cách ghi cũ vẫn đọc được; khung giờ cũ cho cùng mã quy định, cùng mã kết quả |
+| 70 | Lớp, khối tùy ý; lớp chưa có GVCN | Danh sách lớp chỉ lấy từ cột Lớp của các dòng Chủ Nhiệm (mỗi lớp phải có GVCN), tên lớp phải là `khối/số` hoặc khối rồi tên lớp, khối phải là số (cột `Khối k`) | Sheet `LỚP` không bắt buộc (mục 2.2): `Lớp | Khối | Cơ sở 2`, tên lớp, tên khối tùy ý (`Khối Lá`, `Lá 1`); có sheet thì lớp lấy ở đây, Chủ Nhiệm ghi một lớp của sheet, lớp chưa có Chủ Nhiệm vẫn xếp: mọi môn chia cho GV khác, tiết luôn do GVCN dạy và GVCN dạy trước không áp dụng cho lớp đó, môn chỉ GVCN dạy thì báo lỗi (mục 5). Cột `Khối <tên>` của sheet chương trình học, cột Khối của sheet `LUẬT`, cột Quản lý dạy khối nhận tên khối chữ. Giao diện có bước Lớp. Không có sheet (hoặc sheet trống): như cũ, cùng mã quy định, cùng mã kết quả |
 
 ---
 
@@ -120,6 +121,7 @@
 |---|---|---|
 | `NHÂN SỰ` | Có | Danh sách nhân sự (mục 2.1.1). Nếu không có sheet tên này thì đọc sheet đầu tiên |
 | `CHƯƠNG TRÌNH HỌC` | Có | Chương trình học (mục 2.3). Thiếu sheet này thì báo lỗi |
+| `LỚP` | Không | Danh sách lớp: tên lớp, khối, cơ sở 2; lớp có thể chưa có GVCN (mục 2.2) |
 | `CHỨC VỤ` | Không | Các chức vụ GV chuyên biệt do trường đặt và các môn mỗi chức vụ được dạy (mục 2.1.2) |
 | `QUY ĐỊNH` | Không | Các luật nghiệp vụ khác ngoài quy định của môn (quy định của môn là các cột của sheet CHƯƠNG TRÌNH HỌC), mỗi ô ghi Có, Không hoặc số (mục 2.5). Không có sheet, bảng hoặc cột thì dùng giá trị mặc định trong `tkb/config.py` |
 
@@ -172,7 +174,18 @@ Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối
 
 ### 2.2. Danh sách lớp
 
-Lấy từ cột Lớp của các dòng Chủ Nhiệm, vì mỗi lớp luôn có đúng một GVCN. Lớp được sắp theo khối, rồi theo phần chữ, rồi theo số (`1D9` trước `1D15`). Lớp ở cơ sở 2 là các lớp có `Cơ sở 2 = Có` trên dòng Chủ Nhiệm.
+- **Có sheet `LỚP`** (ít nhất một lớp): danh sách lớp lấy ở đây, mỗi dòng `Lớp | Khối | Cơ sở 2` (cột `Ghi chú` bỏ
+  qua). Tên lớp tùy ý, không trùng nhau (không phân biệt hoa thường; `1 / 1` viết thành `1/1`). Khối ghi đúng tên một cột
+  `Khối <tên>` của sheet chương trình học (không phân biệt hoa thường, dấu); để trống thì là các chữ số đầu tên lớp.
+  Chủ Nhiệm ghi Lớp là một lớp của sheet (mỗi lớp nhiều nhất một Chủ Nhiệm); **lớp chưa có Chủ Nhiệm vẫn hợp lệ** (mục
+  5). Cột Lớp Đang Dạy và cột Lớp của sheet `LUẬT` theo các tên lớp này. Lớp ở cơ sở 2: `Cơ sở 2 = Có` ở sheet `LỚP`
+  hoặc trên dòng Chủ Nhiệm.
+- **Không có sheet** (hoặc sheet chỉ có dòng tiêu đề): lấy từ cột Lớp của các dòng Chủ Nhiệm, ghi `khối/số` (`1/1`)
+  hoặc khối rồi tên lớp (`1D15`); khối là các chữ số đầu. Lớp ở cơ sở 2 là các lớp có `Cơ sở 2 = Có` trên dòng Chủ
+  Nhiệm. Mã quy định không đổi so với trước.
+- **Khối** có tên tùy ý (`staff.parse_grade`): tên toàn chữ số là khối số (`1`), tên khác giữ như ghi (`Lá`, `Year 7`).
+  Khối sắp theo số rồi theo tên (thứ tự tự nhiên, `Lá 2` trước `Lá 10`); lớp sắp theo khối, rồi theo tên (`1D9` trước
+  `1D15`). Với khối số và tên lớp có khối ở đầu, thứ tự (và mô hình, mã kết quả) như trước.
 
 ### 2.3. Chương trình học
 
@@ -201,7 +214,7 @@ Ví dụ (trường mẫu tên giả của test, `tkb/truong_mau.py`):
 | **Tổng** | **32** | **32** | **32** | **32** | **32** |
 
 **Sheet chương trình học:**
-- Có cột `Môn học` và các cột `Khối k`; cột STT (nếu có) không dùng. Ô trống được tính là 0. Dòng `Tổng` được bỏ qua.
+- Có cột `Môn học` và các cột `Khối <tên>` (tên khối tùy ý, vd `Khối 1`, `Khối Lá`; mục 2.2); cột STT (nếu có) không dùng. Ô trống được tính là 0. Dòng `Tổng` được bỏ qua.
 - Số tiết phải là số nguyên ≥ 0.
 - **Danh sách môn và tên môn lấy nguyên từ file.** Môn mới (ví dụ `Múa`) chỉ cần thêm dòng; môn đó được xếp bình thường, không có luật riêng. TKB và thống kê in đúng tên môn trong file (riêng các môn ở quy định `Tên môn viết tắt trong TKB`, mặc định HĐTN, TNXH, TV tăng cường, được viết tắt trong ô TKB).
 - Môn nào trùng tên một môn có trong quy định (cột quy định của sheet này hoặc mặc định, mục 2.5) thì nhận luật đó. So khớp **không phân biệt hoa thường, dấu câu, khoảng trắng thừa và chữ "và"**: `Lịch Sử và Địa Lý` khớp `Lịch sử - Địa lý`, `Tự Nhiên và Xã Hội` khớp `Tự nhiên xã hội`.
@@ -344,6 +357,13 @@ GVCN nhận trước các môn của lớp mình theo thứ tự: **Tiếng Vi�
 | Khối 3 (19) | TV 7, Toán 5, HĐTN 3, Đạo đức 1, TV tăng cường 1, Toán tăng cường 2 | – |
 | Khối 4, 5/1–5/4 (19) | TV 6, Toán 5, HĐTN 3, Khoa học 2, LS-ĐL 2, Đạo đức 1 | TV 1 tiết/lớp |
 | 5/5 (16) | TV 3, Toán 5, HĐTN 3, Khoa học 2, LS-ĐL 2, Đạo đức 1 | TV 4 tiết (ở chế độ bù giờ, GVCN này có thể bù lại) |
+
+### 5.0. Lớp chưa có GVCN
+
+Lớp của sheet `LỚP` mà không dòng Chủ Nhiệm nào ghi (`Problem.no_homeroom`): không có phần GVCN (mục 5.1–5.3), mọi môn
+chia cho GV khác như phần GVCN chuyển đi. Tiết luôn do GVCN dạy (5.5) và GVCN dạy trước (5.7) không áp dụng cho lớp
+đó; tiết HĐTN (5.6) vẫn cố định như mọi lớp. Môn **Chỉ GVCN dạy** có tiết ở lớp đó thì báo lỗi ngay khi dựng bài toán
+(bỏ Có ở cột Chỉ GVCN dạy của môn, hoặc thêm Chủ Nhiệm cho lớp).
 
 ### 5.5. Tiết 1 buổi sáng
 
