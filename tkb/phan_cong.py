@@ -19,8 +19,9 @@ from dataclasses import dataclass, field
 from itertools import combinations
 
 from . import config
-from .allocation import (Course, Problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
+from .allocation import (Course, Problem, keep_cost, overtime_cost, paired_groups, previous_cost, roles_for_subject,
                          sessions_per_week, subject_group, supplement_capacity)
+from .bo_ghep import assign_cost
 from .staff import Teacher, class_sort_key, grade_of
 
 Key = tuple[int, str]  # (course, chức vụ GV)
@@ -94,6 +95,8 @@ def _real_teachers(problem: Problem) -> list[str]:
 def teacher_slots(problem: Problem) -> dict[str, int]:
     """GV -> số ô giờ có thể dạy (hợp các ô được phép của những course người đó được dạy, trừ buổi nghỉ). Vd GV
     không chủ nhiệm không dạy tiết 1 (của GVCN) và các ô HĐTN cố định của mọi lớp."""
+    from .bo_ghep import busy
+    from .luat_rieng import day_cap
     from .solver import allowed_slots, session_of  # solver nhập module này: nhập muộn để tránh vòng lặp
     sess = session_of()
     slots: dict[str, set] = {}
@@ -104,12 +107,16 @@ def teacher_slots(problem: Problem) -> dict[str, int]:
     out = {}
     for g, s in slots.items():
         t = problem.teachers[g]
-        s = {slot for slot in s if (slot[0], sess[slot].name) not in t.off_sessions}
-        for name, n in t.off_any:  # nghỉ n buổi bất kỳ: bớt n buổi có ít ô nhất
+        leave = config.on("buoi_nghi")  # luật Buổi nghỉ của giáo viên (sheet LUẬT)
+        s = {slot for slot in s if not leave or (slot[0], sess[slot].name) not in t.off_sessions}
+        for name, n in t.off_any if leave else ():  # nghỉ n buổi bất kỳ: bớt n buổi có ít ô nhất
             per = Counter((slot[0], sess[slot].name) for slot in s if name is None or sess[slot].name == name)
             s -= {slot for key in sorted(per, key=lambda k: (per[k], k))[:n]
                   for slot in s if (slot[0], sess[slot].name) == key}
-        out[g] = len(s)
+        if config.CUSTOM_RULES:  # luật bắt buộc Vị trí chỉ xét người dạy: giờ bận của GV
+            s -= busy(t)
+        cap = day_cap(t) if config.CUSTOM_RULES else None  # luật riêng: GV tối đa tiết mỗi ngày
+        out[g] = len(s) if cap is None else sum(min(cap, k) for k in Counter(d for d, _ in s).values())
     return out
 
 
@@ -134,7 +141,9 @@ def _flow(problem: Problem, w: config.Weights, demand: dict[int, int], base_load
             if t.supplementary or (t.class_name and not homeroom_arcs):
                 continue
             cost = w.overtime_subject_order * subject_rank(c.subject) if t.class_name else 0
-            cost += keep_cost(t, c.class_name, w)
+            cost += keep_cost(t, c.class_name, w) + previous_cost(t, c, w)
+            if config.CUSTOM_RULES:  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
+                cost += assign_cost(t, c, problem.curriculum, w)
             if c.subject in spec and t.role not in problem.specialists:
                 cost += w.general_on_specialist
             arcs[c.id, g] = mcf.add(node_c[c.id], node_t[g], demand[c.id], cost)
@@ -171,7 +180,7 @@ def _homeroom_extra(problem: Problem, g: str, x: int, rem: dict[int, int],
     (`spec_cap`): phần còn lại là của GV chuyên biệt và bộ môn, dự toán đã chia cho khớp giữa các lớp."""
     t = problem.teachers[g]
     grade = grade_of(t.class_name)
-    pairs = paired_groups(problem.curriculum[grade])
+    pairs = paired_groups(problem.curriculum[grade], grade)
     spec = problem.specialist_subjects()
     rem = {c.id: min(rem.get(c.id, 0), spec_cap.get((c.id, g), 0)) if c.subject in spec else rem.get(c.id, 0)
            for c in problem.courses if c.class_name == t.class_name}
@@ -277,7 +286,7 @@ class _Local:
         for g in self.movable:
             self.role_members.setdefault(teachers[g].role, []).append(g)
         self.spec = problem.specialist_subjects()
-        self.pairs = {g: paired_groups(req) for g, req in problem.curriculum.items()}
+        self.pairs = {g: paired_groups(req, g) for g, req in problem.curriculum.items()}
         self.share: dict[int, dict[str, int]] = {}
         self.fixed: dict[Key, int] = {}
         self.load = Counter()
@@ -318,10 +327,16 @@ class _Local:
             if self.p.courses[cid].subject in self.spec:
                 cost += w.general_on_specialist * sum(n for g, n in sh.items()
                                                       if teachers[g].role not in self.p.specialists)
+            if config.CUSTOM_RULES:  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
+                c = self.p.courses[cid]
+                cost += sum(assign_cost(teachers[g], c, self.p.curriculum, w) * n for g, n in sh.items())
         for role in sorted({teachers[g].role for g in gs}):
             members = self.role_members[role]
             if len(members) >= 2:
                 cost += w.load_balance * max(teachers[m].max_lessons - self.load[m] for m in members)
+        for cid in cids:  # xếp lại ít xáo trộn: giữ người dạy của TKB cũ
+            c = self.p.courses[cid]
+            cost += sum(previous_cost(teachers[g], c, w) * n for g, n in self.share.get(cid, {}).items())
         for g in gs:
             cost += sum(keep_cost(teachers[g], cls, w) * n for cls, n in self.tcls[g].items())
             cost += w.group_grade * len(self.tgrade[g]) + w.group_class * len(self.tcls[g])
@@ -378,6 +393,63 @@ class _Local:
                                               [a, b], [keep, give]):
                                 improved = done = True
                                 break
+            if not improved:
+                return
+
+    def odd(self) -> list[tuple[str, str, str]]:
+        """(lớp, nhóm môn, GV) mà GV dạy số tiết lẻ trong một nhóm môn ghép cặp (khó xếp thành cặp)."""
+        return [(cls, grp, g) for g in self.movable for (cls, grp), n in sorted(self.tgroup[g].items())
+                if n % 2 and grp in self.pairs[grade_of(cls)]]
+
+    def repair(self, max_rounds: int = 30) -> None:
+        """Sửa phần lẻ trong nhóm môn ghép cặp mà `run` để lại (vd luật riêng "Học 2 tiết liền" với định mức lẻ):
+        hai GV cùng lẻ ở một lớp-nhóm môn chuyển cho nhau 1 tiết ở đó, người nhận trả lại 1 tiết ở một course khác (tải
+        mỗi người không đổi). Không được thì nhờ GV thứ ba có tiết ở nhóm môn không ghép cặp: người đó nhường 1 tiết lẻ
+        cho mỗi người và nhận lại một cặp 2 tiết (vd định mức lẻ 23 mà các lớp đều học 2 tiết liền). Chỉ chạy khi còn
+        phần lẻ, nên phân công khác không đổi."""
+        courses = self.p.courses
+        paired = lambda cid: subject_group(courses[cid].subject) in self.pairs[courses[cid].grade]  # noqa: E731
+
+        def via_third(a: int, g1: str, g2: str) -> bool:
+            for g3 in self.movable:
+                if g3 in (g1, g2):
+                    continue
+                spare = [cid for cid, sh in sorted(self.share.items()) if sh.get(g3) and not paired(cid)]
+                n1 = next((c for c in spare if g1 in courses[c].teachers), None)
+                n2 = next((c for c in spare if g2 in courses[c].teachers
+                           and self.share[c][g3] >= (2 if c == n1 else 1)), None)
+                if n1 is None or n2 is None:
+                    continue
+                for pc in sorted(cid for cid, sh in self.share.items() if sh.get(g2, 0) >= 2 and paired(cid)
+                                 and g3 in courses[cid].teachers and cid != a):
+                    ops = [(a, g1, -1), (a, g2, 1), (n1, g3, -1), (n1, g1, 1), (pc, g2, -2), (pc, g3, 2),
+                           (n2, g3, -1), (n2, g2, 1)]
+                    if self._try(ops, sorted({a, n1, n2, pc}), [g1, g2, g3]):
+                        return True
+            return False
+
+        for _ in range(max_rounds):
+            improved = False
+            odd = self.odd()
+            for i, (cls, grp, g1) in enumerate(odd):
+                for cls2, grp2, g2 in odd[i + 1:]:
+                    if (cls2, grp2) != (cls, grp) or self.tgroup[g1].get((cls, grp), 0) % 2 == 0 or \
+                            self.tgroup[g2].get((cls, grp), 0) % 2 == 0:
+                        continue
+                    moved = False
+                    for a in sorted(cid for cid, sh in self.share.items() if sh.get(g1)
+                                    and courses[cid].class_name == cls and subject_group(courses[cid].subject) == grp
+                                    and g2 in courses[cid].teachers):
+                        for b in sorted(cid for cid, sh in self.share.items() if sh.get(g2) and g1 in courses[cid].teachers
+                                        and cid != a):
+                            if self._try([(a, g1, -1), (a, g2, 1), (b, g2, -1), (b, g1, 1)], [a, b], [g1, g2]):
+                                improved = moved = True
+                                break
+                        if moved:
+                            break
+                        if via_third(a, g1, g2) or via_third(a, g2, g1) if self.share[a].get(g2) else via_third(a, g1, g2):
+                            improved = moved = True
+                            break
             if not improved:
                 return
 
@@ -440,6 +512,8 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
     second, missing = _flow(problem, w, rem, base, homeroom_arcs=False)
     local = _Local(problem, second, w)
     local.run()
+    if local.odd():
+        local.repair()
     lessons.update(local.lessons())
 
     load = Counter()
@@ -474,7 +548,7 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
                 c = problem.courses[cid]
                 per[c.class_name, subject_group(c.subject)] += n
         for (cls, grp), n in sorted(per.items()):
-            if n % 2 and grp in paired_groups(problem.curriculum[grade_of(cls)]):
+            if n % 2 and grp in paired_groups(problem.curriculum[grade_of(cls)], grade_of(cls)):
                 odd.append((cls, grp, g))
     return PhanCong(lessons=lessons, extra=extra, overtime=overtime, overtime_cap=cap, missing=missing,
                     odd_pairs=odd)
@@ -486,6 +560,8 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
 def _hire_role(problem: Problem, course: Course) -> str:
     """Chức vụ tuyển cho tiết thiếu: bộ môn nếu được dạy môn này, không thì GV chuyên biệt của môn."""
     roles = roles_for_subject(course.subject, problem.specialists)
+    if config.CUSTOM_RULES:  # luật riêng bắt buộc "Người dạy": chỉ chức vụ còn được dạy course này
+        roles = {problem.teachers[g].role for g in course.teachers} & set(roles) or roles
     return config.ROLE_GENERAL if config.ROLE_GENERAL in roles else sorted(roles)[0]
 
 
@@ -512,7 +588,8 @@ def tach_tiet_bu(problem: Problem, plan: PhanCong, staff: list[Teacher],
             per = Counter()
             for cid, _, n in parts:
                 per[subject_group(problem.courses[cid].subject)] += n
-            pairs = sum(n // 2 for grp, n in per.items() if grp in paired_groups(problem.curriculum[grade_of(cls)]))
+            pairs = sum(n // 2 for grp, n in per.items()
+                        if grp in paired_groups(problem.curriculum[grade_of(cls)], grade_of(cls)))
             items.append((sum(n for _, _, n in parts), pairs, cls, owner, parts))
         items.sort(key=lambda it: (-it[1], class_sort_key(it[2]), it[3]))
         total = sum(it[0] for it in items)

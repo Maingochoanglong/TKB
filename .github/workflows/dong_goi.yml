@@ -1,0 +1,59 @@
+# Dựng gói TKB.exe cho Windows (tools/dong_goi.py: PyInstaller, bản thư mục nén zip) rồi chạy thử như người dùng
+# (.github/scripts/thu_goi.py, trường mẫu tên giả): xếp bằng TKB.exe --cli, mở giao diện, xếp và Dừng sớm qua giao
+# diện. Gói tải lên dạng artifact TKB_Windows (giải nén rồi bấm đúp TKB.exe, không cần cài Python). Gói không chứa file
+# Excel nào của trường (tools/dong_goi.py kiểm). Đẩy một tag v* (vd git tag v1.0.0 && git push origin v1.0.0) thì sau
+# khi chạy thử đạt, gói được đăng ở trang Releases của dự án (ai cũng tải được, không hết hạn như artifact), kèm ghi
+# chú .github/ghi_chu_phat_hanh.md.
+name: Đóng gói TKB.exe
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - tools/dong_goi.py
+      - requirements*.txt
+      - .github/workflows/dong_goi.yml
+      - .github/scripts/thu_goi.py
+      - giao_dien.py
+      - tkb/__main__.py
+      - tkb/giao_dien/**
+
+jobs:
+  windows:
+    name: Dựng và chạy thử trên windows-2022
+    runs-on: windows-2022
+    timeout-minutes: 60
+    permissions:
+      contents: write  # đăng gói ở trang Releases khi đẩy tag v*
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cài thư viện và PyInstaller
+        run: python -m pip install -r requirements-build.txt
+      - name: Dựng gói
+        run: python tools/dong_goi.py
+      - name: Chạy thử gói
+        run: python .github/scripts/thu_goi.py dist/TKB/TKB.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TKB_Windows
+          path: dist/TKB_Windows.zip
+          compression-level: 0  # đã nén
+      - name: Đăng ở trang Releases (chỉ khi đẩy tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/TKB_Windows.zip --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/TKB_Windows.zip --title "TKB $GITHUB_REF_NAME" \
+              --notes-file .github/ghi_chu_phat_hanh.md
+          fi

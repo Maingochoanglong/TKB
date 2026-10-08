@@ -4,7 +4,7 @@ import main
 from tkb import writer
 from tkb.template import write_staff_template
 
-from .conftest import CURRICULUM, small_staff
+from .conftest import CURRICULUM, INPUT_SHEETS, small_staff
 
 
 def _write_staff(path, general=True):
@@ -26,7 +26,8 @@ def test_run_writes_outputs(tmp_path):
     assert code == 0
     # TKB.xlsx chỉ có thời khóa biểu; nhân sự và thống kê nằm ở Thong_Ke.xlsx.
     assert openpyxl.load_workbook(out_dir / "TKB.xlsx").sheetnames == ["Khối 3"]
-    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê"]
+    assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê", "Chất lượng"]
+    assert openpyxl.load_workbook(out_dir / "TKB_giao_vien.xlsx").sheetnames == ["Giáo viên", "Tổng hợp"]
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
     assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *(None,) * 5, "Bộ Môn 1", 8, 15)  # 5 cột không bắt buộc trống
     stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê")
@@ -109,7 +110,7 @@ def test_run_overtime_mode_needs_no_hire(tmp_path):
     # Giải thích cột kết quả và màu bằng chữ thường ở sheet HƯỚNG DẪN; mọi file ra chỉ có chữ, số và màu: không ghi
     # chú (comment), công thức, cố định dòng/cột, danh sách thả xuống hay định dạng theo điều kiện.
     wb = openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")
-    assert wb.sheetnames == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "QUY ĐỊNH", "HƯỚNG DẪN", "TKB đã xếp"]
+    assert wb.sheetnames == [*INPUT_SHEETS, "TKB đã xếp"]
     notes = [c.value or "" for c in wb["HƯỚNG DẪN"]["B"]]
     assert any("xanh dương" in n for n in notes) and any("số tiết dạy vượt định mức" in n for n in notes)
     for path in out_dir.glob("*.xlsx"):
@@ -256,13 +257,43 @@ def test_reloading_falls_back_when_saved_timetable_breaks_rules(tmp_path, capsys
     assert main.run(in_dir / "sua.xlsx", tmp_path / "lai", "TKB.xlsx", thoi_gian_toi_da=20,
                     che_do="tuyen_them") == 0
     out = capsys.readouterr().out
-    assert "Không dùng lại được TKB đã xếp" in out and "vượt định mức" in out
-    assert "kiểm tra luật bắt buộc: ĐẠT" in out
+    assert "không còn đúng, xếp lại ít xáo trộn" in out and "vượt định mức" in out
+    assert "kiểm tra luật bắt buộc: ĐẠT" in out and "So với TKB đã xếp trong file vào: đổi" in out
+    changes = _rows(tmp_path / "lai" / "Thong_Ke.xlsx", "Thay đổi")  # các ô khác TKB cũ
+    assert changes[0] == ("Lớp", "Thứ", "Tiết", "Trước", "Sau") and changes[-1][0] == "Tổng"
     # Muốn xếp lại từ đầu dù TKB đã xếp vẫn đúng luật: GIU_TKB_DA_XEP = False.
     assert main.run(out_dir / "nhan_su_cap_nhat.xlsx", tmp_path / "lai2", "TKB.xlsx", thoi_gian_toi_da=20,
                     che_do="tuyen_them", giu_tkb_da_xep=False) == 0
     out = capsys.readouterr().out
-    assert "Dùng lại TKB đã xếp" not in out and "Không dùng lại" not in out
+    assert "Dùng lại TKB đã xếp" not in out and "xếp lại ít xáo trộn" not in out
+
+
+def test_reloading_keeps_locked_cells_and_changes_little(tmp_path, capsys):
+    """TKB đã xếp không còn đúng (định mức người mới giảm): xếp lại ít xáo trộn, ô khóa giữ nguyên và vẫn ghi
+    " (khóa)" ở file vào cập nhật mới; chỉ vài ô đổi (sheet Thay đổi), vẫn đúng mọi luật."""
+    in_dir, out_dir = tmp_path / "in", tmp_path / "out"
+    in_dir.mkdir()
+    _write_staff(in_dir / "nhan_su.xlsx", general=False)
+    assert main.run(in_dir / "nhan_su.xlsx", out_dir, "TKB.xlsx", thoi_gian_toi_da=20, che_do="tuyen_them") == 0
+    capsys.readouterr()
+    wb = openpyxl.load_workbook(out_dir / "nhan_su_cap_nhat.xlsx")
+    ws = wb["NHÂN SỰ"]
+    hire = next(r for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == "chưa có")
+    ws.cell(hire, 4, 5)  # định mức 5 < 8 tiết đang dạy: TKB cũ không còn đúng
+    grid = wb["TKB đã xếp"]
+    cell = next(c for row in grid.iter_rows(min_row=11) for c in row  # lớp 3/2 (7 dòng sau 3/1), một ô GVCN
+                if c.column > 2 and c.value and "Chủ Nhiệm 3/2" in str(c.value) and c.row != 11)
+    locked = cell.value
+    cell.value = f"{locked} (khóa)"
+    wb.save(in_dir / "sua.xlsx")
+    assert main.run(in_dir / "sua.xlsx", tmp_path / "lai", "TKB.xlsx", thoi_gian_toi_da=20,
+                    che_do="tuyen_them") == 0
+    out = capsys.readouterr().out
+    assert "xếp lại ít xáo trộn" in out and "(1 ô khóa)" in out and "kiểm tra luật bắt buộc: ĐẠT" in out
+    again = openpyxl.load_workbook(tmp_path / "lai" / "sua_cap_nhat.xlsx")["TKB đã xếp"]
+    assert again.cell(cell.row, cell.column).value == f"{locked} (khóa)"  # ô khóa giữ nguyên, vẫn ghi khóa
+    changes = _rows(tmp_path / "lai" / "Thong_Ke.xlsx", "Thay đổi")[1:-1]
+    assert 0 < len(changes) <= 8  # chỉ các tiết người mới không dạy được nữa (64 tiết)
 
 
 def test_reloading_overtime_result_rewrites_the_same_files(tmp_path, capsys):
@@ -281,7 +312,7 @@ def test_reloading_overtime_result_rewrites_the_same_files(tmp_path, capsys):
         ws = wb[sheet] if sheet else wb.active
         return [[(c.value, c.fill.start_color.rgb if c.fill.fill_type else None) for c in row]
                 for row in ws.iter_rows()]
-    for name in ("TKB.xlsx", "TKB_chuc_vu.xlsx", "Thong_Ke.xlsx"):
+    for name in ("TKB.xlsx", "TKB_chuc_vu.xlsx", "TKB_giao_vien.xlsx", "Thong_Ke.xlsx"):
         assert cells(tmp_path / "a" / name) == cells(tmp_path / "b" / name), name
     assert cells(tmp_path / "a" / "nhan_su_cap_nhat.xlsx", "NHÂN SỰ") == \
         cells(tmp_path / "b" / "nhan_su_cap_nhat_cap_nhat.xlsx", "NHÂN SỰ")

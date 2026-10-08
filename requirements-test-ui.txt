@@ -1,0 +1,4 @@
+# Test trang web trên trình duyệt thật (tests/test_trang_web.py): Playwright ghim đúng phiên bản; cài thêm trình duyệt
+# bằng python -m playwright install chromium. Không cài thì các test đó tự bỏ qua.
+-r requirements.txt
+playwright==1.49.1

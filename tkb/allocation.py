@@ -37,7 +37,7 @@ class Problem:
     warnings: list[str] = field(default_factory=list)
     overtime: dict[str, int] = field(default_factory=dict)  # GV -> số tiết được dạy bù tối đa
     overtime_max: int = 0  # > 0: chế độ bù giờ
-    specialists: dict[str, str] = field(default_factory=dict)  # chức vụ chuyên biệt -> môn duy nhất được dạy
+    specialists: dict[str, tuple[str, ...]] = field(default_factory=dict)  # chức vụ chuyên biệt -> các môn được dạy
     subject_labels: dict[str, str] = field(default_factory=dict)  # môn -> tên như ghi trong file vào
     subject_order: list[str] = field(default_factory=list)  # các môn theo thứ tự dòng trong file vào
     campus2: frozenset[str] = frozenset()  # các lớp ở cơ sở 2 (cột Cơ sở 2 trên dòng Chủ Nhiệm)
@@ -50,7 +50,7 @@ class Problem:
         return [config.ROLE_HOMEROOM, config.ROLE_GENERAL, *self.specialists, config.ROLE_MANAGER]
 
     def specialist_subjects(self) -> set[str]:
-        return set(self.specialists.values())
+        return {s for subjects in self.specialists.values() for s in subjects}
 
     def subject_label(self, subject: str) -> str:
         """Tên môn in trong TKB: tên viết tắt trong config, không có thì tên như trong file vào."""
@@ -70,49 +70,79 @@ def subject_group(subject: str) -> str:
     return config.SUBJECT_GROUPS.get(subject, subject)
 
 
-def paired_groups(grade_req: dict[str, int]) -> set[str]:
-    """Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS)."""
+def paired_groups(grade_req: dict[str, int], grade: int | None = None) -> set[str]:
+    """Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS, và luật riêng "Học 2
+    tiết liền" bắt buộc của khối `grade`)."""
     totals: dict[str, int] = {}
     for s, n in grade_req.items():
         totals[subject_group(s)] = totals.get(subject_group(s), 0) + n
-    return {g for g, n in totals.items()
-            if n >= config.PAIR_MIN_LESSONS and n % 2 == 0 and g not in config.PAIR_EXCLUDED}
+    out = {g for g, n in totals.items()
+           if n >= config.PAIR_MIN_LESSONS and n % 2 == 0 and g not in config.PAIR_EXCLUDED} if config.on("ghep_cap") \
+        else set()
+    if grade is not None and config.CUSTOM_RULES:
+        from .luat_rieng import forced_pairs
+        out |= forced_pairs(grade, totals)
+    return out
+
+
+def homeroom_only() -> set[str]:
+    """Các môn chỉ GVCN dạy (cột Chỉ GVCN dạy), khi luật "Chỉ GVCN dạy" có trong sheet LUẬT."""
+    return set(config.HOMEROOM_ONLY_SUBJECTS) if config.on("chi_gvcn") else set()
 
 
 def sessions_per_week() -> int:
     return sum(len(s) for s in config.DAY_SESSIONS.values())
 
 
-def roles_for_subject(subject: str, specialists: dict[str, str]) -> list[str]:
+def roles_for_subject(subject: str, specialists: dict[str, tuple[str, ...]]) -> list[str]:
     """Các chức vụ (ngoài chủ nhiệm/quản lý) được dạy môn này."""
-    roles = [r for r, s in specialists.items() if s == subject]
+    roles = [r for r, subjects in specialists.items() if subject in subjects]
     if subject not in config.GENERAL_FORBIDDEN_SUBJECTS:
         roles.append(config.ROLE_GENERAL)
     return roles
 
 
-def resolve_roles(staff: list[Teacher], subject_labels: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
-    """Suy ra GV chuyên biệt từ tên chức vụ: (chức vụ -> môn, chức vụ -> cách ghi trong file ra).
+def resolve_roles(staff: list[Teacher], subject_labels: dict[str, str]
+                  ) -> tuple[dict[str, tuple[str, ...]], dict[str, str]]:
+    """Các GV chuyên biệt: (chức vụ -> các môn được dạy, chức vụ -> cách ghi trong file ra).
 
-    Chức vụ khác Chủ Nhiệm/Bộ Môn/Quản Lý phải trùng tên một môn của chương trình học. Môn bộ môn không
-    được dạy mà trường chưa có GV chuyên biệt thì thêm chức vụ trùng tên môn để có thể tuyển thêm.
+    Chức vụ khác Chủ Nhiệm/Bộ Môn/Quản Lý là một chức vụ của sheet CHỨC VỤ (config.CUSTOM_ROLES, dạy các môn ghi
+    ở đó), hoặc trùng tên một môn của chương trình học (chỉ dạy môn đó). Môn bộ môn không được dạy mà trường chưa
+    có GV dạy được thì thêm một chức vụ để có thể tuyển thêm: chức vụ đầu tiên của sheet CHỨC VỤ dạy môn đó, không
+    có thì chức vụ trùng tên môn. Chức vụ của sheet CHỨC VỤ không ai giữ và không cần tuyển thì không dùng.
     """
     names = {subject_key(label): s for s, label in subject_labels.items()}
     names.update({subject_key(s): s for s in subject_labels})
     errors = role_errors(staff, names)
+    custom: dict[str, tuple[str, tuple[str, ...]]] = {}  # khóa tên chức vụ -> (tên, các môn), theo thứ tự dòng
+    for r in config.CUSTOM_ROLES:
+        subjects = []
+        for s in r.subjects:
+            where = f"{config.ROLES_SHEET}, dòng {r.row}" if r.row else f"Chức vụ {r.name}"
+            if subject_key(s) not in names:
+                errors.append(f"{where}: không có môn '{s}' trong sheet {config.PROGRAM_SHEET}")
+            elif names[subject_key(s)] in homeroom_only():
+                errors.append(f"{where}: môn '{s}' chỉ GVCN được dạy (cột Chỉ GVCN dạy)")
+            else:
+                subjects.append(names[subject_key(s)])
+        custom[subject_key(r.name)] = (clean_name(r.name), tuple(dict.fromkeys(subjects)))
     if errors:
         raise InputError("\n".join(errors))
-    specialists: dict[str, str] = {}
+    specialists: dict[str, tuple[str, ...]] = {}
     labels = dict(config.ROLE_LABELS)
     for t in staff:
-        if t.role not in SPECIAL_ROLES:
-            specialists.setdefault(t.role, names[subject_key(t.role)])
-            labels.setdefault(t.role, clean_name(t.label) if t.label else subject_labels[specialists[t.role]])
+        if t.role not in SPECIAL_ROLES and t.role not in specialists:
+            name, subjects = custom.get(subject_key(t.role)) or (None, (names[subject_key(t.role)],))
+            specialists[t.role] = subjects
+            labels[t.role] = clean_name(t.label) if t.label else name or subject_labels[subjects[0]]
+    covered = {s for subjects in specialists.values() for s in subjects}
     for s, label in subject_labels.items():
-        if (s in config.GENERAL_FORBIDDEN_SUBJECTS and s not in config.HOMEROOM_ONLY_SUBJECTS
-                and s not in specialists.values()):
-            specialists[normalize(label)] = s
-            labels[normalize(label)] = label
+        if (s in config.GENERAL_FORBIDDEN_SUBJECTS and s not in homeroom_only()
+                and s not in covered):
+            name, subjects = next(((n, subs) for n, subs in custom.values() if s in subs), (label, (s,)))
+            specialists[normalize(name)] = subjects
+            labels[normalize(name)] = name
+            covered.update(subjects)
     return specialists, labels
 
 
@@ -204,6 +234,14 @@ def keep_cost(t: Teacher, class_name: str, w: config.Weights) -> int:
     return 0 if class_name in t.history else w.keep_class
 
 
+def previous_cost(t: Teacher, course: Course, w: config.Weights) -> int:
+    """Xếp lại ít xáo trộn: giá mỗi tiết t dạy (lớp, môn) của course mà TKB cũ không giao cho t (Teacher.previous).
+    GV không có trong TKB cũ (vd người mới): 0."""
+    if not t.previous:
+        return 0
+    return 0 if (course.class_name, course.subject) in t.previous else w.keep_previous
+
+
 def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                   supplement_counts: dict[str, int] | None = None, overtime_max: int = 0) -> Problem:
     """Dựng bài toán.
@@ -228,7 +266,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                   for g, req in curriculum.items()}
     specialists, role_labels = resolve_roles(staff, subject_labels)
     staff = [replace(t, label=role_labels[t.role]) for t in staff]
-    specialist = set(specialists.values())
+    specialist = {s for subjects in specialists.values() for s in subjects}
     slots = all_slots()
     classes = classes_from_staff(staff)
     homeroom = {t.class_name: t for t in staff if t.class_name}
@@ -258,8 +296,8 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     courses: list[Course] = []
     homeroom_take: dict[str, dict[str, int]] = {}
     pool: list[tuple[str, int, str, int]] = []
-    fixed_hdtn = tuple(config.HDTN_FIXED_SLOTS)
-    homeroom_slots = [s for s in slots if s[1] in config.HOMEROOM_PERIODS]
+    fixed_hdtn = tuple(config.HDTN_FIXED_SLOTS) if config.on("hdtn_co_dinh") else ()
+    homeroom_slots = [s for s in slots if s[1] in config.HOMEROOM_PERIODS] if config.on("tiet_gvcn") else []
 
     for cls in classes:
         grade = grade_of(cls)
@@ -277,10 +315,11 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                 courses.append(Course(len(courses), cls, grade, subject, n_fixed, [cn.title],
                                       homeroom=True, fixed_slots=fixed_hdtn[:n_fixed]))
                 if n > n_fixed:
-                    if not config.HDTN_FLEX_DAYS:
+                    flex = config.on("hdtn_ngay")
+                    if flex and not config.HDTN_FLEX_DAYS:
                         raise InputError("Chưa cấu hình ngày cho tiết HĐTN linh hoạt")
                     courses.append(Course(len(courses), cls, grade, subject, n - n_fixed, [cn.title],
-                                          homeroom=True, allowed_days=tuple(config.HDTN_FLEX_DAYS),
+                                          homeroom=True, allowed_days=tuple(config.HDTN_FLEX_DAYS) if flex else None,
                                           flex_hdtn=True))
             else:
                 courses.append(Course(len(courses), cls, grade, subject, n, [cn.title], homeroom=True))
@@ -288,7 +327,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
             rest = n - take.get(subject, 0)
             if rest <= 0:
                 continue
-            if subject in config.HOMEROOM_ONLY_SUBJECTS:
+            if subject in homeroom_only():
                 raise InputError(f"Lớp {cls}: môn {subject} chỉ GVCN được dạy nhưng GVCN không đủ tiết")
             pool.append((cls, grade, subject, rest))
 
@@ -313,6 +352,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         supplement_roles[role] = [t.title for t in extra]
         all_teachers.extend(extra)
 
+    teacher_of = {t.title: t for t in all_teachers}
     by_role: dict[str, list[Teacher]] = {}
     for t in all_teachers:
         by_role.setdefault(t.role, []).append(t)
@@ -322,16 +362,27 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     for cls, grade, subject, n in pool:
         # GV chỉ dạy cơ sở 2 (đánh dấu Cơ sở 2, hoặc thai sản) không dạy lớp ở cơ sở 1.
         eligible = [t.title for r in roles_for_subject(subject, specialists) for t in by_role.get(r, [])
-                    if cls in campus2 or not t.campus2_only]
+                    if cls in campus2 or not t.campus2_only or not config.on("co_so_2")]
         # GVCN bù ở lớp mình: không bù môn của GV chuyên biệt, trừ HOMEROOM_OVERTIME_SPECIALIST.
         if homeroom[cls].title in overtime and (subject not in specialist
                                                 or subject in config.HOMEROOM_OVERTIME_SPECIALIST):
             eligible.append(homeroom[cls].title)
         for m in managers:
-            if (cls in campus2 or not m.campus2_only) and \
+            if (cls in campus2 or not m.campus2_only or not config.on("co_so_2")) and \
                     any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
                 eligible.append(m.title)
                 manager_pool_lessons[m.title] += n
+        if config.CUSTOM_RULES:  # luật bắt buộc "Người dạy" không xét ô (vd Chỉ giáo viên dạy): lọc khi phân công
+            from .bo_ghep import refusing
+            from .luat_rieng import label
+            refused = {g: refusing(teacher_of[g], cls, grade, subject, curriculum) for g in eligible}
+            kept = [g for g in eligible if not refused[g]]
+            if eligible and not kept:
+                rules = dict.fromkeys(label(L.rule) for g in eligible for L in refused[g])
+                raise InputError(f"Lớp {cls}: không GV nào được dạy {subject_labels.get(subject, subject)} theo "
+                                 f"{'; '.join(rules)} (tên ở cột Giáo viên phải là chức vụ, Mã GV hay họ tên của người "
+                                 f"được dạy môn này)")
+            eligible = kept
         if not eligible:
             raise InputError(f"Lớp {cls}: không có GV nào được phép dạy môn {subject}")
         courses.append(Course(len(courses), cls, grade, subject, n, eligible))

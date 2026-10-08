@@ -79,11 +79,24 @@ HDTN_FLEX_DAYS: list[int] = [1, 2, 3]  # Thứ 3 - Thứ 5
 ROLE_HOMEROOM = "chủ nhiệm"
 ROLE_GENERAL = "bộ môn"
 ROLE_MANAGER = "quản lý"
-# Chức vụ khác ba chức vụ trên là GV chuyên biệt: tên chức vụ trùng tên một môn trong sheet
-# CHƯƠNG TRÌNH HỌC (vd "Tiếng Anh", "Thể Dục") và chỉ dạy môn đó.
+# Chức vụ khác ba chức vụ trên là GV chuyên biệt: một chức vụ của sheet CHỨC VỤ (dạy các môn ghi ở dòng đó), hoặc
+# tên chức vụ trùng tên một môn trong sheet CHƯƠNG TRÌNH HỌC (vd "Tiếng Anh", "Thể Dục") và chỉ dạy môn đó.
 
 # Cách ghi ba chức vụ trên trong các file xuất ra (GV chuyên biệt ghi đúng chữ trong file vào).
 ROLE_LABELS: dict[str, str] = {ROLE_HOMEROOM: "Chủ Nhiệm", ROLE_GENERAL: "Bộ Môn", ROLE_MANAGER: "Quản Lý"}
+
+
+@dataclass(frozen=True)
+class Role:
+    """Chức vụ GV chuyên biệt nhà trường tự đặt (sheet CHỨC VỤ, đọc ở tkb/rules.py)."""
+    name: str  # tên chức vụ như ghi trong file, vd "GV Nghệ thuật"
+    subjects: tuple[str, ...]  # các môn được dạy (tên như trong sheet CHƯƠNG TRÌNH HỌC)
+    row: int = 0  # dòng trong sheet CHỨC VỤ (để báo lỗi)
+
+
+ROLES_SHEET = "CHỨC VỤ"
+# Mặc định không có: GV chuyên biệt là chức vụ trùng tên môn.
+CUSTOM_ROLES: list[Role] = []
 
 # File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"
@@ -94,9 +107,12 @@ RULES_SHEET = "QUY ĐỊNH"
 # File vào cập nhật (<file vào>_cap_nhat.xlsx) lưu TKB đã xếp ở sheet này, dạng lưới như TKB: dòng đầu ghi mã kết
 # quả và mã quy định; bảng Lớp | Tiết | Thứ 2 …, mỗi ô ghi môn, xuống dòng ghi Mã GV (thêm " (bù)" ở tiết dạy bù).
 # Nạp lại file đó làm file vào thì chương trình dùng lại TKB này nếu vẫn đúng mọi luật (vd chỉ đổi tên người
-# "chưa có" thành tên người mới tuyển); main.py GIU_TKB_DA_XEP = False (dòng lệnh --xep-lai) thì xếp lại từ đầu.
+# "chưa có" thành tên người mới tuyển); không còn đúng (sửa tay, đổi nhân sự, đổi luật) thì xếp lại **ít xáo trộn
+# nhất**: giữ mọi ô được, ô ghi thêm " (khóa)" thì giữ nguyên bắt buộc. main.py GIU_TKB_DA_XEP = False (dòng lệnh
+# --xep-lai) thì bỏ TKB này, xếp lại từ đầu.
 SAVED_SHEET = "TKB đã xếp"
 SAVED_OVERTIME = "(bù)"
+SAVED_LOCKED = "(khóa)"
 SAVED_CODES = ("Mã kết quả", "Mã quy định")
 
 # Môn chỉ GVCN của lớp được dạy.
@@ -180,6 +196,70 @@ PAIR_MIN_LESSONS = 6
 PAIR_EXCLUDED: set[str] = {TOAN, HDTN}  # Toán: mỗi ngày 1 tiết (DAILY_LIMITS); HĐTN: có ô cố định
 
 
+# --------------------------------------------------------------------------
+# Luật riêng của trường (sheet LUẬT RIÊNG, tkb/luat_rieng.py): mỗi dòng một luật, theo một mẫu có sẵn hoặc tự ghép
+# bằng bộ ghép luật (tkb/bo_ghep.py), bắt buộc hoặc ưu tiên (mức 1–3). Mặc định không có luật riêng nào.
+# --------------------------------------------------------------------------
+@dataclass(frozen=True)
+class CustomRule:
+    kind: str  # khóa mẫu luật trong luat_rieng.KINDS, vd "khong_xep"; "tu_ghep": tự ghép (các trường cuối)
+    subject: str = ""  # môn (tên như trong file vào)
+    other: str = ""  # môn thứ hai (luật "Học trước": subject học trước other)
+    grades: tuple[int, ...] = ()  # các khối; trống = mọi khối
+    days: tuple[int, ...] = ()  # các ngày (0 = Thứ 2); trống = mọi ngày
+    periods: tuple[int, ...] = ()  # các tiết; trống = mọi tiết
+    sessions: tuple[str, ...] = ()  # các buổi (tên buổi, vd "Sáng"); trống = mọi buổi
+    role: str = ""  # chức vụ của GV (chữ thường); trống = mọi GV
+    number: int | None = None  # số trong luật (tối đa tiết mỗi ngày, số lớp cùng lúc)
+    hard: bool = False  # bắt buộc; không thì là ưu tiên
+    level: int = 2  # mức ưu tiên 1–4: Thấp, Vừa, Cao, Rất cao (Weights.custom_levels)
+    row: int = 0  # dòng trong sheet LUẬT RIÊNG (để báo lỗi)
+    # Bộ ghép (kiểu "tu_ghep" và các mẫu mới; tkb/bo_ghep.py): "Với mỗi [scope], chỉ xét các tiết [môn, nhãn, khối,
+    # lớp, ngày, tiết, buổi, GV] thì [measure] [op] [number], khi [when]".
+    scope: tuple[str, ...] = ()  # các chiều phạm vi (bo_ghep.SCOPES), vd ("lop", "buoi"); trống = cả trường cả tuần
+    measure: str = ""  # phép đo (bo_ghep.MEASURES)
+    op: str = ""  # so sánh (bo_ghep.OPS)
+    count_by: str = ""  # phép đo "Số khác nhau": đếm theo chiều nào (bo_ghep.SCOPES)
+    classes: tuple[str, ...] = ()  # các lớp; trống = mọi lớp
+    tags: tuple[str, ...] = ()  # các nhãn (tiêu đề cột Có/Không của môn, ngày, tiết), vd "Môn nặng"
+    group: bool = False  # môn ở cột Môn gồm cả các môn tăng cường cùng nhóm
+    when: tuple[tuple[str, int], ...] = ()  # áp dụng khi số tiết/tuần của các môn: (">=", 6), ("<=", -1): -1 là số
+    # ngày học, ("chan", 0), ("le", 0); phạm vi có Môn / Nhóm môn thì xét từng môn / nhóm môn
+    exclude: tuple[str, ...] = ()  # các nhãn bị trừ ra (cột Trừ nhãn), vd "Môn HĐTN"
+    derived: str = ""  # ngưỡng theo dữ liệu thay cho Số (bo_ghep.DERIVED), vd "tai_ngay"
+    points: int | None = None  # luật ưu tiên: điểm trừ mỗi lần không theo (thay cho Mức)
+    group_label: str = ""  # cột Nhóm của sheet LUẬT (chỉ để đọc; không đổi cách xếp)
+    # Cột Tạm tắt = Có: dòng giữ lại trong sheet nhưng chương trình bỏ qua (như xóa dòng). Không vào repr, so sánh:
+    # mã quy định (rules.code) và việc nhận dạng luật có sẵn (luat_co_san.fits) như trước khi có cột này.
+    off: bool = field(default=False, repr=False, compare=False)
+
+
+CUSTOM_RULES: list[CustomRule] = []  # các dòng của sheet LUẬT xếp bằng bộ ghép (không phải luật có sẵn ở dạng gốc)
+# Cột Giáo viên của luật ghi một người (Mã GV hoặc họ tên, chuẩn hóa) -> Mã GV như ghi ở file ra; đặt sau khi đọc nhân
+# sự (bo_ghep.know_staff) để câu đọc lại ghi Mã GV, không ghi họ tên. Không phải quy định (không vào rules.code());
+# rules.applied trả lại giá trị cũ khi ra khỏi khối.
+PEOPLE: dict[str, str] = {}
+
+# Sheet LUẬT (tkb/luat_co_san.py): mọi luật là một dòng câu ghép, kể cả luật có sẵn. Dòng của luật có sẵn đúng dạng
+# gốc thì xếp bằng mã hóa riêng như trước (mã kết quả không đổi), số và điểm lấy từ dòng; luật có sẵn không còn
+# dòng nào ở dạng gốc thì tắt (OFF).
+RULES_SHEET_ROWS = "LUẬT"
+RULES: list[CustomRule] | None = None  # mọi dòng của sheet LUẬT; None: file không có sheet, dùng các dòng mặc định
+OFF: frozenset[str] = frozenset()  # các luật có sẵn bị tắt (khóa trong luat_co_san.NATIVES)
+WEIGHTS: dict[str, int] = {}  # điểm của luật có sẵn ưu tiên khác mặc định (tên trường của Weights -> điểm)
+
+
+def on(key: str) -> bool:
+    """Luật có sẵn `key` đang bật (có dòng ở dạng gốc trong sheet LUẬT, hoặc file không có sheet LUẬT)."""
+    return key not in OFF
+
+
+def rule_weights(w: "Weights") -> "Weights":
+    """Trọng số xếp giờ theo điểm ghi ở các dòng luật có sẵn ưu tiên (giữ nguyên nếu không đổi)."""
+    from dataclasses import replace
+    return replace(w, **WEIGHTS) if WEIGHTS else w
+
+
 def rule_subjects() -> list[str]:
     """Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào)."""
     names = [HDTN, *HOMEROOM_PRIORITY, *HOMEROOM_CUT_ORDER, *HOMEROOM_FILL_ORDER, *HOMEROOM_ONLY_SUBJECTS,
@@ -230,9 +310,18 @@ class Weights:
     # trước gom lớp và cân bằng tải.
     keep_grade: int = 60  # mỗi tiết GV dạy khối không nằm trong các khối đang dạy
     keep_class: int = 10  # mỗi tiết GV dạy đúng khối cũ nhưng khác lớp cũ
+    # Xếp lại ít xáo trộn (nạp lại TKB đã xếp không còn đúng): mỗi tiết GV dạy (lớp, môn) không có trong TKB cũ
+    # (đắt hơn dạy thay môn chuyên biệt, rẻ hơn chia lớp-môn), mỗi ô của TKB cũ bị đổi môn (đắt hơn mọi mục tiêu
+    # mềm trừ đổi cơ sở trong ngày).
+    keep_previous: int = 2_000
+    keep_cell: int = 5_000
     group_grade: int = 20  # mỗi khối một GV không chủ nhiệm dạy
     group_class: int = 5  # mỗi lớp một GV không chủ nhiệm dạy
     odd_pair_share: int = 100_000  # mỗi phần lẻ của một người trong nhóm môn ghép cặp
+    # Luật ưu tiên của sheet LUẬT theo cột Mức Thấp, Vừa, Cao, Rất cao (1–4): mỗi lần không theo luật bị trừ ngần
+    # ấy điểm (Cao nặng hơn một tiết môn nặng ở tiết 7, Thấp cỡ một tiết TV/Toán buổi chiều, Rất cao cỡ một lần GV
+    # dạy hai cơ sở trong một ngày).
+    custom_levels: tuple[int, int, int, int] = (100, 400, 1_500, 5_000)
 
 
 # --------------------------------------------------------------------------

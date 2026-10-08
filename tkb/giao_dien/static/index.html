@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xếp thời khóa biểu</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="app.css">
+<script>window.TKB_TOKEN = "__TKB_TOKEN__";</script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">TKB</span>
+    <div>
+      <h1>Xếp thời khóa biểu</h1>
+      <p id="file-label" class="muted">Kịch bản mới</p>
+    </div>
+  </div>
+  <div class="actions">
+    <span id="draft-info" class="muted small-text" aria-live="polite"></span>
+    <button type="button" id="btn-undo" class="ghost" title="Hoàn tác (Ctrl+Z)" disabled>↶ Hoàn tác</button>
+    <button type="button" id="btn-redo" class="ghost" title="Làm lại (Ctrl+Y)" aria-label="Làm lại" disabled>↷</button>
+    <details class="menu" id="file-menu">
+      <summary class="btn">Tệp ▾</summary>
+      <div class="menu-list" role="menu">
+        <label class="menu-item" role="menuitem"
+          title="File của trường, file mẫu đã điền, hay file cập nhật *_cap_nhat.xlsx của lần xếp trước: chọn phần nào lấy từ file">
+          Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden></label>
+        <button type="button" class="menu-item" role="menuitem" id="btn-export"
+          title="Lưu mọi thứ đang soạn thành một file Excel: mở lại được ở đây, dùng được cho main.py, gửi cho trường khác được">
+          Lưu ra file Excel</button>
+        <button type="button" class="menu-item" role="menuitem" id="btn-template"
+          title="File Excel trống, đủ các sheet và luật mặc định, để điền trong Excel rồi mở lại ở đây">
+          Tải file mẫu trống</button>
+        <button type="button" class="menu-item" role="menuitem" id="btn-new">Bắt đầu lại…</button>
+      </div>
+    </details>
+  </div>
+</header>
+
+<section id="start" class="start" hidden>
+  <h2>Bắt đầu</h2>
+  <p class="muted">Chọn một cách để bắt đầu. Mọi thứ chạy ngay trên máy này, trang tự lưu nháp.</p>
+  <div class="start-cards">
+    <button type="button" class="start-card" data-start="open">
+      <b>Mở file Excel của trường</b>
+      <span>File mẫu đã điền, hoặc file cập nhật <code>_cap_nhat.xlsx</code> của lần xếp trước (giữ TKB đã xếp).</span>
+    </button>
+    <button type="button" class="start-card" data-start="new">
+      <b>Soạn mới trên trang</b>
+      <span>Luật và quy định mặc định; nhập số tiết ở bước Môn học, danh sách ở bước Giáo viên.</span>
+    </button>
+    <button type="button" class="start-card" data-start="sample">
+      <b>Xem thử với trường mẫu</b>
+      <span>29 lớp, 45 giáo viên tên giả: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì.</span>
+    </button>
+  </div>
+  <p class="start-links"><button type="button" class="link" data-start="template">Tải file mẫu trống để điền trong Excel</button>
+    <span id="start-back"> · <button type="button" class="link" data-start="back">← Quay lại kịch bản đang soạn</button></span></p>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button type="button" role="tab" data-tab="khung" class="active">1. Khung giờ &amp; quy định chung</button>
+  <button type="button" role="tab" data-tab="mon">2. Môn học <span class="count" id="count-mon"></span></button>
+  <button type="button" role="tab" data-tab="chucvu">3. Chức vụ <span class="count" id="count-cv"></span></button>
+  <button type="button" role="tab" data-tab="gv">4. Giáo viên <span class="count" id="count-gv"></span></button>
+  <button type="button" role="tab" data-tab="luat">5. Luật <span class="count" id="count-luat"></span></button>
+  <button type="button" role="tab" data-tab="xep">6. Kiểm tra &amp; xếp TKB</button>
+  <button type="button" role="tab" data-tab="tkb">7. Thời khóa biểu</button>
+</nav>
+
+<div id="notice" class="notice" hidden></div>
+
+<main>
+  <section id="tab-khung" class="tab active" role="tabpanel">
+    <div class="grid2">
+      <div class="card">
+        <div class="toolbar"><h2>Quy định chung</h2></div>
+        <p class="muted">Áp dụng cho cả trường.</p>
+        <div id="general-form" class="form"></div>
+      </div>
+      <div class="card">
+        <h2>Tiết trong ngày</h2>
+        <p class="muted">Buổi chiều đánh số nối tiếp buổi sáng. Số tiết lấy theo quy định chung.</p>
+        <div class="table-wrap"><table id="period-table" class="grid"></table></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Ngày học</h2>
+      <p class="muted">Các ngày học liền nhau từ Thứ 2 (có thể thêm Thứ 7); buổi chiều phải là ngày có học buổi sáng.</p>
+      <div class="table-wrap"><table id="day-table" class="grid"></table></div>
+    </div>
+    <details class="card help"><summary>Giải thích các quy định ở trang này</summary><dl id="help-khung"></dl></details>
+    <div class="next"><button type="button" data-go="mon">Tiếp: Môn học →</button></div>
+  </section>
+
+  <section id="tab-mon" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Môn học</h2>
+        <div class="actions">
+          <input type="search" id="subject-search" class="search" placeholder="Tìm môn" aria-label="Tìm môn">
+          <button type="button" id="btn-add-subject">+ Thêm môn</button>
+          <button type="button" id="btn-add-grade" class="ghost">+ Thêm khối</button>
+          <button type="button" id="btn-del-grade" class="ghost">− Bớt khối cuối</button>
+          <label class="check"><input type="checkbox" id="subject-grid"> Bảng đầy đủ</label>
+        </div>
+      </div>
+      <p class="muted">Mỗi môn một dòng: số tiết/tuần từng khối (trống hoặc 0: khối đó không học). Bấm <b>Sửa</b> để xem
+        và sửa các quy định của môn. Cột <b>Ai dạy</b> theo bước 3 (Chức vụ).</p>
+      <div class="table-wrap tall"><table id="subject-table" class="grid sticky"></table></div>
+    </div>
+    <details class="card help"><summary>Giải thích các cột quy định của môn</summary><dl id="help-mon"></dl></details>
+    <div class="next"><button type="button" data-go="chucvu">Tiếp: Chức vụ →</button></div>
+  </section>
+
+  <section id="tab-chucvu" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Chức vụ</h2>
+        <div class="actions"><button type="button" id="btn-add-role" data-act="add-role">+ Thêm chức vụ</button></div>
+      </div>
+      <p class="muted">Mỗi giáo viên có một chức vụ. Ba chức vụ mặc định (Chủ Nhiệm, Bộ Môn, Quản Lý): đánh dấu ở đây
+        là sửa đúng các quy định của môn ở bước 2. Trường tự đặt thêm chức vụ cho giáo viên chuyên biệt và chọn các môn
+        được dạy, vd <b>GV Nghệ thuật</b> dạy Âm nhạc và Mỹ thuật.</p>
+      <div id="role-hints"></div>
+    </div>
+    <div class="roles" id="role-cards"></div>
+    <div class="next"><button type="button" data-go="gv">Tiếp: Giáo viên →</button></div>
+  </section>
+
+  <section id="tab-gv" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Giáo viên</h2>
+        <div class="actions">
+          <input type="search" id="staff-search" class="search" placeholder="Tìm họ tên, Mã GV, lớp" aria-label="Tìm giáo viên">
+          <select id="staff-filter" aria-label="Lọc theo chức vụ"></select>
+          <button type="button" id="btn-add-staff">+ Thêm giáo viên</button>
+          <button type="button" id="btn-paste" class="ghost">Dán từ Excel…</button>
+        </div>
+      </div>
+      <p class="muted" id="staff-summary"></p>
+      <div class="table-wrap tall"><table id="staff-table" class="grid sticky"></table></div>
+      <datalist id="role-list"></datalist>
+      <datalist id="subject-list"></datalist>
+      <datalist id="session-list"></datalist>
+    </div>
+    <details class="card help"><summary>Giải thích các cột nhân sự</summary><dl id="help-gv"></dl></details>
+    <div class="next"><button type="button" data-go="luat">Tiếp: Luật →</button></div>
+  </section>
+
+  <section id="tab-luat" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Luật xếp thời khóa biểu</h2>
+        <div class="actions">
+          <input type="search" id="rule-search" class="search" placeholder="Tìm luật: môn, lớp, chữ trong câu" aria-label="Tìm luật">
+          <select id="new-kind" aria-label="Loại luật mới"></select>
+          <button type="button" id="btn-add-rule">+ Thêm luật</button>
+          <details class="menu">
+            <summary class="btn ghost">Tệp luật ▾</summary>
+            <div class="menu-list" role="menu">
+              <button type="button" class="menu-item" role="menuitem" data-import="rules"
+                title="Lấy các luật từ một file Excel (file luật hay file đủ của trường khác): thay hoặc thêm vào cuối">Nhập luật từ Excel…</button>
+              <button type="button" class="menu-item" role="menuitem" id="btn-rules-export"
+                title="File Excel chỉ có các luật đang soạn: sửa trong Excel, chép sang trường khác">Xuất luật ra Excel</button>
+              <button type="button" class="menu-item" role="menuitem" id="btn-rules-template"
+                title="File Excel có các luật mặc định">Tải mẫu luật</button>
+              <button type="button" class="menu-item" role="menuitem" id="btn-rules-reset"
+                title="Thay mọi luật bằng các luật mặc định (hoàn tác được)">Về mặc định</button>
+            </div>
+          </details>
+        </div>
+      </div>
+      <p class="muted">Mỗi luật là một câu, trả lời một trong bốn câu hỏi về các tiết: <b>Ở đâu</b> (xếp vào giờ nào),
+        <b>Bao nhiêu</b> (số tiết, số lớp, số ngày), <b>Đi cùng nhau</b> (liền nhau, theo cặp, trước sau) và <b>Ai
+        dạy</b>. Các luật <span class="tag">mặc định</span> đã đủ dùng: sửa số hoặc mức để chỉnh, bỏ dấu <b>Dùng</b> để tạm tắt (giữ lại, bật lại được), bấm ✕ để xóa, thêm
+        luật bằng một mẫu hoặc <b>Tự ghép</b>. <b>Bắt buộc</b>: TKB phải theo đúng; <b>ưu tiên</b>: cố theo, mức càng
+        cao càng nặng.</p>
+      <ol id="rule-list" class="rule-list"></ol>
+      <p class="muted" id="rule-empty">Chưa có luật nào: chọn <b>Tệp luật ▾ › Về mặc định</b> để có các luật mặc định,
+        hoặc thêm luật.</p>
+      <p class="muted" id="rule-structure"></p>
+    </div>
+    <div class="card">
+      <h2>Các loại luật</h2>
+      <dl id="kind-list" class="kinds"></dl>
+    </div>
+    <div class="next"><button type="button" data-go="xep">Tiếp: Kiểm tra &amp; xếp TKB →</button></div>
+  </section>
+
+  <section id="tab-xep" class="tab" role="tabpanel">
+    <div class="grid2">
+      <div class="card">
+        <h2>Cài đặt chạy</h2>
+        <div class="form" id="run-form">
+          <label class="row"><span>Tên file vào</span>
+            <input type="text" data-run="name" spellcheck="false">
+            <small>Lưu thành &lt;tên&gt;.xlsx trong thư mục kết quả; file cập nhật là &lt;tên&gt;_cap_nhat.xlsx.</small>
+          </label>
+          <fieldset class="row"><legend>Khi thiếu người</legend><div id="mode-options"></div></fieldset>
+          <label class="row"><span>Số tiết bù tối đa mỗi người</span>
+            <input type="number" min="0" step="1" data-run="overtime_max">
+            <small>Chế độ tuyển thêm: người mới nhận đúng các tiết bù này.</small>
+          </label>
+          <label class="row"><span>Thời gian xếp giờ</span>
+            <select data-run="time_preset">
+              <option value="600">Nhanh (600 ≈ 4–6 phút)</option>
+              <option value="1200">Chuẩn (1200 ≈ 9–13 phút)</option>
+              <option value="0">Không giới hạn (đến khi hết cải thiện)</option>
+              <option value="custom">Tùy chọn…</option>
+            </select>
+            <input type="number" min="0" step="1" data-run="time_limit" hidden>
+          </label>
+          <label class="check"><input type="checkbox" data-run="student_rules"> Áp dụng luật bảo vệ học sinh</label>
+          <label class="check"><input type="checkbox" data-run="keep_saved"> Giữ TKB đã xếp trong file vào: còn đúng
+            luật thì dùng lại, không thì chỉ sửa chỗ cần (ô ghi "(khóa)" giữ nguyên) <small id="saved-hint"></small></label>
+          <details class="advanced"><summary>Nâng cao</summary>
+            <label class="check"><input type="checkbox" data-run="reproducible"> Kết quả tái lập (chạy lại ra đúng TKB
+              cũ)</label>
+            <label class="row"><span>Số luồng</span><input type="number" min="1" step="1" data-run="workers">
+              <small>Đổi số này thì TKB ra khác (vẫn đúng luật).</small></label>
+          </details>
+          <label class="row"><span>Thư mục kết quả</span>
+            <span class="inline"><input type="text" id="out-dir" spellcheck="false">
+              <button type="button" id="btn-out-dir" class="ghost">Đổi</button>
+              <button type="button" id="btn-open-dir" class="ghost">Mở</button></span>
+          </label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Kiểm tra và xếp</h2>
+        <p class="muted">Kiểm tra đọc lại kịch bản đúng như khi chạy và dự toán số tiết bù, tiết thiếu (vài giây).
+          Xếp TKB lưu file vào rồi chạy như main.py.</p>
+        <div class="actions">
+          <button type="button" id="btn-check" class="ghost">Kiểm tra</button>
+          <button type="button" id="btn-run" class="primary">Xếp TKB</button>
+          <button type="button" id="btn-stop" class="danger" hidden>Dừng sớm</button>
+          <button type="button" id="btn-kill" class="danger ghost" hidden>Dừng hẳn</button>
+        </div>
+        <div id="check-result"></div>
+        <div id="run-status" class="status" hidden></div>
+        <div id="run-result"></div>
+      </div>
+    </div>
+    <div class="card" id="log-card" hidden>
+      <div class="toolbar"><h2>Nhật ký chạy</h2><span class="muted" id="log-info"></span></div>
+      <pre id="log" class="log"></pre>
+    </div>
+  </section>
+
+  <section id="tab-tkb" class="tab" role="tabpanel">
+    <div class="card" id="tkb-empty">
+      <h2>Chưa có thời khóa biểu</h2>
+      <p class="muted">Xếp TKB ở bước 6 rồi bấm <b>Xem TKB trên trang</b>; hoặc mở file <code>_cap_nhat.xlsx</code> của lần
+        xếp trước (<b>Tệp ▾ › Mở file Excel…</b>): file đó giữ TKB đã xếp.</p>
+      <div class="actions"><button type="button" data-go="xep">Tới bước 6: Kiểm tra &amp; xếp TKB</button></div>
+    </div>
+    <div class="card" id="tkb-card" hidden>
+      <div class="toolbar">
+        <h2>Thời khóa biểu <span class="muted small-text" id="tkb-code"></span></h2>
+        <div class="actions">
+          <select id="tkb-view" aria-label="Xem theo lớp hay giáo viên"></select>
+          <button type="button" id="btn-tkb-unlock" class="ghost" title="Bỏ chữ (khóa) ở mọi ô: xếp lại được dời mọi ô">Mở khóa mọi ô</button>
+          <button type="button" id="btn-tkb-run" class="primary"></button>
+        </div>
+      </div>
+      <p class="muted">Bấm một tiết rồi bấm một tiết khác <b>cùng lớp</b> để đổi chỗ hai tiết: các ô viền xanh đổi được mà
+        không sai luật bắt buộc nào. Ô vừa đổi được khóa 🔒 (xếp lại vẫn giữ nguyên). Trang kiểm luật ngay sau mỗi lần đổi;
+        sai thì ô có lỗi viền đỏ. Đổi nhầm thì bấm <b>↶ Hoàn tác</b>.</p>
+      <div id="tkb-pick" class="pick" hidden></div>
+      <div id="tkb-status"></div>
+      <div id="tkb-run-status" class="status" hidden></div>
+      <div class="table-wrap tall" id="tkb-grid"></div>
+      <p class="muted small-text legend"><span class="cell-demo bad"></span> có lỗi luật bắt buộc
+        <span class="cell-demo can"></span> đổi được với ô đang chọn <span class="cell-demo changed"></span> vừa đổi khi
+        xếp lại · 🔒 ô khóa · <b class="ot">bù</b> tiết dạy bù</p>
+    </div>
+  </section>
+</main>
+
+<dialog id="paste-dialog">
+  <form method="dialog">
+    <h2>Dán danh sách nhân sự từ Excel</h2>
+    <p class="muted">Chọn các ô trong Excel theo thứ tự cột: <span id="paste-cols"></span>, bấm Ctrl+C rồi dán vào đây.
+      Dòng tiêu đề (nếu có) được bỏ qua.</p>
+    <textarea id="paste-text" rows="12" spellcheck="false"></textarea>
+    <div class="actions end">
+      <button value="cancel" class="ghost">Hủy</button>
+      <button value="append" id="paste-append">Thêm vào cuối</button>
+      <button value="replace" id="paste-replace" class="primary">Thay toàn bộ</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="import-dialog">
+  <form method="dialog">
+    <div class="toolbar">
+      <h2>Nhập từ Excel: <span id="import-file"></span></h2>
+      <button value="cancel" class="icon" title="Đóng">✕</button>
+    </div>
+    <p class="muted">Chọn các phần lấy từ file; phần không chọn giữ nguyên như đang soạn. Chọn hết là thay toàn bộ kịch
+      bản bằng file.</p>
+    <div id="import-parts" class="import-parts"></div>
+    <div id="import-notes"></div>
+    <div class="actions end">
+      <button value="cancel" class="ghost">Hủy</button>
+      <button value="apply" id="import-apply" class="primary">Nhập</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="rule-dialog">
+  <form method="dialog">
+    <div class="toolbar">
+      <h2>Ghép luật</h2>
+      <button value="cancel" class="icon" title="Đóng">✕</button>
+    </div>
+    <p class="say-box">Luật đọc là: <b id="rule-say">…</b> <span class="tag" id="rule-native" hidden>mặc định</span></p>
+    <p class="warn-text" id="rule-lost" hidden>Luật này sẽ không còn là luật mặc định: chương trình xếp nó bằng bộ ghép
+      luật nên TKB sẽ khác (mã TKB khác). Muốn giữ như cũ thì chỉ sửa số hoặc điểm.</p>
+    <ul id="rule-errors" class="warn-text"></ul>
+    <div id="rule-body" class="detail"></div>
+    <datalist id="class-list"></datalist>
+    <datalist id="derived-list"></datalist>
+    <datalist id="teacher-list"></datalist>
+    <div class="actions end">
+      <button value="cancel" class="ghost">Hủy</button>
+      <button value="ok" class="primary">Xong</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="detail-dialog">
+  <form method="dialog">
+    <div class="toolbar">
+      <h2 id="detail-title"></h2>
+      <button value="close" class="icon" title="Đóng">✕</button>
+    </div>
+    <div id="detail-body" class="detail"></div>
+    <div class="actions end"><button value="close" class="primary">Xong</button></div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

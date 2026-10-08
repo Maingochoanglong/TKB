@@ -20,14 +20,27 @@ from dataclasses import dataclass, field, replace
 from ortools.sat.python import cp_model
 
 from . import config
-from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, roles_for_subject,
-                         subject_group)
+from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, previous_cost,
+                         roles_for_subject, subject_group)
+from .bo_ghep import assign_cost
 from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
-from .staff import Teacher, grade_of, normalize
+from .staff import InputError, Teacher, grade_of, normalize
 
 
 class SolveError(RuntimeError):
     pass
+
+
+# Các luật bắt buộc đang được nới để chẩn đoán vì sao không xếp được (tkb/chan_doan.py). Luôn rỗng khi xếp thật:
+# rỗng thì mô hình dựng ra y như cũ, không đổi mã kết quả.
+# "tang_cuong": tiết tăng cường sau tiết chính; "lien_nhau": các tiết cùng môn trong buổi liền nhau; "lien_tiet":
+# hai tiết liền cùng nhóm môn do một người dạy; "gvcn_truoc": tiết đầu tuần của GVCN; "co_so": mỗi buổi một cơ sở.
+RELAXED: frozenset[str] = frozenset()
+
+
+def on(key: str) -> bool:
+    """Luật có sẵn `key` có hiệu lực: có dòng ở sheet LUẬT (config.on) và không đang nới để chẩn đoán."""
+    return key not in RELAXED and config.on(key)
 
 
 def ortools_version() -> str:
@@ -44,6 +57,7 @@ class Lesson:
     teacher: str
     course_id: int
     overtime: bool = False  # tiết dạy bù (vượt định mức) của người bù, chỉ có ở chế độ bù giờ
+    locked: bool = False  # ô khóa của TKB đã xếp (config.SAVED_LOCKED): xếp lại vẫn giữ nguyên; không vào mã kết quả
 
 
 @dataclass
@@ -119,11 +133,15 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
             continue
         if course.allowed_days is not None and s[0] not in course.allowed_days:
             continue
-        if course.subject == config.HDTN and s in config.HDTN_FIXED_SLOTS:
+        if course.subject == config.HDTN and s in config.HDTN_FIXED_SLOTS and on("hdtn_co_dinh"):
             continue
-        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS:
+        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS and on("tiet_gvcn"):
             continue
         result.append(s)
+    if config.CUSTOM_RULES:  # luật riêng bắt buộc về vị trí (tkb/bo_ghep.py)
+        from .luat_rieng import banned
+        bad = banned(course.subject, course.grade, course.class_name, problem.curriculum)
+        result = [s for s in result if s not in bad]
     if len(result) < course.lessons:
         raise SolveError(f"Lớp {course.class_name}: môn {course.subject} cần {course.lessons} tiết "
                          f"nhưng chỉ có {len(result)} slot hợp lệ")
@@ -235,8 +253,12 @@ class _Allocation:
             c = problem.courses[cid]
             if c.subject in specialist and problem.teachers[g].role not in problem.specialists:
                 secondary.append(w.general_on_specialist * a)
-            if not isinstance(a, int) and (keep := keep_cost(problem.teachers[g], c.class_name, w)):
-                secondary.append(keep * a)  # giữ khối, lớp của TKB cũ
+            if not isinstance(a, int) and (keep := keep_cost(problem.teachers[g], c.class_name, w)
+                                           + previous_cost(problem.teachers[g], c, w)):
+                secondary.append(keep * a)  # giữ khối, lớp (và người dạy khi xếp lại ít xáo trộn) của TKB cũ
+            if config.CUSTOM_RULES and not isinstance(a, int) and \
+                    (cost := assign_cost(problem.teachers[g], c, problem.curriculum, w)):
+                secondary.append(cost * a)  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
 
         # Cân bằng phần định mức chưa dùng giữa các GV cùng chức vụ.
         by_role: dict[str, list[Teacher]] = {}
@@ -335,10 +357,12 @@ class TimetableModel:
 
 def timetable(problem: Problem, settings: config.Settings,
               fixed: dict[tuple[int, str], int] | None = None,
-              hint: dict[tuple[int, str], int] | None = None, log=lambda *_: None) -> Solution | None:
+              hint: dict[tuple[int, str], int] | None = None, log=lambda *_: None,
+              keep: Previous | None = None) -> Solution | None:
     """Xếp giờ. Phân công cố định: CP-SAT khởi đầu rồi xếp lại từng vùng (tkb/lns.py). Mô hình tích hợp (vừa
-    phân công vừa xếp giờ, chỉ dùng dự phòng): một lần CP-SAT trong time_limit."""
-    tm = build_timetable(problem, settings, fixed, hint)
+    phân công vừa xếp giờ, chỉ dùng dự phòng): một lần CP-SAT trong time_limit. keep: TKB cũ (xếp lại ít xáo
+    trộn, _keep_previous)."""
+    tm = build_timetable(problem, settings, fixed, hint, keep)
     if fixed is not None:
         from .lns import improve
         start = time.time()
@@ -373,6 +397,8 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
         by_teacher.setdefault(g, {}).setdefault((s[0], sess[s].name), []).extend(terms)
     for g in sorted(by_teacher):
         t, busy = problem.teachers[g], by_teacher[g]
+        if not on("buoi_nghi"):
+            continue
         for key in sorted(t.off_sessions):  # buổi nghỉ cố định
             for v in busy.get(key, []):
                 m.Add(v == 0)
@@ -388,7 +414,7 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
                 need = sum(k for _, k in t.off_any) if name is None else n
                 m.Add(sum(pool) >= need)
     # Mỗi buổi GV chỉ dạy ở một cơ sở: o2 = 1 là buổi đó ở cơ sở 2.
-    for g in sorted(by_teacher):
+    for g in sorted(by_teacher) if on("co_so") else ():
         for d, session in sessions:
             lits = {at2: [v for p in session.periods for v in occ_campus.get((g, (d, p), at2), [])]
                     for at2 in (False, True)}
@@ -402,6 +428,8 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
 
 def _campus_day_switch(m: cp_model.CpModel, occ_campus: dict, weight: int) -> list:
     """Mục tiêu mềm: phạt `weight` mỗi (GV, ngày) dạy ở cả hai cơ sở (sáng một nơi, chiều nơi kia)."""
+    if not weight:  # luật ưu tiên bị bỏ (sheet LUẬT)
+        return []
     by_day: dict[tuple[str, int, bool], list] = {}  # (GV, ngày, lớp ở cơ sở 2?) -> literal
     for (g, s, at2), lits in sorted(occ_campus.items()):
         by_day.setdefault((g, s[0], at2), []).extend(lits)
@@ -422,9 +450,11 @@ def _campus_day_switch(m: cp_model.CpModel, occ_campus: dict, weight: int) -> li
 
 def build_timetable(problem: Problem, settings: config.Settings,
                     fixed: dict[tuple[int, str], int] | None = None,
-                    hint: dict[tuple[int, str], int] | None = None) -> TimetableModel:
-    """Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights)."""
-    w = settings.weights
+                    hint: dict[tuple[int, str], int] | None = None,
+                    keep: Previous | None = None) -> TimetableModel:
+    """Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights); keep: TKB cũ để xếp lại ít xáo trộn
+    (ô khóa cứng, mỗi ô đổi môn bị trừ điểm). Không có keep thì mô hình như cũ."""
+    w = config.rule_weights(settings.weights)  # điểm ghi ở các dòng luật có sẵn ưu tiên (sheet LUẬT)
     m = cp_model.CpModel()
     slots = problem.slots
     alloc = _Allocation(m, problem, w, fixed)
@@ -496,7 +526,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # Liên tiết: hai tiết liền nhau cùng lớp, cùng nhóm môn (vd TV và TV tăng cường) phải cùng người dạy.
     for by_g in teach.values():
-        if len(by_g) < 2:
+        if len(by_g) < 2 or not on("lien_tiet"):
             continue
         gs = sorted(by_g)
         for d, session in sessions_all:
@@ -513,7 +543,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
     week = sorted(slots)
     for (cls, group), by_g in teach.items():
         cn = homeroom_of.get(cls)
-        if group not in config.HOMEROOM_PRIORITY or cn not in by_g or len(by_g) < 2:
+        if group not in config.HOMEROOM_PRIORITY or cn not in by_g or len(by_g) < 2 or not on("gvcn_truoc"):
             continue
         for g in sorted(by_g):
             if g == cn:
@@ -533,7 +563,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
         for cls in problem.classes:
             courses = problem.class_courses(cls)
             req = problem.curriculum[grade_of(cls)]
-            pairs = paired_groups(req)
+            pairs = paired_groups(req, grade_of(cls))
             by_subject: dict[str, list[Course]] = {}
             by_group: dict[str, list[Course]] = {}
             for c in courses:
@@ -541,7 +571,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 by_group.setdefault(subject_group(c.subject), []).append(c)
             # Tiết tăng cường là tiết luyện bài vừa học: trong ngày phải có tiết chính cùng nhóm đứng trước và
             # không có tiết chính nào đứng sau (không cần liền, không cần cùng người dạy, không cần buổi chiều).
-            for extra, main in config.SUBJECT_GROUPS.items():
+            for extra, main in config.SUBJECT_GROUPS.items() if on("tang_cuong") else ():
                 for te in by_subject.get(extra, []):
                     for mc in by_subject.get(main, []):
                         for d, p in sorted(dom[te.id]):
@@ -566,7 +596,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                     for group, cs in by_group.items():
                         y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in ps}
                         vs = [v for p in ps for v in y[p]]
-                        if len(vs) > config.SESSION_GROUP_LIMIT:
+                        if len(vs) > config.SESSION_GROUP_LIMIT and on("nhom_buoi"):
                             m.Add(sum(vs) <= config.SESSION_GROUP_LIMIT)
                         if group in pairs and vs:
                             pair = m.NewBoolVar(f"pair_{cls}_{d}_{ps[0]}")
@@ -576,7 +606,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                                     if y[ps[i]] and y[ps[k]]:
                                         m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) <= 1)
                     for subject, cs in by_subject.items():
-                        if sum(c.lessons for c in cs) < 2:
+                        if sum(c.lessons for c in cs) < 2 or not on("lien_nhau"):
                             continue
                         y = {p: [x[c.id, (d, p)] for c in cs if (c.id, (d, p)) in x] for p in ps}
                         for i in range(len(ps)):
@@ -587,25 +617,26 @@ def build_timetable(problem: Problem, settings: config.Settings,
                                     m.Add(sum(y[ps[i]]) + sum(y[ps[k]]) - sum(y[ps[j]]) <= 1)
 
     # HĐTN linh hoạt: càng gần cuối buổi càng tốt.
+    # Điểm 0: dòng luật ưu tiên tương ứng đã bỏ khỏi sheet LUẬT (các khối dưới đây bỏ qua luôn).
     for c in problem.courses:
-        if c.flex_hdtn:
+        if c.flex_hdtn and w.hdtn_flex_distance:
             objective.append(sum(w.hdtn_flex_distance * distance_to_session_end(s) * x[c.id, s]
                                  for s in dom[c.id] if distance_to_session_end(s) > 0))
 
     # Hạn chế môn nặng ở tiết cuối ngày.
     for c in problem.courses:
-        if c.subject in config.HEAVY_SUBJECTS:
+        if c.subject in config.HEAVY_SUBJECTS and w.heavy_late:
             objective.extend(w.heavy_late * x[c.id, s] for s in dom[c.id]
                              if s[1] in config.HEAVY_LATE_PERIODS)
 
     # Buổi sáng dành cho TV, Toán.
     for c in problem.courses:
-        if c.subject in config.MORNING_SUBJECTS:
+        if c.subject in config.MORNING_SUBJECTS and w.morning_core:
             objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if s[1] not in config.MORNING.periods)
 
     # Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
     days = sorted(config.DAY_SESSIONS)
-    for title, t in problem.teachers.items():
+    for title, t in problem.teachers.items() if w.day_over_preferred or w.day_over_buffer else ():
         target = day_targets(t.max_lessons, slots)
         for d in days:
             terms = [v for s in slots if s[0] == d for v in occ_terms.get((title, s), [])]
@@ -626,6 +657,8 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 by_subject.setdefault(c.subject, []).append(c)
         for subject, courses in by_subject.items():
             cap = math.ceil(sum(c.lessons for c in courses) / len(days))
+            if not (w.core_spread if subject in config.MORNING_SUBJECTS else w.subject_spread):
+                continue
             for d in days:
                 vs = [x[c.id, s] for c in courses for s in dom[c.id] if s[0] == d]
                 if len(vs) <= cap:
@@ -637,7 +670,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     # Tiết trống giữa buổi của GV không chủ nhiệm.
     for title, t in problem.teachers.items():
-        if t.class_name:
+        if t.class_name or not w.teacher_gap:
             continue
         for d, sessions in config.DAY_SESSIONS.items():
             for session in sessions:
@@ -665,6 +698,13 @@ def build_timetable(problem: Problem, settings: config.Settings,
                     gap = m.NewBoolVar(f"gap_{title}_{d}_{ps[i]}")
                     m.Add(gap >= started[i - 1] + later[i + 1] - o[i] - 1)
                     objective.append(w.teacher_gap * gap)
+
+    # Luật riêng của trường (sheet LUẬT RIÊNG); không có luật nào thì không thêm gì.
+    if config.CUSTOM_RULES:
+        from .luat_rieng import build
+        objective.extend(build(m, problem, x, z, dom, alloc.teachers_of, w))
+    if keep is not None:  # xếp lại ít xáo trộn: giữ TKB cũ
+        objective.extend(_keep_previous(m, problem, x, z, alloc.teachers_of, keep, w))
 
     m.Minimize(sum(objective))
 
@@ -773,28 +813,20 @@ def reuse(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings:
     problem = build_problem(staff, curriculum, {}, overtime_max=overtime_max)
     if not rows:
         return None, [f"sheet {config.SAVED_SHEET} không có bảng TKB (dòng tiêu đề Lớp | Tiết | Thứ 2 …)"]
-    title_of = {normalize(t.code): t.title for t in problem.teachers.values()}
-    subject_of = {normalize(problem.subject_label(c.subject)): c.subject for c in problem.courses}
-    day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
-    classes = {normalize(c): c for c in problem.classes}
-    errors: list[str] = []
-    parsed = []
-    for cls, day, period, subject, code, overtime, at in rows:
-        where = f"sheet {config.SAVED_SHEET} {at}"
-        try:
-            slot = (day_of[normalize(day)], int(period))
-        except (KeyError, TypeError, ValueError):
-            errors.append(f"{where}: thứ/tiết không hợp lệ ({day!r}, {period!r})")
-            continue
-        missing = [what for what, ok in (("lớp", normalize(cls) in classes), ("môn", normalize(subject) in subject_of),
-                                          ("Mã GV", normalize(code) in title_of)) if not ok]
-        if missing:
-            errors.append(f"{where}: {', '.join(missing)} không có trong file vào ({cls}, {subject}, {code})")
-            continue
-        parsed.append((classes[normalize(cls)], slot, subject_of[normalize(subject)], title_of[normalize(code)],
-                       bool(overtime)))
+    lessons, errors = saved_lessons(problem, rows)
+    if not errors:
+        errors = check(problem, lessons, settings.student_rules)
     if errors:
         return None, errors
+    return Solution(problem, "Dùng lại TKB đã xếp", lessons, 0, 0, 0.0, "dùng lại TKB đã xếp"), []
+
+
+def saved_lessons(problem: Problem, rows: list[tuple]) -> tuple[list[Lesson], list[str]]:
+    """Các tiết của TKB đã xếp (staff.read_saved_timetable) trong bài toán `problem`, chưa kiểm luật: (các tiết, lỗi
+    của các ô không đọc được và các môn sai số tiết). Có lỗi đọc ô thì không có tiết nào."""
+    parsed, errors = _parse_saved(problem, rows)
+    if errors:
+        return [], errors
     # Mỗi (lớp, môn) có thể có hai course: phần GVCN (homeroom) và phần còn lại; tiết của GVCN (trừ tiết bù) vào
     # phần GVCN trước.
     homeroom_of = {t.class_name: t.title for t in problem.teachers.values() if t.class_name}
@@ -811,22 +843,109 @@ def reuse(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings:
             errors.append(f"Lớp {key[0]}: môn {problem.subject_label(key[1])} không có trong chương trình học")
             continue
         room = {c.id: c.lessons for c in options}
-        for cls, slot, subject, teacher, overtime in sorted(items, key=lambda p: (p[4], p[1])):
+        for cls, slot, subject, teacher, overtime, locked in sorted(items, key=lambda p: (p[4], p[1])):
             own = [c for c in options if c.homeroom and room[c.id] > 0 and teacher == homeroom_of.get(cls)
                    and not overtime]
             other = [c for c in options if not c.homeroom and room[c.id] > 0]
             course = (own or other or options)[0]
             room[course.id] -= 1
             lessons.append(Lesson(cls, slot[0], slot[1], subject, teacher, course.id,
-                                  overtime=overtime and teacher in problem.overtime))
+                                  overtime=overtime and teacher in problem.overtime, locked=locked))
     errors += [f"Lớp {key[0]}: môn {problem.subject_label(key[1])} có {n} tiết, chương trình học cần {need}"
                for key, need in sorted(_need(problem).items())
                if (n := sum(1 for les in lessons if (les.class_name, les.subject) == key)) != need]
-    if not errors:
-        errors = check(problem, lessons, settings.student_rules)
-    if errors:
-        return None, errors
-    return Solution(problem, "Dùng lại TKB đã xếp", lessons, 0, 0, 0.0, "dùng lại TKB đã xếp"), []
+    return lessons, errors
+
+
+def _parse_saved(problem: Problem, rows: list[tuple]) -> tuple[list[tuple], list[str]]:
+    """Các ô của TKB đã xếp (staff.read_saved_timetable) theo tên trong bài toán: [(lớp, (ngày, tiết), môn, GV, tiết
+    bù?, ô khóa?)] và lỗi của các ô không đọc được (lớp, môn, Mã GV không có trong file vào, thứ/tiết sai)."""
+    title_of = {normalize(t.code): t.title for t in problem.teachers.values()}
+    subject_of = {normalize(problem.subject_label(c.subject)): c.subject for c in problem.courses}
+    day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
+    classes = {normalize(c): c for c in problem.classes}
+    errors: list[str] = []
+    parsed = []
+    for cls, day, period, subject, code, overtime, locked, at in rows:
+        where = f"sheet {config.SAVED_SHEET} {at}"
+        try:
+            slot = (day_of[normalize(day)], int(period))
+        except (KeyError, TypeError, ValueError):
+            errors.append(f"{where}: thứ/tiết không hợp lệ ({day!r}, {period!r})")
+            continue
+        missing = [what for what, ok in (("lớp", normalize(cls) in classes), ("môn", normalize(subject) in subject_of),
+                                          ("Mã GV", normalize(code) in title_of)) if not ok]
+        if missing:
+            errors.append(f"{where}: {', '.join(missing)} không có trong file vào ({cls}, {subject}, {code})")
+            continue
+        parsed.append((classes[normalize(cls)], slot, subject_of[normalize(subject)], title_of[normalize(code)],
+                       bool(overtime), bool(locked)))
+    return parsed, errors
+
+
+@dataclass(frozen=True)
+class KeptCell:
+    """Một ô của TKB cũ khi xếp lại ít xáo trộn."""
+    subject: str
+    teacher: str  # chức vụ chuẩn hóa (Teacher.title)
+    overtime: bool
+    locked: bool
+
+
+@dataclass
+class Previous:
+    """TKB cũ để xếp lại ít xáo trộn (solve(previous=...)): (lớp, (ngày, tiết)) -> ô; các ô không đọc được bỏ qua."""
+    cells: dict[tuple[str, tuple[int, int]], KeptCell]
+    skipped: list[str] = field(default_factory=list)  # lý do bỏ qua (ô không đọc được, ô khóa không giữ được)
+
+    def taught(self) -> dict[str, set[tuple[str, str]]]:
+        """GV -> các (lớp, môn) GV đó dạy trong TKB cũ."""
+        out: dict[str, set[tuple[str, str]]] = {}
+        for (cls, _), cell in self.cells.items():
+            out.setdefault(cell.teacher, set()).add((cls, cell.subject))
+        return out
+
+
+def previous_from(problem: Problem, rows: list[tuple]) -> Previous:
+    """TKB cũ từ các dòng của sheet TKB đã xếp: chỉ các ô đọc được với file vào hiện tại (_parse_saved)."""
+    parsed, errors = _parse_saved(problem, rows)
+    return Previous({(cls, slot): KeptCell(subject, teacher, overtime, locked)
+                     for cls, slot, subject, teacher, overtime, locked in parsed}, errors)
+
+
+def _keep_previous(m, problem: Problem, x: dict, z: dict, teachers_of: dict, keep: Previous,
+                   w: config.Weights) -> list:
+    """Xếp lại ít xáo trộn: ô khóa của TKB cũ là ràng buộc cứng (môn, và người dạy nếu không phải tiết bù); mỗi ô cũ
+    đổi môn bị trừ w.keep_cell. Không dùng TKB cũ làm nghiệm gợi ý (AddHint): OR-Tools 9.15 với interleave_search
+    dừng hẳn chương trình ("heuristics.fixed_search != nullptr") khi có gợi ý mà mô hình không có nghiệm. Trả về các
+    số hạng mục tiêu."""
+    courses: dict[tuple[str, str], list[Course]] = {}
+    for c in problem.courses:
+        courses.setdefault((c.class_name, c.subject), []).append(c)
+    terms = []
+    for (cls, slot), cell in sorted(keep.cells.items()):
+        options = courses.get((cls, cell.subject), [])
+        vs = [x[c.id, slot] for c in options if (c.id, slot) in x]
+        where = f"lớp {cls} {config.DAYS[slot[0]]} tiết {slot[1]}"
+        if not vs:
+            if cell.locked:
+                keep.skipped.append(f"ô khóa {where}: môn {problem.subject_label(cell.subject)} không còn xếp được "
+                                    f"vào giờ này")
+            continue
+        terms.append(w.keep_cell * (1 - sum(vs)))
+        if not cell.locked:
+            continue
+        m.Add(sum(vs) == 1)
+        if cell.overtime:  # tiết bù: người dạy là người tuyển thay trong bài toán xếp giờ (xem solve)
+            continue
+        who = [z[c.id, cell.teacher, slot] for c in options if (c.id, cell.teacher, slot) in z] + \
+              [x[c.id, slot] for c in options if teachers_of[c.id] == [cell.teacher] and (c.id, slot) in x]
+        if who:
+            m.Add(sum(who) == 1)
+        else:
+            keep.skipped.append(f"ô khóa {where}: {problem.teachers[cell.teacher].code} không còn được phân công "
+                                f"môn {problem.subject_label(cell.subject)} lớp {cls}, chỉ giữ môn")
+    return terms
 
 
 def _need(problem: Problem) -> dict[tuple[str, str], int]:
@@ -837,17 +956,28 @@ def _need(problem: Problem) -> dict[tuple[str, str], int]:
     return need
 
 
-def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
-          settings: config.Settings, log=print) -> Solution:
-    """Dự toán, phân công → xếp giờ một lần → TKB chế độ bù hoặc chế độ tuyển (cùng vị trí môn)."""
-    if settings.mode not in config.MODES:
-        raise SolveError(f"Chế độ không hợp lệ: {settings.mode!r} (chọn một trong {', '.join(config.MODES)})")
-    if settings.overtime_max < 0:
-        raise SolveError(f"Số tiết bù tối đa phải >= 0 (đang là {settings.overtime_max})")
+class ConflictError(SolveError):
+    """Các luật bắt buộc mâu thuẫn nhau: không có TKB nào thỏa (thấy khi đếm trước, hoặc khi chẩn đoán)."""
+
+
+def _assignment(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings: config.Settings, log):
+    """Bước 1 của solve: kiểm tra đếm (tkb/chan_doan.py), dự toán, phân công, chia tiết bù cho người tuyển mới.
+    Trả về (bài toán chế độ bù, phân công, bài toán xếp giờ, phân công cố định, chủ của các ô bù, số người tuyển)."""
+    from .chan_doan import precheck
+
     hire = settings.mode == config.MODE_HIRE
     base = build_problem(staff, curriculum, {}, overtime_max=settings.overtime_max)
     for msg in base.warnings:
         log(f"Cảnh báo: {msg}")
+    if config.CUSTOM_RULES:
+        from .luat_rieng import RULES_SHEET, SHEET, validate
+        wrong = validate(base)
+        if wrong:
+            sheet = RULES_SHEET if config.RULES is not None else SHEET
+            raise InputError(f"Sheet {sheet} có {len(wrong)} lỗi:\n  " + "\n  ".join(wrong))
+    conflicts = precheck(base, settings.student_rules)
+    if conflicts:
+        raise ConflictError("Các quy định mâu thuẫn nhau, không có TKB nào thỏa:\n  - " + "\n  - ".join(conflicts))
     log(f"Bước 1/2: dự toán và phân công giáo viên (bù tối đa +{settings.overtime_max} tiết/người)...")
     plan = phan_cong(base, settings.weights)
     for line in du_toan_lines(base, plan):
@@ -866,24 +996,95 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     for cls, group, g in plan.odd_pairs:
         log(f"  Cảnh báo: {work.teachers.get(g, base.teachers[g]).code} dạy số tiết lẻ nhóm {group} lớp {cls}, "
             f"khó xếp thành cặp")
+    return base, plan, work, fixed, owners, counts
+
+
+def feasible(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings: config.Settings,
+             seconds: float) -> bool | None:
+    """Có TKB nào thỏa mọi luật bắt buộc không, với phân công cố định như solve (tìm nghiệm đầu tiên, tối đa
+    `seconds`): True có, False chắc chắn không, None chưa biết (hết thời gian). Dùng để chẩn đoán."""
+    try:
+        _, _, work, fixed, _, _ = _assignment(staff, curriculum, settings, lambda *_: None)
+        tm = build_timetable(work, settings, fixed)
+    except (InputError, SolveError):
+        return False
+    solver = cp_model.CpSolver()
+    _configure(solver, settings, seconds)
+    solver.parameters.stop_after_first_solution = True
+    status = solver.Solve(tm.model)
+    if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return True
+    return False if status == cp_model.INFEASIBLE else None
+
+
+def _unsolvable(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings: config.Settings,
+                log) -> SolveError:
+    """Lỗi khi không xếp được: chẩn đoán luật nào gây ra (tkb/chan_doan.py)."""
+    from .chan_doan import diagnose
+
+    found = diagnose(staff, curriculum, settings, log)
+    return (ConflictError if found.conflict else SolveError)("\n".join(found.lines))
+
+
+def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
+          settings: config.Settings, log=print, previous: list[tuple] | None = None) -> Solution:
+    """Dự toán, phân công → xếp giờ một lần → TKB chế độ bù hoặc chế độ tuyển (cùng vị trí môn). Không xếp được
+    thì chẩn đoán luật bắt buộc nào gây ra (ConflictError nếu chắc chắn mâu thuẫn).
+
+    previous: các dòng của sheet TKB đã xếp (staff.read_saved_timetable) khi TKB đó không còn dùng lại được: xếp
+    lại **ít xáo trộn nhất**: phân công ưu tiên giữ người dạy cũ (Teacher.previous, allocation.previous_cost), xếp
+    giờ giữ mọi ô được (Weights.keep_cell mỗi ô đổi môn), ô khóa giữ nguyên bắt buộc; ô khóa mâu thuẫn với luật
+    thì bỏ khóa (in ra) rồi xếp lại."""
+    if settings.mode not in config.MODES:
+        raise SolveError(f"Chế độ không hợp lệ: {settings.mode!r} (chọn một trong {', '.join(config.MODES)})")
+    if settings.overtime_max < 0:
+        raise SolveError(f"Số tiết bù tối đa phải >= 0 (đang là {settings.overtime_max})")
+    hire = settings.mode == config.MODE_HIRE
+    keep = None
+    if previous:
+        probe = build_problem(staff, curriculum, {}, overtime_max=settings.overtime_max)
+        keep = previous_from(probe, previous)
+        taught = keep.taught()
+        staff = [replace(t, previous=frozenset(taught.get(t.title, ()))) for t in staff]
+        log(f"Xếp lại ít xáo trộn: giữ {len(keep.cells)} ô của TKB đã xếp "
+            f"({sum(c.locked for c in keep.cells.values())} ô khóa) nhiều nhất có thể"
+            + (f"; bỏ qua {len(keep.skipped)} ô không đọc được" if keep.skipped else ""))
+    base, plan, work, fixed, owners, counts = _assignment(staff, curriculum, settings, log)
 
     mode = "chế độ tái lập" if settings.reproducible else "giới hạn giây thực"
     budget = ("không giới hạn thời gian, bấm Ctrl+C để dừng sớm" if settings.time_limit is None
               else f"~{settings.time_limit:.0f}s")
     log(f"Bước 2/2: xếp giờ ({budget}, {mode})...")
-    solution = timetable(work, settings, fixed=fixed, log=log)
+    solution = timetable(work, settings, fixed=fixed, log=log, keep=keep)
+    if solution is None and keep is not None and any(c.locked for c in keep.cells.values()):
+        log("  Các ô khóa mâu thuẫn với luật hoặc phân công mới: bỏ khóa, vẫn giữ TKB cũ nhiều nhất có thể...")
+        keep = Previous({k: replace(c, locked=False) for k, c in keep.cells.items()}, keep.skipped)
+        solution = timetable(work, settings, fixed=fixed, log=log, keep=keep)
     if solution is not None:
-        return solution if hire else _to_overtime(solution, base, owners)
+        return _mark_locked(solution if hire else _to_overtime(solution, base, owners), keep, log)
     if not hire:
-        raise SolveError("Không xếp được TKB với phân công đã dự toán. Thử tăng thời gian (THOI_GIAN_TOI_DA) hoặc "
-                         "tắt luật học sinh (--no-student-rules) để tìm nguyên nhân.")
+        raise _unsolvable(staff, curriculum, settings, log)
     for slack in (1, 3):
         log(f"  Không xếp được với phân công cố định; thử mô hình tích hợp (dự phòng {slack} GV/chức vụ)...")
         planned = {role: counts.get(role, 0) + slack for role in work.supplement_roles}
         problem = build_problem(staff, curriculum, planned, overtime_max=0)
-        solution = timetable(problem, settings, hint=fixed)
+        solution = timetable(problem, settings, hint=fixed, keep=keep)
         if solution is not None:
             solution.notes.append(f"Mô hình tích hợp (dự phòng {slack} GV bổ sung/chức vụ)")
-            return solution
-    raise SolveError("Không tìm được TKB hợp lệ. Thử tăng --time-limit hoặc tắt luật học sinh "
-                     "(--no-student-rules) để kiểm tra nguyên nhân.")
+            return _mark_locked(solution, keep, log)
+    raise _unsolvable(staff, curriculum, settings, log)
+
+
+def _mark_locked(solution: Solution, keep: Previous | None, log) -> Solution:
+    """Đánh dấu các tiết ở ô khóa của TKB cũ (giữ được môn) để file vào cập nhật ghi lại " (khóa)"; in các ô khóa
+    không giữ được."""
+    if keep is None:
+        return solution
+    for line in keep.skipped:
+        log(f"  Bỏ qua: {line}")
+    locked = {k for k, c in keep.cells.items() if c.locked}
+    solution.lessons = [replace(les, locked=True)
+                        if (les.class_name, (les.day, les.period)) in locked
+                        and keep.cells[les.class_name, (les.day, les.period)].subject == les.subject else les
+                        for les in solution.lessons]
+    return solution

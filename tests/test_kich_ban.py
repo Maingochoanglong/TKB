@@ -1,0 +1,360 @@
+"""Kịch bản của giao diện (tkb/kich_ban.py): file Excel -> kịch bản -> file Excel không mất gì, và kiểm tra báo lỗi
+như khi chạy."""
+import datetime
+import json
+
+import openpyxl
+
+from tkb import config, kich_ban, luat_co_san, luat_rieng
+from tkb.program import read_program
+from tkb.rules import DEFAULTS, LEGACY, SUBJECT_COLS, applied, code, read_rules
+from tkb.staff import read_saved_timetable, read_staff
+from tkb.template import write_staff_template
+
+from .conftest import CURRICULUM, INPUT_FILE, small_staff, plain_rules
+
+
+DEFAULT_CODE = code()
+
+
+def _values(path):
+    return {ws.title: [r for r in ws.iter_rows(values_only=True) if any(v is not None for v in r)]
+            for ws in openpyxl.load_workbook(path).worksheets}
+
+
+def _key(teachers):
+    return [(t.name, t.title, t.max_lessons, t.class_name) for t in teachers]
+
+
+def test_round_trip_keeps_the_file(tmp_path):
+    scenario, warnings = kich_ban.from_excel(INPUT_FILE)
+    assert warnings == []
+    json.dumps(scenario)  # gửi được cho trang web
+    assert len(scenario["staff"]) == 45 and scenario["grades"] == [1, 2, 3, 4, 5]
+    assert scenario["staff"][0] == {"name": "Giáo viên CN 1", "role": "Chủ Nhiệm", "class": "1/1", "lessons": 19,
+                                    "maternity": False, "contract": False, "campus2": False, "history": "", "off": ""}
+    # Chức vụ trùng tên môn nhân sự đang dùng thành các dòng của sheet CHỨC VỤ (để giao diện chọn từ danh sách).
+    assert [(r["name"], r["subjects"]) for r in scenario["roles"]] == [
+        ("Tiếng Anh", ["Tiếng Anh"]), ("Thể Dục", ["Thể dục"]), ("Âm Nhạc", ["Âm nhạc"]), ("Mỹ Thuật", ["Mỹ thuật"]),
+        ("Tin Học", ["Tin học"])]
+    out = tmp_path / "ra.xlsx"
+    kich_ban.to_excel(scenario, out)
+    written, source = _values(out), _values(INPUT_FILE)
+    assert written.pop("CHỨC VỤ")[1:] == [(r["name"], r["subjects"][0]) for r in scenario["roles"]]
+    assert source.pop("CHỨC VỤ") == [("Chức vụ", "Môn được dạy")]
+    assert written == source  # các sheet khác ghi lại đúng từng ô
+    rules = read_rules(out)
+    assert read_program(out) == CURRICULUM and {**plain_rules(rules), "CUSTOM_ROLES": []} == DEFAULTS
+    with applied(rules):  # các dòng đó như không ghi: mã quy định không đổi
+        assert code() == DEFAULT_CODE
+    assert _key(read_staff(out)) == _key(read_staff(INPUT_FILE))
+
+
+def test_new_scenario_is_the_blank_template(tmp_path):
+    write_staff_template(tmp_path / "mau.xlsx")
+    kich_ban.to_excel(kich_ban.default_scenario(), tmp_path / "moi.xlsx")
+    assert _values(tmp_path / "moi.xlsx") == _values(tmp_path / "mau.xlsx")
+
+
+def _row(scenario, native):
+    """Dòng luật của kịch bản là dạng gốc của luật có sẵn `native`."""
+    keys = [r["native"] for r in kich_ban.describe(scenario)["rules"]]
+    return scenario["rules"][keys.index(native)]
+
+
+def test_schema_follows_rules_columns():
+    s = kich_ban.schema()
+    assert [c["key"] for c in s["subject"]] == [c.key for c in SUBJECT_COLS if c.key not in LEGACY]
+    assert [c["header"] for c in s["staff"]][:4] == ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"]
+    assert s["days"][0] == "Thứ 2" and s["days"][-1] == "Thứ 7"
+    keys = {c.key for c in SUBJECT_COLS}  # nhóm cột của trang chi tiết môn, cột theo chức vụ: đúng khóa của rules.py
+    assert all(k in keys for g in s["subject_groups"] for k in g["keys"])
+    assert set(s["role_rules"].values()) <= keys and s["sheets"]["roles"] == "CHỨC VỤ"
+    # Loại luật theo bốn họ: mọi mẫu luật (trừ Tự ghép) và mọi phép đo đều thuộc một họ; mức ưu tiên bằng chữ.
+    families = s["custom"]["composer"]["families"]
+    assert all(k["family"] in families for k in s["custom"]["kinds"] if k["key"] != "tu_ghep")
+    assert all(m["family"] in families for m in s["custom"]["composer"]["measures"])
+    assert s["custom"]["levels"] == ["Thấp", "Vừa", "Cao", "Rất cao"]
+
+
+def test_rules_edited_in_the_scenario_reach_the_file(tmp_path):
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    _row(scenario, "nhom_buoi")["number"] = 3  # số của luật có sẵn: ở dòng luật
+    scenario["days"][5]["morning_days"] = True  # học sáng Thứ 7
+    english = next(s for s in scenario["subjects"] if s["name"] == "Tiếng Anh")
+    english["rules"]["MORNING_SUBJECTS"] = True
+    english["rules"]["DISPLAY_NAMES"] = "TA"
+    out = tmp_path / "ra.xlsx"
+    kich_ban.to_excel(scenario, out)
+    rules = read_rules(out)
+    assert rules["SESSION_GROUP_LIMIT"] == 3
+    assert rules["DAYS"][-1] == "Thứ 7" and len(rules["DAY_SESSIONS"]) == 6
+    assert config.TIENG_ANH in rules["MORNING_SUBJECTS"] and rules["DISPLAY_NAMES"][config.TIENG_ANH] == "TA"
+
+
+def test_check_reads_back_like_a_run():
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    ok = kich_ban.check(scenario, config.MODE_OVERTIME, 2)
+    assert ok["errors"] == [] and any(line.startswith("Dự toán:") for line in ok["info"])
+    scenario["staff"][20]["class"] = "1/1"  # hai Chủ Nhiệm lớp 1/1
+    scenario["subjects"][0]["lessons"]["1"] = "mười"
+    res = kich_ban.check(scenario, config.MODE_OVERTIME, 2)
+    assert "NHÂN SỰ: Lớp 1/1 có hai Chủ Nhiệm (dòng 2 và 22)" in res["errors"]
+    assert "CHƯƠNG TRÌNH HỌC: Dòng 2, Khối 1: số tiết không hợp lệ 'mười'" in res["errors"]
+
+
+def test_check_estimates_shortage(tmp_path):
+    """Trường nhỏ không có bộ môn: bù +1 vẫn thiếu tiết (như khi chạy, chế độ bù giờ sẽ báo lỗi mã 3); không ai
+    được bù thì có môn không ai dạy được (chạy cũng báo lỗi đó)."""
+    write_staff_template(tmp_path / "vao.xlsx", small_staff(general=False), CURRICULUM)
+    scenario, _ = kich_ban.from_excel(tmp_path / "vao.xlsx")
+    res = kich_ban.check(scenario, config.MODE_OVERTIME, 1)
+    assert res["errors"] == []
+    assert any("chế độ bù giờ sẽ báo lỗi" in line for line in res["info"])
+    assert any(line.startswith("Lớp 3/1: TNXH thiếu 2 tiết") for line in res["info"])
+    res = kich_ban.check(scenario, config.MODE_HIRE, 1)
+    assert any("chế độ tuyển thêm sẽ thêm người" in line for line in res["info"])
+    assert kich_ban.check(scenario, config.MODE_OVERTIME, 0)["errors"] == [
+        "Lớp 3/1: không có GV nào được phép dạy môn Công nghệ"]
+
+
+def test_blank_staff_rows_keep_row_numbers(tmp_path):
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    scenario["staff"].insert(0, {"name": "", "role": "", "class": "", "lessons": None})
+    kich_ban.to_excel(scenario, tmp_path / "ra.xlsx")
+    assert [t.row for t in read_staff(tmp_path / "ra.xlsx")][:2] == [3, 4]  # dòng i của bảng là dòng i + 2
+
+
+def test_excel_date_in_class_column_is_read_back_with_a_warning(tmp_path):
+    path = tmp_path / "vao.xlsx"
+    write_staff_template(path, small_staff(), CURRICULUM)
+    wb = openpyxl.load_workbook(path)
+    wb["NHÂN SỰ"]["C2"] = datetime.datetime(2025, 1, 3)  # Excel đổi "3/1" thành ngày 3 tháng 1
+    wb.save(path)
+    scenario, warnings = kich_ban.from_excel(path)
+    assert scenario["staff"][0]["class"] == "3/1" and "ngày tháng" in warnings[0]
+
+
+def test_saved_timetable_sheet_is_kept(tmp_path):
+    path = tmp_path / "vao_cap_nhat.xlsx"
+    write_staff_template(path, small_staff(), CURRICULUM)
+    wb = openpyxl.load_workbook(path)
+    ws = wb.create_sheet(config.SAVED_SHEET)
+    ws.append(["Mã kết quả", "AAAA-BBBB-CCCC", "Mã quy định", "123456789ABC"])
+    ws.append([])
+    ws.append(["Lớp", "Tiết", "Thứ 2"])
+    ws.append(["3/1", 1, "HĐTN\nChủ Nhiệm 3/1"])
+    ws.append([None, 2, "Tiếng Việt\nBộ Môn 1 (bù)"])
+    wb.save(path)
+    scenario, _ = kich_ban.from_excel(path)
+    assert scenario["saved"][0] == ["Mã kết quả", "AAAA-BBBB-CCCC", "Mã quy định", "123456789ABC"]
+    kich_ban.to_excel(scenario, tmp_path / "ra.xlsx")
+    assert read_saved_timetable(tmp_path / "ra.xlsx") == read_saved_timetable(path)
+
+
+def test_check_finds_rules_in_conflict():
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    _row(scenario, "nhom_buoi")["number"] = 1
+    res = kich_ban.check(scenario, config.MODE_OVERTIME, 2)
+    assert res["errors"][0].startswith("Quy định mâu thuẫn, không có TKB nào thỏa: Khối 1: Tiếng Việt có 14 tiết/tuần")
+    assert res["info"] == [] or not any(line.startswith("Dự toán:") for line in res["info"])
+    assert kich_ban.check(scenario, config.MODE_OVERTIME, 2, student_rules=False)["errors"] == []
+
+
+def test_rules_round_trip(tmp_path):
+    """Mọi luật ở `rules` của kịch bản (sheet LUẬT): luật có sẵn ở dạng gốc và luật thêm vào; ghi ra Excel rồi đọc
+    lại như cũ."""
+    from tkb.config import CustomRule
+
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    n = len(luat_co_san.default_rows())
+    assert len(scenario["rules"]) == n and all(r["group_label"] for r in scenario["rules"])
+    assert all(r["native"] for r in kich_ban.describe(scenario)["rules"])
+    assert len(kich_ban.schema()["custom"]["kinds"]) == len(luat_rieng.KINDS)
+    scenario["rules"] += [{"kind": "Chỉ xếp vào", "subject": "Thể dục", "sessions": "Chiều", "hard": False, "level": "Cao"},
+                          {"kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán", "hard": True},
+                          {"kind": "Tự ghép", "scope": "Giáo viên, Ngày", "measure": "Số khác nhau", "op": "Tối đa",
+                           "number": 2, "count_by": "Lớp", "role": "Tiếng Anh", "hard": True}]
+    out = tmp_path / "ra.xlsx"
+    kich_ban.to_excel(scenario, out)
+    assert read_rules(out)["CUSTOM_RULES"] == [
+        CustomRule("chi_xep", "Thể dục", sessions=("Chiều",), level=3, row=n + 2),
+        CustomRule("truoc", "Tiếng Việt", other="Toán", hard=True, row=n + 3),
+        CustomRule("tu_ghep", role="tiếng anh", number=2, hard=True, row=n + 4, scope=("gv", "ngay"),
+                   measure="so_khac", op="<=", count_by="lop")]
+    back, _ = kich_ban.from_excel(out)
+    assert back["rules"][:n] == scenario["rules"][:n]
+    assert back["rules"][n]["level"] == "Cao"  # cột Mức ghi bằng chữ
+    assert back["rules"][n + 1] == {"group_label": "", "kind": "Học trước", "subject": "Tiếng Việt", "other": "Toán",
+                                    "grades": "", "days": "", "periods": "", "sessions": "", "role": "",
+                                    "number": None, "hard": True, "level": None, "scope": "", "group": "", "tags": "",
+                                    "classes": "", "measure": "", "op": "", "count_by": "", "when": "",
+                                    "exclude": "", "points": None, "off": False}
+    assert kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"] == []
+    back["rules"].append({"kind": "Học trước", "subject": "Toán"})
+    assert f"LUẬT, dòng {n + 5}: kiểu luật Học trước phải ghi cột Môn thứ hai" in \
+        kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"]
+
+
+def test_teacher_rules_read_with_codes():
+    """Luật ghi họ tên ở cột Giáo viên: câu đọc lại ghi Mã GV, không ghi họ tên; tên không có thì Kiểm tra báo lỗi."""
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    name = next(t["name"] for t in scenario["staff"] if t["role"] == "Tiếng Anh")
+    busy = {"kind": "Không xếp vào", "role": name, "days": "Thứ 2", "periods": "2", "hard": True}
+    found = kich_ban.describe(scenario, [busy])["rules"][0]
+    assert found["errors"] == [] and found["text"] == "Tiếng Anh 1 không dạy vào Thứ 2 tiết 2 (bắt buộc)"
+    scenario["rules"].append({**busy, "role": "Không Có Ai"})
+    assert any("không có giáo viên nào có chức vụ, Mã GV hay họ tên 'Không Có Ai'" in e
+               for e in kich_ban.check(scenario, config.MODE_OVERTIME, 2)["errors"])
+    assert config.PEOPLE == {}
+
+
+def test_rules_only_file(tmp_path):
+    """Xuất luật ra Excel (chỉ sheet LUẬT, HƯỚNG DẪN) rồi nhập lại: chỉ có phần luật; mẫu luật là các luật có sẵn."""
+    scenario = kich_ban.default_scenario()
+    _row(scenario, "nhom_buoi")["number"] = 3
+    del scenario["rules"][-1]
+    scenario["rules"].append({"kind": "Không xếp vào", "subject": "Tin học", "days": "Thứ 2", "hard": True})
+    path = tmp_path / "luat.xlsx"
+    kich_ban.rules_to_excel(scenario, path)
+    assert openpyxl.load_workbook(path).sheetnames == ["LUẬT", "HƯỚNG DẪN"]
+    assert kich_ban.sheets_in(path) == ["LUẬT"]
+    back, _ = kich_ban.from_excel(path)
+    assert back["staff"] == [] and back["grades"] == [] and back["rules"] == scenario["rules"][:-1] + [
+        {**{k: "" for k in kich_ban.RULE_KEYS}, "kind": "Không xếp vào", "subject": "Tin học", "days": "Thứ 2",
+         "hard": True, "number": None, "level": None, "points": None, "off": False}]
+    rules = read_rules(path)
+    assert rules["SESSION_GROUP_LIMIT"] == 3 and rules["OFF"] == frozenset({"tiet_trong"})
+
+def test_rule_switched_off_on_the_page(tmp_path):
+    """Ô Dùng của bước Luật: luật tạm tắt ghi Tạm tắt = Có ở sheet LUẬT, chương trình bỏ qua mà vẫn đọc lại được,
+    câu đọc lại vẫn là luật mặc định."""
+    scenario = kich_ban.default_scenario()
+    row = _row(scenario, "tiet_gvcn")
+    row["off"] = True
+    path = tmp_path / "vao.xlsx"
+    kich_ban.to_excel(scenario, path)
+    assert read_rules(path)["OFF"] == frozenset({"tiet_gvcn"})
+    back, _ = kich_ban.from_excel(path)
+    assert back["rules"] == scenario["rules"]
+    i = scenario["rules"].index(row)
+    assert kich_ban.describe(back)["rules"][i]["native"] == "tiet_gvcn"
+    ws = openpyxl.load_workbook(path)[luat_rieng.RULES_SHEET]
+    assert str(ws.cell(i + 2, ws.max_column).value).startswith("(Tạm tắt) ")
+
+
+def test_history_and_leave_as_the_page_writes_them(tmp_path):
+    """Trang Giáo viên ghi Lớp Đang Dạy, Buổi Nghỉ bằng ô đánh dấu, ra chữ dạng "3/1, 4/2" và "Chiều T5, 2 buổi
+    chiều, 1 buổi sáng, 1 buổi": chương trình đọc đúng như khi ghi tay."""
+    scenario, _ = kich_ban.from_excel(INPUT_FILE)
+    i = next(i for i, row in enumerate(scenario["staff"]) if row["role"] == "Tiếng Anh")
+    scenario["staff"][i] |= {"history": "3/1, 3/2, 4/2", "off": "Chiều T5, 2 buổi chiều, 1 buổi sáng, 1 buổi"}
+    kich_ban.to_excel(scenario, tmp_path / "ra.xlsx")
+    t = next(t for t in read_staff(tmp_path / "ra.xlsx") if t.row == i + 2)
+    assert t.history == {"3/1", "3/2", "4/2"} and t.off_sessions == {(3, "Chiều")}
+    assert dict(t.off_any) == {"Chiều": 2, "Sáng": 1, None: 1}
+    assert kich_ban.check(scenario, config.MODE_OVERTIME, 2)["errors"] == []
+
+
+def test_quick_check_and_sample():
+    """Kiểm tra nhanh (giao diện gọi mỗi lần sửa) ra cùng lỗi với Kiểm tra đầy đủ, chỉ bỏ dự toán; trường mẫu của trang
+    bắt đầu là trường mẫu tên giả, kiểm tra không lỗi."""
+    sample = kich_ban.sample_scenario()
+    assert len(sample["staff"]) == 45 and sample["staff"][0]["name"] == "Giáo viên CN 1"
+    full, quick = kich_ban.check(sample, config.MODE_OVERTIME, 3), kich_ban.check(sample, config.MODE_OVERTIME, 3,
+                                                                                    quick=True)
+    assert full["errors"] == quick["errors"] == [] and len(quick["info"]) == 1 < len(full["info"])
+    assert full["unchecked"] == quick["unchecked"] == []
+    sample["staff"][2]["lessons"] = None
+    assert kich_ban.check(sample, quick=True)["errors"] == kich_ban.check(sample)["errors"] == [
+        "NHÂN SỰ: Dòng 4: Số tiết của 'Chủ Nhiệm 1/3' bị trống hoặc không hợp lệ"]
+    assert kich_ban.check(sample, quick=True)["unchecked"] == ["LUẬT", ""]  # chưa đếm chéo được
+    sample["rules"].append({"kind": "Học trước", "subject": "Toán"})  # luật ghi sai: báo trước khi đọc nhân sự
+    res = kich_ban.check(sample, quick=True)
+    assert res["errors"] == ["LUẬT, dòng 26: kiểu luật Học trước phải ghi cột Môn thứ hai"]
+    assert res["unchecked"] == ["CHƯƠNG TRÌNH HỌC", "NHÂN SỰ", "LUẬT", ""]  # trang hiện "?", không hiện ✓
+
+
+def _swap(grid, a, b):
+    """Đổi chữ của hai ô (vị trí r, c như kich_ban.Grid.view trả về) như trang web làm, thêm dấu khóa."""
+    grid = [list(row) for row in grid]
+    for cell in (a, b):
+        grid[cell["r"] - 1] += [None] * (cell["c"] - len(grid[cell["r"] - 1]))
+    va, vb = grid[a["r"] - 1][a["c"] - 1], grid[b["r"] - 1][b["c"] - 1]
+    grid[a["r"] - 1][a["c"] - 1] = f"{vb} {config.SAVED_LOCKED}"
+    grid[b["r"] - 1][b["c"] - 1] = f"{va} {config.SAVED_LOCKED}"
+    return grid
+
+
+def test_timetable_view_marks_errors_and_tries_swaps(small_updated):
+    """Bước 7 của giao diện: TKB đã xếp đọc thành các ô (kèm vị trí trong lưới, họ tên người dạy), đúng mọi luật;
+    đổi hai ô làm sai luật thì báo lỗi ghi Mã GV và chỉ đúng các ô; thử đổi chỉ ra các ô đổi được."""
+    from tkb.staff import parse_saved_grid
+
+    scenario, _ = kich_ban.from_excel(small_updated)
+    saved = parse_saved_grid(scenario["saved"])
+    assert saved == read_saved_timetable(small_updated)  # một bộ đọc cho file và cho lưới của kịch bản
+    for cls, day, period, r, c, i in saved.places:  # mọi ô (cả ô trống), trừ ô Nghỉ
+        value = scenario["saved"][r - 1][c - 1] if c <= len(scenario["saved"][r - 1]) else None
+        assert value != config.OFF_LABEL and (i is None) == (value is None)
+    grid = kich_ban.Grid(scenario, config.MODE_OVERTIME, 4)
+    view = grid.view(scenario["saved"])
+    assert view["ok"] and not view["errors"] and not view["rules_changed"] and view["code"] == saved.result_code
+    assert view["classes"] == ["3/1", "3/2"] and view["off"] == [[4, 5], [4, 6], [4, 7]]
+    taught = [c for c in view["cells"] if c["subject"]]
+    assert len(taught) == 2 * sum(CURRICULUM[3].values())
+    names = {t.name for t in small_staff(general=False)}
+    assert all(c["name"] in names and c["code"] for c in taught)
+    cell = {(c["cls"], c["d"], c["p"]): c for c in view["cells"]}
+
+    a = cell["3/1", 0, 2]
+    tried = grid.swaps(scenario["saved"], "3/1", 0, 2)
+    assert tried and all(t["fixed"] == 0 for t in tried)
+    others = {(t["d"], t["p"]): cell["3/1", t["d"], t["p"]] for t in tried}
+    assert all((o["subject"], o["code"]) != (a["subject"], a["code"]) for o in others.values())  # không thử đổi vô ích
+    good = next(t for t in tried if t["new"] == 0)
+    assert grid.view(_swap(scenario["saved"], a, others[good["d"], good["p"]]))["ok"]
+    bad = next(t for t in tried if t["new"] > 0)
+    b = others[bad["d"], bad["p"]]
+    after = grid.view(_swap(scenario["saved"], a, b))
+    assert not after["ok"] and len(after["errors"]) >= bad["new"]
+    marked = {tuple(m) for e in after["errors"] for m in e["cells"]}
+    assert marked and marked <= {(c["cls"], c["d"], c["p"]) for c in after["cells"] if c["subject"]}
+    assert ("3/1", 0, 2) in marked or ("3/1", b["d"], b["p"]) in marked
+    assert all(c["locked"] for c in after["cells"] if (c["d"], c["p"]) in {(0, 2), (b["d"], b["p"])} and c["cls"] == "3/1")
+    titles = [t.title for t in grid.problem.teachers.values()]
+    assert not any(title in e["text"] for e in after["errors"] for title in titles)  # Mã GV, không phải chức vụ chuẩn hóa
+    # Đổi người dạy (bước 7): người được dạy từng môn không có phần GVCN, kể cả khi đã có luật Chỉ giáo viên dạy.
+    assert view["choices"]["3/1|Âm nhạc"] == {"subject": "Âm nhạc", "codes": ["Âm Nhạc 1", "Chủ Nhiệm 3/1"]}
+    assert not any(k.endswith("|Tiếng Việt") or k.endswith("|Toán") for k in view["choices"])  # phần GVCN: không đổi
+    forced = {**scenario, "rules": [*scenario["rules"], {"kind": "Chỉ giáo viên dạy", "subject": "Âm nhạc",
+                                                           "classes": "3/1", "role": "Chủ Nhiệm 3/1", "hard": True}]}
+    after = kich_ban.timetable(forced, config.MODE_OVERTIME, 4)
+    assert after["choices"]["3/1|Âm nhạc"]["codes"] == ["Âm Nhạc 1", "Chủ Nhiệm 3/1"] and not after["ok"]
+    assert any("chỉ do Chủ Nhiệm 3/1 dạy" in e["text"] and e["cells"] for e in after["errors"])
+    # Sửa luật sau khi xếp: TKB vẫn xem được, báo cần xếp lại theo luật mới.
+    changed_rules = {**scenario, "rules": scenario["rules"][:-1]}
+    assert kich_ban.timetable(changed_rules, config.MODE_OVERTIME, 4)["rules_changed"]
+    # Các bước trước còn lỗi: chưa kiểm được TKB, vẫn có các ô để xem.
+    broken = {**scenario, "staff": [{**scenario["staff"][0], "lessons": "abc"}, *scenario["staff"][1:]]}
+    view = kich_ban.timetable(broken, config.MODE_OVERTIME, 4)
+    assert view["input_errors"] and not view["ok"] and len(view["cells"]) == len(cell)
+
+
+def test_error_marks_follow_the_message():
+    """Các ô một câu lỗi nói tới: lớp, Thứ, tiết (cả "tiết 3–4", "tiết 1, 3"), buổi, môn; Mã GV thay chức vụ."""
+    from tkb.allocation import build_problem
+
+    problem = build_problem(small_staff(general=False), CURRICULUM, {}, overtime_max=4)
+    cells = [{"cls": c, "d": d, "p": p, "subject": s, "code": code}
+             for c in ("3/1", "3/2") for d in range(5) for p in range(1, 8)
+             for s, code in [("Toán" if p < 3 else "Tiếng Việt", f"Chủ Nhiệm {c}")]]
+    mark = lambda text: kich_ban._marked(text, problem, cells)  # noqa: E731
+    found = mark("tiếng anh 1 dạy 2 lớp cùng lúc Thứ 3 tiết 2: 3/1, 3/2")
+    assert found["text"].startswith("Tiếng Anh 1 dạy") and found["teacher"] == "Tiếng Anh 1"
+    assert sorted(found["cells"]) == [["3/1", 1, 2], ["3/2", 1, 2]]
+    assert mark("Lớp 3/2 Thứ 2 tiết 3–4: hai tiết liền")["cells"] == [["3/2", 0, 3], ["3/2", 0, 4]]
+    assert mark("Lớp 3/1 Thứ 4 buổi Sáng: môn Toán không học liền (tiết 1, 3)")["cells"] == [["3/1", 2, 1]]
+    assert mark("Lớp 3/1 Thứ 5: 2 tiết Toán (tối đa 1 mỗi ngày)")["cells"] == [["3/1", 3, 1], ["3/1", 3, 2]]
+    assert mark("Lớp 3/1: môn Toán có 5 tiết, cần 6") == {"text": "Lớp 3/1: môn Toán có 5 tiết, cần 6", "cells": [],
+                                                           "cls": "3/1", "teacher": None}

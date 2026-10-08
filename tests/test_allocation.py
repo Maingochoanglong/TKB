@@ -60,7 +60,7 @@ def test_permissions(sample_staff):
         if c.homeroom:
             continue
         if c.subject in (C.TIENG_ANH, C.TIN_HOC):
-            assert roles == {r for r, s in p.specialists.items() if s == c.subject}
+            assert roles == {r for r, s in p.specialists.items() if s == (c.subject,)}
         if c.subject in ("Thể dục", "Âm nhạc", "Mỹ thuật"):
             assert config.ROLE_GENERAL in roles and len(roles) == 2
         if config.ROLE_MANAGER in roles:
@@ -134,10 +134,10 @@ def test_specialists_come_from_subject_names():
              _v8("E", "Bộ Môn", 20, index=1, row=6)]
     p = build_problem(staff, SCHOOL)
     # Chức vụ trùng tên môn là GV chuyên biệt; môn lạ ("Múa") vẫn được xếp.
-    assert p.specialists["tiếng anh"] == C.TIENG_ANH and p.specialists["thể dục"] == "Thể Dục"
-    assert p.specialists["múa"] == "Múa"
+    assert p.specialists["tiếng anh"] == (C.TIENG_ANH,) and p.specialists["thể dục"] == ("Thể Dục",)
+    assert p.specialists["múa"] == ("Múa",)
     # Tin học: bộ môn không được dạy, trường chưa có GV -> tự thêm chức vụ trùng tên môn để tuyển.
-    assert p.specialists["tin học"] == C.TIN_HOC and p.supplement_roles["tin học"] == ["tin học 1"]
+    assert p.specialists["tin học"] == (C.TIN_HOC,) and p.supplement_roles["tin học"] == ["tin học 1"]
     assert p.teachers["tin học 1"].label == "Tin Học" and p.teachers["tin học 1"].code == "Tin Học 1"
     # Định mức người tuyển thêm: lấy Số tiết lớn nhất của GV không chủ nhiệm, không quản lý trong file.
     assert p.teachers["tin học 1"].max_lessons == 23

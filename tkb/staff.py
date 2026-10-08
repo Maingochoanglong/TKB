@@ -13,7 +13,7 @@ import datetime
 import re
 import unicodedata
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import openpyxl
@@ -40,6 +40,8 @@ class Teacher:
     contract: bool = False  # GV hợp đồng: nhận tiết bù trước GV cùng loại (config.Weights.overtime_*)
     campus2: bool = False  # GVCN: lớp ở cơ sở 2; GV khác: chỉ dạy ở cơ sở 2
     history: frozenset[str] = frozenset()  # các lớp dạy trong TKB cũ (ưu tiên giữ khối, rồi giữ lớp)
+    # Xếp lại ít xáo trộn: các (lớp, môn) GV dạy trong TKB đã xếp nạp lại (solver.solve(previous=...)).
+    previous: frozenset[tuple[str, str]] = frozenset()
     off_sessions: frozenset[tuple[int, str]] = frozenset()  # buổi nghỉ cố định: (ngày 0–4, tên buổi)
     off_any: tuple[tuple[str | None, int], ...] = ()  # nghỉ thêm n buổi bất kỳ: (tên buổi, None = buổi nào cũng được; n)
 
@@ -78,15 +80,17 @@ SPECIAL_ROLES = (config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER)
 
 
 def role_errors(teachers: list[Teacher], subjects) -> list[str]:
-    """Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý và không trùng tên môn nào của chương trình học."""
-    keys = {subject_key(s) for s in subjects}
+    """Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý, không có trong sheet CHỨC VỤ (config.CUSTOM_ROLES) và không trùng
+    tên môn nào của chương trình học."""
+    keys = {subject_key(s) for s in subjects} | {subject_key(r.name) for r in config.CUSTOM_ROLES}
     bad: dict[str, list[str]] = {}
     for t in teachers:
         if t.role not in SPECIAL_ROLES and subject_key(t.role) not in keys:
             bad.setdefault(t.label or t.role, []).append(str(t.row) if t.row else "?")
     valid = ", ".join(config.ROLE_LABELS[r] for r in SPECIAL_ROLES)
-    return [f"Dòng {', '.join(rows)}: chức vụ '{label}' không xác định (hợp lệ: {valid} hoặc đúng tên một môn "
-            f"trong sheet {config.PROGRAM_SHEET})" for label, rows in bad.items()]
+    return [f"Dòng {', '.join(rows)}: chức vụ '{label}' không xác định (hợp lệ: {valid}, một chức vụ của sheet "
+            f"{config.ROLES_SHEET} hoặc đúng tên một môn trong sheet {config.PROGRAM_SHEET})"
+            for label, rows in bad.items()]
 
 
 def canonical_title(role: str, index: int | None, class_name: str | None) -> str:
@@ -211,25 +215,40 @@ def staff_sheet(wb):
 @dataclass
 class SavedTimetable:
     """TKB đã xếp đọc từ file vào cập nhật (sheet config.SAVED_SHEET)."""
-    rows: list[tuple]  # (lớp, thứ, tiết, môn, Mã GV, tiết bù?, vị trí trong sheet) như chữ trong file
+    rows: list[tuple]  # (lớp, thứ, tiết, môn, Mã GV, tiết bù?, ô khóa?, vị trí trong sheet) như chữ trong file
     result_code: str | None  # mã kết quả lúc xếp
     rules_code: str | None  # mã các quy định lúc xếp (rules.code)
+    # Mọi ô của lưới, cả ô trống (trừ ô "Nghỉ"): (lớp, thứ, tiết, dòng, cột, chỉ số trong rows hoặc None nếu ô
+    # trống), dòng và cột đếm từ 1 như Excel; giao diện đổi chữ của ô theo vị trí này.
+    places: list[tuple] = field(default_factory=list)
 
 
 def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
-    """Sheet config.SAVED_SHEET của file vào (TKB đã xếp dạng lưới Lớp | Tiết | Thứ 2 …, mỗi ô "môn" xuống dòng
-    "Mã GV", thêm config.SAVED_OVERTIME ở tiết bù). File không có sheet này: None; không có bảng: không có dòng nào."""
+    """Sheet config.SAVED_SHEET của file vào (TKB đã xếp, xem parse_saved_grid). File không có sheet này: None."""
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = find_sheet(wb, config.SAVED_SHEET)
     if ws is None:
         return None
+    return parse_saved_grid([list(row) for row in ws.iter_rows(values_only=True)])
+
+
+def parse_saved_grid(grid: list[list]) -> SavedTimetable:
+    """TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
+    Tiết | Thứ 2 …, tên lớp ở dòng đầu mỗi khối, mỗi ô "môn" xuống dòng "Mã GV", thêm config.SAVED_OVERTIME ở tiết
+    bù, config.SAVED_LOCKED ở ô khóa; mã kết quả và mã quy định ở các dòng trên bảng. Không có bảng: không có dòng
+    nào."""
+    def cell(r: int, c: int):
+        row = grid[r - 1] if 0 < r <= len(grid) else []
+        return row[c - 1] if 0 < c <= len(row) else None
+
+    width = max((len(row) for row in grid), default=0)
     codes: dict[str, str] = {}
     header = None
-    for r in range(1, min(ws.max_row, 10) + 1):
-        cells = {c: ws.cell(r, c).value for c in range(1, ws.max_column + 1) if not _blank(ws.cell(r, c).value)}
+    for r in range(1, min(len(grid), 10) + 1):
+        cells = {c: cell(r, c) for c in range(1, width + 1) if not _blank(cell(r, c))}
         for c, value in cells.items():
-            if normalize(value) in map(normalize, config.SAVED_CODES) and not _blank(ws.cell(r, c + 1).value):
-                codes[normalize(value)] = str(ws.cell(r, c + 1).value).strip()
+            if normalize(value) in map(normalize, config.SAVED_CODES) and not _blank(cell(r, c + 1)):
+                codes[normalize(value)] = str(cell(r, c + 1)).strip()
         heads = {normalize(v): c for c, v in cells.items()}
         if header is None and "lớp" in heads and "tiết" in heads:
             header = r, heads["lớp"], heads["tiết"], {c: str(v) for c, v in cells.items() if _fold(v).startswith("thu")}
@@ -237,23 +256,35 @@ def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
     if header is None:
         return SavedTimetable([], result_code, rules_code)
     header_row, class_col, period_col, day_cols = header
-    rows, cls = [], None
-    for r in range(header_row + 1, ws.max_row + 1):
-        if not _blank(ws.cell(r, class_col).value):
-            cls = clean_name(ws.cell(r, class_col).value)
-        period = ws.cell(r, period_col).value
+    rows, places, cls = [], [], None
+    for r in range(header_row + 1, len(grid) + 1):
+        if not _blank(cell(r, class_col)):
+            cls = clean_name(cell(r, class_col))
+        period = cell(r, period_col)
         for c, day in day_cols.items():
-            value = ws.cell(r, c).value
-            if _blank(value) or normalize(value) == normalize(config.OFF_LABEL):
+            value = cell(r, c)
+            if not _blank(value) and normalize(value) == normalize(config.OFF_LABEL):
+                continue
+            place = (cls, day, period, r, c)
+            if _blank(value):
+                places.append((*place, None))
                 continue
             lines = [line.strip() for line in str(value).splitlines() if line.strip()]
-            code = lines[-1]
-            overtime = code.endswith(config.SAVED_OVERTIME)
-            if overtime:
-                code = code[:-len(config.SAVED_OVERTIME)].strip()
-            rows.append((cls, day, period, lines[0], code if len(lines) > 1 else "", overtime,
-                         f"dòng {r}, {clean_name(day)}"))
-    return SavedTimetable(rows, result_code, rules_code)
+            flags = {}
+            for flag in (config.SAVED_LOCKED, config.SAVED_OVERTIME):  # "Bộ Môn 2 (bù) (khóa)": cắt từ cuối
+                for i, line in enumerate(lines):
+                    if _fold(line).endswith(_fold(flag)):
+                        lines[i] = line[:-len(flag)].strip()
+                        flags[flag] = True
+            lines = [line for line in lines if line]
+            if not lines:
+                places.append((*place, None))
+                continue
+            code = lines[-1] if len(lines) > 1 else ""
+            places.append((*place, len(rows)))
+            rows.append((cls, day, period, lines[0], code, flags.get(config.SAVED_OVERTIME, False),
+                         flags.get(config.SAVED_LOCKED, False), f"dòng {r}, {clean_name(day)}"))
+    return SavedTimetable(rows, result_code, rules_code, places)
 
 
 def _blank(value) -> bool:
@@ -305,7 +336,7 @@ def make_teacher(name, role: str, index: int | None, class_name: str | None, les
         role=role,
         index=index,
         class_name=class_name,
-        max_lessons=_to_lessons(lessons, title),
+        max_lessons=_to_lessons(lessons, f"{label or role} {class_name or index}"),
         row=row,
         label=label,
         **extra,

@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 from . import config
+from .bo_ghep import know_staff
 from .checker import check
 from .program import read_program
 from .rules import applied, changed, read_rules
@@ -14,14 +15,17 @@ from .rules import code as rules_code
 from .solver import ShortageError, SolveError, ortools_version, reuse, solve
 from .staff import InputError, grade_of, read_saved_timetable, read_staff
 from .style import Style
-from .writer import campus_paths, write_shortage, write_statistics, write_timetable, write_updated_staff
+from .writer import (CHANGES_SHEET, campus_paths, change_rows, write_shortage, write_statistics,
+                     write_teacher_timetable, write_timetable, write_updated_staff)
 
 
 def use_utf8_output() -> None:
-    """In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252)."""
+    """In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252), và in xong dòng nào
+    là ra ngay dòng đó: giao diện (tkb/giao_dien) đọc từng dòng của tiến trình xếp TKB, mà bản đóng gói (TKB.exe)
+    không theo biến PYTHONUNBUFFERED."""
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="replace")
+            stream.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,6 +40,8 @@ def main(argv: list[str] | None = None) -> int:
                                         "tiết thì là bảng tiết thiếu (mặc định <thư mục output>/Thong_Ke.xlsx)")
     ap.add_argument("--roles-out", help="File TKB ghi thêm chức vụ (Mã GV) trong mỗi ô "
                                         "(mặc định <thư mục output>/TKB_chuc_vu.xlsx; hai cơ sở thì tách như -o)")
+    ap.add_argument("--teachers-out", help="File TKB giáo viên: mỗi giáo viên một bảng, in mỗi người một trang "
+                                           "(mặc định <thư mục output>/TKB_giao_vien.xlsx)")
     ap.add_argument("--time-limit", type=float, default=1200,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 1200; 0 = không giới hạn: xếp "
                          "lại từng vùng đến khi hết cải thiện)")
@@ -89,31 +95,36 @@ def _run(args, settings: config.Settings) -> int:
     staff_out = Path(args.staff_out) if args.staff_out else output.parent / f"{Path(args.staff).stem}_cap_nhat.xlsx"
     stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
     roles_out = Path(args.roles_out) if args.roles_out else output.parent / "TKB_chuc_vu.xlsx"
+    teachers_out = Path(args.teachers_out) if args.teachers_out else output.parent / "TKB_giao_vien.xlsx"
     try:
         curriculum = read_program(args.staff)
         staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
+        know_staff(staff)  # câu đọc lại của luật ghi Mã GV thay cho họ tên
         n_subjects = len({s for req in curriculum.values() for s in req})
         print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp; "
               f"chương trình học: {n_subjects} môn (sheet {config.PROGRAM_SHEET}).")
         solution = None
+        previous = None  # TKB đã xếp không dùng lại được: xếp lại ít xáo trộn quanh nó
         saved = None if args.xep_lai else read_saved_timetable(args.staff)
         if saved is not None and saved.rules_code not in (None, rules_code()):
-            print(f"Quy định đã sửa so với lúc xếp TKB lưu trong file vào (sheet {config.SAVED_SHEET}): xếp lại từ "
-                  f"đầu theo quy định mới.")
-            saved = None
-        if saved is not None:
+            print(f"Quy định đã sửa so với lúc xếp TKB lưu trong file vào (sheet {config.SAVED_SHEET}): xếp lại theo "
+                  f"quy định mới, giữ TKB cũ nhiều nhất có thể.")
+            previous = saved.rows
+        elif saved is not None:
             solution, why = reuse(staff, curriculum, settings, saved.rows)
             if solution is not None:
                 print(f"Dùng lại TKB đã xếp trong file vào (sheet {config.SAVED_SHEET}), không xếp lại. Muốn xếp lại "
                       f"từ đầu: đặt GIU_TKB_DA_XEP = False trong main.py (dòng lệnh: --xep-lai).")
             else:
-                print(f"Không dùng lại được TKB đã xếp trong file vào (sheet {config.SAVED_SHEET}), xếp lại từ đầu:")
+                print(f"TKB đã xếp trong file vào (sheet {config.SAVED_SHEET}) không còn đúng, xếp lại ít xáo trộn "
+                      f"nhất (giữ các ô được, ô khóa giữ nguyên):")
                 for reason in why[:10]:
                     print(f"  {reason}")
                 if len(why) > 10:
                     print(f"  ... và {len(why) - 10} lý do khác")
+                previous = saved.rows
         if solution is None:
-            solution = solve(staff, curriculum, settings)
+            solution = solve(staff, curriculum, settings, previous=previous or None)
     except ShortageError as exc:
         rows = exc.rows()
         print(f"LỖI: {exc}. Không xếp TKB. Các tiết không ai dạy được:", file=sys.stderr)
@@ -135,13 +146,19 @@ def _run(args, settings: config.Settings) -> int:
         for path, classes in campus_paths(base, solution.problem):
             write_timetable(solution, path, style, with_codes=with_codes, classes=classes)
             timetables.append(path)
+    write_teacher_timetable(solution, teachers_out, style)
+    timetables.append(teachers_out)
     write_updated_staff(solution, args.staff, staff_out)
-    write_statistics(solution, stats_out, style)
+    changes = change_rows(solution, previous) if previous else None
+    write_statistics(solution, stats_out, style, settings.student_rules, changes)
 
     load = solution.teacher_load()
     extra = solution.used_supplements()
     print(f"Kết quả: {solution.status}, kiểm tra luật bắt buộc: {'ĐẠT' if not errors else 'KHÔNG ĐẠT'}")
     print(f"Mã kết quả: {solution.fingerprint()} (cùng mã là cùng TKB; xếp giờ mất {solution.wall_time:.0f} giây)")
+    if changes is not None:
+        print(f"So với TKB đã xếp trong file vào: đổi {len(changes)}/{len(solution.lessons)} ô (danh sách ở sheet "
+              f"{CHANGES_SHEET} của file thống kê)")
     if extra:
         print(f"Cần bổ sung {len(extra)} GV cho {sum(load[t.title] for t in extra)} tiết thiếu:")
         for t in extra:
@@ -169,6 +186,10 @@ def _run(args, settings: config.Settings) -> int:
                           if any(les.subject == s for les in core))
         afternoon = sum(1 for les in core if les.period not in config.MORNING.periods)
         print(f"{names} ở buổi chiều: {afternoon}/{len(core)} tiết (mục tiêu mềm: dành buổi sáng cho các môn này)")
+    if config.CUSTOM_RULES:  # luật riêng ưu tiên: số lần không theo
+        from .luat_rieng import soft_report
+        for line in soft_report(solution.problem, solution.lessons):
+            print(f"{line} (ưu tiên, càng ít càng tốt)")
     for e in errors[:20]:
         print(f"  LỖI: {e}")
     for path in timetables:

@@ -1,4 +1,5 @@
-"""Trường mẫu tên giả dùng cho test, CI và file mẫu đầu ra (thay cho file vào mẫu trước đây).
+"""Trường mẫu tên giả: dữ liệu minh họa cho test, CI, file mẫu đầu ra và nút "Xem thử với trường mẫu" của giao diện
+(kich_ban.sample_scenario). Bộ xếp không đọc module này: mọi dữ liệu xếp TKB lấy từ file vào.
 
 29 lớp (khối 1–4 mỗi khối 6 lớp, khối 5 có 5 lớp), 45 nhân sự và chương trình học chuẩn 32 tiết/tuần.
 Không phải dữ liệu của trường: file vào thật của trường là data/INPUT_V8.xlsx.
@@ -8,8 +9,8 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 
-from tkb.staff import Teacher, clean_name, make_teacher, normalize
-from tkb.template import write_staff_template
+from .staff import Teacher, clean_name, make_teacher, normalize
+from .template import write_staff_template
 
 _SUBJECTS = ["Tiếng Việt", "Toán", "Hoạt động trải nghiệm", "Khoa học", "Lịch sử - Địa lý", "Đạo đức",
              "Tự nhiên xã hội", "Kỹ năng sống", "Công nghệ", "Toán tăng cường", "Tiếng Việt tăng cường",
