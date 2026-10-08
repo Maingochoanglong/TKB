@@ -134,7 +134,7 @@ thì luật ghi họ tên của họ và trang báo lỗi ở bước Luật); s
 
 ## 5. Mã kết quả, máy Windows và máy Linux
 
-Mỗi lần xếp in một **mã TKB** (mã kết quả, vd `08F4-E2C6-3470`): cùng file vào, cùng cài đặt thì chạy lại bao
+Mỗi lần xếp in một **mã TKB** (mã kết quả, vd `DEB9-056B-FF59`): cùng file vào, cùng cài đặt thì chạy lại bao
 nhiêu lần, trên máy nào cùng hệ điều hành cũng ra cùng TKB, cùng mã. Máy nhanh hay chậm chỉ chạy lâu hơn. Riêng **Windows và
 Linux ra TKB khác nhau** (đều đúng mọi luật, cùng phân công) vì thư viện xếp giờ OR-Tools tính khác nhau một chút
 trên hai hệ điều hành. Muốn có lại đúng TKB của máy kia: nạp file `_cap_nhat.xlsx` của máy đó, TKB được dùng lại
