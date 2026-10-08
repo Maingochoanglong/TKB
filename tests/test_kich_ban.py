@@ -66,7 +66,7 @@ def test_schema_follows_rules_columns():
     s = kich_ban.schema()
     assert [c["key"] for c in s["subject"]] == [c.key for c in SUBJECT_COLS if c.key not in LEGACY]
     assert [c["header"] for c in s["staff"]][:4] == ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần"]
-    assert s["days"][0] == "Thứ 2" and s["days"][-1] == "Thứ 7"
+    assert s["days"][0] == "Thứ 2" and s["days"][-1] == "Chủ nhật"  # tên gợi ý khi thêm ngày học trên trang
     keys = {c.key for c in SUBJECT_COLS}  # nhóm cột của trang chi tiết môn, cột theo chức vụ: đúng khóa của rules.py
     assert all(k in keys for g in s["subject_groups"] for k in g["keys"])
     assert set(s["role_rules"].values()) <= keys and s["sheets"]["roles"] == "CHỨC VỤ"
@@ -80,7 +80,7 @@ def test_schema_follows_rules_columns():
 def test_rules_edited_in_the_scenario_reach_the_file(tmp_path):
     scenario, _ = kich_ban.from_excel(INPUT_FILE)
     _row(scenario, "nhom_buoi")["number"] = 3  # số của luật có sẵn: ở dòng luật
-    scenario["days"][5]["morning_days"] = True  # học sáng Thứ 7
+    scenario["days"].append({"name": "Thứ 7", "periods": {"Sáng": 4}})  # học sáng Thứ 7
     english = next(s for s in scenario["subjects"] if s["name"] == "Tiếng Anh")
     english["rules"]["MORNING_SUBJECTS"] = True
     english["rules"]["DISPLAY_NAMES"] = "TA"
@@ -90,6 +90,24 @@ def test_rules_edited_in_the_scenario_reach_the_file(tmp_path):
     assert rules["SESSION_GROUP_LIMIT"] == 3
     assert rules["DAYS"][-1] == "Thứ 7" and len(rules["DAY_SESSIONS"]) == 6
     assert config.TIENG_ANH in rules["MORNING_SUBJECTS"] and rules["DISPLAY_NAMES"][config.TIENG_ANH] == "TA"
+
+
+def test_old_draft_frame_is_upgraded(tmp_path):
+    """Bản nháp của bản trước (khung giờ: số tiết sáng/chiều chung, cột Có/Không của Thứ 2 … Thứ 7) chuyển sang khung giờ
+    mới: ghi ra file đọc lại đúng khung giờ cũ."""
+    new = kich_ban.default_scenario()
+    old = {**new, "version": 2, "general": {**new["general"], "morning_periods": 4, "afternoon_periods": 3},
+           "days": [{"morning_days": d < 6, "afternoon_days": d < 4, "HDTN_FIXED_SLOTS": {0: 1, 4: 4}.get(d),
+                     "HDTN_FLEX_DAYS": d in (1, 2, 3)} for d in range(6)]}
+    del old["sessions"]
+    up = kich_ban.upgrade(old)
+    assert up["version"] == kich_ban.VERSION and up["sessions"] == ["Sáng", "Chiều"]
+    assert up["days"][4] == {"name": "Thứ 6", "periods": {"Sáng": 4, "Chiều": 0}, "HDTN_FIXED_SLOTS": 4,
+                             "HDTN_FLEX_DAYS": False}
+    kich_ban.to_excel(up, tmp_path / "ra.xlsx")
+    rules = read_rules(tmp_path / "ra.xlsx")
+    assert rules["DAYS"][-1] == "Thứ 7" and len(rules["DAY_SESSIONS"][5]) == 1
+    assert kich_ban.upgrade(new) is new  # bản hiện tại giữ nguyên
 
 
 def test_check_reads_back_like_a_run():

@@ -115,13 +115,13 @@ def test_teacher_timetable(tmp_path):
     rows = writer.session_rows()
     seen = []
     for t, top in zip(teaching, titles):
-        for j, (_, period) in enumerate(rows):
-            assert ws.cell(top + 2 + j, 2).value == period
+        for j, row in enumerate(rows):
+            assert ws.cell(top + 2 + j, 2).value == row.label
             for d in range(5):
                 v = ws.cell(top + 2 + j, 3 + d).value
                 if v and v != config.OFF_LABEL:
                     cls, subject = v.split("\n")
-                    seen.append((t.title, d, period, cls, subject))
+                    seen.append((t.title, d, row.period(d), cls, subject))
     want = [(les.teacher, les.day, les.period, les.class_name, sol.problem.subject_label(les.subject))
             for les in sol.lessons]
     assert sorted(seen) == sorted(want)

@@ -50,11 +50,13 @@ def test_template_is_plain(tmp_path, sample_staff):
     assert program[0][:7] == ("Môn học", "Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5", "Tên trong TKB")
     assert len(program[0]) == 6 + 14 and len(program) == 17  # 14 cột quy định (Tối đa tiết mỗi ngày: sheet LUẬT)
     rules = _rows(wb["QUY ĐỊNH"])  # ba bảng xếp chồng (bỏ dòng trống)
-    # Bảng chung 5 dòng: số tiết nhóm môn mỗi buổi và ghép cặp nay là dòng của sheet LUẬT.
-    assert rules[0][:2] == ("Quy định", "Giá trị") and rules[5][0] == "Ngày" and rules[12][0] == "Tiết"
-    assert rules[6][:5] == ("Thứ 2", "Có", "Có", 1, "Không") and len(rules) == 5 + 7 + 8
+    # Bảng chung 3 dòng: số tiết nhóm môn mỗi buổi và ghép cặp nay là dòng của sheet LUẬT; số tiết từng buổi ghi ở bảng
+    # Ngày (cột Buổi <tên>, mỗi ngày một số riêng, ô trống: không học buổi đó).
+    assert rules[0][:2] == ("Quy định", "Giá trị") and rules[3][0] == "Ngày" and rules[9][0] == "Tiết"
+    assert rules[3][:3] == ("Ngày", "Buổi Sáng", "Buổi Chiều") and rules[4][:5] == ("Thứ 2", 4, 3, 1, "Không")
+    assert rules[8][:3] == ("Thứ 6", 4, None) and len(rules) == 3 + 6 + 8
     # Mỗi ô quy định chỉ là Có, Không hoặc số nguyên dương (trừ cột đầu, cột Khối và cột Tên trong TKB).
-    blocks = [program, rules[:5], rules[5:12], rules[12:]]
+    blocks = [program, rules[:3], rules[3:9], rules[9:]]
     for header, *rows in blocks:
         for row in rows:
             for head, value in list(zip(header, row))[1:]:

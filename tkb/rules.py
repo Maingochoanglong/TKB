@@ -33,7 +33,8 @@ from . import bo_ghep, config, luat_rieng
 from .staff import _NO, _YES, InputError, _fold, clean_name, find_sheet, normalize, subject_key
 
 YES, NO = "Có", "Không"
-MAX_DAYS = 6  # Thứ 2 – Thứ 7
+MAX_DAYS = 6  # cách ghi cũ của bảng Ngày (cột Học buổi sáng/chiều): Thứ 2 – Thứ 7
+SESSION_PREFIX = "Buổi"  # bảng Ngày: mỗi cột "Buổi <tên>" ghi số tiết của buổi đó trong ngày (0 hoặc trống: không học)
 NOTE = "Ghi chú"  # cột ghi chú (nếu có) được bỏ qua
 # Mẫu cũ không còn đọc: bốn sheet quy định riêng.
 OLD_SHEETS = ("QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "QUY ĐỊNH MÔN")
@@ -62,8 +63,8 @@ GENERAL = (
 )
 DAY_KEY = "Ngày"
 DAY_COLS = (
-    Col("Học buổi sáng", "morning_days", "yes", "Các ngày học, liền nhau từ Thứ 2 (có thể thêm Thứ 7)."),
-    Col("Học buổi chiều", "afternoon_days", "yes", "Ngày có buổi chiều (phải là ngày học buổi sáng)."),
+    Col("Học buổi sáng", "morning_days", "yes", "Cách ghi cũ: các ngày học, liền nhau từ Thứ 2."),
+    Col("Học buổi chiều", "afternoon_days", "yes", "Cách ghi cũ: ngày có buổi chiều (phải là ngày học buổi sáng)."),
     Col("Tiết HĐTN cố định", "HDTN_FIXED_SLOTS", "int",
         "Luật cứng: tiết môn HĐTN cố định của ngày đó ở mọi lớp, vd Thứ 2: 1, Thứ 6: 4."),
     Col("Xếp tiết HĐTN còn lại", "HDTN_FLEX_DAYS", "yes",
@@ -110,11 +111,14 @@ SUBJECT_COLS = (
 ROLE_NAME, ROLE_SUBJECTS = "Chức vụ", "Môn được dạy"
 # Cột của bản trước mà nay là số của một dòng luật (sheet LUẬT): vẫn đọc được ở file cũ, không ghi, không hiện.
 LEGACY = frozenset({"SESSION_GROUP_LIMIT", "PAIR_MIN_LESSONS", "DAILY_LIMITS"})
+# Cách ghi khung giờ của bản trước (số tiết buổi sáng/chiều chung mọi ngày, cột Có/Không học buổi sáng/chiều): vẫn
+# đọc được, không ghi, không hiện; nay bảng Ngày ghi số tiết từng buổi của từng ngày (cột "Buổi <tên>").
+LEGACY_FRAME = frozenset({"morning_periods", "afternoon_periods", "morning_days", "afternoon_days"})
 
 
 def visible(cols) -> tuple:
-    """Các cột quy định còn ghi trong file mẫu và hiện trên giao diện (bỏ các cột LEGACY)."""
-    return tuple(c for c in cols if c.key not in LEGACY)
+    """Các cột quy định còn ghi trong file mẫu và hiện trên giao diện (bỏ các cột LEGACY, LEGACY_FRAME)."""
+    return tuple(c for c in cols if c.key not in LEGACY and c.key not in LEGACY_FRAME)
 
 
 FRAME_ATTRS = ("DAYS", "MORNING", "AFTERNOON", "DAY_SESSIONS")
@@ -141,8 +145,18 @@ def _day_name(d: int) -> str:
     return f"Thứ {d + 2}"
 
 
-def _frame_now() -> dict[str, object]:
-    """Khung giờ theo config hiện tại: ngày học buổi sáng, buổi chiều, số tiết mỗi buổi."""
+# Khung giờ: các ngày học theo thứ tự, mỗi ngày (tên ngày, ((tên buổi, số tiết), ...)).
+Layout = list[tuple[str, tuple[tuple[str, int], ...]]]
+
+
+def layout_now() -> Layout:
+    """Khung giờ theo config hiện tại."""
+    return [(config.DAYS[d], tuple((s.name, len(s.periods)) for s in config.DAY_SESSIONS[d]))
+            for d in sorted(config.DAY_SESSIONS)]
+
+
+def _legacy_now() -> dict[str, object]:
+    """Khung giờ hiện tại theo cách ghi cũ (giá trị ban đầu khi file ghi một phần theo cách cũ)."""
     return {"morning_days": sorted(config.DAY_SESSIONS),
             "afternoon_days": [d for d, ss in sorted(config.DAY_SESSIONS.items())
                                if any(s.name == config.AFTERNOON.name for s in ss)],
@@ -150,14 +164,36 @@ def _frame_now() -> dict[str, object]:
             "afternoon_periods": len(config.AFTERNOON.periods)}
 
 
-def _build_frame(f: dict[str, object]) -> dict[str, object]:
-    """Khung giờ -> config.DAYS, MORNING, AFTERNOON, DAY_SESSIONS."""
-    m, a = f["morning_periods"], f["afternoon_periods"]
-    morning = config.Session(config.MORNING.name, tuple(range(1, m + 1)))
-    afternoon = config.Session(config.AFTERNOON.name, tuple(range(m + 1, m + a + 1)))
-    days = f["morning_days"]
-    sessions = {d: (morning, afternoon) if d in f["afternoon_days"] else (morning,) for d in days}
-    return {"DAYS": [_day_name(d) for d in days], "MORNING": morning, "AFTERNOON": afternoon, "DAY_SESSIONS": sessions}
+def _legacy_layout(f: dict[str, object]) -> Layout:
+    morning = ((config.MORNING.name, f["morning_periods"]),)
+    afternoon = ((config.AFTERNOON.name, f["afternoon_periods"]),)
+    return [(_day_name(d), morning + (afternoon if d in f["afternoon_days"] else ())) for d in f["morning_days"]]
+
+
+def _build_frame(layout: Layout, legacy: dict[str, object] | None = None) -> dict[str, object]:
+    """Khung giờ -> config.DAYS, DAY_SESSIONS (tiết đánh số liên tục trong ngày; buổi giống nhau dùng chung một
+    Session). MORNING, AFTERNOON chỉ để mã quy định (code) của khung giờ ghi theo cách cũ không đổi: buổi đầu và buổi
+    kế tiếp của ngày đầu (cách cũ: đúng như bản trước)."""
+    made: dict[tuple, config.Session] = {}
+    day_sessions: dict[int, tuple[config.Session, ...]] = {}
+    for d, (_, parts) in enumerate(layout):
+        p, out = 1, []
+        for name, n in parts:
+            if n > 0:
+                key = (name, tuple(range(p, p + n)))
+                out.append(made.setdefault(key, config.Session(*key)))
+                p += n
+        day_sessions[d] = tuple(out)
+    if legacy is not None:
+        m, a = legacy["morning_periods"], legacy["afternoon_periods"]
+        morning = config.Session(config.MORNING.name, tuple(range(1, m + 1)))
+        afternoon = config.Session(config.AFTERNOON.name, tuple(range(m + 1, m + a + 1)))
+    else:
+        first = day_sessions.get(0, ())
+        morning = first[0] if first else config.Session("", ())
+        afternoon = first[1] if len(first) > 1 else config.Session("", ())
+    return {"DAYS": [name for name, _ in layout], "MORNING": morning, "AFTERNOON": afternoon,
+            "DAY_SESSIONS": day_sessions}
 
 
 def _blank(value) -> bool:
@@ -178,8 +214,9 @@ class _Reader:
     lúc, sắp theo sheet rồi theo dòng."""
 
     def __init__(self, warn):
-        self.frame = _frame_now()
-        self.frame_given = False
+        self.legacy = _legacy_now()  # khung giờ ghi theo cách cũ (số tiết sáng/chiều, cột Học buổi sáng/chiều)
+        self.legacy_given = False
+        self.layout: Layout | None = None  # khung giờ ghi theo cách mới (cột Buổi <tên> của bảng Ngày)
         self.values: dict[str, object] = {}
         self.errors: list[tuple[int, int, str]] = []
         self.warn = warn
@@ -217,6 +254,10 @@ class _Reader:
             return self.yes(sheet, row, col.header, value)
         if col.kind in ("int", "order"):
             return self.number(sheet, row, col.header, value)
+        if col.kind == "count":  # số tiết của một buổi: 0 hoặc trống là không học buổi đó
+            if not _blank(value) and str(value).strip() in ("0", "0.0"):
+                return 0
+            return self.number(sheet, row, col.header, value) or 0
         return None if _blank(value) else clean_name(value)
 
     def table(self, ws, header_row: int, end_row: int, key_col: int, cols: tuple[Col, ...], strict: bool):
@@ -313,13 +354,19 @@ class _Reader:
                 roles = roles | {_ROLES[col.key]} if value else roles - {_ROLES[col.key]}
                 self.values["OVERTIME_ROLES"] = roles
             elif col.key in ("morning_periods", "afternoon_periods"):
-                self.frame[col.key] = value
-                self.frame_given = True
+                self.legacy[col.key] = value
+                self.legacy_given = True
             else:
                 self.values[col.key] = value
 
     def days(self, ws, header_row: int, end_row: int, key_col: int) -> None:
         sheet = ws.title
+        known = {normalize(c.header) for c in DAY_COLS}
+        sessions = [clean_name(str(value).strip()[len(SESSION_PREFIX):]) for c, value in _row(ws, header_row).items()
+                    if c != key_col and normalize(value) not in known
+                    and normalize(value).startswith(normalize(SESSION_PREFIX) + " ")]
+        if sessions:
+            return self.day_layout(ws, header_row, end_row, key_col, sessions)
         found, rows = self.table(ws, header_row, end_row, key_col, DAY_COLS, strict=True)
         by_day: dict[int, dict] = {}
         for r, key, values in rows:
@@ -334,13 +381,53 @@ class _Reader:
         days = sorted(by_day)
         for key in ("morning_days", "afternoon_days"):
             if key in found:
-                self.frame[key] = [d for d in days if by_day[d][key]]
-                self.frame_given = True
+                self.legacy[key] = [d for d in days if by_day[d][key]]
+                self.legacy_given = True
         if "HDTN_FIXED_SLOTS" in found:
             self.values["HDTN_FIXED_SLOTS"] = [(d, by_day[d]["HDTN_FIXED_SLOTS"]) for d in days
                                                if by_day[d]["HDTN_FIXED_SLOTS"] is not None]
         if "HDTN_FLEX_DAYS" in found:
             self.values["HDTN_FLEX_DAYS"] = [d for d in days if by_day[d]["HDTN_FLEX_DAYS"]]
+
+    def day_layout(self, ws, header_row: int, end_row: int, key_col: int, sessions: list[str]) -> None:
+        """Bảng Ngày ghi theo cách mới: Ngày (tên tùy ý, thứ tự theo dòng) | Buổi <tên> (số tiết, 0 hoặc trống: không
+        học buổi đó) | các cột HĐTN. Ngày không có tiết nào không phải ngày học."""
+        sheet = ws.title
+        if len({normalize(n) for n in sessions}) < len(sessions):
+            self.error(sheet, header_row, "bảng Ngày có hai cột Buổi trùng tên")
+            return
+        cols = tuple(Col(f"{SESSION_PREFIX} {n}", f"buoi:{n}", "count", "") for n in sessions)
+        found, rows = self.table(ws, header_row, end_row, key_col, DAY_COLS + cols, strict=True)
+        old = [c.header for c in DAY_COLS if c.key in found and c.key in LEGACY_FRAME]
+        if old:
+            self.error(sheet, header_row, f"bảng Ngày ghi số tiết ở các cột {SESSION_PREFIX} <tên> thì bỏ cột "
+                                          f"{', '.join(old)} (cách ghi cũ)")
+            return
+        layout: Layout = []
+        fixed, flex, seen = [], [], {}
+        for r, key, values in rows:
+            name = clean_name(key)
+            if normalize(name) in seen:
+                self.error(sheet, r, f"ngày '{name}' bị lặp với dòng {seen[normalize(name)]}")
+                continue
+            seen[normalize(name)] = r
+            parts = tuple((n, values.get(f"buoi:{n}") or 0) for n in sessions)
+            if not any(k for _, k in parts):
+                if values.get("HDTN_FIXED_SLOTS") is not None or values.get("HDTN_FLEX_DAYS"):
+                    self.error(sheet, r, f"ngày '{name}' không có tiết nào (cột {SESSION_PREFIX} <tên>) nhưng có ghi "
+                                         f"tiết HĐTN")
+                continue
+            d = len(layout)
+            layout.append((name, parts))
+            if values.get("HDTN_FIXED_SLOTS") is not None:
+                fixed.append((d, values["HDTN_FIXED_SLOTS"]))
+            if values.get("HDTN_FLEX_DAYS"):
+                flex.append(d)
+        self.layout = layout
+        if "HDTN_FIXED_SLOTS" in found:
+            self.values["HDTN_FIXED_SLOTS"] = fixed
+        if "HDTN_FLEX_DAYS" in found:
+            self.values["HDTN_FLEX_DAYS"] = flex
 
     def periods(self, ws, header_row: int, end_row: int, key_col: int) -> None:
         sheet = ws.title
@@ -513,27 +600,47 @@ class _Reader:
                 else:
                     roles.append(config.Role(label, tuple(names.values()), r))
 
-    def finish(self) -> dict[str, object]:
-        f = self.frame
+    def frame(self) -> dict[str, object]:
+        """Khung giờ của file (DAYS, DAY_SESSIONS, MORNING, AFTERNOON; {} nếu file không ghi): đọc xong sheet QUY ĐỊNH
+        thì tính ngay, để cột Ngày, Buổi của sheet LUẬT đọc theo tên ngày, tên buổi của chính file."""
         sheet = config.RULES_SHEET
-        morning = f["morning_days"]
-        if not morning or morning != list(range(len(morning))):
-            self.error(sheet, None, "các ngày Học buổi sáng phải liền nhau từ Thứ 2")
-        elif any(d not in morning for d in f["afternoon_days"]):
-            self.error(sheet, None, "ngày Học buổi chiều phải là ngày Học buổi sáng")
-        if self.frame_given:
-            self.values.update(_build_frame(f))
+        self.frame_layout = layout = layout_now()
+        if self.layout is not None and self.legacy_given:
+            self.error(sheet, None, f"khung giờ ghi theo hai cách: bảng Ngày đã có các cột {SESSION_PREFIX} <tên> thì bỏ "
+                                    f"các quy định Số tiết buổi sáng, Số tiết buổi chiều (cách ghi cũ)")
+        elif self.layout is not None:
+            if not self.layout:
+                self.error(sheet, None, f"chưa có ngày học nào (bảng Ngày, cột {SESSION_PREFIX} <tên> ghi số tiết)")
+            else:
+                layout = self.layout
+                self.values.update(_build_frame(layout))
+        elif self.legacy_given:
+            f = self.legacy
+            morning = f["morning_days"]
+            if not morning or morning != list(range(len(morning))):
+                self.error(sheet, None, "các ngày Học buổi sáng phải liền nhau từ Thứ 2")
+            elif any(d not in morning for d in f["afternoon_days"]):
+                self.error(sheet, None, "ngày Học buổi chiều phải là ngày Học buổi sáng")
+            else:
+                layout = _legacy_layout(f)
+                self.values.update(_build_frame(layout, legacy=f))
+        self.frame_layout = layout
+        return {a: self.values[a] for a in FRAME_ATTRS if a in self.values}
+
+    def finish(self) -> dict[str, object]:
+        sheet = config.RULES_SHEET
+        layout = self.frame_layout
         # Ngày, tiết các quy định nhắc tới (kể cả giá trị mặc định) phải có trong khung giờ.
         get = lambda attr: self.values.get(attr, getattr(config, attr))  # noqa: E731
-        afternoon = set(f["afternoon_days"])
-        n_periods = lambda d: f["morning_periods"] + (f["afternoon_periods"] if d in afternoon else 0)  # noqa: E731
+        counts = [sum(n for _, n in parts) for _, parts in layout]
+        name = lambda d: layout[d][0] if 0 <= d < len(layout) else _day_name(d)  # noqa: E731
         for d, p in get("HDTN_FIXED_SLOTS"):
-            if d not in morning or p > n_periods(d):
-                self.error(sheet, None, f"Tiết HĐTN cố định {_day_name(d)} tiết {p} không có trong khung giờ")
+            if not 0 <= d < len(layout) or p > counts[d]:
+                self.error(sheet, None, f"Tiết HĐTN cố định {name(d)} tiết {p} không có trong khung giờ")
         for d in get("HDTN_FLEX_DAYS"):
-            if d not in morning:
-                self.error(sheet, None, f"Xếp tiết HĐTN còn lại vào {_day_name(d)} nhưng ngày đó không học")
-        total = f["morning_periods"] + f["afternoon_periods"]
+            if not 0 <= d < len(layout):
+                self.error(sheet, None, f"Xếp tiết HĐTN còn lại vào {name(d)} nhưng ngày đó không học")
+        total = max(counts, default=0)
         for attr in ("HOMEROOM_PERIODS", "HEAVY_LATE_PERIODS"):
             for p in sorted(get(attr)):
                 if p > total:
@@ -566,14 +673,15 @@ def read_rules(path: str | Path, warn=lambda text: None) -> dict[str, object] | 
     if ws is not None:
         reader.roles(ws)
         found = True
-    ws = find_sheet(wb, luat_rieng.SHEET)
-    if ws is not None:
-        reader.custom(ws)
-        found = True
-    ws = find_sheet(wb, luat_rieng.RULES_SHEET)
-    if ws is not None:
-        reader.custom(ws, "RULES")
-        found = True
+    with applied(reader.frame()):  # cột Ngày, Buổi của các dòng luật theo khung giờ của file
+        ws = find_sheet(wb, luat_rieng.SHEET)
+        if ws is not None:
+            reader.custom(ws)
+            found = True
+        ws = find_sheet(wb, luat_rieng.RULES_SHEET)
+        if ws is not None:
+            reader.custom(ws, "RULES")
+            found = True
     if not found:
         return None
     values = reader.finish()
@@ -659,19 +767,21 @@ def _yn(on: bool) -> str:
 
 def rule_tables() -> list[tuple[list[str], list[list]]]:
     """Ba bảng của sheet QUY ĐỊNH theo config hiện tại: [(tiêu đề, các dòng)]."""
-    f = _frame_now()
-    general = {"morning_periods": f["morning_periods"], "afternoon_periods": f["afternoon_periods"],
-               "SESSION_GROUP_LIMIT": config.SESSION_GROUP_LIMIT, "PAIR_MIN_LESSONS": config.PAIR_MIN_LESSONS,
+    general = {"SESSION_GROUP_LIMIT": config.SESSION_GROUP_LIMIT, "PAIR_MIN_LESSONS": config.PAIR_MIN_LESSONS,
                **{k: _yn(role in config.OVERTIME_ROLES) for k, role in _ROLES.items()}}
     fixed = dict(config.HDTN_FIXED_SLOTS)
     flex = set(config.HDTN_FLEX_DAYS)
-    days = [[_day_name(d), _yn(d in f["morning_days"]), _yn(d in f["afternoon_days"]), fixed.get(d), _yn(d in flex)]
-            for d in range(MAX_DAYS)]
-    total = f["morning_periods"] + f["afternoon_periods"]
+    layout = layout_now()
+    names = list(dict.fromkeys(n for _, parts in layout for n, _ in parts))
+    day_cols = visible(DAY_COLS)
+    hdtn = {"HDTN_FIXED_SLOTS": lambda d: fixed.get(d), "HDTN_FLEX_DAYS": lambda d: _yn(d in flex)}
+    days = [[name, *(dict(parts).get(n) or None for n in names), *(hdtn[c.key](d) for c in day_cols)]
+            for d, (name, parts) in enumerate(layout)]
+    total = max((sum(n for _, n in parts) for _, parts in layout), default=0)
     periods = [[p, _yn(p in config.HOMEROOM_PERIODS), _yn(p in config.HEAVY_LATE_PERIODS)]
                for p in range(1, total + 1)]
     return [([GENERAL_KEY, VALUE], [[c.header, general[c.key]] for c in visible(GENERAL)]),
-            ([DAY_KEY, *(c.header for c in DAY_COLS)], days),
+            ([DAY_KEY, *(f"{SESSION_PREFIX} {n}" for n in names), *(c.header for c in day_cols)], days),
             ([PERIOD_KEY, *(c.header for c in PERIOD_COLS)], periods)]
 
 
@@ -736,7 +846,15 @@ def subject_columns(subjects=()) -> tuple[list[str], dict[str, list], list[str]]
 def notes() -> list[tuple[str, str]]:
     """Giải thích từng quy định (cho sheet HƯỚNG DẪN): [(sheet: cột/quy định, cách ghi)]."""
     return [*((f"{config.PROGRAM_SHEET}: {c.header}", c.note) for c in visible(SUBJECT_COLS)),
-            *((f"{config.RULES_SHEET}: {c.header}", c.note) for c in visible((*GENERAL, *DAY_COLS, *PERIOD_COLS))),
+            *((f"{config.RULES_SHEET}: {c.header}", c.note) for c in visible(GENERAL)),
+            (f"{config.RULES_SHEET}: {DAY_KEY}, {SESSION_PREFIX} <tên buổi>",
+             f"Bảng {DAY_KEY}: mỗi dòng một ngày học, tên tùy ý (vd Thứ 2, Thứ 7, Chủ nhật), theo thứ tự trong tuần. Mỗi "
+             f"cột {SESSION_PREFIX} <tên buổi> (vd {SESSION_PREFIX} Sáng, {SESSION_PREFIX} Chiều, {SESSION_PREFIX} Tối) ghi "
+             f"số tiết của buổi đó trong ngày; ô trống là ngày đó không học buổi đó. Mỗi ngày một số tiết riêng được "
+             f"(vd chiều Thứ 5 có 4 tiết). Thêm buổi thì thêm cột, thêm ngày học thì thêm dòng; ngày không có tiết nào "
+             f"không phải ngày học. Tiết đánh số liên tục trong ngày theo thứ tự các cột buổi: sáng 4 tiết thì chiều "
+             f"bắt đầu từ tiết 5."),
+            *((f"{config.RULES_SHEET}: {c.header}", c.note) for c in visible((*DAY_COLS, *PERIOD_COLS))),
             (config.ROLES_SHEET,
              f"Không bắt buộc. Mỗi dòng một chức vụ GV chuyên biệt nhà trường tự đặt: cột {ROLE_NAME} ghi tên (không "
              f"ghi số, không trùng Chủ Nhiệm, Bộ Môn, Quản Lý), cột {ROLE_SUBJECTS} ghi các môn chức vụ đó dạy, cách "

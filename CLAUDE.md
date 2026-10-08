@@ -38,8 +38,10 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   are git-ignored). When analysing its output, read subject names only. CI runs this file but uploads only the
   result-code line, never `out/`.
 - Never hard-code school data (classes, subjects, lesson counts, teachers) in code: it all comes from the input
-  file. `tkb/config.py` holds the defaults of the rules (overridden by the file's rules), weights and LNS
-  params. A new business rule the school may want to change gets a `Col` in `tkb/rules.py` (read in `_Reader`,
+  file. The app must not be tied to any country's rules: the code holds mechanisms only, every rule, frame and name is
+  data the school can change, and defaults are a removable template (plan: frame and classes free, roles as rules,
+  staff tags; one PR per phase). `tkb/config.py` holds the defaults of the rules (overridden by the file's rules),
+  weights and LNS params. A new business rule the school may want to change gets a `Col` in `tkb/rules.py` (read in `_Reader`,
   written in `rule_tables`/`subject_columns`, listed in `ATTRS`), keeping the Có/Không/number convention.
 - Hard rules are the school's decisions: do not loosen or tighten one without asking.
 
@@ -204,8 +206,13 @@ edits work, the composer cross-checks the checker and its lowering can replace n
 `/api/rules_file`).
 
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
-`solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday
-afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names loosely via
+`solver.timetable` and `checker`. Slots are `(day index, period in the day)`; the frame is free data (table `Ngày` of
+sheet QUY ĐỊNH: one row per school day, any name, one column `Buổi <name>` per session holding that day's number of
+periods; old files' `Số tiết buổi sáng/chiều` + `Học buổi sáng/chiều` still read, same rules code) → `config.DAYS`,
+`config.DAY_SESSIONS` (periods numbered 1..n per day in session order; default Mon–Fri, 1–4 morning, 5–7 afternoon,
+Friday afternoon off). Never assume two sessions, a session's periods or day names: go through `tkb/khung_gio.py`
+(`session_at(d, p)`, `day_index`/`day_list`/`split_session_day` for typed text, `first_session_name`); `config.MORNING`/
+`AFTERNOON` only keep the rules code of old frames. LUẬT rows are parsed under the file's frame (`_Reader.frame`). Subject names in config match file names loosely via
 `staff.subject_key` → `program.canonical_subject`.
 
 Each rule below (except who-may-teach and the assignment/LNS rows) is a default row of sheet `LUẬT` (`luat_co_san.NATIVES`; deleting the row turns it off, its number/points come from the row).

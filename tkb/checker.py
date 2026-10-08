@@ -176,14 +176,14 @@ def _check_teacher_sessions(problem: Problem, lessons: list[Lesson]) -> list[str
     một cơ sở; buổi nghỉ cố định không có tiết; đủ số buổi nghỉ bất kỳ đã xin."""
     errors = []
     teachers = problem.teachers
-    periods = {p: s.name for ss in config.DAY_SESSIONS.values() for s in ss for p in s.periods}
+    sess = {(d, p): s.name for d, ss in config.DAY_SESSIONS.items() for s in ss for p in s.periods}
     campuses: dict[tuple[str, int, str], set[int]] = defaultdict(set)
     busy: dict[str, set[tuple[int, str]]] = defaultdict(set)
     for les in lessons:
         t = teachers.get(les.teacher)
         if t is None:
             continue
-        key = (les.day, periods[les.period])
+        key = (les.day, sess.get((les.day, les.period), ""))
         at2 = les.class_name in problem.campus2
         if t.campus2_only and not at2 and config.on("co_so_2"):
             errors.append(f"{les.class_name} {config.DAYS[les.day]} tiết {les.period}: {t.title} chỉ dạy ở cơ sở 2 "

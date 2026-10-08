@@ -19,7 +19,7 @@ from dataclasses import dataclass, field, replace
 
 from ortools.sat.python import cp_model
 
-from . import config
+from . import config, khung_gio
 from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, previous_cost,
                          roles_for_subject, subject_group)
 from .bo_ghep import assign_cost
@@ -635,10 +635,11 @@ def build_timetable(problem: Problem, settings: config.Settings,
             objective.extend(w.heavy_late * x[c.id, s] for s in dom[c.id]
                              if s[1] in config.HEAVY_LATE_PERIODS)
 
-    # Buổi sáng dành cho TV, Toán.
+    # Buổi sáng (buổi đầu của khung giờ, tkb/khung_gio.py) dành cho TV, Toán.
+    first, sess = khung_gio.first_session_name(), session_of()
     for c in problem.courses:
         if c.subject in config.MORNING_SUBJECTS and w.morning_core:
-            objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if s[1] not in config.MORNING.periods)
+            objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if sess[s].name != first)
 
     # Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
     days = sorted(config.DAY_SESSIONS)

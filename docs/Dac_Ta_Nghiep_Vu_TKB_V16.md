@@ -84,6 +84,7 @@
 | 66 | Kết quả dễ đọc, tạm tắt luật, tìm kiếm | Xếp xong chỉ thấy mã TKB, danh sách file và nhật ký; muốn thử bỏ một luật phải xóa dòng rồi gõ lại; danh sách dài phải cuộn tìm | Trang kết quả **tóm tắt**: mã TKB, xếp giờ bao lâu và vì sao dừng, dạy bù, tuyển thêm, các mục tiêu mềm, số ô đổi so với TKB trước, và **chất lượng** (số lần chưa theo luật ưu tiên, điểm trừ, 5 luật trừ nhiều nhất kèm ví dụ, đọc từ sheet Chất lượng). Cột **Tạm tắt** của sheet `LUẬT` (mục 6.1): ghi Có thì chương trình bỏ qua dòng như khi xóa (cùng mã quy định) mà dòng vẫn còn; trên trang là ô **Dùng** ở mỗi luật. Ô **tìm** ở các bước Môn học, Giáo viên, Luật. Mở file có TKB đã xếp với nhiều tiết bù hơn số tiết bù tối đa đang đặt (cài đặt chạy không nằm trong Excel) thì trang nâng số đó lên cho khớp. Test trang trên Chromium (Playwright, `tests/test_trang_web.py`) chạy ở CI Linux. Luật mặc định không ghi Tạm tắt: mã kết quả không đổi |
 | 67 | Đổi người dạy trên trang, phát hành TKB.exe | Đổi người dạy một môn của một lớp phải tự ghi luật Chỉ giáo viên dạy ở bước Luật; TKB.exe chỉ tải được ở Actions (cần đăng nhập, hết hạn sau 90 ngày) | Bước 7: chọn một tiết rồi chọn **người dạy** môn đó của lớp (các người được dạy, bỏ qua luật Chỉ giáo viên dạy đang có; chỉ môn không có phần GVCN dạy): trang ghi hoặc sửa luật **Chỉ giáo viên dạy** (Môn, Lớp, người), rồi Xếp lại phần còn lại đổi người dạy, giữ TKB cũ nhiều nhất (trường mẫu: Tiếng Anh lớp 1/1 sang người khác, đổi 19/928 ô). Đẩy tag `v*` thì workflow Đóng gói đăng `TKB_Windows.zip` ở trang **Releases** kèm ghi chú cài đặt. Mã kết quả không đổi |
 | 68 | Tiết bù giữ luật của người bù | Tiết bù được xếp như tiết của người mới rồi mới trả về người bù: GVCN có thể có tiết bù trong buổi đã xin nghỉ, bộ môn dạy bù có thể dạy hai lớp cùng lúc (kiểm tra luật báo KHÔNG ĐẠT); tải ngày, tiết trống của người bù không tính tiết bù, nên sheet `Chất lượng` (trường mẫu 28.140) lệch với chi phí bộ giải in ra (20.940) | Khi xếp giờ, mỗi tiết bù chiếm lịch của cả người mới và người bù (`Problem.covers`, mục 7): không trùng giờ, buổi nghỉ, mỗi buổi một cơ sở, luật bắt buộc theo giáo viên ở sheet `LUẬT`; tải ngày, tiết trống, dạy hai cơ sở trong ngày tính cả tiết bù. Một người mới không nhận tiết của cùng một lớp-môn từ hai người bù. Hai chế độ vẫn cùng vị trí môn. Trường mẫu: chi phí 25.140, bằng đúng sheet `Chất lượng` (GVCN vượt tải ngày 80 + 9 lần còn 71 + 1). File của trường (Linux, 1200): bộ giải báo 28.220 nhưng sheet `Chất lượng` là 39.120; nay 35.080 và 34.780 (vượt tải ngày + 1: 20 lần còn 6). Mã kết quả đổi |
+| 69 | Khung giờ tự do | Khung giờ chỉ là số tiết sáng/chiều chung cho mọi ngày và cột Có/Không học sáng, chiều của Thứ 2 … Thứ 7 (ngày học liền nhau từ Thứ 2, đúng hai buổi Sáng/Chiều); không ghi được chiều Thứ 5 có 4 tiết, Chủ nhật, buổi Tối hay tên ngày khác | Bảng Ngày của sheet `QUY ĐỊNH`: mỗi ngày học một dòng (tên tùy ý), mỗi cột `Buổi <tên>` ghi số tiết của buổi đó trong ngày (mục 3); bước Khung giờ của giao diện sửa thẳng bảng ngày × buổi. Cột Buổi Nghỉ, cột Ngày/Buổi của sheet `LUẬT` đọc theo tên ngày, tên buổi của khung giờ (`tkb/khung_gio.py`); file TKB ghi mỗi buổi đủ số hàng của ngày dài nhất. Cách ghi cũ vẫn đọc được; khung giờ cũ cho cùng mã quy định, cùng mã kết quả |
 
 ---
 
@@ -227,7 +228,7 @@ Ví dụ (trường mẫu tên giả của test, `tkb/truong_mau.py`):
 
 - `tkb/rules.py`. **Một quy ước cho mọi ô**: mỗi quy định là một cột (bảng quy định chung: một dòng); mỗi ô chỉ ghi **Có**, **Không** hoặc **một số nguyên dương**; ô trống là Không (hoặc không áp dụng). Riêng cột `Tên trong TKB` ghi chữ.
   - **Quy định của môn**: các cột của sheet CHƯƠNG TRÌNH HỌC, sau các cột Khối, nên tên môn chỉ ghi một chỗ. Cột lạ ở sheet này (không phải Khối, không phải quy định) được cảnh báo và bỏ qua.
-  - **Sheet `QUY ĐỊNH`**: ba bảng xếp chồng, cách nhau một dòng trống, nhận ra theo ô đầu dòng tiêu đề: `Quy định | Giá trị` (mỗi dòng một quy định), `Ngày | …` (Thứ 2 … Thứ 7), `Tiết | …` (buổi chiều đánh số nối tiếp buổi sáng). Cột hoặc quy định lạ ở sheet này là lỗi.
+  - **Sheet `QUY ĐỊNH`**: ba bảng xếp chồng, cách nhau một dòng trống, nhận ra theo ô đầu dòng tiêu đề: `Quy định | Giá trị` (mỗi dòng một quy định), `Ngày | Buổi <tên> … | …` (mỗi ngày học một dòng, tên tùy ý; mỗi cột `Buổi <tên>` ghi số tiết của buổi đó trong ngày, mục 3), `Tiết | …` (đánh số liên tục trong ngày). Cột hoặc quy định lạ ở sheet này là lỗi.
 - Cột, bảng (hoặc dòng của bảng chung) nào không có thì quy định đó dùng giá trị mặc định trong `tkb/config.py`; sheet CHƯƠNG TRÌNH HỌC chỉ có `Môn học | Khối…` và không có sheet QUY ĐỊNH thì mọi quy định dùng mặc định. Cột đã có thì là đủ: môn, ngày, tiết không có dòng tính là Không. Ghi đúng giá trị mặc định thì TKB và mã kết quả giống hệt không ghi.
 - Có/Không không phân biệt hoa thường, có dấu hay không (`x` cũng là Có). Cột `GVCN nhận trọn` theo thứ tự dòng; cột số thứ tự (GVCN cắt bớt, nhận thêm) xếp các môn theo số nhỏ trước. Nhóm môn: môn chính và các môn tăng cường của nó ghi cùng một số, môn tăng cường ghi Có ở cột Môn tăng cường. Hai cột `Bộ Môn không dạy`, `Không ghép cặp` ghi theo ngoại lệ, để môn mới (ô trống) mặc nhiên bộ môn dạy được và được ghép cặp như thường.
 - **Kiểm tra:** ô không phải Có/Không/số nguyên dương, cột lạ ở sheet QUY ĐỊNH, bảng/ngày/tiết lặp, số thứ tự trùng, hơn một môn HĐTN, nhóm môn không có đúng một môn chính, môn tăng cường thiếu nhóm, ngày học không liền nhau từ Thứ 2, buổi chiều ở ngày không học, ô HĐTN cố định hoặc tiết không có trong khung giờ → báo **mọi lỗi một lần** kèm sheet và số dòng, không xếp (mã thoát 1).
@@ -237,12 +238,10 @@ Ví dụ (trường mẫu tên giả của test, `tkb/truong_mau.py`):
 
 | Nơi ghi | Cột (hoặc dòng) | Mặc định | Hằng số trong `tkb/config.py` | Mục |
 |---|---|---|---|---|
-| QUY ĐỊNH, bảng chung | Số tiết buổi sáng / Số tiết buổi chiều | 4 / 3 (chiều là tiết 5–7) | `MORNING`, `AFTERNOON` | 3 |
 | QUY ĐỊNH, bảng chung | Số tiết tối đa một nhóm môn mỗi buổi | 2 | `SESSION_GROUP_LIMIT` | 6 |
 | QUY ĐỊNH, bảng chung | Ghép cặp khi nhóm môn có từ (tiết/tuần) | 6 | `PAIR_MIN_LESSONS` | 6 |
 | QUY ĐỊNH, bảng chung | Chủ Nhiệm được dạy bù / Bộ Môn được dạy bù | Có / Có | `OVERTIME_ROLES` | 7.2 |
-| QUY ĐỊNH, bảng ngày | Học buổi sáng | Có: Thứ 2 – Thứ 6 (liền nhau từ Thứ 2, tối đa Thứ 7) | `DAYS`, `DAY_SESSIONS` | 3 |
-| QUY ĐỊNH, bảng ngày | Học buổi chiều | Có: Thứ 2 – Thứ 5 | `DAY_SESSIONS` | 3 |
+| QUY ĐỊNH, bảng ngày | Ngày; Buổi `<tên>` (số tiết) | Thứ 2 – Thứ 6; Sáng 4 tiết, Chiều 3 tiết Thứ 2 – Thứ 5 | `DAYS`, `DAY_SESSIONS` | 3 |
 | QUY ĐỊNH, bảng ngày | Tiết HĐTN cố định | Thứ 2: 1, Thứ 6: 4 | `HDTN_FIXED_SLOTS` | 5.6 |
 | QUY ĐỊNH, bảng ngày | Xếp tiết HĐTN còn lại | Có: Thứ 3, Thứ 4, Thứ 5 | `HDTN_FLEX_DAYS` | 5.6 |
 | QUY ĐỊNH, bảng tiết | Luôn do GVCN dạy | Có: tiết 1 | `HOMEROOM_PERIODS` | 5.5 |
@@ -271,7 +270,8 @@ Ví dụ (trường mẫu tên giả của test, `tkb/truong_mau.py`):
 | Thứ 2 – Thứ 5 | Tiết 1–4 | Tiết 5–7 (hiển thị Chiều 1–3) |
 | Thứ 6 | Tiết 1–4 | Nghỉ |
 
-- Đây là khung mặc định; nhà trường đổi ở sheet QUY ĐỊNH: bảng ngày (học buổi sáng, buổi chiều; thêm được Thứ 7) và bảng chung (số tiết mỗi buổi), mục 2.5. Buổi chiều luôn đánh số nối tiếp buổi sáng.
+- Đây là khung mặc định; nhà trường đặt khung giờ tùy ý ở bảng Ngày của sheet QUY ĐỊNH (mục 2.5) hoặc bước Khung giờ của giao diện: **tên ngày, số ngày học, tên và số buổi, số tiết của từng buổi ở từng ngày** (vd thêm Thứ 7 chỉ học sáng, chiều Thứ 5 có 4 tiết, thêm buổi Tối). Tiết đánh số liên tục trong ngày theo thứ tự buổi. Không gắn với khung giờ của nước nào: code chỉ đọc khung giờ qua `tkb/khung_gio.py`.
+- Cách ghi của bản trước (`Số tiết buổi sáng`, `Số tiết buổi chiều` ở bảng chung; cột `Học buổi sáng`, `Học buổi chiều` Có/Không của Thứ 2 … Thứ 7) vẫn đọc được, ra đúng khung giờ và mã quy định như trước; file ra ghi theo cách mới. Ghi cả hai cách cùng lúc là lỗi.
 - Mỗi tuần có **32 slot**. Mỗi lớp học đủ 32 tiết/tuần.
 - Trong chương trình, tiết được đánh số 1–7. Tiết 7 là tiết cuối buổi chiều.
 - **[Cứng]** Mỗi lớp, mỗi slot có đúng 1 tiết (khi tổng chương trình của khối bằng 32).

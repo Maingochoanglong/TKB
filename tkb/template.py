@@ -72,7 +72,7 @@ NOTES = {
     "Lớp Đang Dạy": "GV bộ môn, chuyên biệt: các lớp đang dạy trong TKB cũ, cách nhau bằng dấu phẩy (vd 3D17, "
                     "3D18). TKB mới ưu tiên giữ khối, rồi giữ lớp.",
     "Buổi Nghỉ": "Buổi không xếp tiết: buổi cố định (vd Chiều T5, Sáng T6) hoặc số buổi bất kỳ (vd 2 buổi chiều), "
-                 "cách nhau bằng dấu phẩy. GVCN không nghỉ buổi sáng được (tiết Luôn do GVCN dạy ở sheet QUY ĐỊNH).",
+                 "cách nhau bằng dấu phẩy. GVCN không nghỉ được buổi có tiết Luôn do GVCN dạy (sheet QUY ĐỊNH).",
 }
 GUIDE = [
     (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Năm cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ "
@@ -85,8 +85,9 @@ GUIDE = [
                                "một số nguyên dương; ô trống là Không. Riêng cột Tên trong TKB ghi chữ. Xóa một cột "
                                "(một dòng của bảng chung, một bảng, hoặc cả sheet QUY ĐỊNH) thì quy định đó dùng giá "
                                "trị mặc định của chương trình."),
-    (config.RULES_SHEET, "Ba bảng cách nhau một dòng trống: Quy định | Giá trị; Ngày (Thứ 2 … Thứ 7); Tiết (buổi chiều "
-                         "đánh số nối tiếp buổi sáng, sáng 4 tiết thì chiều từ tiết 5; thêm tiết thì thêm dòng)."),
+    (config.RULES_SHEET, "Ba bảng cách nhau một dòng trống: Quy định | Giá trị; Ngày (mỗi dòng một ngày học, mỗi cột "
+                         "Buổi <tên> ghi số tiết của buổi đó); Tiết (đánh số liên tục trong ngày: sáng 4 tiết thì chiều "
+                         "từ tiết 5; ngày dài nhất có bao nhiêu tiết thì bấy nhiêu dòng)."),
     *rule_notes(),
     ("Kiểu chữ", "Các file kết quả chép kiểu chữ, cỡ chữ, viền của sheet NHÂN SỰ. Chỉ cần chữ và số: không cần "
                  "công thức, màu nền, ghi chú trong ô hay danh sách thả xuống."),

@@ -175,8 +175,25 @@ Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE
 - `class Weights`
 - `class Settings`
 
+## tkb/khung_gio.py — Khung giờ do nhà trường đặt (sheet QUY ĐỊNH, bảng Ngày): tên các ngày học, các buổi của từng ngày và số tiết mỗi
+- `days()` — Các ngày học (chỉ số trong config.DAYS), theo thứ tự.
+- `sessions(d)`
+- `session_at(d, p)` — Buổi chứa tiết p của ngày d (None: ngày đó không có tiết p).
+- `session_names()` — Tên các buổi, theo thứ tự xuất hiện trong ngày (vd Sáng, Chiều).
+- `first_session_name()` — Buổi đầu ngày (vd Sáng): buổi đầu tiên của ngày học đầu tiên.
+- `periods(d)`
+- `max_periods()` — Số tiết của ngày dài nhất.
+- `day_name(d)` — Tên ngày d; ngày ngoài khung giờ (luật nhắc tới Thứ 7 khi trường học Thứ 2 – Thứ 6): theo cách đặt tên "Thứ n"
+- `short_day(d)` — Tên ngày viết gọn để ghi trong ô chữ, vd "Thứ 5" -> "T5"; tên khác giữ nguyên.
+- `_day_keys(d)` — Các cách viết một ngày: tên ngày (không phân biệt hoa thường, dấu), và với tên dạng "Thứ n": "Tn", "thu n", "n";
+- `day_index(text)` — Ngày học ghi bằng chữ (tên ngày hoặc cách viết gọn) -> chỉ số ngày; None nếu không có ngày nào như vậy.
+- `day_list(text)` — Danh sách ngày, cách nhau bằng dấu phẩy; khoảng "Thứ 2-Thứ 4", "T2-T4" theo thứ tự ngày học.
+- `_range_end(start, end)` — "Thứ 2-4", "T2-4": vế sau chỉ ghi số thì mượn chữ của vế trước.
+- `session_name(text)` — Tên buổi ghi bằng chữ ("chiều", "Buổi chiều") -> tên buổi trong khung giờ; None nếu không có buổi nào như vậy.
+- `split_session_day(text)` — "Chiều T5", "Sáng thứ 6", "Tối Mon" -> (buổi, ngày); None nếu không đọc được.
+
 ## tkb/kich_ban.py — Kịch bản của một trường cho giao diện (tkb/giao_dien): toàn bộ nội dung file vào V8 dưới dạng dữ liệu JSON.
-Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `RULE_KEYS`, `STAFF_COLS`, `_HEADERS`, `ROLES`, `SUBJECT_GROUPS`, `ROLE_RULES`
+Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGESTIONS`, `RULE_KEYS`, `STAFF_COLS`, `_HEADERS`, `ROLES`, `SUBJECT_GROUPS`, `ROLE_RULES`
 - `_col(c)`
 - `schema()` — Mô tả các bảng, cột cho giao diện (sinh ô nhập theo đây).
 - `composer()` — Từ vựng của bộ ghép luật (tkb/bo_ghep.py) cho giao diện: thêm một chiều, phép đo, nhãn ở Python là trang có.
@@ -191,7 +208,8 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `RULE_KEYS`, `STAFF_COLS
 - `rule_dict(rule)` — Một luật (config.CustomRule) theo dạng kịch bản: các ô như trong sheet LUẬT.
 - `_rules_rows()` — Mọi luật đang dùng (sheet LUẬT, hoặc các dòng mặc định cộng luật riêng của file cũ) theo dạng kịch bản.
 - `_roles_part(staff, subject_names)` — Các chức vụ GV chuyên biệt: các dòng sheet CHỨC VỤ (config.CUSTOM_ROLES), rồi các chức vụ trùng tên môn mà
-- `_rules_part(subject_names)` — Các quy định đang dùng (config) theo dạng kịch bản: (chung, ngày, tiết, {môn: quy định}, các môn có quy
+- `_rules_part(subject_names)` — Các quy định đang dùng (config) theo dạng kịch bản: (chung, khung giờ {sessions, days}, tiết, {môn: quy định},
+- `upgrade(scenario)` — Kịch bản bản trước (bản nháp còn trong trình duyệt) -> bản hiện tại. Bản 2: khung giờ là số tiết buổi sáng,
 - `from_excel(path)` — Đọc file vào V8 (cả file vào cập nhật *_cap_nhat.xlsx) thành kịch bản: (kịch bản, các cảnh báo). Nhân sự và số
 - `sheets_in(path)` — Các sheet của file vào V8 mà file có (tên chuẩn, theo thứ tự trong `schema()["sheets"]`): giao diện cho chọn
 - `sample_scenario()` — Kịch bản của trường mẫu tên giả (tkb/truong_mau.py) cho nút "Xem thử với trường mẫu": ghi file vào mẫu rồi đọc
@@ -249,7 +267,7 @@ Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS
 - `class Kind`
 - `_day_label(d)`
 - `_numbers(text)` — "3, 4, 5", "3-5", "3–5" -> [3, 4, 5]; None nếu có phần không phải số.
-- `_days(text)` — "Thứ 2, Thứ 4", "T2-T4", "2, 3" -> [0, 2] / [0, 1, 2] / [0, 1].
+- `_days(text)` — Tên các ngày học (khung giờ, tkb/khung_gio.py): "Thứ 2, Thứ 4", "T2-T4" -> [0, 2] / [0, 1, 2]. Khung giờ đặt tên
 - `_blank(value)`
 - `_lookup(text, items)` — Tìm theo nhãn, khóa hoặc tên khác (không phân biệt hoa thường, dấu cách).
 - `_op(text)`
@@ -321,12 +339,14 @@ Hằng số: `MANAGER_BONUS`
 - `missing_rule_subjects(curriculum)` — Môn có luật (sheet QUY ĐỊNH hoặc config) nhưng không có trong chương trình học (thường do gõ khác tên).
 
 ## tkb/rules.py — Quy định nghiệp vụ trong file vào: nhà trường tự sửa trong Excel, không cần sửa mã nguồn.
-Hằng số: `MAX_DAYS`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY_KEY`, `DAY_COLS`, `PERIOD_KEY`, `PERIOD_COLS`, `SUBJECT_KEY`, `SUBJECT_COLS`, `LEGACY`, `FRAME_ATTRS`, `ATTRS`, `OPTIONAL_ATTRS`, `LABELS`, `DEFAULTS`, `_KNOWN`, `_ROLES`
+Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY_KEY`, `DAY_COLS`, `PERIOD_KEY`, `PERIOD_COLS`, `SUBJECT_KEY`, `SUBJECT_COLS`, `LEGACY`, `LEGACY_FRAME`, `FRAME_ATTRS`, `ATTRS`, `OPTIONAL_ATTRS`, `LABELS`, `DEFAULTS`, `_KNOWN`, `_ROLES`
 - `class Col`
-- `visible(cols)` — Các cột quy định còn ghi trong file mẫu và hiện trên giao diện (bỏ các cột LEGACY).
+- `visible(cols)` — Các cột quy định còn ghi trong file mẫu và hiện trên giao diện (bỏ các cột LEGACY, LEGACY_FRAME).
 - `_day_name(d)`
-- `_frame_now()` — Khung giờ theo config hiện tại: ngày học buổi sáng, buổi chiều, số tiết mỗi buổi.
-- `_build_frame(f)` — Khung giờ -> config.DAYS, MORNING, AFTERNOON, DAY_SESSIONS.
+- `layout_now()` — Khung giờ theo config hiện tại.
+- `_legacy_now()` — Khung giờ hiện tại theo cách ghi cũ (giá trị ban đầu khi file ghi một phần theo cách cũ).
+- `_legacy_layout(f)`
+- `_build_frame(layout, legacy)` — Khung giờ -> config.DAYS, DAY_SESSIONS (tiết đánh số liên tục trong ngày; buổi giống nhau dùng chung một
 - `_blank(value)`
 - `_row(ws, r)` — Các ô có chữ của dòng r: {cột: giá trị}.
 - `_is_grade(head)`
@@ -339,10 +359,12 @@ Hằng số: `MAX_DAYS`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY_KEY`, `DAY_COLS`,
   - `.rules_sheet(ws)` — Tìm các bảng theo ô tiêu đề đầu bảng (Quy định, Ngày, Tiết); mỗi bảng đến dòng trống kế tiếp.
   - `.general(ws, header_row, end_row, label_col)`
   - `.days(ws, header_row, end_row, key_col)`
+  - `.day_layout(ws, header_row, end_row, key_col, sessions)` — Bảng Ngày ghi theo cách mới: Ngày (tên tùy ý, thứ tự theo dòng) | Buổi <tên> (số tiết, 0 hoặc trống: không
   - `.periods(ws, header_row, end_row, key_col)`
   - `.subjects(ws)` — Đọc các cột quy định sau các cột Khối; trả về True nếu sheet có ít nhất một cột quy định.
   - `.custom(ws, attr)` — Bảng có dòng tiêu đề chứa cột Kiểu luật; mỗi dòng sau đó là một luật (dòng trống bỏ qua). Sheet LUẬT
   - `.roles(ws)` — Bảng có dòng tiêu đề chứa cột Chức vụ; các dòng sau là các chức vụ (dòng trống bỏ qua). Tên môn kiểm
+  - `.frame()` — Khung giờ của file (DAYS, DAY_SESSIONS, MORNING, AFTERNOON; {} nếu file không ghi): đọc xong sheet QUY ĐỊNH
   - `.finish()`
 - `read_rules(path, warn)` — Đọc quy định của file vào: các cột quy định của sheet CHƯƠNG TRÌNH HỌC và sheet QUY ĐỊNH. Trả về {hằng số
 - `_rules_rows(values, warn)` — Các dòng luật (sheet LUẬT; không có thì dòng mặc định theo các cột cũ, cộng sheet LUẬT RIÊNG) -> tham số luật
@@ -397,7 +419,7 @@ Hằng số: `RELAXED`
   · Luật bảo vệ học sinh: mỗi nhóm môn tối đa SESSION_GROUP_LIMIT tiết mỗi buổi; Toán mỗi ngày tối đa 1 tiết (DAILY_LIMITS); nhóm môn ghép cặp (allocation.paired_groups) mỗi buổi 0 hoặc 2 tiết liền nhau; môn có từ 2 tiết trong một buổi thì các tiết phải liền nhau (không có mẫu "môn – môn khác – môn"); tiết tăng cường sau tiết chính cùng nhóm trong ngày (config.SUBJECT_GROUPS).
   · HĐTN linh hoạt: càng gần cuối buổi càng tốt. Điểm 0: dòng luật ưu tiên tương ứng đã bỏ khỏi sheet LUẬT (các khối dưới đây bỏ qua luôn).
   · Hạn chế môn nặng ở tiết cuối ngày.
-  · Buổi sáng dành cho TV, Toán.
+  · Buổi sáng (buổi đầu của khung giờ, tkb/khung_gio.py) dành cho TV, Toán.
   · Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
   · Rải đều môn trong tuần theo từng lớp.
   · Tiết trống giữa buổi của GV không chủ nhiệm.
@@ -424,7 +446,7 @@ Hằng số: `RELAXED`
 - `_mark_locked(solution, keep, log)` — Đánh dấu các tiết ở ô khóa của TKB cũ (giữ được môn) để file vào cập nhật ghi lại " (khóa)"; in các ô khóa
 
 ## tkb/staff.py — Đọc và kiểm tra file Excel danh sách nhân sự.
-Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_SESSIONS`, `_FIXED_OFF_RE`, `_ANY_OFF_RE`, `OPTIONAL_COLUMNS`
+Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_ANY_OFF_RE`, `OPTIONAL_COLUMNS`
 - `class InputError` — Lỗi dữ liệu đầu vào.
 - `class Teacher`
   - `.grade()`
@@ -499,7 +521,9 @@ Hằng số: `_SUBJECTS`, `_LESSONS`, `CURRICULUM`, `_CLASSES`, `STAFF_ROWS`
 ## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (số tiết từng môn của mỗi giáo viên); file vào
 Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `OVERTIME_DETAIL_HEADER`, `SPARE_HEADER`, `STATS_SHEET`, `SHORTAGE_SHEET`, `TEACHER_SHEET`, `TEACHER_SUMMARY_SHEET`, `QUALITY_SHEET`, `QUALITY_HEADERS`, `QUALITY_EXAMPLES`, `CHANGES_SHEET`, `CHANGES_HEADERS`, `TOTAL_HEADER`, `MOVE_HEADERS`, `OVERTIME_FILL`, `HIRE_FILL`, `OVERTIME_LEGEND`, `HIRE_LEGEND`, `SPARE_FILL`, `SPARE_LEGEND`, `OVERTIME_CELL_FILL`, `OVERTIME_CELL_LEGEND`, `CAMPUS_FILES`, `OLD_NOTES_SHEET`, `LIST_SHEET`, `_ROW_FORMULA`
 - `teacher_labels(teachers, with_codes)` — Chức vụ -> tên hiển thị dưới tên môn trong TKB.
-- `session_rows()` — Các hàng của bảng TKB: (buổi, tiết trong ngày). Cột TIẾT ghi tiết trong ngày: sáng 1–4, chiều 5–7.
+- `class GridRow` — Một hàng của bảng TKB: tiết thứ k của một buổi. Khung giờ mỗi ngày một khác (tkb/khung_gio.py) thì hàng đó có
+  - `.period(d)`
+- `session_rows()` — Các hàng của bảng TKB theo khung giờ: mỗi buổi (theo thứ tự trong ngày) có số hàng bằng số tiết nhiều nhất của
 - `_merge(ws, style, r1, c1, r2, c2, value)`
 - `_grade_sheets(wb, solution, style, with_codes, classes)`
 - `staff_rows(solution)` — GV thật theo thứ tự file gốc, sau đó GV bổ sung được dùng.
@@ -558,6 +582,7 @@ Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XL
   - `._import(path, name)`
   - `.import_file(body, name)`
   - `.import_path(data)`
+  - `.upgrade(data)` — Bản nháp kịch bản của bản trước (khung giờ cách cũ) -> bản hiện tại (kich_ban.upgrade).
   - `.describe(data)`
   - `.check(data)`
   - `._grid(data)` — Bài toán của kịch bản để xem, đổi ô TKB (gọi trong self.lock): dựng lại khi kịch bản (trừ TKB) hay cài
@@ -637,7 +662,8 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_chuc_vu.py`: test_read_sheet_and_rules_code, test_sheet_errors_all_at_once, test_role_with_many_subjects, test_role_subject_errors, test_unknown_role_is_still_an_error, test_role_without_teacher_is_hired_for_forbidden_subjects, test_solve_with_a_role_of_many_subjects, test_custom_rule_for_a_role_of_many_subjects, test_checker_finds_a_subject_outside_the_role, test_scenario_roles_round_trip
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
-- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
+- `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end
+- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
 - `tests/test_luat_co_san.py`: test_default_rows_change_nothing, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_rule_switched_off_is_kept_but_not_used, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_cross_check_with_the_checker, test_generic_lowering_replaces_the_native_one
 - `tests/test_luat_rieng.py`: test_parse_each_kind, test_parse_errors, test_read_sheet_and_rules_code, test_no_custom_rules_change_nothing, test_hard_rules_hold_and_are_checked, test_soft_rules_are_preferred, test_teacher_day_cap_limits_the_assignment, test_precheck_and_validate, test_diagnosis_names_the_custom_rule
@@ -649,5 +675,5 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_staff.py`: test_bad_lessons, test_duplicates_rejected, test_read_sample_staff, test_program_file_is_read_as_written, test_subject_names_match_rules_loosely, test_columns_and_auto_numbering, test_numbered_titles_are_rejected, test_old_headers_are_rejected, test_class_errors, test_class_turned_into_date, test_program_sheet_aliases_and_total_row, test_missing_program_sheet_is_an_error, test_all_errors_at_once, test_named_classes_and_optional_columns, test_optional_column_errors
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_overtime_lessons_keep_the_leave_of_the_teacher, test_overtime_of_a_general_teacher_never_clashes, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_is_plain, test_saved_input_template_is_up_to_date, test_blank_template, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
-- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_timetable_view_swap_and_undo
+- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_timetable_view_swap_and_undo, test_free_time_frame
 - `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_teacher_timetable, test_quality_sheet, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style

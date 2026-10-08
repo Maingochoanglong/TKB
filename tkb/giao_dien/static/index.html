@@ -82,13 +82,17 @@
       </div>
       <div class="card">
         <h2>Tiết trong ngày</h2>
-        <p class="muted">Buổi chiều đánh số nối tiếp buổi sáng. Số tiết lấy theo quy định chung.</p>
+        <p class="muted">Tiết đánh số liên tục trong ngày theo thứ tự buổi (sáng 4 tiết thì chiều từ tiết 5). Số dòng theo ngày
+          dài nhất ở bảng Ngày học.</p>
         <div class="table-wrap"><table id="period-table" class="grid"></table></div>
       </div>
     </div>
     <div class="card">
-      <h2>Ngày học</h2>
-      <p class="muted">Các ngày học liền nhau từ Thứ 2 (có thể thêm Thứ 7); buổi chiều phải là ngày có học buổi sáng.</p>
+      <div class="toolbar"><h2>Ngày học</h2>
+        <span class="actions-right"><button type="button" data-act="day-add">+ Thêm ngày</button>
+        <button type="button" data-act="session-add">+ Thêm buổi</button></span></div>
+      <p class="muted">Mỗi dòng một ngày học, tên tùy ý. Mỗi cột Buổi ghi số tiết của buổi đó trong ngày (để trống: ngày đó không
+        học buổi đó); mỗi ngày một số tiết riêng được. Đổi tên buổi ở ô tiêu đề cột.</p>
       <div class="table-wrap"><table id="day-table" class="grid"></table></div>
     </div>
     <details class="card help"><summary>Giải thích các quy định ở trang này</summary><dl id="help-khung"></dl></details>

@@ -107,7 +107,8 @@ _BY_LABEL = {subject_key(k.label): k for k in KINDS} | {subject_key(k.key): k fo
 
 
 def _day_label(d: int) -> str:
-    return f"Thứ {d + 2}"
+    from .khung_gio import day_name
+    return day_name(d)
 
 
 def _numbers(text: str) -> list[int] | None:
@@ -126,7 +127,14 @@ def _numbers(text: str) -> list[int] | None:
 
 
 def _days(text: str) -> list[int] | None:
-    """"Thứ 2, Thứ 4", "T2-T4", "2, 3" -> [0, 2] / [0, 1, 2] / [0, 1]."""
+    """Tên các ngày học (khung giờ, tkb/khung_gio.py): "Thứ 2, Thứ 4", "T2-T4" -> [0, 2] / [0, 1, 2]. Khung giờ đặt tên
+    ngày kiểu "Thứ n" (như mặc định) thì còn nhận cả Thứ 2 … Thứ 7 chưa phải ngày học và cách ghi số "2, 3" như trước."""
+    from .khung_gio import day_list
+    days = day_list(text)
+    if days is not None:
+        return days
+    if not all(re.fullmatch(rf"Thứ {d + 2}", name) for d, name in enumerate(config.DAYS)):
+        return None
     folded = re.sub(r"\b(?:thu|t)\s*(?=\d)", "", _fold(text))
     days = _numbers(folded)
     if days is None or any(not 2 <= d <= 7 for d in days):
@@ -218,7 +226,8 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
         elif key == "days":
             days = _days(text)
             if not days:
-                error(f"cột Ngày ghi Thứ 2 … Thứ 7, vd 'Thứ 2, Thứ 4' hoặc 'T2-T4', đang ghi {value!r}")
+                error(f"cột Ngày ghi tên ngày học ({', '.join(config.DAYS)}), vd '{config.DAYS[0]}' hoặc "
+                      f"'{config.DAYS[0]}-{config.DAYS[-1]}', đang ghi {value!r}")
                 ok = False
             else:
                 out[key] = tuple(days)
@@ -230,13 +239,13 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
             else:
                 out[key] = tuple(periods)
         elif key == "sessions":
-            names = {_fold(s.name): s.name for s in (config.MORNING, config.AFTERNOON)}
-            parts = [_fold(p) for p in re.split(r"[,;]", text) if p.strip()]
-            if not parts or any(p.replace("buoi ", "") not in names for p in parts):
-                error(f"cột Buổi ghi {config.MORNING.name} hoặc {config.AFTERNOON.name}, đang ghi {value!r}")
+            from .khung_gio import session_name, session_names
+            parts = [session_name(p) for p in re.split(r"[,;]", text) if p.strip()]
+            if not parts or None in parts:
+                error(f"cột Buổi ghi tên buổi ({', '.join(session_names())}), đang ghi {value!r}")
                 ok = False
             else:
-                out[key] = tuple(sorted({names[p.replace('buoi ', '')] for p in parts}))
+                out[key] = tuple(sorted(set(parts)))
         elif key in ("tags", "exclude"):
             known = {subject_key(t): t for t in bo_ghep.tag_names()}
             tags = [known.get(subject_key(t)) for t in bo_ghep.names(text)]
