@@ -13,8 +13,14 @@ thiếu, số tiết bù của từng người, số người cần tuyển và 
   nguyên.
 
 Đặc tả nghiệp vụ chi tiết: [`docs/Dac_Ta_Nghiep_Vu_TKB_V16.md`](docs/Dac_Ta_Nghiep_Vu_TKB_V16.md).
+**Hướng dẫn ngắn có hình cho nhà trường:** [`docs/Huong_Dan_Su_Dung.md`](docs/Huong_Dan_Su_Dung.md).
 
 ## Cài đặt và chạy
+
+**Không cài Python (Windows):** tải `TKB_Windows.zip` (mục Actions → workflow **Đóng gói TKB.exe** → Artifacts),
+giải nén, bấm đúp `TKB.exe`: mở đúng giao diện web ở Cách 0, kết quả ghi vào thư mục `TKB` trong thư mục người dùng.
+Gói dựng bằng `python tools/dong_goi.py` (PyInstaller, `pip install -r requirements-build.txt`), cùng OR-Tools ghim
+nên ra cùng mã kết quả như `python -m tkb` trên Windows; gói không chứa file Excel nào của trường.
 
 Cài thư viện (một lần):
 
@@ -73,7 +79,8 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      RIÊNG, HƯỚNG DẪN), dùng
      được cho `main.py` và dòng lệnh, gửi cho trường khác được.
 
-- Thư mục kết quả mặc định `out/giao_dien` của dự án (đã bỏ qua trong git); đổi ở trang Kiểm tra & xếp TKB. Kịch bản đang soạn được lưu
+- Thư mục kết quả mặc định `out/giao_dien` của dự án (đã bỏ qua trong git; bản `TKB.exe`: thư mục `TKB` trong thư mục
+  người dùng); đổi ở trang Kiểm tra & xếp TKB. Kịch bản đang soạn được lưu
   tự động trong trình duyệt của máy này.
 - Cài đặt chạy mặc định như `main.py`, riêng số tiết bù tối đa là mức được duyệt 2 (file của trường hiện cần 3).
   Các cài đặt này không nằm trong file Excel; cùng file vào và cùng cài đặt thì ra cùng mã kết quả như dòng lệnh.
@@ -178,7 +185,7 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 | Windows x86-64 | **`08F4-E2C6-3470`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
 | Linux x86-64 | **`5C2B-510F-5156`** | Python 3.11 |
 
-**Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau.
+**Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau. Máy ảo Linux chạy toàn bộ test, kể cả mã tham chiếu Linux (`.github/workflows/linux.yml`); gói `TKB.exe` được dựng và chạy thử trên Windows (`.github/workflows/dong_goi.yml`: xếp bằng `TKB.exe --cli`, xếp và Dừng sớm qua giao diện).
 
 ## Đầu vào
 

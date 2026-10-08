@@ -12,7 +12,7 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 ## giao_dien.py — Mở giao diện web xếp thời khóa biểu: bấm nút Run (▶) để chạy, trình duyệt tự mở trang nhập liệu.
 
 ## tkb/__main__.py — Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] ...
-- `use_utf8_output()` — In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252).
+- `use_utf8_output()` — In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252), và in xong dòng nào
 - `main(argv)`
 - `_run(args, settings)`
 - `print_teacher_rules(solution)` — In số liệu các luật về GV: hai cơ sở, thai sản, buổi nghỉ, giữ phân công của TKB cũ (chỉ in khi file vào
@@ -572,6 +572,16 @@ Hằng số: `ROOT`
 - `run_once(source, out)` — Chạy main.run; trả về (mã thoát, mã kết quả đọc từ dòng "Mã kết quả: ..." in ra màn hình).
 - `run(argv)`
 
+## .github/scripts/thu_goi.py — Chạy thử gói dựng bằng tools/dong_goi.py, như người dùng bấm đúp TKB.exe, với trường mẫu tên giả.
+Hằng số: `ROOT`, `FILES`
+- `_env()`
+- `_fail(text)`
+- `cli(exe, work)`
+- `_call(url, token, path, body, raw, timeout)`
+- `_wait(url, token, until, limit)`
+- `ui(exe, work)`
+- `main()`
+
 ## tools/code_map.py — Bản đồ code: mỗi module một dòng mô tả, rồi các hàm/lớp kèm tham số và dòng đầu docstring.
 Hằng số: `ROOT`, `OUT`, `SOURCES`, `TESTS`, `LONG_FUNCTION`, `HEADER`
 - `_files(pattern)`
@@ -585,6 +595,14 @@ Hằng số: `ROOT`, `OUT`, `SOURCES`, `TESTS`, `LONG_FUNCTION`, `HEADER`
 - `render(lines, only)`
 - `main(argv)`
 
+## tools/dong_goi.py — Đóng gói giao diện xếp TKB thành bản chạy không cần cài Python (PyInstaller, bản thư mục), rồi nén zip.
+Hằng số: `ROOT`, `NAME`, `README`
+- `build()` — Dựng dist/TKB bằng PyInstaller; trả về thư mục gói.
+- `check(folder)` — Gói đủ trang giao diện, không có file Excel nào (file của trường có tên giáo viên).
+- `pack(folder)` — Nén thư mục gói thành dist/TKB_<hệ điều hành>.zip (trong zip là thư mục TKB/).
+- `main()`
+- `_has_pyinstaller()`
+
 ## tools/mau_dau_ra.py — Sinh lại các file mẫu đầu ra từ trường mẫu tên giả (tests/du_lieu_mau.py), với các hằng số mặc định
 Hằng số: `ROOT`, `TEMPLATES`
 - `run()`
@@ -595,7 +613,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_chan_doan.py`: test_no_conflict_with_default_rules, test_session_limit_too_small_for_the_lessons, test_pairs_against_daily_limit, test_student_rules_off_skips_the_count, test_solve_stops_before_solving_on_a_counted_conflict, test_diagnosis_names_the_rules_in_conflict, test_diagnosis_of_a_solvable_school_blames_the_time, test_relaxing_rules_changes_nothing_by_default
 - `tests/test_chuc_vu.py`: test_read_sheet_and_rules_code, test_sheet_errors_all_at_once, test_role_with_many_subjects, test_role_subject_errors, test_unknown_role_is_still_an_error, test_role_without_teacher_is_hired_for_forbidden_subjects, test_solve_with_a_role_of_many_subjects, test_custom_rule_for_a_role_of_many_subjects, test_checker_finds_a_subject_outside_the_role, test_scenario_roles_round_trip
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
-- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable
+- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_history_and_leave_as_the_page_writes_them
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
 - `tests/test_luat_co_san.py`: test_default_rows_change_nothing, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_cross_check_with_the_checker, test_generic_lowering_replaces_the_native_one

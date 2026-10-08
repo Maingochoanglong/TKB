@@ -220,7 +220,14 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
   `.github/scripts/chay_mau.py` (`FILE_VAO` twice, uploads only the code); a Linux job fails if any VM's code
   differs (~35 min).
+- `linux.yml`: on PRs and pushes to main; pytest on ubuntu-24.04 / Python 3.12 (incl. the Linux reference codes).
 - `file_that_windows.yml`: manual (or when the file itself changes); same run once on 2 VMs with Python 3.14.
+- `dong_goi.yml` (manual, tags `v*`, PRs touching packaging/UI entry): `tools/dong_goi.py` builds `dist/TKB/TKB.exe`
+  (PyInstaller onedir, `requirements-build.txt` pins it; static pages as data, `--collect-all ortools`; refuses any
+  `.xlsx` in the package) → `.github/scripts/thu_goi.py` runs it on the fake school (`--cli`, then the UI: import,
+  check, run, Stop) → artifact `TKB_Windows.zip`. The frozen exe re-runs itself with `--cli` for each solve
+  (`server.cli_command`) and ignores `PYTHONUNBUFFERED`, so `__main__.use_utf8_output` line-buffers stdout (the UI log
+  and Stop depend on it).
 
 ## Docs (open only the section you need)
 - `docs/CODE_MAP.md`: generated function index (prefer `python tools/code_map.py <filter>`).

@@ -20,10 +20,12 @@ from .writer import (CHANGES_SHEET, campus_paths, change_rows, write_shortage, w
 
 
 def use_utf8_output() -> None:
-    """In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252)."""
+    """In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252), và in xong dòng nào
+    là ra ngay dòng đó: giao diện (tkb/giao_dien) đọc từng dòng của tiến trình xếp TKB, mà bản đóng gói (TKB.exe)
+    không theo biến PYTHONUNBUFFERED."""
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="replace")
+            stream.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
 
 
 def main(argv: list[str] | None = None) -> int:

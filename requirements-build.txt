@@ -1,0 +1,3 @@
+# Đóng gói TKB.exe (tools/dong_goi.py): các thư viện của chương trình, thêm PyInstaller ghim đúng phiên bản.
+-r requirements.txt
+pyinstaller==6.22.3

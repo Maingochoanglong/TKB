@@ -1,6 +1,7 @@
 """Giao diện web (tkb/giao_dien): máy chủ trên máy, mã phiên, các lệnh /api/ và xếp TKB qua giao diện ra đúng TKB như
 dòng lệnh."""
 import json
+import os
 import sys
 import threading
 import time
@@ -12,7 +13,8 @@ from urllib.parse import quote
 import pytest
 
 from tkb import config
-from tkb.giao_dien.server import (FILE_NAMES, InputError, TOKEN_MARK, make_server, run_argv, safe_name, summary)
+from tkb.giao_dien import server as server_module
+from tkb.giao_dien.server import (FILE_NAMES, InputError, TOKEN_MARK, Job, make_server, run_argv, safe_name, summary)
 from tkb.template import write_staff_template
 
 from .conftest import CURRICULUM, INPUT_FILE, small_staff
@@ -179,3 +181,45 @@ def test_run_from_the_ui_gives_the_reference_timetable(server, tmp_path, mode):
         assert result["code"] == expected
     status, body = _call(url, f"/api/file?path={quote(result['files'][0])}&t={app.token}")
     assert status == 200 and body[:2] == b"PK"
+
+
+def test_open_only_files_inside_output_folder(server, monkeypatch):
+    """Nút Mở file: mở đúng file trong thư mục kết quả bằng ứng dụng mặc định (Windows: os.startfile; máy khác:
+    xdg-open / open), giả lập để không mở Excel thật; file ngoài thư mục hay không có thì báo lỗi."""
+    app, url = server
+    app.out_dir.mkdir(parents=True, exist_ok=True)
+    target = app.out_dir / FILE_NAMES["tkb"]
+    target.write_bytes(b"PK")
+    opened = []
+    if os.name == "nt":
+        monkeypatch.setattr(server_module.os, "startfile", lambda path: opened.append(Path(path)))
+    else:
+        monkeypatch.setattr(server_module.subprocess, "Popen", lambda args, **_: opened.append(Path(args[-1])))
+    assert _call(url, "/api/open", "POST", {"path": str(target)}, app.token) == (200, {"ok": True})
+    assert _call(url, "/api/open", "POST", {"path": FILE_NAMES["tkb"]}, app.token)[0] == 200  # tên trong thư mục
+    assert opened == [target.resolve()] * 2
+    status, err = _call(url, "/api/open", "POST", {"path": str(app.out_dir / "khong_co.xlsx")}, app.token)
+    assert status == 400 and "Không có" in err["error"] and len(opened) == 2
+
+
+def test_stop_ends_early_and_keeps_the_timetable(tmp_path):
+    """Nút Dừng (Linux: Ctrl+C, Windows: Ctrl+Break tới nhóm tiến trình con): chương trình xếp xong vùng đang xếp rồi
+    ghi TKB tốt nhất, không đợi hết thời gian. Chạy ở cả 4 máy Windows của CI."""
+    job = Job(run_argv(INPUT_FILE, tmp_path, "mau", {"time_limit": 100, "workers": 4}), tmp_path)
+    try:
+        deadline = time.time() + 300
+        while job.running and not any("Khởi đầu:" in line for line in job.lines):
+            assert time.time() < deadline, "\n".join(job.lines[-20:])
+            time.sleep(0.2)
+        assert job.running, "\n".join(job.lines[-20:])
+        job.stop()
+        stopped = time.time()
+        while job.running:
+            assert time.time() - stopped < 90, "\n".join(job.lines[-20:])
+            time.sleep(0.2)
+    finally:
+        job.kill()
+    state = job.state()
+    assert state["exit"] == 0 and state["stopping"], "\n".join(state["lines"][-20:])
+    assert any("Dừng xếp giờ: Ctrl+C" in line for line in state["lines"])
+    assert state["summary"]["passed"] is True and (tmp_path / FILE_NAMES["teachers"]).is_file()

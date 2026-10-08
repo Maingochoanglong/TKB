@@ -1,0 +1,24 @@
+# Chạy toàn bộ test trên Linux (máy ảo Ubuntu của GitHub). tests/test_reproducible.py kiểm mã kết quả tham chiếu của
+# Linux; file vào của trường (FILE_VAO) không chạy ở đây (chỉ windows.yml chạy, và chỉ tải lên mã kết quả).
+name: Kiểm chứng trên Linux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: ubuntu-24.04 / Python 3.12
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cài thư viện
+        run: python -m pip install -r requirements.txt
+      - name: Chạy test
+        run: python -m pytest -q -rs

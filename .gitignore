@@ -11,3 +11,6 @@ out_run*.log
 # Tệp tạm của .github/scripts/chay_mau.py (mã kết quả, thông tin máy)
 /ma_ket_qua.txt
 /may.txt
+# Gói dựng bằng tools/dong_goi.py
+/build/
+/dist/
