@@ -47,6 +47,9 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      xóa và thay cả kịch bản; vì vậy xóa không hỏi lại mà hiện "Đã xóa … [Hoàn tác]". Cạnh đó ghi giờ lưu nháp.
    - **Kiểm tra tự động**: sửa xong khoảng 1,5 giây là trang đọc lại kịch bản như khi chạy (không dự toán); mỗi bước có
      dấu **✓** hoặc **⚠ n** (số lỗi), đầu bước có hộp lỗi của bước đó, bấm vào lỗi để tới đúng dòng, dòng lỗi tô đỏ nhạt.
+     Đọc dừng ở lỗi đầu tiên (luật, rồi chương trình học, rồi nhân sự) nên bước chưa kiểm được hiện **?** thay cho ✓.
+     Câu lỗi ghi tên giáo viên, môn, câu luật (vd `Giáo viên CN 3: Số tiết …`); vị trí trong file Excel (sheet, dòng) ở
+     chú thích khi rê chuột.
 2. Soạn kịch bản của trường theo từng bước (nút **Tiếp →** cuối mỗi trang):
    - **Khung giờ & quy định chung**: số tiết sáng/chiều, giới hạn nhóm môn, ghép cặp, ai được bù, ngày học (có thể thêm
      Thứ 7), tiết HĐTN cố định, tiết luôn do GVCN dạy, tiết hạn chế môn nặng.
@@ -377,8 +380,10 @@ trở lên").
   Giáo viên: chức vụ như cột Chức Vụ (`Chủ Nhiệm`, `Bộ Môn`, `Quản Lý` hoặc chức vụ GV chuyên biệt, vd `Tiếng Anh`),
   hoặc một người: Mã GV (`Bộ Môn 3`: người thứ 3 có chức vụ Bộ Môn theo thứ tự dòng của sheet NHÂN SỰ; `Chủ Nhiệm 1/1`)
   hay họ tên (hai người trùng tên thì phải ghi Mã GV). Câu đọc lại, thông báo lỗi và file ra luôn ghi **Mã GV**, không
-  ghi họ tên. Thêm hay xóa một dòng nhân sự làm đổi số thứ tự trong Mã GV của những người sau đó: luật ghi theo người
-  lâu dài nên ghi họ tên.
+  ghi họ tên. Thêm hay xóa một dòng nhân sự làm đổi số thứ tự trong Mã GV của những người sau đó. **Trên giao diện**,
+  luật tự đi theo đúng người: xóa, dời, đổi chức vụ, đổi lớp hay đổi tên một người thì cột Giáo viên của các luật đổi
+  theo; người bị xóa thì luật ghi họ tên của họ (không có tên: `<Mã GV> (đã xóa)`) để Kiểm tra báo luật đó, không âm
+  thầm áp cho người khác. Sửa tay trong Excel thì luật dùng lâu dài nên ghi họ tên.
   - **Giờ bận theo tiết**: `Không xếp vào`, Giáo viên `Bộ Môn 3`, Ngày `Thứ 2`, Tiết `1`, để trống Môn: người đó không
     dạy giờ đó (bắt buộc), phân công cũng tính bớt giờ đó. Khác cột Buổi Nghỉ của sheet NHÂN SỰ (nghỉ cả buổi).
   - **Ép phân công**: `Chỉ giáo viên dạy`, Môn `Tiếng Anh`, Lớp `3/1`, Giáo viên `Tiếng Anh 2`: chỉ người đó nhận các

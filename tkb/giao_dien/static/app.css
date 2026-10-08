@@ -106,6 +106,7 @@ button.icon:hover { color: var(--text); border-color: var(--line); }
 .tabs .mark { margin-left: 4px; font-size: 12px; font-weight: 700; }
 .tabs .mark.good { color: var(--ok); }
 .tabs .mark.bad { color: var(--danger); }
+.tabs .mark.wait { color: var(--muted); }
 .step-errors {
   background: var(--danger-soft); border: 1px solid var(--danger); border-radius: var(--radius);
   padding: 10px 14px; margin-bottom: 16px; color: var(--danger);

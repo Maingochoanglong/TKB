@@ -450,7 +450,10 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
     """Kiểm tra kịch bản như khi chạy: ghi ra file tạm, đọc lại bằng các hàm đọc của chương trình, đếm tìm các quy
     định mâu thuẫn (chan_doan.precheck), rồi dự toán (phân công, không xếp giờ, vài giây). Trả về {errors, warnings,
     info}: lỗi chặn việc xếp TKB; info là số liệu và dự toán. quick: dừng trước dự toán (dưới 1 giây; giao diện kiểm
-    tra tự động mỗi lần sửa), cùng các lỗi. Đổi tạm config (rules.applied) nên không gọi song song."""
+    tra tự động mỗi lần sửa), cùng các lỗi. Đọc theo thứ tự (quy định và luật, chương trình học, nhân sự, rồi các phép
+    đếm cần cả ba): gặp lỗi ở bước trước thì dừng, nên kết quả có thêm unchecked: các sheet chưa kiểm được ("" là các
+    phép đếm chung), để giao diện không báo "không lỗi" cho phần chưa kiểm. Đổi tạm config (rules.applied) nên không gọi
+    song song."""
     from .allocation import build_problem
     from .chan_doan import precheck
     from .phan_cong import phan_cong
@@ -459,13 +462,18 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
     errors: list[str] = []
     warnings: list[str] = []
     info: list[str] = []
+
+    def result(*unchecked: str) -> dict:
+        return {"errors": errors, "warnings": warnings, "info": info, "unchecked": list(unchecked)}
+
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "kich_ban.xlsx"
         to_excel(scenario, path)
         try:
             rules = read_rules(path, warn=warnings.append)
         except InputError as exc:
-            return {"errors": _lines(exc), "warnings": warnings, "info": info}
+            errors += _lines(exc)
+            return result(config.PROGRAM_SHEET, config.STAFF_SHEET, luat_rieng.RULES_SHEET, "")
         with applied(rules):
             try:
                 curriculum = read_program(path)
@@ -480,7 +488,7 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
                 errors += _lines(exc, config.STAFF_SHEET)
                 staff = None
             if errors or not curriculum:
-                return {"errors": errors, "warnings": warnings, "info": info}
+                return result(*([] if curriculum else [config.STAFF_SHEET]), luat_rieng.RULES_SHEET, "")
             classes = [t for t in staff if t.class_name]
             total = sum(sum(curriculum.get(t.grade, {}).values()) for t in classes)
             quota = sum(t.max_lessons for t in staff)
@@ -494,13 +502,13 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
                 conflicts = precheck(base, student_rules)
                 if conflicts:
                     errors += [f"Quy định mâu thuẫn, không có TKB nào thỏa: {line}" for line in conflicts]
-                    return {"errors": errors, "warnings": warnings, "info": info}
+                    return result()
                 if quick:
-                    return {"errors": errors, "warnings": warnings, "info": info}
+                    return result()
                 plan = phan_cong(base, config.Weights())
             except (InputError, SolveError) as exc:
                 errors += _lines(exc)
-                return {"errors": errors, "warnings": warnings, "info": info}
+                return result(luat_rieng.RULES_SHEET)
             info += [line.strip() for line in du_toan_lines(base, plan)]
             if plan.missing:
                 rows = ShortageError(base, plan).rows()
@@ -513,4 +521,4 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
                 info += [f"Lớp {cls}: {subject} thiếu {n} tiết ({reason})" for cls, subject, n, reason in rows[:30]]
                 if len(rows) > 30:
                     info.append(f"... và {len(rows) - 30} dòng khác")
-    return {"errors": errors, "warnings": warnings, "info": info}
+    return result()

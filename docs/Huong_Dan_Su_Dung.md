@@ -101,7 +101,8 @@ Luôn làm việc trên file **`<tên>_cap_nhat.xlsx`** của lần chạy trư�
 - **Chọn ai dạy lớp nào**: luật "Chỉ giáo viên dạy", Môn, Lớp và một người, vd Tiếng Anh lớp 3/1 chỉ `Tiếng Anh 2` dạy.
 
 Câu đọc lại và các thông báo luôn ghi Mã GV, không ghi họ tên. Mã GV đánh số theo thứ tự dòng trong chức vụ, nên thêm
-hay xóa dòng nhân sự làm đổi Mã GV của những người phía sau: luật dùng lâu dài nên ghi họ tên.
+hay xóa dòng nhân sự làm đổi Mã GV của những người phía sau. Sửa trên trang thì luật tự đi theo đúng người (xóa người
+thì luật ghi họ tên của họ và trang báo lỗi ở bước Luật); sửa tay trong Excel thì luật dùng lâu dài nên ghi họ tên.
 
 ## 5. Mã kết quả, máy Windows và máy Linux
 

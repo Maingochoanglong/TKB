@@ -316,7 +316,7 @@ def make_teacher(name, role: str, index: int | None, class_name: str | None, les
         role=role,
         index=index,
         class_name=class_name,
-        max_lessons=_to_lessons(lessons, title),
+        max_lessons=_to_lessons(lessons, f"{label or role} {class_name or index}"),
         row=row,
         label=label,
         **extra,

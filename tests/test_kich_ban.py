@@ -247,8 +247,12 @@ def test_quick_check_and_sample():
     full, quick = kich_ban.check(sample, config.MODE_OVERTIME, 3), kich_ban.check(sample, config.MODE_OVERTIME, 3,
                                                                                     quick=True)
     assert full["errors"] == quick["errors"] == [] and len(quick["info"]) == 1 < len(full["info"])
+    assert full["unchecked"] == quick["unchecked"] == []
     sample["staff"][2]["lessons"] = None
     assert kich_ban.check(sample, quick=True)["errors"] == kich_ban.check(sample)["errors"] == [
-        "NHÂN SỰ: Dòng 4: Số tiết của 'chủ nhiệm 1/3' bị trống hoặc không hợp lệ"]
+        "NHÂN SỰ: Dòng 4: Số tiết của 'Chủ Nhiệm 1/3' bị trống hoặc không hợp lệ"]
+    assert kich_ban.check(sample, quick=True)["unchecked"] == ["LUẬT", ""]  # chưa đếm chéo được
     sample["rules"].append({"kind": "Học trước", "subject": "Toán"})  # luật ghi sai: báo trước khi đọc nhân sự
-    assert kich_ban.check(sample, quick=True)["errors"] == ["LUẬT, dòng 26: kiểu luật Học trước phải ghi cột Môn thứ hai"]
+    res = kich_ban.check(sample, quick=True)
+    assert res["errors"] == ["LUẬT, dòng 26: kiểu luật Học trước phải ghi cột Môn thứ hai"]
+    assert res["unchecked"] == ["CHƯƠNG TRÌNH HỌC", "NHÂN SỰ", "LUẬT", ""]  # trang hiện "?", không hiện ✓

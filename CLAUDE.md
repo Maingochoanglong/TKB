@@ -99,7 +99,11 @@ Tệp › Bắt đầu lại) shows a start screen (open file / new / fake sampl
 (`snap`/`travel`, 50 steps, Ctrl+Z/Y outside text fields; deletes show "Đã xóa … [Hoàn tác]" instead of confirm), and
 a quick check 1.5 s later (`/api/check` with `quick`: `kich_ban.check(quick=True)` stops before `phan_cong`) whose
 errors are split per step by the sheet named in the message (`sheetOf`/`sheetTab`) into tab marks ✓/⚠ n, a per-step
-error box and red rows (`markRows`, `data-row` = Excel row).
+error box and red rows (`markRows`, `data-row` = Excel row). `check` stops at the first failing stage (rules → program →
+staff → counts) and returns `unchecked` sheets, shown as "?" not ✓; `friendly()` rewrites "SHEET: Dòng n: …" into the
+teacher/subject/rule name (the Excel position stays in the tooltip). Typing snapshots after 0.6 s, clicks/selects at
+once. `trackStaff()` (in `changed`) keeps rules that name a person (Mã GV or name) on the same person when staff rows
+are deleted, moved, re-roled or renamed; a deleted person's code becomes their name so the check flags the rule.
 Import (`/api/import` → `kich_ban.from_excel` + `sheets_in`) opens a dialog to take only some parts (staff replace/append,
 subjects+grades, roles, frame, custom rules, saved grid) into the current scenario; `/api/template` gives the blank template.
 `kich_ban.to_excel` writes it with `template.write_input` (same layout as the template); `from_excel` reads staff/program
