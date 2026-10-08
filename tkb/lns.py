@@ -26,8 +26,8 @@ from dataclasses import dataclass, field
 
 from ortools.sat.python import cp_model
 
-from . import config
-from .solver import TimetableModel, _configure, day_targets, distance_to_session_end
+from . import config, khung_gio
+from .solver import TimetableModel, _configure, day_targets, distance_to_session_end, session_of
 from .staff import class_sort_key, grade_of
 
 
@@ -95,13 +95,14 @@ class _Search:
         """Chi phí mềm theo (lớp, ngày), theo trọng số mục tiêu; và các tiết của nghiệm."""
         tm, w = self.tm, config.rule_weights(self.settings.weights)
         problem = tm.problem
+        sess, first = session_of(), khung_gio.first_session_name()
         lessons = tm.lessons(lambda v: values[v.Index()])
         cost: Counter = Counter()
         for les in lessons:
             key = les.class_name, les.day
             if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_LATE_PERIODS:
                 cost[key] += w.heavy_late
-            if les.subject in config.MORNING_SUBJECTS and les.period not in config.MORNING.periods:
+            if les.subject in config.MORNING_SUBJECTS and sess[les.day, les.period].name != first:
                 cost[key] += w.morning_core
             if problem.courses[les.course_id].flex_hdtn:
                 cost[key] += w.hdtn_flex_distance * distance_to_session_end((les.day, les.period))
@@ -123,8 +124,8 @@ class _Search:
             if len({l.class_name in problem.campus2 for l in items}) > 1:
                 pen += w.campus_day_switch
             if not t.class_name:
-                for morning in (True, False):
-                    ps = [l.period for l in items if (l.period in config.MORNING.periods) == morning]
+                for name in khung_gio.session_names():
+                    ps = [l.period for l in items if sess[l.day, l.period].name == name]
                     if ps:
                         pen += w.teacher_gap * ((max(ps) - min(ps) + 1) - len(ps))
             classes = sorted({l.class_name for l in items})
@@ -158,7 +159,7 @@ class _Search:
             shared = {l.teacher for l in lessons if l.class_name == c and l.day == d and l.teacher not in homeroom}
             group = {c} | {l.class_name for l in lessons if l.day == d and l.teacher in shared}
             other = min((x for x in days if x != d), key=lambda x: (round(cost[c, x]), x))
-            out.append(("điểm nóng", f"lớp {c} thứ {d + 2}", self.free(group, [d, other]), limits["điểm nóng"]))
+            out.append(("điểm nóng", f"lớp {c} {khung_gio.day_name(d).lower()}", self.free(group, [d, other]), limits["điểm nóng"]))
         teacher_classes = defaultdict(set)
         for cid, cand in tm.teachers_of.items():
             for g in cand:

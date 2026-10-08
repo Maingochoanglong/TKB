@@ -31,18 +31,21 @@ from pathlib import Path
 
 import openpyxl
 
-from . import bo_ghep, config, luat_co_san, luat_rieng
+from . import bo_ghep, config, khung_gio, luat_co_san, luat_rieng
 from .program import read_program
-from .rules import (DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, MAX_DAYS, NO, PERIOD_COLS, PERIOD_KEY, VALUE, YES,
-                    _day_name, applied, luat_row, read_rules, rule_tables, subject_columns, visible)
+from .rules import (DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, NO, PERIOD_COLS, PERIOD_KEY, SESSION_PREFIX, VALUE,
+                    YES, applied, luat_row, read_rules, rule_tables, subject_columns, visible)
 from .rules import SUBJECT_COLS as _ALL_SUBJECT_COLS
 from .staff import (InputError, _find_columns, _fold, _NO, _YES, class_sort_key, clean_name, find_sheet, normalize,
                     read_staff, staff_sheet, subject_key)
 from .template import NOTES, STAFF_HEADERS, program_rows, write_input
 
-VERSION = 2  # 2: mọi luật ở `rules` (sheet LUẬT)
+VERSION = 3  # 2: mọi luật ở `rules` (sheet LUẬT); 3: khung giờ là `sessions` + số tiết từng buổi của mỗi ngày
 SUBJECT_COLS = visible(_ALL_SUBJECT_COLS)  # cột quy định của môn còn dùng (số của luật nay ở sheet LUẬT)
 GENERAL_COLS = visible(GENERAL)
+DAY_COLS_V = visible(DAY_COLS)  # các cột HĐTN của bảng Ngày (số tiết từng buổi: day["periods"])
+# Tên gợi ý khi thêm ngày học trên trang (đổi được tùy ý).
+DAY_SUGGESTIONS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
 RULE_KEYS = (luat_rieng.GROUP[0], *(k for k, _ in luat_rieng.COLUMNS))
 # Các cột của sheet NHÂN SỰ: (khóa trong kịch bản, khóa của staff._find_columns, loại ô); tiêu đề là STAFF_HEADERS.
 STAFF_COLS = (("name", "name", "text"), ("role", "title", "role"), ("class", "class", "text"),
@@ -81,14 +84,15 @@ def schema() -> dict:
         "subject": [_col(c) for c in SUBJECT_COLS],
         "subject_groups": [{"label": label, "keys": list(keys)} for label, keys in SUBJECT_GROUPS],
         "general": [_col(c) for c in GENERAL_COLS],
-        "day": [_col(c) for c in DAY_COLS],
+        "day": [_col(c) for c in DAY_COLS_V],
         "period": [_col(c) for c in PERIOD_COLS],
-        "days": [_day_name(d) for d in range(MAX_DAYS)],
+        "days": DAY_SUGGESTIONS,
+        "session_prefix": SESSION_PREFIX,
         "custom": {"columns": [{"key": k, "header": h} for k, h in (luat_rieng.GROUP, *luat_rieng.COLUMNS)],
                    "kinds": [{"key": k.key, "label": k.label, "needs": list(k.needs), "uses": list(k.uses),
                               "note": k.note, "family": k.family} for k in luat_rieng.KINDS],
                    "levels": list(luat_rieng.LEVELS),
-                   "sessions": [config.MORNING.name, config.AFTERNOON.name],
+                   "sessions": khung_gio.session_names(),  # mặc định; trang dùng các buổi của kịch bản
                    "groups": [*luat_co_san.GROUPS, luat_co_san.CUSTOM_GROUP],
                    "custom_group": luat_co_san.CUSTOM_GROUP,
                    "structure": luat_co_san.STRUCTURE,
@@ -250,16 +254,36 @@ def _roles_part(staff: list[dict], subject_names: list[str]) -> list[dict]:
     return roles
 
 
-def _rules_part(subject_names: list[str]) -> tuple[dict, list[dict], list[dict], dict[str, dict], list[str]]:
-    """Các quy định đang dùng (config) theo dạng kịch bản: (chung, ngày, tiết, {môn: quy định}, các môn có quy
-    định mà chương trình học không có)."""
+def _rules_part(subject_names: list[str]) -> tuple[dict, dict, list[dict], dict[str, dict], list[str]]:
+    """Các quy định đang dùng (config) theo dạng kịch bản: (chung, khung giờ {sessions, days}, tiết, {môn: quy định},
+    các môn có quy định mà chương trình học không có)."""
     general_t, days_t, periods_t = rule_tables()
     general = {c.key: _from_cell(c, value) for c, (_, value) in zip(GENERAL_COLS, general_t[1])}
-    days = [{c.key: _from_cell(c, v) for c, v in zip(DAY_COLS, row[1:])} for row in days_t[1]]
+    names = [h[len(SESSION_PREFIX):].strip() for h in days_t[0][1:] if h.startswith(SESSION_PREFIX + " ")]
+    days = [{"name": row[0], "periods": {n: row[1 + i] or 0 for i, n in enumerate(names)},
+             **{c.key: _from_cell(c, v) for c, v in zip(DAY_COLS_V, row[1 + len(names):])}} for row in days_t[1]]
     periods = [{c.key: _from_cell(c, v) for c, v in zip(PERIOD_COLS, row[1:])} for row in periods_t[1]]
     _, values, rest = subject_columns(subject_names)
     subjects = {name: {c.key: _from_cell(c, v) for c, v in zip(SUBJECT_COLS, row)} for name, row in values.items()}
-    return general, days, periods, subjects, rest
+    return general, {"sessions": names, "days": days}, periods, subjects, rest
+
+
+def upgrade(scenario: dict) -> dict:
+    """Kịch bản bản trước (bản nháp còn trong trình duyệt) -> bản hiện tại. Bản 2: khung giờ là số tiết buổi sáng,
+    buổi chiều chung mọi ngày (general) và cột Có/Không học sáng, chiều của Thứ 2 … Thứ 7."""
+    if not isinstance(scenario, dict) or scenario.get("version") != 2:
+        return scenario
+    general = dict(scenario.get("general") or {})
+    m = general.pop("morning_periods", None) or len(config.MORNING.periods)
+    a = general.pop("afternoon_periods", None) or len(config.AFTERNOON.periods)
+    morning, afternoon = config.MORNING.name, config.AFTERNOON.name
+    days = []
+    for d, day in enumerate(scenario.get("days") or []):
+        on = bool(day.get("morning_days"))
+        days.append({"name": f"Thứ {d + 2}",
+                     "periods": {morning: m if on else 0, afternoon: a if on and day.get("afternoon_days") else 0},
+                     **{c.key: day.get(c.key) for c in DAY_COLS_V}})
+    return {**scenario, "version": VERSION, "general": general, "sessions": [morning, afternoon], "days": days}
 
 
 def from_excel(path: str | Path) -> tuple[dict, list[str]]:
@@ -272,14 +296,14 @@ def from_excel(path: str | Path) -> tuple[dict, list[str]]:
     grades, program = _read_program_rows(wb)
     rules = read_rules(path, warn=warnings.append)
     with applied(rules):
-        general, days, periods, by_subject, rest = _rules_part([name for name, _ in program])
+        general, frame, periods, by_subject, rest = _rules_part([name for name, _ in program])
         luat = _rules_rows()
         roles = _roles_part(staff, [name for name, _ in program])
     subjects = [{"name": name, "lessons": lessons, "rules": by_subject[name]} for name, lessons in program]
     subjects += [{"name": name, "lessons": {str(g): None for g in grades}, "rules": by_subject[name]}
                  for name in rest]
     scenario = {"version": VERSION, "staff": staff, "grades": grades, "subjects": subjects, "roles": roles,
-                "general": general, "days": days, "periods": periods, "rules": luat, "saved": _read_saved(wb)}
+                "general": general, **frame, "periods": periods, "rules": luat, "saved": _read_saved(wb)}
     return scenario, warnings
 
 
@@ -307,10 +331,10 @@ def default_scenario() -> dict:
     để trống, mọi quy định là giá trị mặc định."""
     grades, _, rows = program_rows(None)
     names = [row[0] for row in rows]
-    general, days, periods, by_subject, _ = _rules_part(names)
+    general, frame, periods, by_subject, _ = _rules_part(names)
     return {"version": VERSION, "staff": [], "grades": grades,
             "subjects": [{"name": n, "lessons": {str(g): None for g in grades}, "rules": by_subject[n]} for n in names],
-            "roles": [], "general": general, "days": days, "periods": periods,
+            "roles": [], "general": general, **frame, "periods": periods,
             "rules": [rule_dict(r) for r in luat_co_san.default_rows()], "saved": None}
 
 
@@ -349,12 +373,16 @@ def to_excel(scenario: dict, path: str | Path) -> None:
                *[_to_cell(c, rules.get(c.key)) for c in SUBJECT_COLS]]
         if row[0] is not None or any(v is not None for v in row[1:1 + len(grades)]):
             rows.append(row)
+    scenario = upgrade(scenario)
     general = scenario.get("general") or {}
+    sessions = [_text(n) for n in scenario.get("sessions") or []]
     days = scenario.get("days") or []
     periods = scenario.get("periods") or []
     tables = [([GENERAL_KEY, VALUE], [[c.header, _to_cell(c, general.get(c.key))] for c in GENERAL_COLS]),
-              ([DAY_KEY, *(c.header for c in DAY_COLS)],
-               [[_day_name(d), *(_to_cell(c, day.get(c.key)) for c in DAY_COLS)] for d, day in enumerate(days)]),
+              ([DAY_KEY, *(f"{SESSION_PREFIX} {n}" for n in sessions), *(c.header for c in DAY_COLS_V)],
+               [[_text(day.get("name")) or None,
+                 *((_number((day.get("periods") or {}).get(n)) or None) for n in sessions),
+                 *(_to_cell(c, day.get(c.key)) for c in DAY_COLS_V)] for day in days]),
               ([PERIOD_KEY, *(c.header for c in PERIOD_COLS)],
                [[p, *(_to_cell(c, row.get(c.key)) for c in PERIOD_COLS)] for p, row in enumerate(periods, start=1)])]
     saved = scenario.get("saved")
@@ -599,12 +627,19 @@ class Grid:
         saved = parse_saved_grid(grid or [])
         with applied(self.values):
             bo_ghep.know_staff(self.staff)
-            days = sorted(config.DAY_SESSIONS)  # các ngày học liền nhau từ Thứ 2 (như sheet TKB đã xếp)
-            periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
-            out = {"days": [config.DAYS[d] for d in days],
-                   "sessions": [{"name": s.name, "periods": list(s.periods)}
-                                for s in max(config.DAY_SESSIONS.values(), key=len, default=())],
-                   "off": [[d, p] for d in days for p in sorted(set().union(*periods.values()) - periods[d])],
+            days = khung_gio.days()  # các ngày học theo thứ tự (như sheet TKB đã xếp)
+            periods = {d: set(khung_gio.periods(d)) for d in days}
+            # Hàng của lưới: tiết 1 … tiết của ngày dài nhất (như sheet TKB đã xếp); nhãn buổi của mỗi tiết theo ngày
+            # đầu tiên có tiết đó; ngày không có tiết đó: ô nghỉ.
+            sessions: list[dict] = []
+            for p in range(1, khung_gio.max_periods() + 1):
+                name = khung_gio.session_at(next(d for d in days if p in periods[d]), p).name
+                if sessions and sessions[-1]["name"] == name:
+                    sessions[-1]["periods"].append(p)
+                else:
+                    sessions.append({"name": name, "periods": [p]})
+            out = {"days": [config.DAYS[d] for d in days], "sessions": sessions,
+                   "off": [[d, p] for d in days for p in range(1, khung_gio.max_periods() + 1) if p not in periods[d]],
                    "code": saved.result_code, "cells": _cells(saved, self.staff), "teachers": _teachers(self.staff),
                    "choices": self.choices}
             out["classes"] = sorted({c["cls"] for c in out["cells"]}, key=class_sort_key)

@@ -439,3 +439,9 @@ input.search { width: 220px; }
 @media (max-width: 640px) { input.search { width: 100%; } }
 .pick .inline-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; }
 .pick .inline-pick select { width: auto; max-width: 260px; }
+
+/* Bảng Ngày học (bước 1): cột "Buổi <tên>" sửa được tên ngay ở tiêu đề */
+#day-table th.session-head { white-space: nowrap; }
+#day-table th.session-head input.session-name { min-width: 0; width: 6.5em; font-weight: 600; }
+#day-table input.day-name { min-width: 0; width: 8em; }
+.toolbar .actions-right { display: flex; gap: 8px; margin-left: auto; }

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from . import config
+from . import config, khung_gio
 from .config import CustomRule
 
 GROUPS = ("Bảo vệ học sinh", "HĐTN và GVCN", "Người dạy", "Lịch giáo viên", "Ưu tiên khi xếp giờ")
@@ -121,7 +121,7 @@ NATIVES = (
         free=("points",), weight="heavy_late",
         titles=("Tránh xếp môn có nhãn Môn nặng vào giờ có nhãn Hạn chế môn nặng",)),
     Native("buoi_sang", "Ưu tiên khi xếp giờ", lambda: [_r(
-        tags=("Ưu tiên buổi sáng",), sessions=(config.MORNING.name,), measure="vi_tri", op="trong",
+        tags=("Ưu tiên buổi sáng",), sessions=(khung_gio.first_session_name(),), measure="vi_tri", op="trong",
         points=_w().morning_core)], free=("points",), weight="morning_core",
         titles=("Môn có nhãn Ưu tiên buổi sáng xếp vào buổi sáng",)),
     Native("tai_ngay", "Ưu tiên khi xếp giờ", lambda: [_r(

@@ -274,6 +274,10 @@ class App:
         path = self.inside(data.get("path", ""))
         return self._import(path, path.name)
 
+    def upgrade(self, data: dict):
+        """Bản nháp kịch bản của bản trước (khung giờ cách cũ) -> bản hiện tại (kich_ban.upgrade)."""
+        return {"scenario": kich_ban.upgrade(data["scenario"])}
+
     def describe(self, data: dict):
         with self.lock:
             return kich_ban.describe(data["scenario"], data.get("rows"), bool(data.get("student_rules", True)))
@@ -488,6 +492,7 @@ class Handler(BaseHTTPRequestHandler):
                       ("GET", "status"): app.status,
                       ("POST", "import_path"): app.import_path, ("POST", "check"): app.check, ("POST", "run"): app.run,
                       ("POST", "describe"): app.describe, ("POST", "timetable"): app.timetable,
+                      ("POST", "upgrade"): app.upgrade,
                       ("POST", "swaps"): app.swaps,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
                       ("POST", "settings"): app.settings}

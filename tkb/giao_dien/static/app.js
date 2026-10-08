@@ -161,31 +161,58 @@ function renderGeneral() {
       <small>${esc(c.note)}</small></label>`).join("");
 }
 
+// Bảng Ngày: mỗi dòng một ngày (tên tùy ý), mỗi cột "Buổi <tên>" ghi số tiết của buổi đó trong ngày (trống: không học
+// buổi đó; ngày không có tiết nào không phải ngày học), rồi các cột HĐTN. Như sheet QUY ĐỊNH (tkb/rules.py, day_layout).
 function renderDays() {
-  const days = st.scenario.days;
-  const head = `<thead><tr><th class="left">Ngày</th>${S.day.map((c) => `<th ${colTitle(c)}>${esc(c.header)}</th>`).join("")}</tr></thead>`;
-  const body = S.days.map((name, d) => `<tr><td class="left">${esc(name)}</td>${S.day.map((c) =>
-    `<td>${input(c.kind, (days[d] || {})[c.key], { f: "day", i: d, k: c.key })}</td>`).join("")}</tr>`).join("");
+  const sc = st.scenario;
+  const sessions = SESSIONS();
+  const head = `<thead><tr><th class="left">Ngày</th>${sessions.map((name, j) => `<th class="session-head">
+      ${esc(S.session_prefix)} <input type="text" class="session-name" data-f="session-name" data-j="${j}" value="${esc(name)}"
+        aria-label="Tên buổi ${j + 1}" title="Tên buổi (vd Sáng, Chiều, Tối)">
+      <button type="button" class="icon" data-act="session-del" data-j="${j}" title="Bỏ buổi này" ${sessions.length < 2 ? "disabled" : ""}>✕</button></th>`).join("")}
+    ${S.day.map((c) => `<th ${colTitle(c)}>${esc(c.header)}</th>`).join("")}<th></th></tr></thead>`;
+  const body = sc.days.map((day, i) => `<tr><td class="left"><input type="text" class="day-name" data-f="day-name" data-i="${i}"
+      value="${esc(day.name)}" aria-label="Tên ngày ${i + 1}"></td>${sessions.map((name, j) => `<td><input type="number" min="0" max="15"
+      step="1" class="tiny" data-f="day-count" data-i="${i}" data-j="${j}" value="${esc(dayCount(day, name) || "")}" placeholder="0"
+      aria-label="${esc(`Số tiết buổi ${name} ${day.name}`)}"></td>`).join("")}
+    ${S.day.map((c) => `<td>${input(c.kind, day[c.key], { f: "day", i, k: c.key })}</td>`).join("")}
+    <td class="nowrap"><button type="button" class="icon" data-act="day-up" data-i="${i}" title="Lên" ${i ? "" : "disabled"}>↑</button>
+      <button type="button" class="icon" data-act="day-down" data-i="${i}" title="Xuống" ${i < sc.days.length - 1 ? "" : "disabled"}>↓</button>
+      <button type="button" class="icon" data-act="day-del" data-i="${i}" title="Xóa ngày này" ${sc.days.length < 2 ? "disabled" : ""}>✕</button></td></tr>`).join("");
   $("#day-table").innerHTML = head + `<tbody>${body}</tbody>`;
 }
-
+const dayCount = (day, name) => { const n = Number((day.periods || {})[name]); return Number.isInteger(n) && n > 0 ? n : 0; };
+// Tiết của một ngày theo buổi: {buổi: [tiết...]}, đánh số liên tục trong ngày theo thứ tự buổi (như khung_gio.py).
+function dayPeriods(day) {
+  const out = {};
+  let p = 1;
+  for (const name of SESSIONS()) {
+    const n = dayCount(day, name);
+    if (n) out[name] = Array.from({ length: n }, (_, k) => p + k);
+    p += n;
+  }
+  return out;
+}
 function periodCount() {
-  const g = st.scenario.general;
-  const m = Number.isInteger(g.morning_periods) ? g.morning_periods : 0;
-  const a = Number.isInteger(g.afternoon_periods) ? g.afternoon_periods : 0;
-  return { m, total: m + a };
+  const total = Math.max(0, ...st.scenario.days.map((day) => SESSIONS().reduce((n, s) => n + dayCount(day, s), 0)));
+  return { total };
 }
 function syncPeriods() {
   const { total } = periodCount();
   const rows = st.scenario.periods;
-  if (total <= 0 || total > 15) return;
+  if (total <= 0 || total > 20) return;
   while (rows.length < total) rows.push(Object.fromEntries(S.period.map((c) => [c.key, c.kind === "yes" ? false : null])));
   rows.length = total;
 }
+function periodSession(p) { // buổi của tiết p theo ngày đầu tiên có tiết đó (như cột BUỔI của TKB)
+  for (const day of st.scenario.days) {
+    for (const [name, ps] of Object.entries(dayPeriods(day))) if (ps.includes(p)) return name;
+  }
+  return "";
+}
 function renderPeriods() {
-  const { m } = periodCount();
   const head = `<thead><tr><th>Tiết</th><th>Buổi</th>${S.period.map((c) => `<th ${colTitle(c)}>${esc(c.header)}</th>`).join("")}</tr></thead>`;
-  const body = st.scenario.periods.map((row, i) => `<tr><td class="num">${i + 1}</td><td>${i < m ? "Sáng" : "Chiều"}</td>${
+  const body = st.scenario.periods.map((row, i) => `<tr><td class="num">${i + 1}</td><td>${esc(periodSession(i + 1))}</td>${
     S.period.map((c) => `<td>${input(c.kind, row[c.key], { f: "period", i, k: c.key })}</td>`).join("")}</tr>`).join("");
   $("#period-table").innerHTML = head + `<tbody>${body}</tbody>`;
 }
@@ -350,63 +377,95 @@ function historyBox(t, i) {
   return rows + unknown.map((c) => `<p class="warn-text">Không có Chủ Nhiệm lớp "${esc(c)}"
     <button type="button" class="icon" data-act="hist-drop" data-i="${i}" data-c="${esc(c)}" title="Bỏ lớp này">✕</button></p>`).join("");
 }
-// Khung giờ của kịch bản: ngày học (liền nhau từ Thứ 2) và các buổi của từng ngày.
-const SESSIONS = () => S.custom.sessions; // ["Sáng", "Chiều"]
+// Khung giờ của kịch bản: các buổi (tên tùy ý) và các ngày học (dòng có ít nhất một tiết), theo thứ tự; d là chỉ số
+// ngày học như trong chương trình (tkb/khung_gio.py).
+const SESSIONS = () => (st && st.scenario.sessions) || S.custom.sessions;
 function frameDays() {
-  const days = st.scenario.days || [];
   const out = [];
-  for (let d = 0; d < days.length && days[d] && days[d].morning_days; d++) {
-    out.push({ d, sessions: [SESSIONS()[0], ...(days[d].afternoon_days ? [SESSIONS()[1]] : [])] });
+  for (const day of st.scenario.days || []) {
+    const sessions = SESSIONS().filter((s) => dayCount(day, s) > 0);
+    if (sessions.length) out.push({ d: out.length, name: String(day.name || "").trim(), sessions, periods: dayPeriods(day) });
   }
   return out;
 }
-const sessionOf = (word) => SESSIONS().find((s) => fold(s) === word);
+const dayName = (d) => (frameDays()[d] || {}).name || "";
+const shortDay = (name) => { const m = String(name).match(/^Thứ\s*(\d)$/); return m ? `T${m[1]}` : name; };
+// Ngày ghi bằng chữ -> chỉ số ngày học (như khung_gio.day_index): tên ngày, hoặc với tên "Thứ n": Tn, thu n, n.
+function dayIndex(text) {
+  const key = fold(text).replace(/\s+/g, " ").trim();
+  for (const { d, name } of frameDays()) {
+    const f = fold(name);
+    const keys = new Set([f, f.replace(/ /g, "")]);
+    const m = f.match(/^thu\s*(\d)$/);
+    if (m) for (const k of [`t${m[1]}`, `t ${m[1]}`, `thu${m[1]}`, m[1]]) keys.add(k);
+    if (f.replace(/ /g, "") === "chunhat") { keys.add("cn"); keys.add("chu nhat"); }
+    if (keys.has(key)) return d;
+  }
+  return null;
+}
+const sessionOf = (word) => SESSIONS().find((s) => fold(s) === String(word || "").replace(/^buoi\s+/, ""));
+// "Chiều T5" -> [buổi, chỉ số ngày] (như khung_gio.split_session_day); null nếu không đọc được.
+function splitSessionDay(item) {
+  for (const s of [...SESSIONS()].sort((a, b) => b.length - a.length)) {
+    for (const prefix of [fold(s), `buoi ${fold(s)}`]) {
+      if (item.startsWith(`${prefix} `) || (item.startsWith(prefix) && /\d/.test(item.charAt(prefix.length)))) {
+        const d = dayIndex(item.slice(prefix.length));
+        if (d !== null) return [s, d];
+      }
+    }
+  }
+  return null;
+}
 function offState(text) {
   const o = { fixed: new Set(), any: Object.fromEntries([...SESSIONS(), ""].map((s) => [s, 0])), other: [] };
   const days = frameDays();
   for (const part of String(text || "").split(/[,;]/)) {
     const raw = part.trim();
     if (!raw) continue;
-    const item = fold(raw);
-    let m = item.match(/^(\w+)\s*(?:thu|t)?\s*(\d)$/);
-    if (m && sessionOf(m[1])) {
-      const s = sessionOf(m[1]);
-      const day = days.find((x) => x.d === Number(m[2]) - 2);
-      if (day && day.sessions.includes(s)) o.fixed.add(`${day.d}|${s}`);
-      else o.other.push({ raw, note: day ? "buổi này vốn nghỉ, chương trình bỏ qua" : "không có ngày này trong khung giờ" });
+    const item = fold(raw).replace(/\s+/g, " ");
+    const found = splitSessionDay(item);
+    if (found) {
+      const [s, d] = found;
+      if (days[d].sessions.includes(s)) o.fixed.add(`${d}|${s}`);
+      else o.other.push({ raw, note: "buổi này vốn nghỉ, chương trình bỏ qua" });
       continue;
     }
-    m = item.match(/^(\d+)\s*buoi(?:\s+(\w+))?(?:\s+bat k[yi])?$/);
+    const m = item.match(/^(\d+)\s*buoi(?:\s+(.+?))?(?:\s+bat k[yi])?$/);
     if (m && (!m[2] || sessionOf(m[2]))) o.any[m[2] ? sessionOf(m[2]) : ""] += Number(m[1]);
-    else o.other.push({ raw, note: "không đọc được" });
+    else o.other.push({ raw, note: sessionOf(item.split(" ")[0]) ? "không có ngày này trong khung giờ" : "không đọc được" });
   }
   return o;
 }
 function offText(o) {
   const parts = [];
-  for (const { d } of frameDays()) for (const s of SESSIONS()) if (o.fixed.has(`${d}|${s}`)) parts.push(`${s} T${d + 2}`);
+  for (const { d, name } of frameDays()) {
+    for (const s of SESSIONS()) if (o.fixed.has(`${d}|${s}`)) parts.push(`${s} ${shortDay(name)}`);
+  }
   for (const s of SESSIONS()) if (o.any[s] > 0) parts.push(`${o.any[s]} buổi ${s.toLowerCase()}`);
   if (o.any[""] > 0) parts.push(`${o.any[""]} buổi`);
   return [...parts, ...o.other.map((x) => x.raw)].join(", ");
 }
+// Buổi có tiết Luôn do GVCN dạy (bảng Tiết): GVCN không nghỉ được (như staff._check_extras).
+const homeroomPeriods = () => new Set(st.scenario.periods.flatMap((row, k) => (row.HOMEROOM_PERIODS ? [k + 1] : [])));
+const heldSession = (day, s) => (day.periods[s] || []).some((p) => homeroomPeriods().has(p));
+const heldEverywhere = (s) => { const days = frameDays().filter((x) => x.sessions.includes(s)); return days.length > 0 && days.every((x) => heldSession(x, s)); };
 function offBox(t, i) {
   const o = offState(t.off);
   const days = frameDays();
-  const [morning] = SESSIONS();
   const cn = isHomeroom(t);
-  const locked = (s, on) => cn && s === morning && !on; // GVCN không nghỉ buổi sáng (tiết luôn do GVCN dạy)
-  const grid = `<table class="grid off-grid"><thead><tr><th></th>${days.map(({ d }) => `<th>${esc(S.days[d])}</th>`).join("")}</tr></thead>
-    <tbody>${SESSIONS().map((s) => `<tr><th>${esc(s)}</th>${days.map(({ d, sessions }) => {
-      if (!sessions.includes(s)) return `<td class="muted">—</td>`;
-      const on = o.fixed.has(`${d}|${s}`);
-      return `<td><input type="checkbox" data-f="off-fixed" data-i="${i}" data-d="${d}" data-s="${esc(s)}" ${on ? "checked" : ""}
-        ${locked(s, on) ? "disabled title=\"GVCN không nghỉ buổi sáng\"" : ""} aria-label="${esc(`${s} ${S.days[d]}`)}"></td>`;
+  const locked = (day, s, on) => cn && heldSession(day, s) && !on;
+  const grid = `<table class="grid off-grid"><thead><tr><th></th>${days.map(({ name }) => `<th>${esc(name)}</th>`).join("")}</tr></thead>
+    <tbody>${SESSIONS().map((s) => `<tr><th>${esc(s)}</th>${days.map((day) => {
+      if (!day.sessions.includes(s)) return `<td class="muted">—</td>`;
+      const on = o.fixed.has(`${day.d}|${s}`);
+      return `<td><input type="checkbox" data-f="off-fixed" data-i="${i}" data-d="${day.d}" data-s="${esc(s)}" ${on ? "checked" : ""}
+        ${locked(day, s, on) ? "disabled title=\"GVCN không nghỉ buổi có tiết Luôn do GVCN dạy\"" : ""} aria-label="${esc(`${s} ${day.name}`)}"></td>`;
     }).join("")}</tr>`).join("")}</tbody></table>`;
   const anyInput = (s, label) => `<label class="any-off"><input type="number" min="0" step="1" data-f="off-any" data-i="${i}"
-    data-s="${esc(s)}" value="${o.any[s] || ""}" placeholder="0" ${locked(s, o.any[s] > 0) ? "disabled" : ""}> ${esc(label)}</label>`;
+    data-s="${esc(s)}" value="${o.any[s] || ""}" placeholder="0" ${s && cn && heldEverywhere(s) && !(o.any[s] > 0) ? "disabled" : ""}> ${esc(label)}</label>`;
   return `<p class="muted">Buổi cố định: đánh dấu buổi nghỉ.</p>${grid}
     <p class="muted">Nghỉ thêm buổi bất kỳ (chương trình tự chọn buổi cho TKB tốt nhất):</p>
-    <div class="any-row">${SESSIONS().map((s) => anyInput(s, `buổi ${s.toLowerCase()}`)).join("")}${anyInput("", "buổi sáng hoặc chiều")}</div>
+    <div class="any-row">${SESSIONS().map((s) => anyInput(s, `buổi ${s.toLowerCase()}`)).join("")}${anyInput("", "buổi bất kỳ")}</div>
     <div id="off-note">${offNote(t, i)}</div>`;
 }
 function offNote(t, i) {
@@ -417,8 +476,9 @@ function offNote(t, i) {
     const free = days.reduce((n, { d, sessions }) => n + sessions.filter((x) => (!s || x === s) && !o.fixed.has(`${d}|${x}`)).length, 0);
     if (o.any[s] > free) notes.push(`<p class="warn-text">Xin nghỉ ${o.any[s]} buổi ${s ? s.toLowerCase() : "bất kỳ"} nhưng chỉ còn ${free} buổi để chọn.</p>`);
   }
-  if (isHomeroom(t) && ([...o.fixed].some((k) => k.endsWith(`|${SESSIONS()[0]}`)) || o.any[SESSIONS()[0]] > 0)) {
-    notes.push(`<p class="warn-text">GVCN không nghỉ buổi sáng được (tiết Luôn do GVCN dạy, bước 1).</p>`);
+  if (isHomeroom(t) && ([...o.fixed].some((k) => { const [d, s] = k.split("|"); return days[d] && heldSession(days[d], s); })
+      || SESSIONS().some((s) => o.any[s] > 0 && heldEverywhere(s)))) {
+    notes.push(`<p class="warn-text">GVCN không nghỉ được buổi có tiết Luôn do GVCN dạy (bước 1, bảng Tiết).</p>`);
   }
   notes.push(...o.other.map((x, k) => `<p class="warn-text">"${esc(x.raw)}": ${esc(x.note)}
     <button type="button" class="icon" data-act="off-drop" data-i="${i}" data-k="${k}" title="Bỏ mục này">✕</button></p>`));
@@ -889,7 +949,7 @@ function renderComposer() {
     spellcheck="false" ${attrs}>`;
   const field = (k, label, html, note = "") => (uses.has(k) ? formRow(label, html, note) : "");
   const block = (k, label, html, note = "") => (uses.has(k) ? formBlock(label, html, note) : "");
-  const days = frameDays().map(({ d }) => `Thứ ${d + 2}`);
+  const days = frameDays().map(({ name }) => name);
   const tagsOf = (list) => listOf(row.tags).filter((t) => list.includes(t)).length > 0;
   const groups = [...new Set([...S.custom.groups, row.group_label].filter(Boolean))];
   const native = NATIVE_ONLY.includes(kind.key);
@@ -1013,7 +1073,7 @@ function editRule(el) {
     if (el.checked) list.push(d.v);
     const tags = [...CP().tags.subject, ...CP().tags.slot];
     const order = { scope: CP().scopes.map((x) => x.label), sessions: SESSIONS(),
-      days: frameDays().map(({ d: n }) => `Thứ ${n + 2}`), grades: st.scenario.grades.map(String), tags, exclude: tags }[d.k] || [];
+      days: frameDays().map(({ name }) => name), grades: st.scenario.grades.map(String), tags, exclude: tags }[d.k] || [];
     list.sort((a, b) => order.indexOf(a) - order.indexOf(b));
     row[d.k] = list.join(", ");
   } else if (d.k === "type") {
@@ -1886,7 +1946,7 @@ function applyImport() {
   if (parts.includes("staff")) sc.staff = append ? [...sc.staff, ...src.staff] : src.staff;
   if (parts.includes("subjects")) { sc.subjects = src.subjects; sc.grades = src.grades; }
   if (parts.includes("roles")) sc.roles = src.roles;
-  if (parts.includes("frame")) { sc.general = src.general; sc.days = src.days; sc.periods = src.periods; }
+  if (parts.includes("frame")) { sc.general = src.general; sc.sessions = src.sessions; sc.days = src.days; sc.periods = src.periods; }
   if (parts.includes("rules")) {
     const same = (a, b) => JSON.stringify({ ...a, group_label: "" }) === JSON.stringify({ ...b, group_label: "" });
     sc.rules = appendRules ? [...sc.rules, ...src.rules.filter((r) => !sc.rules.some((x) => same(x, r)))] : src.rules;
@@ -1947,9 +2007,28 @@ function onEdit(e) {
   };
   if (d.f === "general") {
     sc.general[d.k] = v;
-    if ((d.k === "morning_periods" || d.k === "afternoon_periods") && done) {
-      syncPeriods();
+  } else if (d.f === "day-name") {
+    sc.days[i].name = v;
+  } else if (d.f === "day-count") {
+    const name = SESSIONS()[Number(d.j)];
+    sc.days[i].periods = { ...(sc.days[i].periods || {}), [name]: v === "" || v === null ? 0 : v };
+    if (done) { syncPeriods(); renderPeriods(); }
+  } else if (d.f === "session-name") {
+    const j = Number(d.j);
+    const from = sc.sessions[j];
+    const to = String(v || "").trim();
+    if (done && to && to !== from && !sc.sessions.includes(to)) {
+      sc.sessions[j] = to;
+      for (const day of sc.days) {
+        const periods = {};
+        for (const [k, n] of Object.entries(day.periods || {})) periods[k === from ? to : k] = n;
+        day.periods = periods;
+      }
+      renderDays();
       renderPeriods();
+    } else if (done && to !== from) {
+      el.value = from;
+      notify(to ? `Đã có buổi "${to}"` : "Tên buổi không được để trống", "warn");
     }
   } else if (d.f === "day") {
     sc.days[i][d.k] = v;
@@ -2069,6 +2148,52 @@ async function onClick(e) {
       o.other.splice(Number(btn.dataset.k), 1);
       t.off = offText(o);
       $("#off-box").innerHTML = offBox(t, i);
+      break;
+    }
+    case "day-add": {
+      const used = new Set(sc.days.map((d) => fold(d.name)));
+      const name = S.days.find((n) => !used.has(fold(n))) || `Ngày ${sc.days.length + 1}`;
+      const last = sc.days[sc.days.length - 1];
+      sc.days.push({ name, periods: { ...(last ? last.periods : {}) },
+        ...Object.fromEntries(S.day.map((c) => [c.key, c.kind === "yes" ? false : null])) });
+      renderDays();
+      syncPeriods();
+      renderPeriods();
+      break;
+    }
+    case "day-del": {
+      const name = sc.days[i].name;
+      sc.days.splice(i, 1);
+      renderDays();
+      syncPeriods();
+      renderPeriods();
+      done(`Đã xóa ngày "${esc(name || "(chưa đặt tên)")}".`);
+      break;
+    }
+    case "day-up":
+    case "day-down": {
+      const j = btn.dataset.act === "day-up" ? i - 1 : i + 1;
+      [sc.days[i], sc.days[j]] = [sc.days[j], sc.days[i]];
+      renderDays();
+      renderPeriods();
+      break;
+    }
+    case "session-add": {
+      let n = sc.sessions.length + 1;
+      while (sc.sessions.includes(`Buổi ${n}`)) n++;
+      sc.sessions.push(`Buổi ${n}`);
+      renderDays();
+      break;
+    }
+    case "session-del": {
+      const j = Number(btn.dataset.j);
+      const name = sc.sessions[j];
+      sc.sessions.splice(j, 1);
+      for (const day of sc.days) if (day.periods) delete day.periods[name];
+      renderDays();
+      syncPeriods();
+      renderPeriods();
+      done(`Đã bỏ buổi "${esc(name)}".`);
       break;
     }
     case "del-subject": {
@@ -2351,6 +2476,9 @@ async function init() {
     S = await api("GET", "/api/schema");
   } catch (err) { fail(err); return; }
   const draft = loadDraft();
+  if (draft && draft.scenario && draft.scenario.version === 2) { // bản nháp có khung giờ cách cũ: chuyển sang cách mới
+    try { draft.scenario = (await api("POST", "/api/upgrade", { scenario: draft.scenario })).scenario; } catch { /* bỏ qua */ }
+  }
   if (draft && draft.scenario && draft.scenario.version === S.version) {
     st = { ...draft, run: { ...S.run_defaults, ...(draft.run || {}) } };
     if (!st.scenario.roles) { st.scenario.roles = []; addImplicitRoles(); } // bản nháp trước khi có bước Chức vụ

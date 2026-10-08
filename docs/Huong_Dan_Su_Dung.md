@@ -42,8 +42,10 @@ không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (
 
 ![Bước có lỗi: dấu ⚠ và danh sách lỗi](hinh/5b_loi_buoc.jpg)
 
-1. **Khung giờ & quy định chung**: số tiết buổi sáng, buổi chiều, ngày học, tiết HĐTN cố định, tiết luôn do GVCN
-   dạy, ai được dạy bù.
+1. **Khung giờ & quy định chung**: bảng **Ngày học**: mỗi dòng một ngày (tên tùy ý), mỗi cột một buổi (tên tùy ý, đổi
+   ở ô tiêu đề), ô là số tiết của buổi đó trong ngày, để trống là không học buổi đó; **+ Thêm ngày**, **+ Thêm buổi**,
+   ↑ ↓ đổi thứ tự, ✕ xóa. Mỗi ngày một số tiết riêng được (vd chiều Thứ 5 có 4 tiết). Rồi tiết HĐTN cố định, tiết luôn
+   do GVCN dạy, ai được dạy bù.
    ![Bước 1: khung giờ](hinh/2_khung_gio.jpg)
 2. **Môn học**: số tiết mỗi khối; **Sửa** để mở các quy định của môn (ai dạy, môn nặng, ưu tiên buổi sáng…).
    ![Bước 2: môn học](hinh/3_mon_hoc.jpg)

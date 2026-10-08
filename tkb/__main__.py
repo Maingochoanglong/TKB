@@ -184,8 +184,12 @@ def _run(args, settings: config.Settings) -> int:
     if core:
         names = ", ".join(solution.problem.subject_label(s) for s in sorted(config.MORNING_SUBJECTS)
                           if any(les.subject == s for les in core))
-        afternoon = sum(1 for les in core if les.period not in config.MORNING.periods)
-        print(f"{names} ở buổi chiều: {afternoon}/{len(core)} tiết (mục tiêu mềm: dành buổi sáng cho các môn này)")
+        from .khung_gio import first_session_name, session_at, session_names
+        first, sessions = first_session_name(), session_names()
+        afternoon = sum(1 for les in core if session_at(les.day, les.period).name != first)
+        where = f"ở buổi {sessions[1].lower()}" if len(sessions) == 2 else f"ngoài buổi {first.lower()}"
+        print(f"{names} {where}: {afternoon}/{len(core)} tiết (mục tiêu mềm: dành buổi {first.lower()} cho các môn "
+              f"này)")
     if config.CUSTOM_RULES:  # luật riêng ưu tiên: số lần không theo
         from .luat_rieng import soft_report
         for line in soft_report(solution.problem, solution.lessons):

@@ -122,3 +122,40 @@ def test_timetable_view_swap_and_undo(page, small_updated):
     assert int(page.text_content("#count-luat")) == rules
     page.select_option("#tkb-view", index=page.locator("#tkb-view option").count() - 1)  # theo giáo viên
     assert page.locator("#tkb-grid td.cell[data-cell]").count() > 0
+
+
+def test_free_time_frame(page):
+    """Bước Khung giờ: thêm ngày (Thứ 7), thêm và đặt tên buổi (Tối), mỗi ngày số tiết riêng; bảng Tiết theo ngày dài
+    nhất, hộp thoại Buổi Nghỉ có buổi mới; kiểm tra vẫn ✓ và kịch bản ghi đúng khung giờ."""
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    _wait_mark(page, "khung", "✓")
+    page.click('.tabs [data-tab="khung"]')
+    page.click('[data-act="day-add"]')
+    assert page.input_value('#day-table input[data-f="day-name"] >> nth=5') == "Thứ 7"
+    page.fill('#day-table input[data-f="day-count"][data-i="5"][data-j="1"]', "")  # Thứ 7 chỉ học sáng
+    page.locator('#day-table input[data-f="day-count"][data-i="5"][data-j="1"]').press("Tab")
+    page.click('[data-act="session-add"]')
+    name = page.locator('#day-table input[data-f="session-name"][data-j="2"]')
+    name.fill("Tối")
+    name.press("Tab")
+    count = page.locator('#day-table input[data-f="day-count"][data-i="3"][data-j="2"]')  # Thứ 5 có 2 tiết buổi tối
+    count.fill("2")
+    count.press("Tab")
+    frame = page.evaluate("({sessions: st.scenario.sessions, days: st.scenario.days.map((d) => [d.name, d.periods])})")
+    assert frame["sessions"] == ["Sáng", "Chiều", "Tối"]
+    assert frame["days"][3] == ["Thứ 5", {"Sáng": 4, "Chiều": 3, "Tối": 2}]
+    assert frame["days"][5][0] == "Thứ 7" and frame["days"][5][1]["Sáng"] == 4 and not frame["days"][5][1]["Chiều"]
+    rows = page.locator("#period-table tbody tr")
+    assert rows.count() == 9 and rows.nth(8).locator("td").nth(1).text_content() == "Tối"
+    # Hộp thoại Buổi Nghỉ của một giáo viên không chủ nhiệm: có cột Thứ 7, hàng Tối (chỉ Thứ 5 có buổi tối).
+    page.click('.tabs [data-tab="gv"]')
+    row = next(i for i, role in enumerate(page.evaluate("st.scenario.staff.map((t) => t.role)")) if role == "Bộ Môn")
+    page.click(f'[data-act="edit-staff"][data-i="{row}"]')
+    grid = page.locator("#off-box .off-grid")
+    assert grid.locator("thead th").last.text_content() == "Thứ 7"
+    page.check('#off-box input[data-f="off-fixed"][data-d="3"][data-s="Tối"]')
+    assert page.evaluate(f"st.scenario.staff[{row}].off") == "Tối T5"
+    page.keyboard.press("Escape")
+    _wait_mark(page, "khung", "✓")
+    _wait_mark(page, "gv", "✓")

@@ -157,14 +157,13 @@ def parse_classes(value) -> frozenset[str]:
     return frozenset(parse_class(part) for part in re.split(r"[,;]", str(value)) if part.strip())
 
 
-_SESSIONS = {_fold(config.MORNING.name): config.MORNING.name, _fold(config.AFTERNOON.name): config.AFTERNOON.name}
-_FIXED_OFF_RE = re.compile(r"^(\w+)\s*(?:thu|t)?\s*(\d)$")  # "sang t6", "chieu thu 5"
-_ANY_OFF_RE = re.compile(r"^(\d+)\s*buoi(?:\s+(\w+))?(?:\s+bat k[yi])?$")  # "2 buoi chieu", "1 buoi"
+_ANY_OFF_RE = re.compile(r"^(\d+)\s*buoi(?:\s+(.+?))?(?:\s+bat k[yi])?$")  # "2 buoi chieu", "1 buoi"
 
 
 def off_text(t: Teacher) -> str:
     """Cột Buổi Nghỉ viết lại từ dữ liệu đã đọc, vd "Chiều T5, Sáng T6, 2 buổi chiều"."""
-    fixed = [f"{name} T{day + 2}" for day, name in sorted(t.off_sessions)]
+    from .khung_gio import short_day
+    fixed = [f"{name} {short_day(day)}" for day, name in sorted(t.off_sessions)]
     extra = [f"{n} buổi" + (f" {name.lower()}" if name else "") for name, n in t.off_any]
     return ", ".join(fixed + extra)
 
@@ -173,6 +172,7 @@ def parse_off(value) -> tuple[frozenset[tuple[int, str]], tuple[tuple[str | None
     """Cột Buổi Nghỉ: các mục cách nhau bằng dấu phẩy/chấm phẩy. Mỗi mục là buổi cố định ("Chiều T5",
     "Sáng thứ 6") hoặc số buổi bất kỳ ("2 buổi chiều", "1 buổi sáng", "2 buổi": buổi nào cũng được).
     Buổi không có trong khung giờ (vd chiều Thứ 6) vốn đã nghỉ nên bỏ qua."""
+    from .khung_gio import session_name, split_session_day
     fixed: set[tuple[int, str]] = set()
     count: dict[str | None, int] = defaultdict(int)
     if _blank(value):
@@ -181,15 +181,14 @@ def parse_off(value) -> tuple[frozenset[tuple[int, str]], tuple[tuple[str | None
         item = _fold(part)
         if not item:
             continue
-        if (m := _FIXED_OFF_RE.match(item)) and m.group(1) in _SESSIONS:
-            day = int(m.group(2)) - 2
-            name = _SESSIONS[m.group(1)]
-            if not 0 <= day < len(config.DAYS):
-                raise InputError(f"cột Buổi Nghỉ: không có {config.DAYS[0]}–{config.DAYS[-1]} nào là {part.strip()!r}")
+        if found := split_session_day(part):
+            name, day = found
             if any(s.name == name for s in config.DAY_SESSIONS.get(day, ())):
                 fixed.add((day, name))
-        elif (m := _ANY_OFF_RE.match(item)) and (m.group(2) is None or m.group(2) in _SESSIONS):
-            count[_SESSIONS.get(m.group(2))] += int(m.group(1))
+        elif (m := _ANY_OFF_RE.match(item)) and (m.group(2) is None or session_name(m.group(2))):
+            count[session_name(m.group(2)) if m.group(2) else None] += int(m.group(1))
+        elif session_name(item.split(" ")[0]) and not split_session_day(part):
+            raise InputError(f"cột Buổi Nghỉ: không có ngày học nào ({', '.join(config.DAYS)}) là {part.strip()!r}")
         else:
             raise InputError(f"cột Buổi Nghỉ ghi buổi cố định (vd 'Chiều T5') hoặc số buổi (vd '2 buổi chiều'), "
                              f"đang ghi {part.strip()!r}")
@@ -355,11 +354,17 @@ def _check_extras(teachers: list[Teacher]) -> list[str]:
             errors.append(f"Dòng {t.row}: GVCN thai sản chỉ dạy ở cơ sở 2 nhưng lớp {t.class_name} không đánh dấu "
                           f"Cơ sở 2")
         if t.class_name:
-            mornings = sorted(config.DAYS[d] for d, name in t.off_sessions if name == config.MORNING.name)
-            if mornings or any(name == config.MORNING.name for name, _ in t.off_any):
-                errors.append(f"Dòng {t.row}: GVCN không nghỉ buổi sáng được vì tiết "
+            # Buổi có tiết luôn do GVCN dạy (HOMEROOM_PERIODS) thì GVCN không nghỉ được.
+            held = lambda d, name: any(s.name == name and set(s.periods) & config.HOMEROOM_PERIODS  # noqa: E731
+                                       for s in config.DAY_SESSIONS.get(d, ()))
+            fixed = sorted((d, name) for d, name in t.off_sessions if held(d, name))
+            named = [name for name, _ in t.off_any if name and config.DAY_SESSIONS
+                     and all(held(d, name) for d in config.DAY_SESSIONS)]
+            if fixed or named:
+                what = sorted({name for _, name in fixed} | set(named))
+                errors.append(f"Dòng {t.row}: GVCN không nghỉ buổi {', '.join(n.lower() for n in what)} được vì tiết "
                               f"{', '.join(map(str, sorted(config.HOMEROOM_PERIODS)))} luôn do GVCN dạy"
-                              + (f" ({', '.join(mornings)})" if mornings else ""))
+                              + (f" ({', '.join(config.DAYS[d] for d, _ in fixed)})" if fixed else ""))
     return errors
 
 

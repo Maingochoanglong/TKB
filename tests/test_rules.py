@@ -25,13 +25,23 @@ def _locate(ws, table):
     return top, end
 
 
-def _input(tmp_path, edits=(), name="vao.xlsx"):
+def _input(tmp_path, edits=(), name="vao.xlsx", old_frame=False):
     """File vào trường nhỏ (quy định ghi mặc định). `edits`: (nơi, ô đầu dòng, tiêu đề cột, giá trị); nơi là MON
     (sheet CHƯƠNG TRÌNH HỌC) hoặc tên bảng của sheet QUY ĐỊNH; bảng chung ghi vào cột Giá trị. Dòng chưa có thì thêm
-    (bảng của sheet QUY ĐỊNH: thêm vào cuối bảng), cột chưa có thì thêm."""
+    (bảng của sheet QUY ĐỊNH: thêm vào cuối bảng), cột chưa có thì thêm. `old_frame`: bảng Ngày ghi khung giờ theo cách
+    cũ (cột Học buổi sáng, Học buổi chiều Có/Không; số tiết mỗi buổi ở bảng chung)."""
     path = tmp_path / name
     write_staff_template(path, small_staff(general=False), CURRICULUM)
     wb = openpyxl.load_workbook(path)
+    if old_frame:
+        ws = wb[config.RULES_SHEET]
+        top, end = _locate(ws, NGAY)
+        for c in range(2, ws.max_column + 1):
+            head = ws.cell(top, c).value
+            if head in ("Buổi Sáng", "Buổi Chiều"):
+                ws.cell(top, c).value = {"Buổi Sáng": "Học buổi sáng", "Buổi Chiều": "Học buổi chiều"}[head]
+                for r in range(top + 1, end + 1):
+                    ws.cell(r, c).value = "Có" if ws.cell(r, c).value else "Không"
     for where, key, header, value in edits:
         ws = wb[config.PROGRAM_SHEET] if where == MON else wb[config.RULES_SHEET]
         top, end = (1, ws.max_row) if where == MON else _locate(ws, where)
@@ -126,12 +136,18 @@ def test_subject_groups(tmp_path):
     assert list(rules["SUBJECT_GROUPS"].items()) == [(config.TOAN_TC, config.TOAN), (config.TV_TC, config.TV)]
 
 
-def test_time_frame(tmp_path):
-    rules = read_rules(_input(tmp_path, [
-        (NGAY, "Thứ 7", "Học buổi sáng", "Có"), (NGAY, "Thứ 4", "Học buổi chiều", "Không"),
-        (CHUNG, "Số tiết buổi chiều", None, 4),
-        (TIET, 7, "Hạn chế môn nặng", "Không"), (TIET, 8, "Hạn chế môn nặng", "Có"),
-    ]))
+@pytest.mark.parametrize("old_frame", [False, True])
+def test_time_frame(tmp_path, old_frame):
+    """Thêm sáng Thứ 7, Thứ 4 không học chiều, chiều 4 tiết; cách ghi cũ (số tiết buổi chiều chung mọi ngày, cột Có/Không)
+    đọc ra đúng như vậy."""
+    if old_frame:
+        edits = [(NGAY, "Thứ 7", "Học buổi sáng", "Có"), (NGAY, "Thứ 4", "Học buổi chiều", "Không"),
+                 (CHUNG, "Số tiết buổi chiều", None, 4)]
+    else:
+        edits = [(NGAY, "Thứ 7", "Buổi Sáng", 4), (NGAY, "Thứ 4", "Buổi Chiều", 0),
+                 *((NGAY, d, "Buổi Chiều", 4) for d in ("Thứ 2", "Thứ 3", "Thứ 5"))]
+    rules = read_rules(_input(tmp_path, [*edits, (TIET, 7, "Hạn chế môn nặng", "Không"),
+                                         (TIET, 8, "Hạn chế môn nặng", "Có")], old_frame=old_frame))
     assert rules["DAYS"] == ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"]
     assert rules["AFTERNOON"].periods == (5, 6, 7, 8) and rules["MORNING"] == config.MORNING
     sessions = rules["DAY_SESSIONS"]
@@ -143,9 +159,9 @@ def test_time_frame(tmp_path):
 def test_all_errors_at_once(tmp_path):
     with pytest.raises(InputError) as err:
         read_rules(_input(tmp_path, [
-            (CHUNG, "Số tiết buổi sáng", None, 0),
+            (NGAY, "Thứ 3", "Buổi Sáng", "nhiều"),
             (CHUNG, "Chủ Nhiệm được dạy bù", None, "Có lẽ"),
-            (NGAY, "Thứ 4", "Học buổi sáng", "Không"),  # ngày học không liền nhau
+            (NGAY, "Thứ 4", "Buổi Sáng", 0), (NGAY, "Thứ 4", "Buổi Chiều", 0),  # không học mà có ghi tiết HĐTN
             (NGAY, "Thứ 2", "Tiết HĐTN cố định", 9),
             (TIET, 1, "Luôn do GVCN dạy", "Chắc"),
             (TIET, 1, "Môn khó", "Có"),  # cột lạ ở sheet QUY ĐỊNH là lỗi
@@ -157,12 +173,11 @@ def test_all_errors_at_once(tmp_path):
     parts = ("CHƯƠNG TRÌNH HỌC, dòng 3: cột GVCN cắt bớt: số thứ tự 1 bị lặp (Tiếng Việt)",
              "cột Môn HĐTN chỉ ghi Có ở một môn (đã có Hoạt động trải nghiệm)",
              "môn tăng cường Thể dục chưa ghi Nhóm môn",
-             "QUY ĐỊNH, dòng 2: cột Số tiết buổi sáng ghi một số nguyên dương, đang ghi 0",
+             "cột Buổi Sáng ghi một số nguyên dương, đang ghi 'nhiều'",
              "cột Chủ Nhiệm được dạy bù chỉ ghi Có hoặc Không, đang ghi 'Có lẽ'",
              "cột Luôn do GVCN dạy chỉ ghi Có hoặc Không",
              "không có quy định nào tên 'Môn khó'",
-             "QUY ĐỊNH: các ngày Học buổi sáng phải liền nhau từ Thứ 2",
-             "Xếp tiết HĐTN còn lại vào Thứ 4 nhưng ngày đó không học",
+             "ngày 'Thứ 4' không có tiết nào (cột Buổi <tên>) nhưng có ghi tiết HĐTN",
              "Tiết HĐTN cố định Thứ 2 tiết 9 không có trong khung giờ")
     for part in parts:
         assert part in text, part
@@ -225,7 +240,8 @@ def test_default_rules_give_the_same_timetable(tmp_path, capsys):
 
 def test_rules_from_the_file_are_used(tmp_path, capsys):
     """Thêm sáng Thứ 7, chiều 4 tiết: TKB có cột Thứ 7, kiểm tra luật đạt; chạy xong config trở lại mặc định."""
-    path = _input(tmp_path, [(NGAY, "Thứ 7", "Học buổi sáng", "Có"), (CHUNG, "Số tiết buổi chiều", None, 4),
+    path = _input(tmp_path, [(NGAY, "Thứ 7", "Buổi Sáng", 4),
+                             *((NGAY, d, "Buổi Chiều", 4) for d in ("Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5")),
                              (TIET, 7, "Hạn chế môn nặng", "Không"), (TIET, 8, "Hạn chế môn nặng", "Có")])
     assert main.run(path, tmp_path / "out", thoi_gian_toi_da=10, che_do="tuyen_them") == 0
     out = capsys.readouterr().out

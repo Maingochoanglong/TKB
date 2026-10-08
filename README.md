@@ -53,8 +53,9 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      Câu lỗi ghi tên giáo viên, môn, câu luật (vd `Giáo viên CN 3: Số tiết …`); vị trí trong file Excel (sheet, dòng) ở
      chú thích khi rê chuột.
 2. Soạn kịch bản của trường theo từng bước (nút **Tiếp →** cuối mỗi trang):
-   - **Khung giờ & quy định chung**: số tiết sáng/chiều, giới hạn nhóm môn, ghép cặp, ai được bù, ngày học (có thể thêm
-     Thứ 7), tiết HĐTN cố định, tiết luôn do GVCN dạy, tiết hạn chế môn nặng.
+   - **Khung giờ & quy định chung**: bảng ngày học × buổi (tên ngày, tên buổi tùy ý, mỗi ô là số tiết của buổi đó
+     trong ngày; thêm/xóa/đổi thứ tự ngày, thêm/đổi tên/bỏ buổi), ai được bù, tiết HĐTN cố định, tiết luôn do GVCN dạy,
+     tiết hạn chế môn nặng.
    - **Môn học**: danh sách môn với số tiết từng khối (thêm/bớt khối), cột **Ai dạy** và các quy định khác tóm tắt;
      bấm **Sửa** để mở trang chi tiết của môn, các quy định chia nhóm (hiển thị, GVCN, ai được dạy, luật bảo vệ học sinh,
      ưu tiên khi xếp), mỗi ô có giải thích. **Bảng đầy đủ** hiện mọi cột cùng lúc như sheet Excel.
@@ -300,17 +301,15 @@ dòng luật dùng (vd luật "Tránh xếp môn có nhãn Môn nặng vào gi�
 
 | Quy định | Mặc định | Ý nghĩa |
 |---|---|---|
-| Số tiết buổi sáng | 4 | Buổi sáng là tiết 1 đến tiết này. |
-| Số tiết buổi chiều | 3 | Buổi chiều là các tiết tiếp theo, vd sáng 4 tiết, chiều 3 tiết thì chiều là tiết 5, 6, 7. |
 | Chủ Nhiệm được dạy bù | Có | GVCN chỉ bù ở lớp mình và bù trước bộ môn. |
 | Bộ Môn được dạy bù | Có | Bộ môn bù khi GVCN đã bù hết mức. |
 
-**Sheet `QUY ĐỊNH`**, bảng 2 (mỗi ngày Thứ 2 … Thứ 7 một dòng) và bảng 3 (mỗi tiết một dòng, buổi chiều đánh số nối tiếp buổi sáng):
+**Sheet `QUY ĐỊNH`**, bảng 2 (`Ngày`: mỗi ngày học một dòng) và bảng 3 (`Tiết`: mỗi tiết một dòng):
 
 | Cột | Mặc định | Ý nghĩa |
 |---|---|---|
-| Học buổi sáng | Có: Thứ 2, Thứ 3, Thứ 4, Thứ 5, Thứ 6 | Các ngày học, liền nhau từ Thứ 2 (có thể thêm Thứ 7). |
-| Học buổi chiều | Có: Thứ 2, Thứ 3, Thứ 4, Thứ 5 | Ngày có buổi chiều (phải là ngày học buổi sáng). |
+| Ngày | Thứ 2 … Thứ 6 | Tên ngày học, tùy ý (vd Thứ 7, Chủ nhật, Mon), theo thứ tự trong tuần; thêm ngày thì thêm dòng. |
+| Buổi `<tên>` (vd `Buổi Sáng`, `Buổi Chiều`) | Sáng 4 tiết mọi ngày; Chiều 3 tiết Thứ 2 – Thứ 5 | Số tiết của buổi đó trong ngày; ô trống: ngày đó không học buổi đó. Số buổi, tên buổi tùy ý (thêm cột `Buổi Tối`…); mỗi ngày một số tiết riêng (vd chiều Thứ 5 có 4 tiết). Tiết đánh số liên tục trong ngày theo thứ tự cột: sáng 4 tiết thì chiều từ tiết 5. Ngày không có tiết nào không phải ngày học. |
 | Tiết HĐTN cố định | Thứ 2: 1, Thứ 6: 4 | Luật cứng: tiết môn HĐTN cố định của ngày đó ở mọi lớp, vd Thứ 2: 1, Thứ 6: 4. |
 | Xếp tiết HĐTN còn lại | Có: Thứ 3, Thứ 4, Thứ 5 | Luật cứng: các tiết HĐTN còn lại chỉ xếp vào các ngày này (mục tiêu mềm: gần cuối buổi). |
 | Luôn do GVCN dạy | Có: tiết 1 | Luật cứng: tiết này ở mọi ngày do GVCN của lớp dạy. |

@@ -640,7 +640,8 @@ class _Eval:
 # Phép đo: mỗi phép đo một hàm, dùng cho cả dựng mô hình và đánh giá
 # --------------------------------------------------------------------------
 def _day(d: int) -> str:
-    return f"Thứ {d + 2}"
+    from .khung_gio import day_name
+    return day_name(d)
 
 
 def _label(problem, subject: str) -> str:
