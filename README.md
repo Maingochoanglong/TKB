@@ -17,8 +17,9 @@ thiếu, số tiết bù của từng người, số người cần tuyển và 
 
 ## Cài đặt và chạy
 
-**Không cài Python (Windows):** tải `TKB_Windows.zip` (mục Actions → workflow **Đóng gói TKB.exe** → Artifacts),
-giải nén, bấm đúp `TKB.exe`: mở đúng giao diện web ở Cách 0, kết quả ghi vào thư mục `TKB` trong thư mục người dùng.
+**Không cài Python (Windows):** tải `TKB_Windows.zip` ở trang **Releases** của dự án (bản thử của từng lần sửa mã: mục
+Actions → workflow **Đóng gói TKB.exe** → Artifacts), giải nén, bấm đúp `TKB.exe` (Windows báo "Windows protected your
+PC" vì gói chưa ký số thì bấm More info › Run anyway): mở đúng giao diện web ở Cách 0, kết quả ghi vào thư mục `TKB` trong thư mục người dùng.
 Gói dựng bằng `python tools/dong_goi.py` (PyInstaller, `pip install -r requirements-build.txt`), cùng OR-Tools ghim
 nên ra cùng mã kết quả như `python -m tkb` trên Windows; gói không chứa file Excel nào của trường.
 
@@ -104,6 +105,10 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
    - **Đổi hai tiết**: bấm một ô (các ô cùng lớp đổi được mà không sai luật bắt buộc nào viền xanh), rồi bấm ô thứ hai
      cùng lớp: hai ô đổi chỗ và được khóa; trang kiểm lại ngay, ô sai luật viền đỏ, bấm vào câu lỗi để tới ô đó. Đổi
      nhầm thì Hoàn tác. Nút trong khung chọn ô để khóa / mở khóa một ô; **Mở khóa n ô** bỏ mọi khóa.
+   - **Đổi người dạy** cả môn của một lớp (môn không có phần GVCN dạy): khung chọn ô có ô **Người dạy … lớp …** với
+     những người được dạy môn đó; chọn người khác thì trang ghi luật "Chỉ giáo viên dạy" (Môn, Lớp, người) ở bước Luật,
+     TKB đang có báo sai luật đó, bấm **Xếp lại phần còn lại** để đổi, giữ TKB cũ nhiều nhất. Muốn bỏ thì xóa hay tạm
+     tắt luật đó.
    - **Xếp lại phần còn lại** (TKB còn lỗi, hoặc luật đã sửa từ lúc xếp): chạy như Xếp TKB, giữ TKB đã xếp, tối đa
      120 giây (thường dừng sớm vì đã tối ưu): ô khóa giữ nguyên, chỉ dời ít tiết nhất để đạt mọi luật; xong TKB mới tự
      vào trang, các ô đã đổi tô vàng. Ô khóa sai luật bắt buộc (vd dời HĐTN khỏi tiết cố định) không giữ được: trang

@@ -1517,15 +1517,49 @@ function renderPick() {
   if (!c) return;
   const where = `lớp ${esc(c.cls)}, ${esc(tkb.days[c.d])} tiết ${c.p}`;
   const what = c.subject ? `<b>${esc(c.subject)}</b> (${esc(c.code)}) · ${where}` : `ô trống · ${where}`;
-  let hint = "Đang tìm các ô đổi được…";
-  if (tkbSwaps) {
-    const ok = [...tkbSwaps.values()].filter((t) => !t.new).length;
-    hint = ok ? `Bấm một ô cùng lớp để đổi chỗ: <b>${ok}</b> ô viền xanh đổi được không sai luật bắt buộc.`
-      : "Không ô nào cùng lớp đổi được mà không sai luật bắt buộc (vẫn đổi được rồi xếp lại phần còn lại).";
-  }
-  box.innerHTML = `<span>Đã chọn ${what}. ${hint}</span><span class="actions">${c.subject
+  const html = `<span>Đã chọn ${what}. <span class="hint">${pickHint()}</span></span><span class="actions">${teacherPicker(c)}${c.subject
     ? `<button type="button" class="ghost small" data-tkb="lock">${c.locked ? "Mở khóa ô này" : "🔒 Khóa ô này"}</button>` : ""}
     <button type="button" class="ghost small" data-tkb="cancel">Bỏ chọn (Esc)</button></span>`;
+  if (box.dataset.html === html) return; // kiểm lại tự động mà không đổi gì: không vẽ lại ô chọn đang mở
+  box.dataset.html = html;
+  box.innerHTML = html;
+}
+function pickHint() {
+  if (!tkbSwaps) return "Đang tìm các ô đổi được…";
+  const ok = [...tkbSwaps.values()].filter((t) => !t.new).length;
+  return ok ? `Bấm một ô cùng lớp để đổi chỗ: <b>${ok}</b> ô viền xanh đổi được không sai luật bắt buộc.`
+    : "Không ô nào cùng lớp đổi được mà không sai luật bắt buộc (vẫn đổi được rồi xếp lại phần còn lại).";
+}
+// Đổi người dạy cả môn của lớp (vd giữa năm Tiếng Anh lớp 3/1 đổi sang Tiếng Anh 2): ghi hoặc sửa luật "Chỉ giáo viên
+// dạy" (Môn, Lớp, một người) ở bước Luật; TKB đang có trái luật đó nên bấm Xếp lại phần còn lại. Chỉ môn không có phần
+// GVCN dạy (tkb.choices, kich_ban._choices).
+const CHI_GV = () => S.custom.kinds.find((k) => k.key === "chi_gv").label;
+function forcedRule(cls, subject) {
+  return st.scenario.rules.findIndex((r) => key(r.kind) === key(CHI_GV()) && key(r.subject) === key(subject)
+    && classKey(r.classes) === classKey(cls) && !r.off);
+}
+function teacherPicker(c) {
+  const ch = c.subject && tkb.choices[`${c.cls}|${c.subject}`];
+  if (!ch) return "";
+  const now = [...new Set(tkb.cells.filter((x) => x.cls === c.cls && x.subject === c.subject).map((x) => x.code))];
+  const name = (code) => tkb.teachers.find((t) => key(t.code) === key(code))?.name;
+  const label = (code) => { const n = name(code); return n && !hireName(n) ? `${code} · ${n}` : code; };
+  return `<label class="inline-pick" title="Ghi luật Chỉ giáo viên dạy cho môn này của lớp ở bước Luật">Người dạy ${esc(c.subject)} lớp ${esc(c.cls)}:
+    <select data-tkb="teacher">${now.length > 1 ? `<option value="" selected>(${now.length} người)</option>` : ""}
+    ${ch.codes.map((code) => `<option value="${esc(code)}" ${now.length === 1 && key(now[0]) === key(code) ? "selected" : ""}>${esc(label(code))}</option>`).join("")}
+    </select></label>`;
+}
+function setTeacher(c, code) {
+  const ch = tkb.choices[`${c.cls}|${c.subject}`];
+  const rules = st.scenario.rules;
+  const i = forcedRule(c.cls, ch.subject);
+  if (i >= 0) rules[i].role = code;
+  else rules.push({ ...newRule(CHI_GV()), subject: ch.subject, classes: c.cls, role: code, hard: true });
+  said = null;
+  changed();
+  refreshTkb();
+  done(`Đã ghi luật: ${esc(c.subject)} lớp ${esc(c.cls)} chỉ do <b>${esc(code)}</b> dạy (bước Luật). TKB đang có chưa theo
+    luật này: bấm <b>Xếp lại phần còn lại</b> để đổi người dạy, giữ TKB cũ nhiều nhất có thể.`);
 }
 
 async function pickCell(k) {
@@ -1549,7 +1583,9 @@ async function pickCell(k) {
   if (seq !== swapSeq || tkbSel !== k) return;
   tkbSwaps = new Map(res.swaps.map((t) => [cellKey(c.cls, t.d, t.p), t]));
   renderTkbGrid();
-  renderPick();
+  const hint = $("#tkb-pick .hint"); // chỉ đổi dòng gợi ý: ô chọn người dạy đang mở không bị vẽ lại
+  if (hint) hint.innerHTML = pickHint(); else renderPick();
+  delete $("#tkb-pick").dataset.html;
 }
 
 async function swapCells(a, b) {
@@ -2283,12 +2319,16 @@ function wire() {
     const err = e.target.closest("[data-tkb-err]");
     if (err) { showTkbError(Number(err.dataset.tkbErr)); return; }
     const act = e.target.closest("[data-tkb]")?.dataset.tkb;
+    if (act === "teacher") return; // ô chọn người dạy: xử lý khi đổi (change)
     if (act === "cancel") { tkbSel = null; tkbSwaps = null; renderTkb(); }
     if (act === "lock" && tkbSel) toggleLock(tkbCell(tkbSel));
     if (act === "stop") $("#btn-stop").click();
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && tkbSel && !$("dialog[open]")) { tkbSel = null; tkbSwaps = null; renderTkb(); }
+  });
+  $("#tab-tkb").addEventListener("change", (e) => {
+    if (e.target.dataset.tkb === "teacher" && e.target.value && tkbSel) setTeacher(tkbCell(tkbSel), e.target.value);
   });
   $("#btn-tkb-unlock").onclick = unlockAll;
   $("#btn-tkb-run").onclick = () => repairRun().catch(fail);

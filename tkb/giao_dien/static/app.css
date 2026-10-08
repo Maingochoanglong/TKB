@@ -437,3 +437,5 @@ label.switch { display: inline-flex; align-items: center; gap: 4px; font-size: 1
 /* Ô tìm kiếm của các danh sách */
 input.search { width: 220px; }
 @media (max-width: 640px) { input.search { width: 100%; } }
+.pick .inline-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.pick .inline-pick select { width: auto; max-width: 260px; }

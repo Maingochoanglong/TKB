@@ -211,6 +211,7 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `RULE_KEYS`, `STAFF_COLS
   - `.view(grid)` — TKB đã xếp để vẽ trên trang: {days, sessions, classes, teachers, cells, errors, ok, code, rules_changed}.
   - `.swaps(grid, day, period)` — Thử đổi ô (cls, day, period) với từng ô khác của lớp (trừ ô cùng môn, cùng người dạy): [{d, p, new,
 - `timetable(scenario, mode, overtime_max, student_rules)` — Grid(...).view của TKB đã xếp trong kịch bản (một lần, không giữ lại).
+- `_choices(problem)` — "lớp|môn như ghi trong TKB" -> {subject: tên môn để ghi luật, codes: Mã GV các người có thể dạy}, cho các môn
 - `_cells(saved, staff)`
 - `_teachers(staff)`
 - `_marked(text, problem, cells)` — Một lỗi của checker kèm các ô nó nói tới (tô viền đỏ trên trang), tìm theo chữ: lớp, Mã GV, Thứ, tiết, buổi,

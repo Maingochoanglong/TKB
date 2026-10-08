@@ -324,6 +324,14 @@ def test_timetable_view_marks_errors_and_tries_swaps(small_updated):
     assert all(c["locked"] for c in after["cells"] if (c["d"], c["p"]) in {(0, 2), (b["d"], b["p"])} and c["cls"] == "3/1")
     titles = [t.title for t in grid.problem.teachers.values()]
     assert not any(title in e["text"] for e in after["errors"] for title in titles)  # Mã GV, không phải chức vụ chuẩn hóa
+    # Đổi người dạy (bước 7): người được dạy từng môn không có phần GVCN, kể cả khi đã có luật Chỉ giáo viên dạy.
+    assert view["choices"]["3/1|Âm nhạc"] == {"subject": "Âm nhạc", "codes": ["Âm Nhạc 1", "Chủ Nhiệm 3/1"]}
+    assert not any(k.endswith("|Tiếng Việt") or k.endswith("|Toán") for k in view["choices"])  # phần GVCN: không đổi
+    forced = {**scenario, "rules": [*scenario["rules"], {"kind": "Chỉ giáo viên dạy", "subject": "Âm nhạc",
+                                                           "classes": "3/1", "role": "Chủ Nhiệm 3/1", "hard": True}]}
+    after = kich_ban.timetable(forced, config.MODE_OVERTIME, 4)
+    assert after["choices"]["3/1|Âm nhạc"]["codes"] == ["Âm Nhạc 1", "Chủ Nhiệm 3/1"] and not after["ok"]
+    assert any("chỉ do Chủ Nhiệm 3/1 dạy" in e["text"] and e["cells"] for e in after["errors"])
     # Sửa luật sau khi xếp: TKB vẫn xem được, báo cần xếp lại theo luật mới.
     changed_rules = {**scenario, "rules": scenario["rules"][:-1]}
     assert kich_ban.timetable(changed_rules, config.MODE_OVERTIME, 4)["rules_changed"]

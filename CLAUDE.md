@@ -102,7 +102,9 @@ Kiểm tra & xếp → Thời khóa biểu (step 7: the saved grid `scenario["sa
 settings in `App.grid`; `view` = `staff.parse_saved_grid` (the one grid reader, also behind `read_saved_timetable`;
 `places` give each cell's (row, col)) + `solver.saved_lessons` + `checker.check` → `/api/timetable` cells and errors
 whose cells `_marked` finds from the message text (class, Thứ, tiết, buổi, subject; titles rewritten to Mã GV);
-`/api/swaps` re-checks each same-class swap (no-op swaps skipped). A swap swaps the two cells' text in
+`/api/swaps` re-checks each same-class swap (no-op swaps skipped); `view.choices` (`kich_ban._choices`, built without
+the "Chỉ giáo viên dạy" rules, only subjects with no homeroom share) feeds the "Người dạy" select of the picked cell,
+which adds or edits that rule (`setTeacher`) so a repair run moves the subject to the new teacher. A swap swaps the two cells' text in
 `scenario.saved` and adds " (khóa)"; "Xếp lại phần còn lại" = `/api/run` with keep_saved and ≤ `REPAIR_TIME` 120 s,
 then `takeSaved` copies the new grid (and staff if hires changed) from `<name>_cap_nhat.xlsx` and marks changed
 cells; step 6's result has "Xem TKB trên trang" doing the same). Step 6's result card is a summary: `server.summary` parses the
@@ -253,7 +255,8 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
 - `dong_goi.yml` (manual, tags `v*`, PRs touching packaging/UI entry): `tools/dong_goi.py` builds `dist/TKB/TKB.exe`
   (PyInstaller onedir, `requirements-build.txt` pins it; static pages as data, `--collect-all ortools`; refuses any
   `.xlsx` in the package) → `.github/scripts/thu_goi.py` runs it on the fake school (`--cli`, then the UI: import,
-  check, run, Stop) → artifact `TKB_Windows.zip`. The frozen exe re-runs itself with `--cli` for each solve
+  check, run, Stop) → artifact `TKB_Windows.zip`; on a pushed tag `v*` it is also published as a GitHub Release
+  (`gh release create`, notes `.github/ghi_chu_phat_hanh.md`; never push a tag without the user's go-ahead). The frozen exe re-runs itself with `--cli` for each solve
   (`server.cli_command`) and ignores `PYTHONUNBUFFERED`, so `__main__.use_utf8_output` line-buffers stdout (the UI log
   and Stop depend on it).
 

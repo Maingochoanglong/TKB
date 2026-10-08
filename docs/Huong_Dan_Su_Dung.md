@@ -7,8 +7,10 @@ Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập li
 ## 1. Cài đặt
 
 **Cách A: TKB.exe (Windows, không cần cài Python).**
-1. Tải `TKB_Windows.zip`: trang GitHub của dự án, mục **Actions** → workflow **Đóng gói TKB.exe** → lần chạy mới
-   nhất → phần **Artifacts** (hoặc trang Releases nếu đã phát hành).
+1. Tải `TKB_Windows.zip` ở trang **Releases** của dự án trên GitHub (bản phát hành mới nhất, phần *Assets*). Bản thử
+   của từng lần sửa mã: mục **Actions** → workflow **Đóng gói TKB.exe** → lần chạy → **Artifacts** (cần đăng nhập
+   GitHub, hết hạn sau 90 ngày). Windows báo *"Windows protected your PC"* (gói chưa ký số) thì bấm **More info ›
+   Run anyway**.
 2. Giải nén, mở thư mục `TKB`, bấm đúp **`TKB.exe`**. Một cửa sổ dòng lệnh mở ra (giữ cửa sổ này mở khi dùng), trình
    duyệt tự mở trang nhập liệu. Trình duyệt không tự mở thì chép đường dẫn in trong cửa sổ (`http://127.0.0.1:...`)
    vào trình duyệt.
@@ -121,7 +123,10 @@ Luôn làm việc trên file **`<tên>_cap_nhat.xlsx`** của lần chạy trư�
 - **Khóa ô**: trên trang, chọn ô rồi bấm **🔒 Khóa ô này**; hoặc ở sheet **TKB đã xếp** của file cập nhật, thêm chữ
   `(khóa)` vào cuối ô (vd dòng thứ hai `Bộ Môn 2 (khóa)`): ô đó giữ nguyên bắt buộc khi xếp lại.
 - **Giờ bận theo tiết**: luật "Không xếp vào", Giáo viên ghi Mã GV hoặc họ tên, Ngày và Tiết, để trống Môn.
-- **Chọn ai dạy lớp nào**: luật "Chỉ giáo viên dạy", Môn, Lớp và một người, vd Tiếng Anh lớp 3/1 chỉ `Tiếng Anh 2` dạy.
+- **Chọn ai dạy lớp nào**: ở bước 7, chọn một tiết của môn đó rồi chọn người ở ô **Người dạy … lớp …** (chỉ có ở các môn
+  không có phần GVCN dạy): trang ghi luật "Chỉ giáo viên dạy" ở bước Luật; bấm **Xếp lại phần còn lại** để đổi người
+  dạy, giữ TKB cũ nhiều nhất. Cũng ghi tay được ở bước Luật: "Chỉ giáo viên dạy", Môn, Lớp và một người, vd Tiếng Anh
+  lớp 3/1 chỉ `Tiếng Anh 2` dạy.
 
 Câu đọc lại và các thông báo luôn ghi Mã GV, không ghi họ tên. Mã GV đánh số theo thứ tự dòng trong chức vụ, nên thêm
 hay xóa dòng nhân sự làm đổi Mã GV của những người phía sau. Sửa trên trang thì luật tự đi theo đúng người (xóa người

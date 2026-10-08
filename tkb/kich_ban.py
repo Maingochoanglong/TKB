@@ -555,6 +555,7 @@ class Grid:
         self.staff: list = []
         self.problem = None
         self.rules_code = None
+        self.choices: dict[str, dict] = {}
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "kich_ban.xlsx"
             to_excel({**scenario, "saved": None}, path)
@@ -568,8 +569,12 @@ class Grid:
                     curriculum = read_program(path)
                     self.staff = read_staff(path, subjects=[s for req in curriculum.values() for s in req])
                     bo_ghep.know_staff(self.staff)
-                    self.problem = build_problem(self.staff, curriculum, {},
-                                                 overtime_max=overtime_max if mode == config.MODE_OVERTIME else 0)
+                    over = overtime_max if mode == config.MODE_OVERTIME else 0
+                    self.problem = build_problem(self.staff, curriculum, {}, overtime_max=over)
+                    # Người có thể dạy từng môn của lớp khi bỏ các luật "Chỉ giáo viên dạy" (đổi người dạy ở bước 7
+                    # là ghi / sửa đúng luật đó).
+                    with applied({"CUSTOM_RULES": [r for r in config.CUSTOM_RULES if r.kind != "chi_gv"]}):
+                        self.choices = _choices(build_problem(self.staff, curriculum, {}, overtime_max=over))
                 except InputError as exc:
                     self.errors = _lines(exc)
                     return
@@ -600,7 +605,8 @@ class Grid:
                    "sessions": [{"name": s.name, "periods": list(s.periods)}
                                 for s in max(config.DAY_SESSIONS.values(), key=len, default=())],
                    "off": [[d, p] for d in days for p in sorted(set().union(*periods.values()) - periods[d])],
-                   "code": saved.result_code, "cells": _cells(saved, self.staff), "teachers": _teachers(self.staff)}
+                   "code": saved.result_code, "cells": _cells(saved, self.staff), "teachers": _teachers(self.staff),
+                   "choices": self.choices}
             out["classes"] = sorted({c["cls"] for c in out["cells"]}, key=class_sort_key)
             out["rules_changed"] = saved.rules_code not in (None, self.rules_code) and self.problem is not None
             if self.problem is None:
@@ -653,6 +659,22 @@ def timetable(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: in
               student_rules: bool = True) -> dict:
     """Grid(...).view của TKB đã xếp trong kịch bản (một lần, không giữ lại)."""
     return Grid(scenario, mode, overtime_max, student_rules).view(scenario.get("saved"))
+
+
+def _choices(problem) -> dict[str, dict]:
+    """"lớp|môn như ghi trong TKB" -> {subject: tên môn để ghi luật, codes: Mã GV các người có thể dạy}, cho các môn
+    không có phần GVCN dạy (phần đó cố định theo quy định GVCN) và có ít nhất hai người (kể cả người cần tuyển ghi ở
+    nhân sự, trừ người tuyển dự kiến của chương trình)."""
+    homeroom = {(c.class_name, c.subject) for c in problem.courses if c.homeroom}
+    found: dict[tuple[str, str], list[str]] = {}
+    for c in problem.courses:
+        if (c.class_name, c.subject) in homeroom:
+            continue
+        names = found.setdefault((c.class_name, c.subject), [])
+        names += [t for t in c.teachers if t not in names and not problem.teachers[t].supplementary]
+    return {f"{cls}|{problem.subject_label(subject)}": {"subject": subject,
+                                                        "codes": [problem.teachers[t].code for t in titles]}
+            for (cls, subject), titles in found.items() if len(titles) > 1}
 
 
 def _cells(saved, staff) -> list[dict]:

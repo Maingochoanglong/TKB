@@ -89,7 +89,7 @@ def test_sample_steps_undo_switch_and_search(page):
 
 def test_timetable_view_swap_and_undo(page, small_updated):
     """Bước 7 với TKB đã xếp của trường nhỏ: lưới đúng mọi luật; chọn một ô thì có ô viền xanh / mờ; đổi với ô không
-    đổi được thì báo lỗi, viền đỏ; Hoàn tác thì hết lỗi."""
+    đổi được thì báo lỗi, viền đỏ; Hoàn tác thì hết lỗi; đổi người dạy ghi luật Chỉ giáo viên dạy."""
     page.wait_for_selector("#start:not([hidden])")
     page.set_input_files("#file-open", str(small_updated))
     page.wait_for_selector("#import-dialog[open]")
@@ -108,5 +108,17 @@ def test_timetable_view_swap_and_undo(page, small_updated):
     page.keyboard.press("Control+z")
     _wait_mark(page, "tkb", "✓")
     assert page.locator("#tkb-grid .lock").count() == 0
+    # Đổi người dạy Âm nhạc lớp 3/1: ghi luật Chỉ giáo viên dạy, TKB đang có báo sai luật đó; Hoàn tác thì bỏ luật.
+    rules = int(page.text_content("#count-luat"))
+    cell = page.locator("#tkb-grid td.cell", has_text="Âm nhạc").first.get_attribute("data-cell")
+    assert cell.startswith("3/1|")
+    page.click(f'#tkb-grid [data-cell="{cell}"]')
+    page.select_option('#tkb-pick select[data-tkb="teacher"]', "Chủ Nhiệm 3/1")  # ngay, trước khi thử đổi xong
+    _wait_mark(page, "tkb", "⚠")
+    assert int(page.text_content("#count-luat")) == rules + 1 and "chỉ do" in page.text_content("#tkb-status")
+    page.evaluate("document.activeElement.blur()")
+    page.keyboard.press("Control+z")
+    _wait_mark(page, "tkb", "✓")
+    assert int(page.text_content("#count-luat")) == rules
     page.select_option("#tkb-view", index=page.locator("#tkb-view option").count() - 1)  # theo giáo viên
     assert page.locator("#tkb-grid td.cell[data-cell]").count() > 0
