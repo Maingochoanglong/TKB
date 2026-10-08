@@ -453,7 +453,7 @@ def quality_rows(solution: Solution, student_rules: bool = True) -> list[list]:
     # Mẫu chỉ có dạng gốc (Buổi nghỉ, Giáo viên chỉ dạy cơ sở 2) không có phép đo: bộ kiểm tra độc lập kiểm.
     checked = {id(r) for r in rules if not bo_ghep.make(r).measure}
     found = bo_ghep.violations(solution.problem, solution.lessons, skip_forced=False,
-                               rules=[r for r in rules if id(r) not in off | checked])
+                               rules=[r for r in rules if id(r) not in off | checked and not r.off])
     count: Counter = Counter()
     examples: dict[int, list[str]] = defaultdict(list)
     for L, n, _, text in found:
@@ -468,6 +468,9 @@ def quality_rows(solution: Solution, student_rules: bool = True) -> list[list]:
         level = "Bắt buộc" if r.hard else f"Ưu tiên {luat_rieng.level_label(r).lower()}"
         if id(r) in off:
             out.append([r.group_label or None, say, level, "tắt", None, "luật bảo vệ học sinh tắt khi xếp"])
+            continue
+        if r.off:
+            out.append([r.group_label or None, say, level, "tắt", None, "dòng ghi Tạm tắt = Có: không dùng khi xếp"])
             continue
         if id(r) in checked:
             out.append([r.group_label or None, say, level, None, None, "kiểm bằng bộ kiểm tra độc lập"])

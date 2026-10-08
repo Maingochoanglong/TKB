@@ -175,7 +175,7 @@ fieldset { border: none; padding: 0; margin: 0; }
 .form .check { display: flex; gap: 8px; align-items: baseline; }
 .inline { display: flex; gap: 6px; }
 .inline input { flex: 1; min-width: 0; }
-input[type=text], input[type=number], select, textarea {
+input[type=text], input[type=number], input[type=search], select, textarea {
   font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--line);
   border-radius: 6px; padding: 5px 8px; width: 100%;
 }
@@ -409,3 +409,31 @@ table.tkb td.cell.flash { animation: flash 2.2s ease-out; }
 .cell-demo.can { border: 2px dashed var(--ok); }
 .cell-demo.changed { background: var(--warn-soft); }
 @media (max-width: 640px) { table.tkb td.cell { min-width: 84px; } table.tkb td.cell small { max-width: 90px; } }
+
+/* Kết quả xếp: tóm tắt dễ đọc */
+dl.facts { margin: 0; display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 4px 14px;
+  font-size: 14px; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; }
+details.quality { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+details.quality > summary { cursor: pointer; }
+details.quality ol { margin: 8px 0 6px; padding-left: 20px; display: grid; gap: 6px; }
+details.quality li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+details.quality li b { white-space: nowrap; font-size: 13px; }
+details.quality li .ex { grid-column: 1 / -1; }
+p.quality.ok { margin: 0; color: var(--ok); font-weight: 600; }
+details.files-box > summary { cursor: pointer; color: var(--muted); font-size: 14px; margin-bottom: 6px; }
+@media (max-width: 640px) { dl.facts { grid-template-columns: 1fr; } dl.facts dd { margin-bottom: 4px; }
+  details.quality li { grid-template-columns: 1fr; } }
+
+/* Luật: công tắc Dùng / tạm tắt */
+.rule-item .nowrap { display: inline-flex; align-items: center; gap: 6px; }
+label.switch { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.rule-item.off { background: var(--surface-2); }
+.rule-item.off .say { opacity: .55; text-decoration: line-through; text-decoration-color: var(--muted); }
+.rule-item.off .say .off-tag { text-decoration: none; display: inline-block; }
+.tag.off-tag { border-color: var(--warn); color: var(--warn); }
+
+/* Ô tìm kiếm của các danh sách */
+input.search { width: 220px; }
+@media (max-width: 640px) { input.search { width: 100%; } }

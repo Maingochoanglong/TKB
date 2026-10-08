@@ -100,6 +100,7 @@
       <div class="toolbar">
         <h2>Môn học</h2>
         <div class="actions">
+          <input type="search" id="subject-search" class="search" placeholder="Tìm môn" aria-label="Tìm môn">
           <button type="button" id="btn-add-subject">+ Thêm môn</button>
           <button type="button" id="btn-add-grade" class="ghost">+ Thêm khối</button>
           <button type="button" id="btn-del-grade" class="ghost">− Bớt khối cuối</button>
@@ -134,6 +135,7 @@
       <div class="toolbar">
         <h2>Giáo viên</h2>
         <div class="actions">
+          <input type="search" id="staff-search" class="search" placeholder="Tìm họ tên, Mã GV, lớp" aria-label="Tìm giáo viên">
           <select id="staff-filter" aria-label="Lọc theo chức vụ"></select>
           <button type="button" id="btn-add-staff">+ Thêm giáo viên</button>
           <button type="button" id="btn-paste" class="ghost">Dán từ Excel…</button>
@@ -154,6 +156,7 @@
       <div class="toolbar">
         <h2>Luật xếp thời khóa biểu</h2>
         <div class="actions">
+          <input type="search" id="rule-search" class="search" placeholder="Tìm luật: môn, lớp, chữ trong câu" aria-label="Tìm luật">
           <select id="new-kind" aria-label="Loại luật mới"></select>
           <button type="button" id="btn-add-rule">+ Thêm luật</button>
           <details class="menu">
@@ -173,7 +176,7 @@
       </div>
       <p class="muted">Mỗi luật là một câu, trả lời một trong bốn câu hỏi về các tiết: <b>Ở đâu</b> (xếp vào giờ nào),
         <b>Bao nhiêu</b> (số tiết, số lớp, số ngày), <b>Đi cùng nhau</b> (liền nhau, theo cặp, trước sau) và <b>Ai
-        dạy</b>. Các luật <span class="tag">mặc định</span> đã đủ dùng: sửa số hoặc mức để chỉnh, bấm ✕ để bỏ, thêm
+        dạy</b>. Các luật <span class="tag">mặc định</span> đã đủ dùng: sửa số hoặc mức để chỉnh, bỏ dấu <b>Dùng</b> để tạm tắt (giữ lại, bật lại được), bấm ✕ để xóa, thêm
         luật bằng một mẫu hoặc <b>Tự ghép</b>. <b>Bắt buộc</b>: TKB phải theo đúng; <b>ưu tiên</b>: cố theo, mức càng
         cao càng nặng.</p>
       <ol id="rule-list" class="rule-list"></ol>

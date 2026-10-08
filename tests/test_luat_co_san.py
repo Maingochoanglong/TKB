@@ -99,6 +99,38 @@ def test_edit_number_points_delete_and_soften(tmp_path):
                                           f"liền nhau (ưu tiên cao)")  # khác dạng gốc: câu của bộ ghép
 
 
+def test_rule_switched_off_is_kept_but_not_used(tmp_path, plain):
+    """Cột Tạm tắt = Có: chương trình xếp như khi xóa dòng (cùng mã quy định), dòng vẫn còn (đọc lại, ghi ra file cập
+    nhật, bật lại được); luật thêm vào cũng vậy. Bật lại (để trống) thì như mặc định."""
+    def change(ws, head, off="Có"):
+        col = {h: i + 1 for i, h in enumerate(head)}
+        ws.cell(_row_of(ws, head, "Ở giờ có nhãn Luôn do GVCN dạy"), col["Tạm tắt"], off)
+        r = ws.max_row + 1
+        for key, value in (("Kiểu luật", "Không xếp vào"), ("Môn", "Thể dục"), ("Tiết", 1), ("Bắt buộc", "Có"),
+                           ("Tạm tắt", off)):
+            ws.cell(r, col[key], value)
+
+    rules = _edit(tmp_path, change)
+    assert rules["OFF"] == frozenset({"tiet_gvcn"}) and rules["CUSTOM_RULES"] == []
+    kept = [r for r in rules["RULES"] if r.off]
+    assert len(kept) == 2 and luat_co_san.native_of(kept[0]).key == "tiet_gvcn"  # vẫn nhận ra luật có sẵn
+    assert luat_rieng.cells(kept[1])["off"] == "Có"
+    deleted = _edit(tmp_path, lambda ws, head: ws.delete_rows(_row_of(ws, head, "Ở giờ có nhãn Luôn do GVCN dạy")))
+    with applied(rules):
+        off_code = code()
+    with applied(deleted):
+        assert code() == off_code  # tạm tắt = xóa dòng
+    with applied(_edit(tmp_path, lambda ws, head: change(ws, head, off="Không"))) as _:
+        assert code() != NO_FILE_CODE  # bật lại cả luật thêm vào: luật đó có hiệu lực
+    with applied(_edit(tmp_path, lambda ws, head: ws.cell(_row_of(ws, head, "Ở giờ"), head.index("Tạm tắt") + 1, None))):
+        assert code() == NO_FILE_CODE
+    from tkb.writer import quality_rows
+    with applied(rules):  # sheet Chất lượng: dòng tạm tắt ghi "tắt", không đếm
+        marks = {row[1]: row[3] for row in quality_rows(plain)}
+        assert marks[luat_rieng.describe(kept[0]).rsplit(" (", 1)[0]] == "tắt"
+        assert luat_rieng.describe(kept[1]).rsplit(" (", 1)[0] in marks
+
+
 def test_built_in_rules_read_as_plain_sentences():
     """Mỗi luật có sẵn có tên viết tay; tên theo số của dòng; câu không có ký hiệu hay chữ kỹ thuật."""
     rows = luat_co_san.default_rows()

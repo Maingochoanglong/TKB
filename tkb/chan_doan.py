@@ -31,7 +31,7 @@ def _q(key: str, subject: str = "") -> str:
     from .luat_rieng import label
     native = luat_co_san.BY_KEY[key]
     for r in luat_co_san.rows():
-        if luat_co_san.fits(native, r) and replace(r, group_label="") not in \
+        if not r.off and luat_co_san.fits(native, r) and replace(r, group_label="") not in \
                 [replace(c, group_label="") for c in config.CUSTOM_RULES] and (not subject or subject in r.subject):
             return f"'{label(r)}'"
     return f"'{key}'"
@@ -108,7 +108,7 @@ def _rules(staff: list[Teacher], settings: config.Settings) -> list[_Rule]:
     plain = lambda r: replace(r, group_label="")  # noqa: E731  (cột Nhóm không đổi luật)
     custom = [plain(r) for r in config.CUSTOM_RULES]
     for r in luat_co_san.rows():
-        if not r.hard:
+        if not r.hard or r.off:
             continue
         if plain(r) in custom:  # xếp bằng bộ ghép
             out.append(_Rule(label(r), custom=custom.index(plain(r))))

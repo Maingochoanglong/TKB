@@ -36,10 +36,12 @@ COLUMNS = (("kind", "Kiểu luật"), ("scope", "Với mỗi"), ("subject", "Mô
            ("tags", "Nhãn"), ("exclude", "Trừ nhãn"), ("grades", "Khối"), ("classes", "Lớp"), ("days", "Ngày"),
            ("periods", "Tiết"), ("sessions", "Buổi"), ("role", "Giáo viên"), ("measure", "Phép đo"),
            ("op", "So sánh"), ("number", "Số"), ("count_by", "Đếm theo"), ("other", "Môn thứ hai"),
-           ("when", "Áp dụng khi"), ("hard", "Bắt buộc"), ("level", "Mức"), ("points", "Điểm"))
+           ("when", "Áp dụng khi"), ("hard", "Bắt buộc"), ("level", "Mức"), ("points", "Điểm"),
+           ("off", "Tạm tắt"))
 HEADERS = dict(COLUMNS)
 COMPOSE = ("scope", "measure", "op", "count_by", "when", "exclude")  # các cột chỉ dùng khi Tự ghép
 LEVEL = ("hard", "level", "points")  # các cột mức, mọi kiểu luật đều dùng
+OFF = "off"  # cột Tạm tắt (Có: bỏ qua luật mà vẫn giữ dòng), mọi kiểu luật đều dùng
 LEVELS = ("Thấp", "Vừa", "Cao", "Rất cao")  # cột Mức của luật ưu tiên: mức 1–4 (config.Weights.custom_levels)
 
 
@@ -92,10 +94,10 @@ KINDS = (
          "Tiếng Anh lớp 3/1 chỉ Tiếng Anh 2 dạy.", "Ai dạy"),
     Kind("nghi_gv", "Buổi nghỉ của giáo viên", (), (),
          "Giáo viên không dạy vào các buổi nghỉ ghi ở cột Buổi Nghỉ (sheet NHÂN SỰ) và nghỉ đủ số buổi ghi ở đó. Chỉ "
-         "ghi Bắt buộc = Có; muốn bỏ luật thì xóa dòng.", "Ai dạy"),
+         "ghi Bắt buộc = Có; muốn bỏ luật thì xóa dòng hoặc ghi Tạm tắt = Có.", "Ai dạy"),
     Kind("co_so_2", "Giáo viên chỉ dạy cơ sở 2", (), (),
          "Giáo viên không chủ nhiệm ghi Có ở cột Cơ sở 2 hoặc Thai Sản (sheet NHÂN SỰ) chỉ dạy các lớp ở cơ sở 2. "
-         "Chỉ ghi Bắt buộc = Có; muốn bỏ luật thì xóa dòng.", "Ai dạy"),
+         "Chỉ ghi Bắt buộc = Có; muốn bỏ luật thì xóa dòng hoặc ghi Tạm tắt = Có.", "Ai dạy"),
     Kind("tu_ghep", "Tự ghép", ("measure",), tuple(k for k, _ in COLUMNS[1:] if k not in LEVEL),
          "Tự ghép câu luật: Với mỗi [phạm vi] · các tiết [Môn, Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo viên] · thì "
          "[Phép đo] [So sánh] [Số] · khi [Áp dụng khi]. Xem các phép đo ở dưới."),
@@ -195,7 +197,7 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
                 error(f"kiểu luật {kind.label} phải ghi cột {HEADERS[key]}")
                 ok = False
             continue
-        if key not in kind.uses and key not in LEVEL:
+        if key not in kind.uses and key not in LEVEL and key != OFF:
             error(f"cột {HEADERS[key]} không dùng cho kiểu luật {kind.label} (để trống)")
             ok = False
             continue
@@ -263,7 +265,7 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
                 ok = False
             else:
                 out[key] = int(text)
-        elif key in ("hard", "group"):
+        elif key in ("hard", "group", OFF):
             folded = _fold(value) if not isinstance(value, bool) else ("co" if value else "khong")
             if folded not in _YES | _NO:
                 error(f"cột {HEADERS[key]} chỉ ghi Có hoặc Không, đang ghi {value!r}")
@@ -319,7 +321,7 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
     if ok and kind.key == "tu_ghep":
         ok = _check_composed(out, place, error)
     if ok and kind.key in ("nghi_gv", "co_so_2") and not out.get("hard"):
-        error(f"kiểu luật {kind.label} chỉ ghi Bắt buộc = Có (muốn bỏ luật thì xóa dòng)")
+        error(f"kiểu luật {kind.label} chỉ ghi Bắt buộc = Có (muốn bỏ luật thì xóa dòng hoặc ghi Tạm tắt = Có)")
         ok = False
     return CustomRule(**out) if ok else None
 
@@ -414,7 +416,8 @@ def cells(rule: CustomRule) -> dict:
             "count_by": SCOPE[rule.count_by].label if rule.count_by else None, "other": rule.other or None,
             "when": _when_text(rule.when) or None, "hard": YES if rule.hard else NO,
             "level": None if rule.hard or rule.points is not None else LEVELS[rule.level - 1],
-            "exclude": ", ".join(rule.exclude) or None, "points": None if rule.hard else rule.points}
+            "exclude": ", ".join(rule.exclude) or None, "points": None if rule.hard else rule.points,
+            OFF: YES if rule.off else None}
 
 
 def _teacher(role: str) -> str:

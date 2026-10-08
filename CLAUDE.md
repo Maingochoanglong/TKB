@@ -49,6 +49,7 @@ pip install -r requirements.txt              # pinned ortools==9.15.6755, openpy
 python -m pytest -q                          # full suite, ~2.5 min on Linux (slowest: tests/test_lns.py ~1 min)
 python -m pytest tests/test_solver.py -k contiguous -q    # one test
 python -m pytest tests/test_reproducible.py  # ~20 s: this OS's reference result codes
+pip install -r requirements-test-ui.txt && python -m playwright install chromium  # browser tests tests/test_trang_web.py (else skipped)
 python tools/code_map.py [solver checker ...] # function index with file:line — use it instead of opening files
 python tools/code_map.py --write             # regenerate docs/CODE_MAP.md (tests/test_code_map.py fails if stale)
 python main.py                               # school's real file (FILE_VAO) -> project root; real names! ~10 min
@@ -92,7 +93,10 @@ detail dialog) → Chức vụ (built-in role cards edit the subject columns nam
 `scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select; the detail
 dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
 counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật (all rules grouped, read-back
-sentences, composer dialog) →
+sentences, composer dialog, a "Dùng" switch per rule = column `Tạm tắt` of sheet LUẬT: `CustomRule.off`
+(`repr=False, compare=False`, so `rules.code` and `luat_co_san.fits` ignore it); `rules._rules_rows` applies only rows
+not off, which therefore act like deleted rows but stay in `config.RULES`, the updated input and the quality sheet
+("tắt")) →
 Kiểm tra & xếp → Thời khóa biểu (step 7: the saved grid `scenario["saved"]` as class/grade/teacher grids;
 `kich_ban.Grid` reads the scenario and builds the problem once, cached per `grid_key` = scenario without "saved" + run
 settings in `App.grid`; `view` = `staff.parse_saved_grid` (the one grid reader, also behind `read_saved_timetable`;
@@ -101,7 +105,10 @@ whose cells `_marked` finds from the message text (class, Thứ, tiết, buổi,
 `/api/swaps` re-checks each same-class swap (no-op swaps skipped). A swap swaps the two cells' text in
 `scenario.saved` and adds " (khóa)"; "Xếp lại phần còn lại" = `/api/run` with keep_saved and ≤ `REPAIR_TIME` 120 s,
 then `takeSaved` copies the new grid (and staff if hires changed) from `<name>_cap_nhat.xlsx` and marks changed
-cells; step 6's result has "Xem TKB trên trang" doing the same); renaming a subject/role updates roles, custom rules and staff in the page. First visit (no draft, or
+cells; step 6's result has "Xem TKB trên trang" doing the same). Step 6's result card is a summary: `server.summary` parses the
+printed lines (stop reason, seconds, reuse, changed cells, hires, overtime, soft lines) and `server.quality` reads the
+`Chất lượng` sheet of the stats file once per job (top 5 soft rules by points). Subjects, staff and rules have search
+boxes (`search`, client-side; `jumpTo` clears the box); renaming a subject/role updates roles, custom rules and staff in the page. First visit (no draft, or
 Tệp › Bắt đầu lại) shows a start screen (open file / new / fake sample `/api/sample`); all file actions are in the
 `Tệp ▾` menu. Every edit goes through `changed()` in app.js: draft save, an undo snapshot 0.6 s after the last edit
 (`snap`/`travel`, 50 steps, Ctrl+Z/Y outside text fields; deletes show "Đã xóa … [Hoàn tác]" instead of confirm), and
@@ -239,7 +246,9 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
   `.github/scripts/chay_mau.py` (`FILE_VAO` twice, uploads only the code); a Linux job fails if any VM's code
   differs (~35 min).
-- `linux.yml`: on PRs and pushes to main; pytest on ubuntu-24.04 / Python 3.12 (incl. the Linux reference codes).
+- `linux.yml`: on PRs and pushes to main; pytest on ubuntu-24.04 / Python 3.12 (incl. the Linux reference codes and
+  the Playwright/Chromium page tests `tests/test_trang_web.py`: start screen, step marks, undo, rule switch, search,
+  timetable swap; skipped where Playwright is not installed).
 - `file_that_windows.yml`: manual (or when the file itself changes); same run once on 2 VMs with Python 3.14.
 - `dong_goi.yml` (manual, tags `v*`, PRs touching packaging/UI entry): `tools/dong_goi.py` builds `dist/TKB/TKB.exe`
   (PyInstaller onedir, `requirements-build.txt` pins it; static pages as data, `--collect-all ortools`; refuses any

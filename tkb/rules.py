@@ -597,7 +597,7 @@ def _rules_rows(values: dict, warn) -> dict:
         else:
             rows = [*luat_co_san.default_rows(), *custom]
             legacy = {}
-        out = {**values, **luat_co_san.apply(rows)}
+        out = {**values, **luat_co_san.apply([r for r in rows if not r.off])}  # dòng Tạm tắt: như không có
     for attr, value in legacy.items():
         if attr in out and _canonical(attr, out[attr]) != _canonical(attr, value):
             warn(f"Cột {LABELS[attr]} không còn dùng khi có sheet {luat_rieng.RULES_SHEET}: số của luật ghi ở "
@@ -688,7 +688,9 @@ def luat_headers() -> list[str]:
 def luat_row(rule) -> list:
     """Một dòng của sheet LUẬT (cùng thứ tự cột với luat_headers)."""
     cells = luat_rieng.cells(rule)
-    return [rule.group_label or None, *(cells[k] for k, _ in luat_rieng.COLUMNS), luat_rieng.describe(rule)]
+    say = luat_rieng.describe(rule)
+    return [rule.group_label or None, *(cells[k] for k, _ in luat_rieng.COLUMNS),
+            f"(Tạm tắt) {say}" if rule.off else say]
 
 
 def luat_rows() -> list[list]:
@@ -747,7 +749,8 @@ def notes() -> list[tuple[str, str]]:
              "Lớp, Ngày, Tiết, Buổi, Giáo viên] · thì [Phép đo] [So sánh] [Số] · khi [Áp dụng khi]. Mỗi luật trả lời "
              f"một trong bốn câu hỏi: {', '.join(bo_ghep.FAMILIES)} (các kiểu luật và phép đo xếp theo câu hỏi ở "
              "dưới). File mẫu ghi sẵn các luật có sẵn của chương trình: sửa số hoặc Điểm để chỉnh, đổi Bắt buộc, xóa "
-             "dòng để bỏ luật, thêm dòng để có luật mới. Cột Nhóm và Luật đọc là chỉ để đọc (chương trình ghi lại mỗi "
+             "dòng để bỏ luật (hoặc ghi Có ở cột Tạm tắt: chương trình bỏ qua dòng đó mà vẫn giữ lại, xóa chữ Có là "
+             "dùng lại), thêm dòng để có luật mới. Cột Nhóm và Luật đọc là chỉ để đọc (chương trình ghi lại mỗi "
              "lần). Kiểu luật: một mẫu hoặc Tự ghép; cột kiểu luật không dùng để trống. Bắt buộc: Có (luật cứng) hoặc "
              f"Không (ưu tiên); luật ưu tiên ghi Mức {', '.join(luat_rieng.LEVELS)} (100, 400, 1500, 5000 điểm) hoặc "
              "ghi thẳng Điểm (điểm trừ mỗi lần không theo). Môn, Lớp, Khối, Ngày, Tiết ghi danh sách cách nhau bằng "

@@ -33,7 +33,8 @@ Excel rồi mở lại), Bắt đầu lại…. Mở file thì hộp thoại cho
 
 ![Mở file Excel: chọn phần lấy từ file](hinh/1_nhap_excel.jpg)
 
-Rồi đi lần lượt các bước (nút **Tiếp →** cuối mỗi trang). Trang tự kiểm tra sau mỗi lần sửa: bước nào có lỗi thì tên
+Rồi đi lần lượt các bước (nút **Tiếp →** cuối mỗi trang). Danh sách dài thì gõ vào ô **Tìm** ở đầu bước Môn học,
+Giáo viên (họ tên, Mã GV, lớp) hay Luật. Trang tự kiểm tra sau mỗi lần sửa: bước nào có lỗi thì tên
 bước có dấu **⚠** kèm số lỗi, đầu bước liệt kê các lỗi (bấm vào lỗi để tới đúng dòng, dòng lỗi tô đỏ nhạt); bước
 không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (hoặc Ctrl+Z); xóa nhầm cũng hoàn tác được.
 
@@ -51,8 +52,10 @@ không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (
    dạy, buổi nghỉ. Mỗi người có một **Mã GV** theo thứ tự dòng trong chức vụ, vd `Bộ Môn 3`, `Chủ Nhiệm 1/1`.
    ![Bước 4: giáo viên](hinh/5_giao_vien.jpg)
 5. **Luật**: mọi luật xếp TKB, mỗi luật một câu dễ đọc, nhãn **Bắt buộc** hoặc **Ưu tiên** (thấp, vừa, cao, rất
-   cao). Các luật mặc định đã đủ dùng; sửa số, đổi mức, bỏ hay thêm luật khi trường cần. Menu **Tệp luật ▾** để
-   nhập, xuất luật ra Excel (chép luật sang trường khác) hay đưa các luật về mặc định.
+   cao). Các luật mặc định đã đủ dùng; sửa số, đổi mức, bỏ hay thêm luật khi trường cần. Bỏ dấu ô **Dùng** để **tạm
+   tắt** một luật (luật mờ đi, chương trình bỏ qua; đánh dấu lại là dùng lại), bấm ✕ để xóa hẳn. Ô **Tìm luật** lọc
+   theo môn, lớp, chữ trong câu. Menu **Tệp luật ▾** để nhập, xuất luật ra Excel (chép luật sang trường khác) hay
+   đưa các luật về mặc định.
    ![Bước 5: danh sách luật](hinh/6_luat.jpg)
 
    **Thêm luật**: chọn loại luật rồi **+ Thêm luật**; hộp thoại hỏi lần lượt các tiết nào, vào giờ nào, thì sao, mức
@@ -66,8 +69,14 @@ không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (
 ## 3. Xếp TKB và đọc kết quả
 
 Bấm **Xếp TKB**. Mặc định chạy khoảng 10–15 phút (đổi ở ô Thời gian); muốn dừng sớm bấm **Dừng**: chương trình xếp
-xong phần đang xếp rồi vẫn ghi TKB tốt nhất có được. Xong thì trang hiện **mã TKB** và các file ra, mỗi file có nút
-**Mở** (bằng Excel) và **Tải**.
+xong phần đang xếp rồi vẫn ghi TKB tốt nhất có được. Xong thì trang hiện **kết quả tóm tắt**:
+- **mã TKB**, xếp giờ bao lâu và vì sao dừng;
+- **dạy bù** bao nhiêu tiết, bao nhiêu người; **tuyển thêm** mấy người;
+- môn nặng ở tiết cuối, Tiếng Việt và Toán ở buổi chiều; so với TKB trước đổi bao nhiêu ô;
+- **Chất lượng**: số lần chưa theo các luật ưu tiên và điểm trừ (càng ít càng tốt); bấm vào để xem các luật trừ nhiều
+  điểm nhất kèm ví dụ.
+
+Các file ra nằm trong mục **Các file Excel**, mỗi file có nút **Mở** (bằng Excel) và **Tải**.
 
 ![Kết quả: mã TKB và các file ra](hinh/9_ket_qua.jpg)
 

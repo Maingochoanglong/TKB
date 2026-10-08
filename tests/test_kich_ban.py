@@ -189,7 +189,7 @@ def test_rules_round_trip(tmp_path):
                                     "grades": "", "days": "", "periods": "", "sessions": "", "role": "",
                                     "number": None, "hard": True, "level": None, "scope": "", "group": "", "tags": "",
                                     "classes": "", "measure": "", "op": "", "count_by": "", "when": "",
-                                    "exclude": "", "points": None}
+                                    "exclude": "", "points": None, "off": False}
     assert kich_ban.check(back, config.MODE_OVERTIME, 2)["errors"] == []
     back["rules"].append({"kind": "Học trước", "subject": "Toán"})
     assert f"LUẬT, dòng {n + 5}: kiểu luật Học trước phải ghi cột Môn thứ hai" in \
@@ -222,9 +222,26 @@ def test_rules_only_file(tmp_path):
     back, _ = kich_ban.from_excel(path)
     assert back["staff"] == [] and back["grades"] == [] and back["rules"] == scenario["rules"][:-1] + [
         {**{k: "" for k in kich_ban.RULE_KEYS}, "kind": "Không xếp vào", "subject": "Tin học", "days": "Thứ 2",
-         "hard": True, "number": None, "level": None, "points": None}]
+         "hard": True, "number": None, "level": None, "points": None, "off": False}]
     rules = read_rules(path)
     assert rules["SESSION_GROUP_LIMIT"] == 3 and rules["OFF"] == frozenset({"tiet_trong"})
+
+def test_rule_switched_off_on_the_page(tmp_path):
+    """Ô Dùng của bước Luật: luật tạm tắt ghi Tạm tắt = Có ở sheet LUẬT, chương trình bỏ qua mà vẫn đọc lại được,
+    câu đọc lại vẫn là luật mặc định."""
+    scenario = kich_ban.default_scenario()
+    row = _row(scenario, "tiet_gvcn")
+    row["off"] = True
+    path = tmp_path / "vao.xlsx"
+    kich_ban.to_excel(scenario, path)
+    assert read_rules(path)["OFF"] == frozenset({"tiet_gvcn"})
+    back, _ = kich_ban.from_excel(path)
+    assert back["rules"] == scenario["rules"]
+    i = scenario["rules"].index(row)
+    assert kich_ban.describe(back)["rules"][i]["native"] == "tiet_gvcn"
+    ws = openpyxl.load_workbook(path)[luat_rieng.RULES_SHEET]
+    assert str(ws.cell(i + 2, ws.max_column).value).startswith("(Tạm tắt) ")
+
 
 def test_history_and_leave_as_the_page_writes_them(tmp_path):
     """Trang Giáo viên ghi Lớp Đang Dạy, Buổi Nghỉ bằng ô đánh dấu, ra chữ dạng "3/1, 4/2" và "Chiều T5, 2 buổi

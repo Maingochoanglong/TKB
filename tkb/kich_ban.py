@@ -224,8 +224,8 @@ def _read_saved(wb) -> list[list] | None:
 def rule_dict(rule) -> dict:
     """Một luật (config.CustomRule) theo dạng kịch bản: các ô như trong sheet LUẬT."""
     cells = {**luat_rieng.cells(rule), luat_rieng.GROUP[0]: rule.group_label}
-    return {k: (cells[k] == YES if k == "hard" else cells[k] if k in ("number", "level", "points")
-                else (cells[k] or "")) for k in RULE_KEYS}
+    return {k: (cells[k] == YES if k in ("hard", luat_rieng.OFF)
+                else cells[k] if k in ("number", "level", "points") else (cells[k] or "")) for k in RULE_KEYS}
 
 
 def _rules_rows() -> list[dict]:
@@ -402,7 +402,7 @@ def _custom_cell(key: str, value):
     """Ô của sheet LUẬT RIÊNG (cả dòng trống: dòng i của bảng là dòng i + 2 của sheet)."""
     if key == "hard":
         return YES if value is True or (isinstance(value, str) and _fold(value) in _YES) else NO
-    if key == "group":
+    if key in ("group", luat_rieng.OFF):
         return YES if value is True or (isinstance(value, str) and _fold(value) in _YES) else None
     if key in ("number", "level", "points"):
         return _number(value)

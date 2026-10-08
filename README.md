@@ -42,7 +42,8 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
    cập nhật `*_cap_nhat.xlsx` của lần chạy trước. Hộp thoại mở file cho chọn phần nào lấy từ file (Giáo viên: thay danh
    sách hoặc thêm vào cuối; Môn học; Chức vụ; Khung giờ và quy định chung; Luật: thay hoặc thêm vào cuối; TKB đã xếp),
    phần không chọn giữ như đang soạn; file đủ (có nhân sự) mặc định thay toàn bộ, file chỉ có vài sheet (vd file luật)
-   chỉ chọn sẵn các phần file có.
+   chỉ chọn sẵn các phần file có. Cài đặt chạy không nằm trong file Excel: file có TKB đã xếp với số tiết bù (ô ghi
+   `(bù)`) nhiều hơn số tiết bù tối đa đang đặt thì trang nâng số đó lên cho khớp và báo lại.
    - **Hoàn tác / làm lại**: nút ↶ ↷ ở đầu trang hoặc Ctrl+Z / Ctrl+Y (khi không gõ trong ô chữ), tối đa 50 bước, kể cả
      xóa và thay cả kịch bản; vì vậy xóa không hỏi lại mà hiện "Đã xóa … [Hoàn tác]". Cạnh đó ghi giờ lưu nháp.
    - **Kiểm tra tự động**: sửa xong khoảng 1,5 giây là trang đọc lại kịch bản như khi chạy (không dự toán); mỗi bước có
@@ -74,10 +75,14 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      khi chọn bằng ô: từ … tiết/tuần trở lên, không quá …/số ngày học, chẵn/lẻ) · **Mức** (Bắt buộc/Ưu tiên và mức;
      Điểm, Nhóm trong **Nâng cao**). Hộp thoại hiện ngay **luật đọc là** (cùng câu chương trình in ra), lỗi nếu ghép
      sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (mã kết quả sẽ khác), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
-     đa 3 lớp khác nhau (bắt buộc)". **✕** bỏ luật; chọn loại luật rồi **+ Thêm luật**.
+     đa 3 lớp khác nhau (bắt buộc)". Ô **Dùng** ở mỗi luật: bỏ dấu là **tạm tắt** (luật mờ đi, ghi `Có` ở cột Tạm tắt,
+     chương trình bỏ qua; đánh dấu lại là dùng lại); **✕** xóa luật; chọn loại luật rồi **+ Thêm luật**.
      Menu **Tệp luật ▾**: **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (file chỉ có sheet
      LUẬT, HƯỚNG DẪN: sửa trong Excel, chép sang trường khác), **Tải mẫu luật** (các luật có sẵn mặc định), **Về mặc
      định**.
+
+   Các bước Môn học, Giáo viên, Luật có **ô tìm** (tên môn; họ tên, Mã GV, lớp; chữ trong câu luật): chỉ hiện các dòng
+   khớp, bấm vào một lỗi ở dòng đang ẩn thì ô tìm tự xóa.
 
    Đổi tên một môn thì các chức vụ, luật ghi môn đó đổi theo; đổi tên một chức vụ thì các giáo viên giữ chức vụ
    đó và các luật ghi chức vụ đó đổi theo.
@@ -85,7 +90,10 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
    - **Kiểm tra** (vài giây): đọc lại kịch bản đúng như khi chạy, báo lỗi (bấm vào lỗi để tới đúng dòng) và **dự toán**
      số tiết bù, tiết thiếu trước khi xếp.
    - **Xếp TKB**: lưu file vào `<tên>.xlsx` vào thư mục kết quả rồi chạy như `main.py`; hiện nhật ký, **Dừng sớm**
-     (như Ctrl+C: vẫn ghi TKB tốt nhất), **mã TKB** (mã kết quả) và các file ra (nút Mở, Tải). **Nạp vào giao diện** mở
+     (như Ctrl+C: vẫn ghi TKB tốt nhất), rồi **kết quả tóm tắt**: mã TKB (mã kết quả), xếp giờ bao lâu và vì sao dừng,
+     dạy bù bao nhiêu tiết (bao nhiêu người +1, +2), cần tuyển mấy người, môn nặng ở tiết cuối, so với TKB trước đổi
+     bao nhiêu ô, và **Chất lượng**: số lần chưa theo luật ưu tiên, điểm trừ, các luật trừ nhiều điểm nhất kèm ví dụ
+     (đọc từ sheet Chất lượng); các file ra (nút Mở, Tải) gom trong mục **Các file Excel**. **Nạp vào giao diện** mở
      file cập nhật (có người cần tuyển và TKB đã xếp) để sửa tiếp, vd đổi "chưa có" thành tên người mới rồi xếp lại:
      TKB giữ nguyên.
    - **Tệp ▾ › Lưu ra file Excel**: file vào V8 đầy đủ (nhân sự, chương trình học kèm quy định, CHỨC VỤ, QUY ĐỊNH,
@@ -210,7 +218,7 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 | Windows x86-64 | **`08F4-E2C6-3470`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
 | Linux x86-64 | **`5C2B-510F-5156`** | Python 3.11 |
 
-**Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau. Máy ảo Linux chạy toàn bộ test, kể cả mã tham chiếu Linux (`.github/workflows/linux.yml`); gói `TKB.exe` được dựng và chạy thử trên Windows (`.github/workflows/dong_goi.yml`: xếp bằng `TKB.exe --cli`, xếp và Dừng sớm qua giao diện).
+**Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau. Máy ảo Linux chạy toàn bộ test, kể cả mã tham chiếu Linux và test trang web trên Chromium (`.github/workflows/linux.yml`); gói `TKB.exe` được dựng và chạy thử trên Windows (`.github/workflows/dong_goi.yml`: xếp bằng `TKB.exe --cli`, xếp và Dừng sớm qua giao diện).
 
 ## Đầu vào
 
@@ -318,7 +326,9 @@ GV chuyên biệt không dạy hết).
 
 **Sheet `LUẬT`**: **mọi luật xếp TKB**, mỗi dòng một luật, không cần sửa code. File mẫu ghi sẵn **các luật có sẵn**
 của chương trình (23 luật, nhóm Bảo vệ học sinh, HĐTN và GVCN, Người dạy, Lịch giáo viên, Ưu tiên khi xếp giờ): sửa số
-hoặc Điểm để chỉnh, đổi Bắt buộc/Ưu tiên, xóa dòng để bỏ luật, thêm dòng để có luật mới. Dòng luật có sẵn chưa sửa dạng
+hoặc Điểm để chỉnh, đổi Bắt buộc/Ưu tiên, xóa dòng để bỏ luật, thêm dòng để có luật mới. Muốn **tạm tắt** một luật mà
+vẫn giữ dòng thì ghi `Có` ở cột **Tạm tắt** (cột cuối): chương trình bỏ qua dòng đó như khi xóa (cùng mã quy định), cột
+Luật đọc là ghi `(Tạm tắt) …`, sheet Chất lượng ghi "tắt"; xóa chữ `Có` là dùng lại. Dòng luật có sẵn chưa sửa dạng
 (chỉ khác số, điểm) thì chương trình xếp như trước, nên để mặc định thì cùng mã kết quả. Không có sheet này (file của
 bản trước) thì dùng các luật có sẵn, cộng các luật của sheet `LUẬT RIÊNG` cũ. Phần không phải luật vẫn ở chương trình:
 mỗi lớp mỗi giờ học một tiết, đủ số tiết của chương trình học, giáo viên không dạy hai nơi cùng lúc và không quá định

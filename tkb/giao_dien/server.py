@@ -106,20 +106,64 @@ def run_argv(source: Path, out: Path, name: str, run: dict) -> list[str]:
 
 
 def summary(lines: list[str]) -> dict:
-    """Kết quả đọc từ các dòng in ra: mã kết quả, đạt luật bắt buộc hay không, các file đã ghi, lỗi (từ dòng "LỖI:"
-    đầu tiên đến hết, trừ các dòng "Đã ghi")."""
-    out = {"code": None, "passed": None, "files": [], "error": None}
+    """Kết quả đọc từ các dòng in ra (tkb/__main__.py): mã kết quả, đạt luật bắt buộc hay không, các file đã ghi, lỗi
+    (từ dòng "LỖI:" đầu tiên đến hết, trừ các dòng "Đã ghi"), và các số để trang kết quả tóm tắt: vì sao dừng, giây
+    xếp giờ, dùng lại TKB cũ, số ô đổi so với TKB cũ, người cần tuyển, tiết dạy bù, các mục tiêu mềm in ra."""
+    out = {"code": None, "passed": None, "files": [], "error": None, "stop": None, "seconds": None, "reused": False,
+           "changes": None, "hires": None, "overtime": None, "soft": []}
     first = next((i for i, line in enumerate(lines) if line.startswith("LỖI:")), None)
     if first is not None:
         out["error"] = "\n".join(line for line in lines[first:] if not line.startswith("Đã ghi:")).strip()
-    for line in lines:
+    for i, line in enumerate(lines):
         if m := re.match(r"Mã kết quả: (\S+)", line):
             out["code"] = m.group(1)
+            if s := re.search(r"xếp giờ mất (\d+) giây", line):
+                out["seconds"] = int(s.group(1))
         if "kiểm tra luật bắt buộc:" in line:
             out["passed"] = line.rstrip().endswith("ĐẠT") and "KHÔNG ĐẠT" not in line
         if m := re.match(r"Đã ghi: (.+)", line):
             out["files"].append(m.group(1).strip())
+        if m := re.match(r"\s*Dừng xếp giờ: (.+)", line):
+            out["stop"] = m.group(1).strip()
+        if line.startswith("Dùng lại TKB đã xếp"):
+            out["reused"] = True
+        if m := re.match(r"So với TKB đã xếp trong file vào: đổi (\d+)/(\d+) ô", line):
+            out["changes"] = [int(m.group(1)), int(m.group(2))]
+        if m := re.match(r"Cần bổ sung (\d+) GV cho (\d+) tiết", line):
+            out["hires"] = [int(m.group(1)), int(m.group(2))]
+        elif line.startswith("Không cần bổ sung giáo viên"):
+            out["hires"] = [0, 0]
+        if m := re.match(r"Dạy bù (\d+) tiết: GVCN (\d+) tiết \((\d+) người\), bộ môn (\d+) tiết \((\d+) người\)", line):
+            levels = lines[i + 1].strip() if i + 1 < len(lines) and "người bù +" in lines[i + 1] else ""
+            out["overtime"] = {"total": int(m.group(1)), "homeroom": [int(m.group(2)), int(m.group(3))],
+                               "general": [int(m.group(4)), int(m.group(5))], "levels": levels}
+        if m := re.match(r"(.+?) \((mục tiêu mềm|ưu tiên, càng ít càng tốt)[^)]*\)$", line):
+            out["soft"].append(m.group(1))
     return out
+
+
+def quality(path) -> dict | None:
+    """Sheet Chất lượng của file thống kê (writer.quality_rows): tổng số lần không theo luật ưu tiên, tổng điểm trừ, và
+    các luật ưu tiên trừ nhiều điểm nhất (tối đa 5) cho trang kết quả. Không có file, sheet: None."""
+    from openpyxl import load_workbook
+
+    from ..writer import QUALITY_HEADERS, QUALITY_SHEET
+    try:
+        wb = load_workbook(path, read_only=True, data_only=True)
+    except (OSError, ValueError, KeyError):
+        return None
+    if QUALITY_SHEET not in wb.sheetnames:
+        return None
+    rows = [list(r) for r in wb[QUALITY_SHEET].iter_rows(values_only=True)]
+    wb.close()
+    head = next((i for i, r in enumerate(rows) if r[:len(QUALITY_HEADERS)] == list(QUALITY_HEADERS)), None)
+    if head is None:
+        return None
+    body = [r for r in rows[head + 1:] if r and r[0] != "Tổng"]
+    soft = [r for r in body if isinstance(r[3], int) and r[3] > 0 and isinstance(r[4], (int, float)) and r[4] > 0]
+    soft.sort(key=lambda r: -r[4])
+    return {"count": sum(r[3] for r in soft), "points": sum(r[4] for r in soft), "rules": len(soft),
+            "top": [{"rule": r[1], "level": r[2], "count": r[3], "points": r[4], "example": r[5]} for r in soft[:5]]}
 
 
 class Job:
@@ -134,6 +178,7 @@ class Job:
         self.ended: float | None = None
         self.lines: list[str] = []
         self.stopping = False
+        self._summary: dict | None = None  # kết quả tóm tắt, đọc một lần khi xong
         self.proc = subprocess.Popen(cli_command(argv), cwd=cwd, env=env, stdin=subprocess.DEVNULL,
                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
                                      errors="replace", creationflags=flags)
@@ -166,9 +211,13 @@ class Job:
     def state(self, since: int = 0) -> dict:
         lines = list(self.lines)
         done = not self.running
+        if done and self._summary is None:  # một lần: đọc thêm sheet Chất lượng của file thống kê vừa ghi
+            self._summary = summary(lines)
+            stats = next((p for p in self._summary["files"] if Path(p).name == FILE_NAMES["stats"]), None)
+            self._summary["quality"] = quality(stats) if stats else None
         return {"running": not done, "stopping": self.stopping, "lines": lines[since:], "next": len(lines),
                 "elapsed": round((self.ended or time.time()) - self.started),
-                "exit": self.proc.returncode if done else None, "summary": summary(lines) if done else None}
+                "exit": self.proc.returncode if done else None, "summary": self._summary if done else None}
 
 
 class App:

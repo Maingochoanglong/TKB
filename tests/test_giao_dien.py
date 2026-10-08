@@ -177,8 +177,21 @@ def test_run_argv_like_main():
 def test_summary_reads_printed_result():
     lines = ["Kết quả: FEASIBLE, kiểm tra luật bắt buộc: ĐẠT", "Mã kết quả: 1234-5678-9ABC (cùng mã là cùng TKB)",
              "Đã ghi: /x/TKB.xlsx", "Đã ghi: /x/Thong_Ke.xlsx"]
-    assert summary(lines) == {"code": "1234-5678-9ABC", "passed": True, "files": ["/x/TKB.xlsx", "/x/Thong_Ke.xlsx"],
-                              "error": None}
+    got = summary(lines)
+    assert {k: got[k] for k in ("code", "passed", "files", "error")} == {
+        "code": "1234-5678-9ABC", "passed": True, "files": ["/x/TKB.xlsx", "/x/Thong_Ke.xlsx"], "error": None}
+    # Các số của trang kết quả tóm tắt, đúng như tkb/__main__.py in ra.
+    full = summary(["  Dừng xếp giờ: đã tối ưu", "Kết quả: OPTIMAL, kiểm tra luật bắt buộc: ĐẠT",
+                    "Mã kết quả: 1234-5678-9ABC (cùng mã là cùng TKB; xếp giờ mất 12 giây)",
+                    "So với TKB đã xếp trong file vào: đổi 11/928 ô (danh sách ở sheet Thay đổi của file thống kê)",
+                    "Không cần bổ sung giáo viên.", "Dạy bù 52 tiết: GVCN 52 tiết (29 người), bộ môn 0 tiết (0 người)",
+                    "  23 người bù +2, 6 người bù +1", "Môn nặng ở tiết 7: 6 tiết (mục tiêu mềm, càng ít càng tốt)",
+                    "LUẬT dòng 30: Toán không xếp vào tiết 5: 2 lần không theo (ưu tiên, càng ít càng tốt)"])
+    assert (full["stop"], full["seconds"], full["changes"], full["hires"]) == ("đã tối ưu", 12, [11, 928], [0, 0])
+    assert full["overtime"] == {"total": 52, "homeroom": [52, 29], "general": [0, 0],
+                                "levels": "23 người bù +2, 6 người bù +1"}
+    assert full["soft"] == ["Môn nặng ở tiết 7: 6 tiết", "LUẬT dòng 30: Toán không xếp vào tiết 5: 2 lần không theo"]
+    assert summary(["Dùng lại TKB đã xếp trong file vào (sheet TKB đã xếp), không xếp lại."])["reused"]
     assert summary(["Kết quả: FEASIBLE, kiểm tra luật bắt buộc: KHÔNG ĐẠT"])["passed"] is False
     assert summary(lines)["error"] is None
     failed = summary(["Bước 2/2: xếp giờ", "LỖI: Các luật bắt buộc sau không cùng thỏa được:", "  - A", "Đã ghi: /x/a"])
@@ -205,6 +218,9 @@ def test_run_from_the_ui_gives_the_reference_timetable(server, tmp_path, mode):
     assert state["exit"] == 0, "\n".join(state["lines"])
     result = state["summary"]
     assert result["passed"] is True
+    assert result["overtime"] or result["hires"]  # trang kết quả tóm tắt: số liệu và chất lượng của lần xếp
+    q = result["quality"]  # sheet Chất lượng: tổng và tối đa 5 luật trừ nhiều điểm nhất
+    assert q is not None and len(q["top"]) <= 5 and q["count"] >= sum(t["count"] for t in q["top"])
     assert {Path(p).name for p in result["files"]} == {*FILE_NAMES.values(), "nho_cap_nhat.xlsx"}
     expected = REFERENCE.get(sys.platform, {}).get(mode)
     if expected is not None:

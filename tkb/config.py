@@ -229,6 +229,9 @@ class CustomRule:
     derived: str = ""  # ngưỡng theo dữ liệu thay cho Số (bo_ghep.DERIVED), vd "tai_ngay"
     points: int | None = None  # luật ưu tiên: điểm trừ mỗi lần không theo (thay cho Mức)
     group_label: str = ""  # cột Nhóm của sheet LUẬT (chỉ để đọc; không đổi cách xếp)
+    # Cột Tạm tắt = Có: dòng giữ lại trong sheet nhưng chương trình bỏ qua (như xóa dòng). Không vào repr, so sánh:
+    # mã quy định (rules.code) và việc nhận dạng luật có sẵn (luat_co_san.fits) như trước khi có cột này.
+    off: bool = field(default=False, repr=False, compare=False)
 
 
 CUSTOM_RULES: list[CustomRule] = []  # các dòng của sheet LUẬT xếp bằng bộ ghép (không phải luật có sẵn ở dạng gốc)

@@ -1,5 +1,6 @@
-# Chạy toàn bộ test trên Linux (máy ảo Ubuntu của GitHub). tests/test_reproducible.py kiểm mã kết quả tham chiếu của
-# Linux; file vào của trường (FILE_VAO) không chạy ở đây (chỉ windows.yml chạy, và chỉ tải lên mã kết quả).
+# Chạy toàn bộ test trên Linux (máy ảo Ubuntu của GitHub), cả test trang web trên Chromium (tests/test_trang_web.py).
+# tests/test_reproducible.py kiểm mã kết quả tham chiếu của Linux; file vào của trường (FILE_VAO) không chạy ở đây
+# (chỉ windows.yml chạy, và chỉ tải lên mã kết quả).
 name: Kiểm chứng trên Linux
 
 on:
@@ -18,7 +19,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Cài thư viện
-        run: python -m pip install -r requirements.txt
+      - name: Cài thư viện (cả Playwright và Chromium cho test trang web)
+        run: |
+          python -m pip install -r requirements-test-ui.txt
+          python -m playwright install --with-deps chromium
       - name: Chạy test
         run: python -m pytest -q -rs

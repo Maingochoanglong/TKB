@@ -452,7 +452,7 @@ function renderSubjects() {
   if (subjectGrid) {
     head = `<thead><tr><th>Dòng</th><th class="left stick">Môn học</th>${grades}${
       S.subject.map((c) => `<th ${colTitle(c)}>${esc(c.header)}</th>`).join("")}<th></th></tr></thead>`;
-    body = sc.subjects.map((s, i) => `<tr data-row="${nums[i] ?? ""}">
+    body = sc.subjects.map((s, i) => `<tr data-row="${nums[i] ?? ""}" ${hit(search.subjects, s.name) ? "" : "hidden"}>
       <td class="num">${nums[i] ?? "—"}</td>
       <td class="left stick">${input("text", s.name, { f: "subject", i, k: "name" }, "wide")}</td>
       ${lessonCells(s, i)}
@@ -464,7 +464,7 @@ function renderSubjects() {
     body = sc.subjects.map((s, i) => {
       const [who, ok] = whoTeaches(s.name);
       const whoText = ok ? esc(who.join(", ")) : `<span class="warn-text" title="Bộ Môn không dạy môn này và chưa có chức vụ nào dạy: thêm chức vụ ở bước 3">⚠ chưa có ai</span>`;
-      return `<tr data-row="${nums[i] ?? ""}">
+      return `<tr data-row="${nums[i] ?? ""}" ${hit(search.subjects, s.name) ? "" : "hidden"}>
       <td class="num">${nums[i] ?? "—"}</td>
       <td class="left stick">${input("text", s.name, { f: "subject", i, k: "name" }, "wide")}</td>
       ${lessonCells(s, i)}
@@ -474,7 +474,8 @@ function renderSubjects() {
         <button type="button" class="icon" data-act="del-subject" data-i="${i}" title="Xóa môn">✕</button></td></tr>`;
     }).join("");
   }
-  $("#subject-table").innerHTML = head + `<tbody>${body}</tbody>`;
+  const none = search.subjects && !sc.subjects.some((s) => hit(search.subjects, s.name)) ? noHit(99, search.subjects) : "";
+  $("#subject-table").innerHTML = head + `<tbody>${body}${none}</tbody>`;
   $("#subject-table").classList.toggle("compact", !subjectGrid);
   renderRoleList();
 }
@@ -586,6 +587,12 @@ function roleSelect(value, i) {
   return `<select data-f="staff" data-i="${i}" data-k="role" class="${role || !String(value || "").trim() ? "" : "bad"}">${opts}</select>`;
 }
 let staffFilter = "";
+// Ô tìm kiếm của các bước Môn học, Giáo viên, Luật: chỉ ẩn dòng không khớp (số dòng Excel, dấu lỗi giữ nguyên).
+const search = { subjects: "", staff: "", rules: "" };
+const hit = (q, ...parts) => !q || fold(parts.filter(Boolean).join(" ")).includes(fold(q));
+function noHit(colspan, q) {
+  return `<tr class="no-hit"><td colspan="${colspan}" class="left muted">Không có dòng nào khớp "${esc(q)}".</td></tr>`;
+}
 function staffChips(t) {
   return S.staff.filter((c) => !["name", "role", "class", "lessons"].includes(c.key)).map((c) => {
     const v = t[c.key];
@@ -596,8 +603,12 @@ function staffChips(t) {
 function renderStaff() {
   const head = `<thead><tr><th>Dòng</th><th class="left stick">Họ và Tên</th><th>Chức Vụ</th><th>Lớp</th>
     <th>Số Tiết/Tuần</th><th class="left">Khác</th><th></th></tr></thead>`;
+  const ids = staffIds();
+  let shown = 0;
   const body = st.scenario.staff.map((t, i) => {
-    const show = !staffFilter || key(t.role) === key(staffFilter) || (staffFilter === "?" && !roleOf(t.role));
+    const show = (!staffFilter || key(t.role) === key(staffFilter) || (staffFilter === "?" && !roleOf(t.role)))
+      && hit(search.staff, t.name, t.role, t.class, ids.get(t)?.code);
+    shown += show ? 1 : 0;
     return `<tr data-row="${i + 2}" ${show ? "" : "hidden"}><td class="num">${i + 2}</td>
     <td class="left stick">${input("text", t.name, { f: "staff", i, k: "name" }, "wide")}</td>
     <td>${roleSelect(t.role, i)}</td>
@@ -610,7 +621,8 @@ function renderStaff() {
       <button type="button" class="icon" data-act="down" data-i="${i}" title="Xuống">↓</button>
       <button type="button" class="icon" data-act="del-staff" data-i="${i}" title="Xóa dòng">✕</button></td></tr>`;
   }).join("");
-  $("#staff-table").innerHTML = head + `<tbody>${body}</tbody>`;
+  const none = search.staff && !shown ? noHit(7, search.staff) : "";
+  $("#staff-table").innerHTML = head + `<tbody>${body}${none}</tbody>`;
   const names = [...new Set([...S.roles, ...st.scenario.roles.map(named).filter(Boolean)])];
   $("#staff-filter").innerHTML = `<option value="">Mọi chức vụ</option>${names.map((n) =>
     `<option value="${esc(n)}" ${key(n) === key(staffFilter) ? "selected" : ""}>${esc(n)} (${teachersOf(n)})</option>`).join("")}
@@ -627,7 +639,7 @@ function updateCounts() {
   $("#count-gv").textContent = staff.length || "";
   $("#count-mon").textContent = subjects.length || "";
   $("#count-cv").textContent = S.roles.length + st.scenario.roles.filter(named).length;
-  $("#count-luat").textContent = (st.scenario.rules || []).length || "";
+  $("#count-luat").textContent = (st.scenario.rules || []).filter((r) => !r.off).length || "";
   const classes = staff.filter(isHomeroom).length;
   const quota = staff.reduce((n, t) => n + (Number.isInteger(t.lessons) ? t.lessons : 0), 0);
   $("#staff-summary").textContent = `${staff.length} người, ${classes} lớp (mỗi Chủ Nhiệm một lớp), tổng định mức ` +
@@ -695,21 +707,29 @@ function renderRuleList() {
   rows.forEach((r) => { if (r.group_label && !order.includes(r.group_label)) order.push(r.group_label); });
   const group = (row) => row.group_label || S.custom.custom_group;
   $("#rule-list").innerHTML = order.map((g) => {
-    const items = rows.map((row, i) => [row, i]).filter(([row]) => group(row) === g);
+    const items = rows.map((row, i) => [row, i]).filter(([row, i]) => group(row) === g
+      && hit(search.rules, said?.rules[i]?.text, row.kind, row.measure, row.subject, row.classes, row.role, g));
     if (!items.length) return "";
     return `<li class="rule-group"><h3>${esc(g)} <span class="muted">(${items.length})</span></h3><ol>${items.map(([row, i]) => {
       const r = said && said.rules[i];
       const errs = r ? r.errors : [];
       const text = r && r.text ? r.text.replace(/ \((bắt buộc|ưu tiên[^)]*)\)$/, "") : `${kindOf(row).label}…`;
       const native = r && r.native ? `<span class="tag" title="Luật mặc định của chương trình, chỉ sửa số hoặc mức: xếp như trước">mặc định</span>` : "";
-      return `<li class="rule-item${errs.length ? " bad" : ""}" data-row="${i + 2}" title="Dòng ${i + 2} của sheet LUẬT trong file Excel">
-        <div class="say">${levelBadge(row, r)} ${esc(text)} ${native}${errs.map((e) => `<div class="warn-text">${esc(e)}</div>`).join("")}</div>
-        <span class="nowrap"><button type="button" class="ghost small" data-act="edit-rule" data-i="${i}">Sửa</button>
+      const off = row.off ? `<span class="tag off-tag">tạm tắt</span>` : "";
+      return `<li class="rule-item${errs.length ? " bad" : ""}${row.off ? " off" : ""}" data-row="${i + 2}" title="Dòng ${i + 2} của sheet LUẬT trong file Excel">
+        <div class="say">${levelBadge(row, r)} ${esc(text)} ${native}${off}${errs.map((e) => `<div class="warn-text">${esc(e)}</div>`).join("")}</div>
+        <span class="nowrap"><label class="switch" title="${row.off ? "Đang tạm tắt: chương trình bỏ qua luật này. Bấm để dùng lại" : "Đang dùng. Bỏ đánh dấu để tạm tắt (giữ luật, bật lại được)"}">
+          <input type="checkbox" data-act="toggle-rule" data-i="${i}" ${row.off ? "" : "checked"}><span>Dùng</span></label>
+          <button type="button" class="ghost small" data-act="edit-rule" data-i="${i}">Sửa</button>
           <button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật (bỏ luật này)">✕</button></span></li>`;
     }).join("")}</ol></li>`;
   }).join("");
   $("#rule-empty").hidden = rows.length > 0;
-  $("#rule-structure").textContent = S.custom.structure;
+  if (search.rules && rows.length && !$("#rule-list .rule-item")) {
+    $("#rule-list").innerHTML = `<li class="muted">Không có luật nào khớp "${esc(search.rules)}".</li>`;
+  }
+  const offCount = rows.filter((r) => r.off).length;
+  $("#rule-structure").textContent = (offCount ? `${offCount} luật đang tạm tắt (chương trình bỏ qua, bật lại bằng ô Dùng). ` : "") + S.custom.structure;
   updateCounts();
 }
 
@@ -1065,6 +1085,8 @@ function sheetOf(text) {
 function jumpTo(sheet, rows) {
   const tab = sheetTab(sheet) || "mon";
   if (tab === "gv" && staffFilter) { staffFilter = ""; }
+  const box = { gv: "staff", mon: "subjects", luat: "rules" }[tab]; // lỗi ở dòng đang ẩn vì ô tìm: bỏ tìm
+  if (box && search[box]) { search[box] = ""; $(`#${{ staff: "staff", subjects: "subject", rules: "rule" }[box]}-search`).value = ""; }
   showTab(tab);
   const els = String(rows).split(",").filter(Boolean).map((r) => $(`#tab-${tab} [data-row="${r}"]`)).filter(Boolean);
   if (!els.length) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
@@ -1245,8 +1267,36 @@ async function pollOnce() {
   if (repairing) await afterRepair(s).catch(fail);
   else if (st.scenario.saved) refreshTkb(); // nút Xếp lại của bước 7 dùng được lại
 }
+const num = (n) => Number(n).toLocaleString("vi-VN");
+const STOPS = { "đã tối ưu": "đã tối ưu (không còn cách xếp tốt hơn)", "hết thời gian": "hết thời gian đặt",
+  "Ctrl+C": "bấm Dừng sớm", "vòng sau cùng không còn cải thiện đáng kể": "không còn cải thiện đáng kể" };
+// Các dòng tóm tắt của lần xếp (server.summary đọc từ các dòng in ra, server.quality từ sheet Chất lượng).
+function resultFacts(sum) {
+  const facts = [];
+  if (sum.reused) facts.push(["TKB", "dùng lại nguyên TKB đã xếp (vẫn đúng mọi luật), không xếp lại"]);
+  else if (sum.changes) facts.push(["So với TKB trước", `đổi ${num(sum.changes[0])}/${num(sum.changes[1])} ô (sheet Thay đổi của Thong_Ke.xlsx)`]);
+  if (sum.seconds !== null && !sum.reused) facts.push(["Xếp giờ", `${num(sum.seconds)} giây${sum.stop ? `, dừng vì ${STOPS[sum.stop] || sum.stop}` : ""}`]);
+  const ot = sum.overtime;
+  if (ot) facts.push(["Dạy bù", ot.total ? `${num(ot.total)} tiết: GVCN ${num(ot.homeroom[0])} tiết (${ot.homeroom[1]} người), bộ môn ${num(ot.general[0])} tiết (${ot.general[1]} người)${ot.levels ? `; ${ot.levels}` : ""}` : "không ai phải dạy bù"]);
+  if (sum.hires) facts.push(["Tuyển thêm", sum.hires[0] ? `cần ${sum.hires[0]} người cho ${num(sum.hires[1])} tiết (dòng "${S.saved_marks.hire}" trong file cập nhật)` : "không cần tuyển thêm"]);
+  for (const line of sum.soft) {
+    const i = line.indexOf(": ");
+    facts.push(i > 0 ? [line.slice(0, i), line.slice(i + 2)] : ["", line]);
+  }
+  return facts;
+}
+function qualityHtml(q) {
+  if (!q) return "";
+  if (!q.count) return `<p class="quality ok">Theo được mọi luật ưu tiên.</p>`;
+  const items = q.top.map((t) => `<li><span>${esc(t.rule)} <small>(${esc(String(t.level || "").toLowerCase())})</small></span>
+    <b title="Số lần chưa theo · điểm trừ">${num(t.count)} lần · ${num(t.points)} điểm</b>${t.example ? `<small class="ex">Vd: ${esc(t.example)}</small>` : ""}</li>`).join("");
+  return `<details class="quality"><summary><b>Chất lượng:</b> ${num(q.count)} lần chưa theo ${q.rules} luật ưu tiên
+    (${num(q.points)} điểm trừ; càng ít càng tốt) — xem luật trừ nhiều nhất</summary><ol>${items}</ol>
+    <small>Đủ mọi luật ở sheet Chất lượng của Thong_Ke.xlsx. Muốn TKB tốt hơn: tăng thời gian xếp, hoặc nâng mức ưu tiên
+    của luật cần theo hơn.</small></details>`;
+}
 function renderResult(s) {
-  const sum = s.summary || { files: [] };
+  const sum = s.summary || { files: [], soft: [] };
   const updated = sum.files.find((p) => /_cap_nhat\.xlsx$/i.test(p));
   const titles = {
     0: ["Đã xếp xong TKB, đạt mọi luật bắt buộc.", "good"],
@@ -1262,14 +1312,17 @@ function renderResult(s) {
       ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">Nạp vào giao diện</button>` : ""}
       </span></li>`;
   }).join("");
+  const facts = resultFacts(sum).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
   $("#run-result").innerHTML = `<div class="result ${cls}">
     <b>${esc(title)}</b>
     ${sum.error ? `<pre class="errbox">${esc(sum.error.replace(/^LỖI: /, ""))}</pre>` : ""}
     ${sum.code ? `<div>Mã TKB <span class="big">${esc(sum.code)}</span><br><small>Cùng mã là cùng TKB: chạy lại với cùng dữ liệu và cài đặt thì ra đúng TKB này.</small></div>` : ""}
-    ${files ? `<ul class="files">${files}</ul>` : ""}
+    ${facts ? `<dl class="facts">${facts}</dl>` : ""}
+    ${qualityHtml(sum.quality)}
     <div class="actions">${updated && [0, 2].includes(s.exit) ? `<button type="button" class="primary" data-act="view-tkb"
       data-path="${esc(updated)}" data-code="${esc(sum.code || "")}">Xem TKB trên trang</button>` : ""}
       <button type="button" class="ghost" data-act="open" data-path="">Mở thư mục kết quả</button></div>
+    ${files ? `<details class="files-box" ${sum.code ? "" : "open"}><summary>Các file Excel (${sum.files.length})</summary><ul class="files">${files}</ul></details>` : ""}
   </div>`;
 }
 
@@ -1659,15 +1712,40 @@ async function newScenario() {
   renderAll();
   changed();
 }
+// Số tiết bù nhiều nhất của một người trong TKB đã xếp (ô ghi "(bù)" ở dòng Mã GV). Cài đặt chạy không nằm trong file
+// Excel: mở file cập nhật xếp với số tiết bù tối đa lớn hơn cài đặt đang có thì nâng lên, không thì TKB đó bị coi là
+// vượt định mức (bước 7 báo lỗi, xếp lại thành thiếu tiết).
+function savedOvertime(grid) {
+  const flag = fold(S.saved_marks.overtime);
+  const count = {};
+  for (const row of grid || []) {
+    for (const cell of row || []) {
+      const lines = String(cell ?? "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const last = lines.length > 1 ? fold(lines[lines.length - 1]) : "";
+      if (!last.includes(flag)) continue;
+      const code = last.replace(fold(S.saved_marks.locked), "").replace(flag, "").trim();
+      count[code] = (count[code] || 0) + 1;
+    }
+  }
+  return Math.max(0, ...Object.values(count));
+}
+function fitOvertime(grid) {
+  const need = savedOvertime(grid);
+  if (need <= Number(st.run.overtime_max)) return "";
+  st.run.overtime_max = need;
+  renderRun();
+  return ` Số tiết bù tối đa đặt thành ${need} theo TKB đã xếp trong file (đổi ở bước 6).`;
+}
 function useImported(data, label) {
   st = { scenario: data.scenario, run: { ...S.run_defaults, ...(st ? st.run : {}), name: data.name }, label };
   staffBaseline = null;
+  const fit = st.scenario.saved ? fitOvertime(st.scenario.saved) : ""; // trước khi vẽ: bước 7 kiểm với cài đặt đúng
   hideStart();
   renderAll();
   changed();
   const warns = data.warnings.map((w) => `<li>${esc(w)}</li>`).join("");
   notify(`Đã mở ${esc(label)}: ${st.scenario.staff.length} dòng nhân sự, ${st.scenario.subjects.length} môn.` +
-    (st.scenario.saved ? " File có TKB đã xếp: xếp lại sẽ giữ TKB đó nếu vẫn đúng luật, sai thì chỉ sửa chỗ cần." : "") +
+    (st.scenario.saved ? " File có TKB đã xếp (xem ở bước 7): xếp lại sẽ giữ TKB đó nếu vẫn đúng luật, sai thì chỉ sửa chỗ cần." : "") + fit +
     (warns ? `<ul>${warns}</ul>` : ""), warns ? "" : "ok");
 }
 
@@ -1778,13 +1856,14 @@ function applyImport() {
     sc.rules = appendRules ? [...sc.rules, ...src.rules.filter((r) => !sc.rules.some((x) => same(x, r)))] : src.rules;
   }
   if (parts.includes("saved")) sc.saved = src.saved;
+  const fit = parts.includes("saved") && sc.saved ? fitOvertime(sc.saved) : "";
   addImplicitRoles();
   hideStart();
   renderAll();
   changed();
   const names = PARTS.filter((p) => parts.includes(p.key)).map((p) => p.label.toLowerCase());
   notify(`Đã nhập từ ${esc(label)}: ${esc(names.join(", "))}` +
-    (parts.includes("staff") && append ? ` (thêm ${src.staff.length} giáo viên vào cuối)` : "") + ".", "ok");
+    (parts.includes("staff") && append ? ` (thêm ${src.staff.length} giáo viên vào cuối)` : "") + "." + fit, "ok");
 }
 async function downloadBlob(blob, name) {
   const a = document.createElement("a");
@@ -1995,6 +2074,14 @@ async function onClick(e) {
     case "edit-rule":
       openRule(i);
       return;
+    case "toggle-rule": {
+      const row = sc.rules[i];
+      row.off = !btn.checked;
+      renderRuleList();
+      done(row.off ? `Đã tạm tắt luật${said?.rules[i]?.text ? `: ${esc(said.rules[i].text)}` : ""} (chương trình bỏ qua, bật lại bằng ô Dùng).`
+        : "Đã dùng lại luật.");
+      break;
+    }
     case "del-rule": {
       const text = said?.rules[i]?.text || "";
       sc.rules.splice(i, 1);
@@ -2187,6 +2274,9 @@ function wire() {
     await api("POST", "/api/kill", {}).catch(fail);
   };
   $("#tkb-view").onchange = (e) => { tkbView = e.target.value; renderTkb(); };
+  $("#subject-search").oninput = (e) => { search.subjects = e.target.value.trim(); renderSubjects(); };
+  $("#staff-search").oninput = (e) => { search.staff = e.target.value.trim(); renderStaff(); };
+  $("#rule-search").oninput = (e) => { search.rules = e.target.value.trim(); renderRuleList(); };
   $("#tab-tkb").addEventListener("click", (e) => {
     const cell = e.target.closest("[data-cell]");
     if (cell) { pickCell(cell.dataset.cell).catch(fail); return; }

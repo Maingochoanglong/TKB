@@ -1,7 +1,8 @@
 """Luật có sẵn của chương trình là các dòng của sheet LUẬT, viết bằng câu của bộ ghép luật (tkb/bo_ghep.py).
 
 Mọi luật nằm trong file Excel: file mẫu ghi sẵn mỗi luật có sẵn thành một dòng (`default_rows`); nhà trường sửa số,
-điểm, đổi Bắt buộc/Ưu tiên, xóa dòng để tắt luật, thêm dòng để có luật mới. Khi đọc (`apply`):
+điểm, đổi Bắt buộc/Ưu tiên, xóa dòng (hoặc ghi Tạm tắt = Có) để tắt luật, thêm dòng để có luật mới. Khi đọc
+(`apply`, chỉ các dòng không tạm tắt):
 - dòng đúng **dạng gốc** của một luật có sẵn (`NATIVES`, chỉ khác số hay điểm) thì luật đó xếp bằng mã hóa riêng như
   trước, số và điểm lấy từ dòng (config.SESSION_GROUP_LIMIT, DAILY_LIMITS, PAIR_MIN_LESSONS, WEIGHTS): các dòng mặc
   định cho đúng mô hình cũ, nên mã kết quả không đổi;
