@@ -1,7 +1,7 @@
 # Hướng dẫn sử dụng: xếp thời khóa biểu (TKB)
 
 Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập liệu, đọc kết quả, sửa giữa năm. Các hình chụp từ
-**trường mẫu tên giả** (`tests/du_lieu_mau.py`). Chi tiết từng cột, từng luật: [README](../README.md); đặc tả đầy đủ:
+**trường mẫu tên giả** (`tkb/truong_mau.py`). Chi tiết từng cột, từng luật: [README](../README.md); đặc tả đầy đủ:
 [Dac_Ta_Nghiep_Vu_TKB_V16.md](Dac_Ta_Nghiep_Vu_TKB_V16.md).
 
 ## 1. Cài đặt
@@ -21,12 +21,23 @@ Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên 
 
 ## 2. Nhập dữ liệu
 
-Có sẵn file Excel của trường (mẫu V8) thì bấm **Nhập từ Excel…**: hộp thoại cho chọn phần nào lấy từ file. Chưa có
-thì bấm **Tải file mẫu**, điền trong Excel rồi nhập lại; hoặc **Tạo mới** và nhập ngay trên trang.
+Lần đầu mở trang là **trang bắt đầu** với ba cách:
+- **Mở file Excel của trường** (mẫu V8; hoặc file `_cap_nhat.xlsx` của lần xếp trước);
+- **Soạn mới trên trang**;
+- **Xem thử với trường mẫu** (tên giả): muốn biết chương trình làm gì thì chọn cách này, bấm Kiểm tra rồi Xếp TKB.
 
-![Nhập từ Excel: chọn phần lấy từ file](hinh/1_nhap_excel.jpg)
+![Trang bắt đầu](hinh/0_bat_dau.jpg)
 
-Rồi đi lần lượt các bước (nút **Tiếp →** cuối mỗi trang):
+Mọi việc với file nằm ở menu **Tệp ▾** góc trên: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (điền trong
+Excel rồi mở lại), Bắt đầu lại…. Mở file thì hộp thoại cho chọn phần nào lấy từ file.
+
+![Mở file Excel: chọn phần lấy từ file](hinh/1_nhap_excel.jpg)
+
+Rồi đi lần lượt các bước (nút **Tiếp →** cuối mỗi trang). Trang tự kiểm tra sau mỗi lần sửa: bước nào có lỗi thì tên
+bước có dấu **⚠** kèm số lỗi, đầu bước liệt kê các lỗi (bấm vào lỗi để tới đúng dòng, dòng lỗi tô đỏ nhạt); bước
+không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (hoặc Ctrl+Z); xóa nhầm cũng hoàn tác được.
+
+![Bước có lỗi: dấu ⚠ và danh sách lỗi](hinh/5b_loi_buoc.jpg)
 
 1. **Khung giờ & quy định chung**: số tiết buổi sáng, buổi chiều, ngày học, tiết HĐTN cố định, tiết luôn do GVCN
    dạy, ai được dạy bù.
@@ -40,7 +51,8 @@ Rồi đi lần lượt các bước (nút **Tiếp →** cuối mỗi trang):
    dạy, buổi nghỉ. Mỗi người có một **Mã GV** theo thứ tự dòng trong chức vụ, vd `Bộ Môn 3`, `Chủ Nhiệm 1/1`.
    ![Bước 4: giáo viên](hinh/5_giao_vien.jpg)
 5. **Luật**: mọi luật xếp TKB, mỗi luật một câu dễ đọc, nhãn **Bắt buộc** hoặc **Ưu tiên** (thấp, vừa, cao, rất
-   cao). Các luật có sẵn đã đủ dùng; sửa số, đổi mức, bỏ hay thêm luật khi trường cần.
+   cao). Các luật mặc định đã đủ dùng; sửa số, đổi mức, bỏ hay thêm luật khi trường cần. Menu **Tệp luật ▾** để
+   nhập, xuất luật ra Excel (chép luật sang trường khác) hay đưa các luật về mặc định.
    ![Bước 5: danh sách luật](hinh/6_luat.jpg)
 
    **Thêm luật**: chọn loại luật rồi **+ Thêm luật**; hộp thoại hỏi lần lượt các tiết nào, vào giờ nào, thì sao, mức
@@ -54,10 +66,10 @@ Rồi đi lần lượt các bước (nút **Tiếp →** cuối mỗi trang):
 ## 3. Xếp TKB và đọc kết quả
 
 Bấm **Xếp TKB**. Mặc định chạy khoảng 10–15 phút (đổi ở ô Thời gian); muốn dừng sớm bấm **Dừng**: chương trình xếp
-xong phần đang xếp rồi vẫn ghi TKB tốt nhất có được. Xong thì trang hiện **mã kết quả** và các file ra, mỗi file có nút
+xong phần đang xếp rồi vẫn ghi TKB tốt nhất có được. Xong thì trang hiện **mã TKB** và các file ra, mỗi file có nút
 **Mở** (bằng Excel) và **Tải**.
 
-![Kết quả: mã kết quả và các file ra](hinh/9_ket_qua.jpg)
+![Kết quả: mã TKB và các file ra](hinh/9_ket_qua.jpg)
 
 | File | Nội dung |
 |---|---|
@@ -77,10 +89,10 @@ bảng tiết thiếu (lớp, môn, lý do); tăng số tiết bù tối đa, s�
 ## 4. Sửa giữa năm học
 
 Luôn làm việc trên file **`<tên>_cap_nhat.xlsx`** của lần chạy trước (**Nạp vào giao diện** ở trang kết quả, hoặc
-**Nhập từ Excel…**): file này giữ TKB đã xếp.
+**Tệp ▾ › Mở file Excel…**): file này giữ TKB đã xếp.
 
 - **Tuyển được người**: chỉ đổi chữ `chưa có` thành tên người mới (không đổi thứ tự dòng) rồi xếp: TKB giữ nguyên
-  từng ô, mã kết quả giữ nguyên, chỉ thêm tên.
+  từng ô, mã TKB giữ nguyên, chỉ thêm tên.
 - **Có thay đổi** (một người xin nghỉ một buổi, đổi định mức, sửa luật, sửa tay vài ô): chương trình **xếp lại ít xáo
   trộn nhất**, giữ mọi ô được, chỉ dời các tiết cần dời. Sheet **Thay đổi** của `Thong_Ke.xlsx` liệt kê các ô đổi.
 - **Khóa ô**: ở sheet **TKB đã xếp** của file cập nhật, thêm chữ `(khóa)` vào cuối ô (vd dòng thứ hai `Bộ Môn 2
@@ -93,8 +105,8 @@ hay xóa dòng nhân sự làm đổi Mã GV của những người phía sau: l
 
 ## 5. Mã kết quả, máy Windows và máy Linux
 
-Mỗi lần xếp in một **mã kết quả** (vd `08F4-E2C6-3470`): cùng file vào, cùng cài đặt thì chạy lại bao nhiêu lần,
-trên máy nào cùng hệ điều hành cũng ra cùng TKB, cùng mã. Máy nhanh hay chậm chỉ chạy lâu hơn. Riêng **Windows và
+Mỗi lần xếp in một **mã TKB** (mã kết quả, vd `08F4-E2C6-3470`): cùng file vào, cùng cài đặt thì chạy lại bao
+nhiêu lần, trên máy nào cùng hệ điều hành cũng ra cùng TKB, cùng mã. Máy nhanh hay chậm chỉ chạy lâu hơn. Riêng **Windows và
 Linux ra TKB khác nhau** (đều đúng mọi luật, cùng phân công) vì thư viện xếp giờ OR-Tools tính khác nhau một chút
 trên hai hệ điều hành. Muốn có lại đúng TKB của máy kia: nạp file `_cap_nhat.xlsx` của máy đó, TKB được dùng lại
 nguyên vẹn.

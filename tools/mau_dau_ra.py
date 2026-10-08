@@ -1,4 +1,4 @@
-"""Sinh lại các file mẫu đầu ra từ trường mẫu tên giả (tests/du_lieu_mau.py), với các hằng số mặc định
+"""Sinh lại các file mẫu đầu ra từ trường mẫu tên giả (tkb/truong_mau.py), với các hằng số mặc định
 của main.py: data/Output_Template_TKB_V8.xlsx (TKB), data/Output_Template_TKB_Giao_Vien_V8.xlsx (TKB giáo viên) và
 data/Output_Template_Thong_Ke_V8.xlsx (thống kê, chất lượng).
 
@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import main  # noqa: E402
-from tests.du_lieu_mau import write_sample_input  # noqa: E402
+from tkb.truong_mau import write_sample_input  # noqa: E402
 
 TEMPLATES = {main.FILE_TKB: "Output_Template_TKB_V8.xlsx", main.FILE_TKB_GIAO_VIEN: "Output_Template_TKB_Giao_Vien_V8.xlsx",
              main.FILE_THONG_KE: "Output_Template_Thong_Ke_V8.xlsx"}

@@ -5,11 +5,11 @@ import pytest
 
 from tkb.staff import make_teacher, read_staff
 
-from .du_lieu_mau import CURRICULUM, write_sample_input  # noqa: F401  (CURRICULUM: dùng trong các test)
+from tkb.truong_mau import CURRICULUM, write_sample_input  # noqa: F401  (CURRICULUM: dùng trong các test)
 
 # Các sheet của file vào V8 do chương trình ghi (file mẫu; file vào cập nhật thêm sheet TKB đã xếp).
 INPUT_SHEETS = ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT", "HƯỚNG DẪN"]
-# File vào mẫu V8 của trường mẫu tên giả (tests/du_lieu_mau.py), ghi vào thư mục tạm mỗi lần chạy test.
+# File vào mẫu V8 của trường mẫu tên giả (tkb/truong_mau.py), ghi vào thư mục tạm mỗi lần chạy test.
 INPUT_FILE = write_sample_input(Path(tempfile.mkdtemp(prefix="tkb_test_")) / "Input_Mau_V8.xlsx")
 
 

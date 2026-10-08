@@ -237,3 +237,18 @@ def test_history_and_leave_as_the_page_writes_them(tmp_path):
     assert t.history == {"3/1", "3/2", "4/2"} and t.off_sessions == {(3, "Chiều")}
     assert dict(t.off_any) == {"Chiều": 2, "Sáng": 1, None: 1}
     assert kich_ban.check(scenario, config.MODE_OVERTIME, 2)["errors"] == []
+
+
+def test_quick_check_and_sample():
+    """Kiểm tra nhanh (giao diện gọi mỗi lần sửa) ra cùng lỗi với Kiểm tra đầy đủ, chỉ bỏ dự toán; trường mẫu của trang
+    bắt đầu là trường mẫu tên giả, kiểm tra không lỗi."""
+    sample = kich_ban.sample_scenario()
+    assert len(sample["staff"]) == 45 and sample["staff"][0]["name"] == "Giáo viên CN 1"
+    full, quick = kich_ban.check(sample, config.MODE_OVERTIME, 3), kich_ban.check(sample, config.MODE_OVERTIME, 3,
+                                                                                    quick=True)
+    assert full["errors"] == quick["errors"] == [] and len(quick["info"]) == 1 < len(full["info"])
+    sample["staff"][2]["lessons"] = None
+    assert kich_ban.check(sample, quick=True)["errors"] == kich_ban.check(sample)["errors"] == [
+        "NHÂN SỰ: Dòng 4: Số tiết của 'chủ nhiệm 1/3' bị trống hoặc không hợp lệ"]
+    sample["rules"].append({"kind": "Học trước", "subject": "Toán"})  # luật ghi sai: báo trước khi đọc nhân sự
+    assert kich_ban.check(sample, quick=True)["errors"] == ["LUẬT, dòng 26: kiểu luật Học trước phải ghi cột Môn thứ hai"]

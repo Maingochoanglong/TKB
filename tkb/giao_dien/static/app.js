@@ -39,13 +39,21 @@ async function api(method, path, body, opts = {}) {
 }
 
 function saveDraft() {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(st)); } catch { /* không lưu được bản nháp: bỏ qua */ }
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(st));
+    const now = new Date();
+    $("#draft-info").textContent = `Đã lưu nháp lúc ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
+  } catch { /* không lưu được bản nháp: bỏ qua */ }
 }
 let saveTimer = null;
+// Mọi lần sửa đều gọi changed(): lưu nháp, chụp lại để hoàn tác (gõ xong mới chụp), kiểm tra nhanh.
 function changed() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveDraft, 300);
+  clearTimeout(snapTimer);
+  snapTimer = setTimeout(snap, 600);
   updateCounts();
+  checkLater();
 }
 function loadDraft() {
   try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; }
@@ -73,6 +81,49 @@ function notify(html, kind = "", action = null) {
   box.hidden = false;
 }
 const fail = (err) => notify(esc(err.message || err), "error");
+
+// ---------------------------------------------------------------- hoàn tác / làm lại
+// Sửa xong (gõ xong 0,6 giây, bấm, chọn) thì chụp lại kịch bản; Ctrl+Z / Ctrl+Y hoặc hai nút ở đầu trang đi lùi, đi
+// tới. Thay cả kịch bản (mở file, trường mẫu, bắt đầu lại) cũng hoàn tác được, nên xóa không cần hỏi lại.
+const UNDO_MAX = 50;
+const undoStack = [];
+const redoStack = [];
+let lastSnap = null; // kịch bản ở lần chụp gần nhất (chuỗi JSON)
+let snapTimer = null;
+function snap() {
+  clearTimeout(snapTimer);
+  snapTimer = null;
+  if (!st) return;
+  const now = JSON.stringify(st.scenario);
+  if (now === lastSnap) return;
+  if (lastSnap !== null) {
+    undoStack.push(lastSnap);
+    if (undoStack.length > UNDO_MAX) undoStack.shift();
+    redoStack.length = 0; // xóa tại chỗ: travel() đang giữ mảng này
+  }
+  lastSnap = now;
+  updateUndo();
+}
+function updateUndo() {
+  $("#btn-undo").disabled = !undoStack.length;
+  $("#btn-redo").disabled = !redoStack.length;
+}
+function travel(from, to) {
+  if (snapTimer) snap();
+  if (!from.length) return;
+  to.push(lastSnap);
+  lastSnap = from.pop();
+  st.scenario = JSON.parse(lastSnap);
+  const tab = $(".tabs button.active")?.dataset.tab || "khung";
+  renderAll();
+  showTab(tab);
+  updateUndo();
+  changed();
+}
+const undo = () => travel(undoStack, redoStack);
+const redo = () => travel(redoStack, undoStack);
+const UNDO = { label: "Hoàn tác", fn: undo };
+const done = (html) => notify(html, "", UNDO); // báo việc vừa làm kèm nút Hoàn tác (thay cho hỏi lại trước khi xóa)
 
 // ---------------------------------------------------------------- ô nhập theo loại ô
 // Loại ô: yes (Có/Không), int / order (số nguyên dương), text, role (chức vụ).
@@ -457,7 +508,7 @@ function renderRoles() {
   const fill = sc.subjects.filter((s) => (s.rules || {})[rr.homeroom_fill])
     .sort((a, b) => a.rules[rr.homeroom_fill] - b.rules[rr.homeroom_fill]).map(named);
   const cards = [
-    roleCard(esc(cn), "có sẵn", teachersOf(cn), `
+    roleCard(esc(cn), "mặc định", teachersOf(cn), `
       <p class="muted">Dạy lớp chủ nhiệm của mình (cột Lớp ở bước 4) và các tiết <i>Luôn do GVCN dạy</i> (bước 1).</p>
       <h3>Nhận trọn các môn</h3>${subjectChecks((s, i, only) => ({ checked: s.rules[rr.homeroom_take],
         attrs: `data-f="rule" data-i="${i}" data-k="${rr.homeroom_take}"` }))}
@@ -465,11 +516,11 @@ function renderRoles() {
         attrs: `data-f="rule" data-i="${i}" data-k="${rr.homeroom_only}"` }))}
       <p class="muted">Nhận thêm cho đủ định mức theo thứ tự: <b>${esc(fill.join(", ") || "không")}</b> (số thứ tự ở cột
         GVCN nhận thêm của từng môn, bước 2).</p>`),
-    roleCard(esc(bm), "có sẵn", teachersOf(bm), `
+    roleCard(esc(bm), "mặc định", teachersOf(bm), `
       <p class="muted">Dạy nhiều lớp. Bỏ đánh dấu môn Bộ Môn không được dạy (cột Bộ Môn không dạy của môn).</p>
       <h3>Được dạy</h3>${subjectChecks((s, i, only) => ({ checked: !s.rules[rr.general_forbidden] && !only,
         attrs: `data-f="rule-not" data-i="${i}" data-k="${rr.general_forbidden}"`, disabled: only && "Chỉ GVCN được dạy" }))}`),
-    roleCard(esc(ql), "có sẵn", teachersOf(ql), `
+    roleCard(esc(ql), "mặc định", teachersOf(ql), `
       <p class="muted">Chỉ dạy môn có ghi khối ở đây (cột Quản lý dạy khối), các lớp của khối đó.</p>
       <div class="checks">${sc.subjects.map((s, i) => named(s) ? `<label class="check-item grade">
         ${input("int", (s.rules || {})[rr.manager_grade], { f: "rule", i, k: rr.manager_grade })} ${esc(named(s))}</label>` : "").join("")}</div>
@@ -477,7 +528,7 @@ function renderRoles() {
     ...sc.roles.map((role, i) => roleCard(
       `<input type="text" class="role-name" data-f="role" data-i="${i}" data-k="name" value="${esc(role.name)}"
         placeholder="Tên chức vụ, vd GV Nghệ thuật" spellcheck="false">`,
-      `dòng ${i + 2}`, teachersOf(role.name), `
+      "trường tự đặt", teachersOf(role.name), `
       <h3>Môn được dạy</h3>${subjectChecks((s, j, only) => ({
         checked: (role.subjects || []).some((x) => key(x) === key(s.name)),
         attrs: `data-f="role-subject" data-i="${i}" data-s="${esc(named(s))}"`, disabled: only && "Chỉ GVCN được dạy" }))}
@@ -644,9 +695,8 @@ function renderRuleList() {
       const r = said && said.rules[i];
       const errs = r ? r.errors : [];
       const text = r && r.text ? r.text.replace(/ \((bắt buộc|ưu tiên[^)]*)\)$/, "") : `${kindOf(row).label}…`;
-      const native = r && r.native ? `<span class="tag" title="Luật có sẵn ở dạng gốc: chương trình xếp như trước, số và điểm lấy từ dòng này">có sẵn</span>` : "";
-      return `<li class="rule-item${errs.length ? " bad" : ""}" data-row="${i + 2}">
-        <span class="num">Dòng ${i + 2}</span>
+      const native = r && r.native ? `<span class="tag" title="Luật mặc định của chương trình, chỉ sửa số hoặc mức: xếp như trước">mặc định</span>` : "";
+      return `<li class="rule-item${errs.length ? " bad" : ""}" data-row="${i + 2}" title="Dòng ${i + 2} của sheet LUẬT trong file Excel">
         <div class="say">${levelBadge(row, r)} ${esc(text)} ${native}${errs.map((e) => `<div class="warn-text">${esc(e)}</div>`).join("")}</div>
         <span class="nowrap"><button type="button" class="ghost small" data-act="edit-rule" data-i="${i}">Sửa</button>
           <button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật (bỏ luật này)">✕</button></span></li>`;
@@ -784,7 +834,7 @@ function renderComposer() {
     field("periods", "Tiết", text("periods"), "Vd 1 hoặc 5-7."),
     block("sessions", "Buổi", checks("sessions", SESSIONS(), row.sessions)),
     block("tags", "Giờ có nhãn", checks("tags", CP().tags.slot, row.tags),
-      "Giờ học đánh dấu Có ở các cột của sheet QUY ĐỊNH (vd Hạn chế môn nặng); nhiều nhãn: giờ có một trong các nhãn."),
+      "Giờ học đánh dấu ở bước 1 (bảng Tiết trong ngày, Ngày học), vd Hạn chế môn nặng; nhiều nhãn: giờ có một trong các nhãn."),
   ].join("");
   const who = [...S.roles, ...st.scenario.roles.map(named).filter(Boolean), ...teacherCodes()];
   $("#teacher-list").innerHTML = [...new Set(who)].map((r) => `<option value="${esc(r)}">`).join("");
@@ -802,7 +852,7 @@ function renderComposer() {
     "Để trống: luật áp dụng cho mọi môn.") : "";
   const extra = [
     block("tags", "Môn có nhãn", checks("tags", CP().tags.subject, row.tags),
-      "Môn đánh dấu Có ở các cột của sheet CHƯƠNG TRÌNH HỌC (vd Môn nặng)."),
+      "Môn đánh dấu ở quy định của môn (bước 2), vd Môn nặng."),
     placeMain ? "" : place,
     block("exclude", "Trừ môn có nhãn", checks("exclude", CP().tags.subject, row.exclude)),
     block("exclude", "Trừ giờ có nhãn", checks("exclude", CP().tags.slot, row.exclude)),
@@ -949,26 +999,90 @@ function renderRun() {
   });
   $('[data-run="time_limit"]').hidden = $('[data-run="time_preset"]').value !== "custom";
   $("#saved-hint").textContent = st.scenario.saved
-    ? "— file vào có sheet TKB đã xếp" : "— file vào chưa có TKB đã xếp";
+    ? "— đang có TKB đã xếp" : "— chưa có TKB đã xếp";
   $("#out-dir").value = S.out_dir;
 }
 
-function jumpTo(sheet, row) {
-  const tab = { [S.sheets.staff]: "gv", [S.sheets.luat]: "luat", [S.sheets.custom]: "luat", [S.sheets.roles]: "chucvu" }[sheet] || "mon";
+// Bước của một sheet: lỗi đọc lại ghi tên sheet ở đầu câu (NHÂN SỰ, CHƯƠNG TRÌNH HỌC, CHỨC VỤ, QUY ĐỊNH, LUẬT…).
+function sheetTab(sheet) {
+  return { [S.sheets.staff]: "gv", [S.sheets.program]: "mon", [S.sheets.roles]: "chucvu", [S.sheets.rules]: "khung",
+    [S.sheets.luat]: "luat", [S.sheets.custom]: "luat", [S.sheets.saved]: "xep" }[sheet] || null;
+}
+// Sheet và các dòng một câu lỗi nói tới, vd "NHÂN SỰ: Dòng 12, 15: …" -> {sheet: "NHÂN SỰ", rows: [12, 15]}.
+function sheetOf(text) {
+  const names = Object.values(S.sheets).sort((a, b) => b.length - a.length).join("|"); // LUẬT RIÊNG trước LUẬT
+  const m = text.match(new RegExp(`(${names})[:,]?(?: *[Dd]òng ([\\d, ]+)|.*?[Dd]òng ([\\d, ]+))?`));
+  if (!m) return { sheet: null, rows: [] };
+  return { sheet: m[1], rows: (m[2] || m[3] || "").split(/[ ,]+/).filter(Boolean).map(Number) };
+}
+function jumpTo(sheet, rows) {
+  const tab = sheetTab(sheet) || "mon";
   if (tab === "gv" && staffFilter) { staffFilter = ""; }
   showTab(tab);
-  const el = $(`#tab-${tab} [data-row="${row}"]`);
-  if (!el) return;
-  el.scrollIntoView({ block: "center", behavior: "smooth" });
-  el.classList.remove("flash");
-  void el.offsetWidth;
-  el.classList.add("flash");
+  const els = String(rows).split(",").filter(Boolean).map((r) => $(`#tab-${tab} [data-row="${r}"]`)).filter(Boolean);
+  if (!els.length) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  els[0].scrollIntoView({ block: "center", behavior: "smooth" });
+  for (const el of els) {
+    el.classList.remove("flash");
+    void el.offsetWidth;
+    el.classList.add("flash");
+  }
 }
 function msgItem(text, cls) {
-  const sheets = [S.sheets.staff, S.sheets.program, S.sheets.roles, S.sheets.luat, S.sheets.custom].join("|");
-  const m = text.match(new RegExp(`(${sheets})[:,]? *(?:[Dd]òng (\\d+)|.*?[Dd]òng (\\d+))`));
-  const body = m ? `<a href="#" data-jump="${esc(m[1])}|${m[2] || m[3]}">${esc(text)}</a>` : esc(text);
+  const { sheet, rows } = sheetOf(text);
+  const body = sheet ? `<a href="#" data-jump="${esc(sheet)}|${rows.join(",")}">${esc(text)}</a>` : esc(text);
   return `<li class="${cls}">${body}</li>`;
+}
+
+// ---------------------------------------------------------------- kiểm tra tự động, dấu từng bước
+// Sửa xong 1,5 giây thì kiểm tra nhanh (đọc lại như khi chạy, không dự toán). Lỗi chia về bước theo sheet ghi trong
+// câu: tab có dấu ⚠ số lỗi hoặc ✓, đầu mỗi bước có hộp lỗi của bước đó (bấm vào lỗi để tới đúng dòng). Lỗi không
+// thuộc sheet nào về bước Kiểm tra & xếp.
+const STEP_TABS = ["khung", "mon", "chucvu", "gv", "luat", "xep"];
+let stepErrors = []; // lỗi của lần kiểm tra gần nhất (tô đỏ nhạt các dòng có lỗi, cả khi bước dựng lại)
+let checkTimer = null;
+let checkSeq = 0;
+function checkLater() {
+  clearTimeout(checkTimer);
+  checkTimer = setTimeout(() => quickCheck().catch(() => { /* máy chủ tắt: nút Kiểm tra sẽ báo */ }), 1500);
+}
+async function quickCheck() {
+  if (!st || !S || document.body.classList.contains("starting")) return;
+  const seq = ++checkSeq;
+  const res = await api("POST", "/api/check", { scenario: st.scenario, run: st.run, quick: true });
+  if (seq === checkSeq) renderStepChecks(res.errors);
+}
+// Tô đỏ nhạt các dòng có lỗi của một bước (data-row là số dòng trong sheet của file Excel).
+function markRows(tab) {
+  const section = $(`#tab-${tab}`);
+  if (!section) return;
+  $$("[data-row].has-error", section).forEach((el) => el.classList.remove("has-error"));
+  for (const t of stepErrors) {
+    const { sheet, rows } = sheetOf(t);
+    if (sheetTab(sheet) !== tab) continue;
+    for (const r of rows) $$(`[data-row="${r}"]`, section).forEach((el) => el.classList.add("has-error"));
+  }
+}
+function renderStepChecks(errors) {
+  stepErrors = errors;
+  const by = Object.fromEntries(STEP_TABS.map((t) => [t, []]));
+  for (const t of errors) by[sheetTab(sheetOf(t).sheet) || "xep"].push(t);
+  for (const tab of STEP_TABS) {
+    const list = by[tab];
+    const btn = $(`.tabs button[data-tab="${tab}"]`);
+    let mark = $(".mark", btn);
+    if (!mark) { mark = document.createElement("span"); btn.append(mark); }
+    mark.className = `mark ${list.length ? "bad" : "good"}`;
+    mark.textContent = list.length ? `⚠ ${list.length}` : "✓";
+    mark.title = list.length ? `${list.length} lỗi cần sửa ở bước này` : "Bước này chưa thấy lỗi";
+    const section = $(`#tab-${tab}`);
+    let box = $(".step-errors", section);
+    if (!box) { box = document.createElement("div"); box.className = "step-errors"; section.prepend(box); }
+    box.hidden = !list.length;
+    box.innerHTML = list.length ? `<b>Cần sửa ở bước này (${list.length}):</b>
+      <ul class="msgs">${list.map((t) => msgItem(t, "err")).join("")}</ul>` : "";
+    markRows(tab);
+  }
 }
 function renderCheck(res) {
   const items = [];
@@ -982,6 +1096,7 @@ async function check() {
   $("#check-result").innerHTML = `<div class="status"><span class="spinner"></span>Đang kiểm tra…</div>`;
   const res = await api("POST", "/api/check", { scenario: st.scenario, run: st.run });
   renderCheck(res);
+  renderStepChecks(res.errors);
   return res;
 }
 
@@ -1055,7 +1170,7 @@ function renderResult(s) {
   $("#run-result").innerHTML = `<div class="result ${cls}">
     <b>${esc(title)}</b>
     ${sum.error ? `<pre class="errbox">${esc(sum.error.replace(/^LỖI: /, ""))}</pre>` : ""}
-    ${sum.code ? `<div>Mã kết quả <span class="big">${esc(sum.code)}</span><br><small>Cùng mã là cùng TKB (chạy lại với cùng file vào và cài đặt).</small></div>` : ""}
+    ${sum.code ? `<div>Mã TKB <span class="big">${esc(sum.code)}</span><br><small>Cùng mã là cùng TKB: chạy lại với cùng dữ liệu và cài đặt thì ra đúng TKB này.</small></div>` : ""}
     ${files ? `<ul class="files">${files}</ul>` : ""}
     <div class="actions"><button type="button" class="ghost" data-act="open" data-path="">Mở thư mục kết quả</button></div>
   </div>`;
@@ -1096,13 +1211,13 @@ const RENDER_TAB = { mon: () => renderSubjects(), chucvu: () => renderRoles(), g
 function showTab(name) {
   if (!$(`#tab-${name}`)) name = "khung";
   if (st) RENDER_TAB[name]?.();
+  markRows(name);
   $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   $$(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${name}`));
   try { localStorage.setItem(TAB_KEY, name); } catch { /* bỏ qua */ }
 }
 
-async function newScenario(ask = true) {
-  if (ask && !confirm("Bỏ kịch bản đang làm và tạo kịch bản mới (quy định mặc định, chưa có nhân sự)?")) return;
+async function newScenario() {
   const data = await api("GET", "/api/new");
   st = { scenario: data.scenario, run: { ...S.run_defaults }, label: "Kịch bản mới" };
   renderAll();
@@ -1110,12 +1225,47 @@ async function newScenario(ask = true) {
 }
 function useImported(data, label) {
   st = { scenario: data.scenario, run: { ...S.run_defaults, ...(st ? st.run : {}), name: data.name }, label };
+  hideStart();
   renderAll();
   changed();
   const warns = data.warnings.map((w) => `<li>${esc(w)}</li>`).join("");
   notify(`Đã mở ${esc(label)}: ${st.scenario.staff.length} dòng nhân sự, ${st.scenario.subjects.length} môn.` +
-    (st.scenario.saved ? " File có sheet TKB đã xếp: xếp lại sẽ giữ TKB đó nếu vẫn đúng luật." : "") +
+    (st.scenario.saved ? " File có TKB đã xếp: xếp lại sẽ giữ TKB đó nếu vẫn đúng luật, sai thì chỉ sửa chỗ cần." : "") +
     (warns ? `<ul>${warns}</ul>` : ""), warns ? "" : "ok");
+}
+
+// ---------------------------------------------------------------- trang bắt đầu
+// Chưa có bản nháp, hoặc bấm Tệp > Bắt đầu lại: ba cách bắt đầu thay cho trang trống. Kịch bản đang soạn giữ nguyên
+// cho tới khi chọn một cách (và chọn rồi vẫn hoàn tác được).
+function showStart(back) {
+  document.body.classList.add("starting");
+  $("#start").hidden = false;
+  $("#start-back").hidden = !back;
+  $("#notice").hidden = true;
+}
+function hideStart() {
+  document.body.classList.remove("starting");
+  $("#start").hidden = true;
+  if (st && st.fresh) { delete st.fresh; changed(); }
+}
+async function startWith(how) {
+  const back = !$("#start-back").hidden; // đang có kịch bản: chọn cách khác thì hoàn tác được
+  if (how === "open") $("#file-open").click();
+  else if (how === "template") $("#btn-template").click();
+  else if (how === "back") hideStart();
+  else if (how === "new") {
+    await newScenario();
+    hideStart();
+    showTab("mon");
+    notify("Kịch bản mới, luật và quy định mặc định: nhập số tiết ở bước Môn học, danh sách ở bước Giáo viên.", "ok",
+      back ? UNDO : null);
+  } else if (how === "sample") {
+    const data = await api("GET", "/api/sample");
+    useImported({ ...data, warnings: [] }, "Trường mẫu (tên giả)");
+    showTab("xep");
+    notify("Đã mở trường mẫu tên giả (29 lớp, 45 giáo viên). Bấm <b>Kiểm tra</b> rồi <b>Xếp TKB</b> để xem chương " +
+      "trình làm gì; các bước 1–5 cho xem dữ liệu.", "ok", back ? UNDO : null);
+  }
 }
 
 // ---------------------------------------------------------------- nhập từ Excel
@@ -1142,7 +1292,8 @@ function openImport(data, label, preset) {
   $("#import-file").textContent = label;
   $("#import-parts").innerHTML = PARTS.filter((p) => p.key !== "saved" || src.saved).map((p) => {
     const inFile = has.has(p.sheet);
-    const on = preset ? preset.includes(p.key) : true; // nút ở thanh trên: mặc định thay toàn bộ như mở file
+    // Mở file đủ (có nhân sự): mặc định thay toàn bộ; file chỉ có vài sheet (vd file luật): chỉ chọn sẵn phần file có.
+    const on = preset ? preset.includes(p.key) : src.staff.length > 0 || inFile;
     const staffMode = p.key === "staff" ? `<select id="import-staff-mode" aria-label="Cách nhập giáo viên">
       <option value="replace">thay danh sách đang có</option><option value="append">thêm vào cuối danh sách</option></select>`
       : p.key === "rules" ? `<select id="import-rules-mode" aria-label="Cách nhập luật">
@@ -1190,6 +1341,7 @@ function applyImport() {
   }
   if (parts.includes("saved")) sc.saved = src.saved;
   addImplicitRoles();
+  hideStart();
   renderAll();
   changed();
   const names = PARTS.filter((p) => parts.includes(p.key)).map((p) => p.label.toLowerCase());
@@ -1365,10 +1517,10 @@ async function onClick(e) {
     }
     case "del-subject": {
       const name = named(sc.subjects[i]);
-      if (!confirm(`Xóa môn "${name || "(chưa đặt tên)"}"?`)) return;
       sc.subjects.splice(i, 1);
       for (const role of sc.roles) role.subjects = (role.subjects || []).filter((x) => key(x) !== key(name));
       renderSubjects();
+      done(`Đã xóa môn "${esc(name || "(chưa đặt tên)")}".`);
       break;
     }
     case "add-role":
@@ -1385,25 +1537,31 @@ async function onClick(e) {
     case "del-role": {
       const role = sc.roles[i];
       const n = teachersOf(role.name);
-      if (!confirm(`Xóa chức vụ "${named(role) || "(chưa đặt tên)"}"?` +
-        (n ? ` ${n} giáo viên đang giữ chức vụ này sẽ chưa có chức vụ (chọn lại ở bước 4).` : ""))) return;
       if (n) for (const t of sc.staff) if (key(t.role) === key(role.name)) t.role = "";
       sc.roles.splice(i, 1);
       renderRoles();
       renderRoleList();
+      done(`Đã xóa chức vụ "${esc(named(role) || "(chưa đặt tên)")}"` +
+        (n ? `: ${n} giáo viên đang giữ chức vụ này chưa có chức vụ (chọn lại ở bước 4).` : "."));
       break;
     }
-    case "del-staff":
-      sc.staff.splice(i, 1);
+    case "del-staff": {
+      const [t] = sc.staff.splice(i, 1);
       renderStaff();
+      done(`Đã xóa giáo viên "${esc(String(t.name || "").trim() || "(chưa có tên)")}".`);
       break;
+    }
     case "edit-rule":
       openRule(i);
       return;
-    case "del-rule":
+    case "del-rule": {
+      const text = said?.rules[i]?.text || "";
       sc.rules.splice(i, 1);
+      said?.rules.splice(i, 1);
       renderRules();
+      done(`Đã bỏ luật${text ? `: ${esc(text)}` : ""}.`);
       break;
+    }
     case "up":
     case "down": {
       const j = btn.dataset.act === "up" ? i - 1 : i + 1;
@@ -1417,7 +1575,6 @@ async function onClick(e) {
       await api("POST", "/api/open", { path: btn.dataset.path }).catch(fail);
       return;
     case "load":
-      if (!confirm("Nạp file vào cập nhật vào giao diện (thay kịch bản đang soạn)?")) return;
       try {
         const data = await api("POST", "/api/import_path", { path: btn.dataset.path });
         useImported(data, btn.dataset.path.split(/[\\/]/).pop());
@@ -1437,7 +1594,27 @@ function wire() {
   document.addEventListener("change", onEdit);
   document.addEventListener("click", (e) => onClick(e).catch(fail));
   $$(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
-  $("#btn-new").onclick = () => newScenario().catch(fail);
+  $("#btn-new").onclick = () => showStart(true);
+  $$("[data-start]").forEach((b) => b.addEventListener("click", () => startWith(b.dataset.start).catch(fail)));
+  $("#btn-undo").onclick = undo;
+  $("#btn-redo").onclick = redo;
+  document.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || !st) return;
+    const k = e.key.toLowerCase();
+    if (k !== "z" && k !== "y") return;
+    const el = document.activeElement;
+    const typing = el && (el.isContentEditable || el.tagName === "TEXTAREA" || el.tagName === "SELECT" ||
+      (el.tagName === "INPUT" && !["checkbox", "radio", "button", "file"].includes(el.type)));
+    if (typing || $("dialog[open]")) return; // đang gõ trong ô: hoàn tác chữ của trình duyệt
+    e.preventDefault();
+    if (k === "y" || e.shiftKey) redo(); else undo();
+  });
+  // Menu (Tệp, Tệp luật): chọn một mục hay bấm ra ngoài thì đóng.
+  document.addEventListener("click", (e) => {
+    for (const m of $$("details.menu[open]")) {
+      if (!m.contains(e.target) || e.target.closest(".menu-item")) m.open = false;
+    }
+  });
   $("#file-open").onchange = async (e) => {
     const file = e.target.files[0];
     const preset = importPreset;
@@ -1496,11 +1673,12 @@ function wire() {
   $("#btn-del-grade").onclick = () => {
     const sc = st.scenario;
     const g = sc.grades[sc.grades.length - 1];
-    if (g === undefined || !confirm(`Bớt cột Khối ${g} (xóa số tiết của khối này)?`)) return;
+    if (g === undefined) return;
     sc.grades.pop();
     sc.subjects.forEach((s) => { delete s.lessons[String(g)]; });
     renderSubjects();
     changed();
+    done(`Đã bớt cột Khối ${g}.`);
   };
   $("#btn-add-rule").onclick = () => openRule(-1, $("#new-kind").value);
   $("#btn-rules-export").onclick = async () => {
@@ -1515,11 +1693,12 @@ function wire() {
     } catch (err) { fail(err); }
   };
   $("#btn-rules-reset").onclick = async () => {
-    if (!confirm("Thay mọi luật đang có bằng các luật có sẵn mặc định (bỏ các luật riêng và các chỗ đã sửa)?")) return;
     try {
       st.scenario.rules = (await api("GET", "/api/new")).scenario.rules;
+      said = null;
       renderRules();
       changed();
+      done("Đã đưa các luật về mặc định (bỏ các luật thêm vào và các chỗ đã sửa).");
     } catch (err) { fail(err); }
   };
   $("#rule-dialog").addEventListener("close", () => {
@@ -1586,11 +1765,18 @@ async function init() {
     st = { ...draft, run: { ...S.run_defaults, ...(draft.run || {}) } };
     if (!st.scenario.roles) { st.scenario.roles = []; addImplicitRoles(); } // bản nháp trước khi có bước Chức vụ
     renderAll();
-    notify("Đã mở lại kịch bản đang soạn lần trước (lưu tự động trên máy này).", "",
-      { label: "Tạo mới", fn: () => newScenario().catch(fail) });
+    if (st.fresh) showStart(false); // lần trước mở trang mà chưa chọn cách bắt đầu
+    else notify("Đã mở lại kịch bản đang soạn lần trước (lưu tự động trên máy này).", "",
+      { label: "Bắt đầu lại", fn: () => showStart(true) });
   } else {
-    await newScenario(false).catch(fail);
+    await newScenario().catch(fail); // kịch bản trống để các bước có dữ liệu; trang bắt đầu che đi
+    if (st) st.fresh = true;
+    showStart(false);
   }
+  lastSnap = st ? JSON.stringify(st.scenario) : null; // mốc đầu của hoàn tác
+  undoStack.length = 0;
+  updateUndo();
+  quickCheck().catch(() => {});
   renderHelp();
   let tab = "khung";
   try { tab = localStorage.getItem(TAB_KEY) || tab; } catch { /* bỏ qua */ }

@@ -288,6 +288,15 @@ def sheets_in(path: str | Path) -> list[str]:
         wb.close()
 
 
+def sample_scenario() -> dict:
+    """Kịch bản của trường mẫu tên giả (tkb/truong_mau.py) cho nút "Xem thử với trường mẫu": ghi file vào mẫu rồi đọc
+    lại như mọi file vào."""
+    from .truong_mau import write_sample_input
+    with tempfile.TemporaryDirectory() as tmp:
+        scenario, _ = from_excel(write_sample_input(Path(tmp) / "truong_mau.xlsx"))
+    return scenario
+
+
 def default_scenario() -> dict:
     """Kịch bản trống như file mẫu (python -m tkb.template): chưa có nhân sự, các môn có quy định mặc định với số tiết
     để trống, mọi quy định là giá trị mặc định."""
@@ -437,11 +446,11 @@ def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool
 
 
 def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = config.OVERTIME_MAX,
-          student_rules: bool = True) -> dict:
+          student_rules: bool = True, quick: bool = False) -> dict:
     """Kiểm tra kịch bản như khi chạy: ghi ra file tạm, đọc lại bằng các hàm đọc của chương trình, đếm tìm các quy
     định mâu thuẫn (chan_doan.precheck), rồi dự toán (phân công, không xếp giờ, vài giây). Trả về {errors, warnings,
-    info}: lỗi chặn việc xếp TKB; info là số liệu và dự toán. Đổi tạm config (rules.applied) nên không gọi song
-    song."""
+    info}: lỗi chặn việc xếp TKB; info là số liệu và dự toán. quick: dừng trước dự toán (dưới 1 giây; giao diện kiểm
+    tra tự động mỗi lần sửa), cùng các lỗi. Đổi tạm config (rules.applied) nên không gọi song song."""
     from .allocation import build_problem
     from .chan_doan import precheck
     from .phan_cong import phan_cong
@@ -485,6 +494,8 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
                 conflicts = precheck(base, student_rules)
                 if conflicts:
                     errors += [f"Quy định mâu thuẫn, không có TKB nào thỏa: {line}" for line in conflicts]
+                    return {"errors": errors, "warnings": warnings, "info": info}
+                if quick:
                     return {"errors": errors, "warnings": warnings, "info": info}
                 plan = phan_cong(base, config.Weights())
             except (InputError, SolveError) as exc:

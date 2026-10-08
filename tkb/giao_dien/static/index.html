@@ -18,18 +18,47 @@
     </div>
   </div>
   <div class="actions">
-    <button type="button" id="btn-new" class="ghost">Tạo mới</button>
-    <button type="button" id="btn-template" class="ghost"
-      title="Tải file Excel mẫu trống (đủ các sheet và quy định mặc định) để điền trong Excel rồi nhập lại">
-      Tải file mẫu</button>
-    <label class="btn ghost" title="Nhập file vào V8 (file mẫu đã điền, file của trường, file cập nhật *_cap_nhat.xlsx): chọn phần nào lấy từ file">
-      Nhập từ Excel…<input type="file" id="file-open" accept=".xlsx" hidden>
-    </label>
-    <button type="button" id="btn-export" title="Tải về file Excel V8 đầy đủ: nhân sự, chương trình học, chức vụ, quy định">
-      Tải file Excel
-    </button>
+    <span id="draft-info" class="muted small-text" aria-live="polite"></span>
+    <button type="button" id="btn-undo" class="ghost" title="Hoàn tác (Ctrl+Z)" disabled>↶ Hoàn tác</button>
+    <button type="button" id="btn-redo" class="ghost" title="Làm lại (Ctrl+Y)" aria-label="Làm lại" disabled>↷</button>
+    <details class="menu" id="file-menu">
+      <summary class="btn">Tệp ▾</summary>
+      <div class="menu-list" role="menu">
+        <label class="menu-item" role="menuitem"
+          title="File của trường, file mẫu đã điền, hay file cập nhật *_cap_nhat.xlsx của lần xếp trước: chọn phần nào lấy từ file">
+          Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden></label>
+        <button type="button" class="menu-item" role="menuitem" id="btn-export"
+          title="Lưu mọi thứ đang soạn thành một file Excel: mở lại được ở đây, dùng được cho main.py, gửi cho trường khác được">
+          Lưu ra file Excel</button>
+        <button type="button" class="menu-item" role="menuitem" id="btn-template"
+          title="File Excel trống, đủ các sheet và luật mặc định, để điền trong Excel rồi mở lại ở đây">
+          Tải file mẫu trống</button>
+        <button type="button" class="menu-item" role="menuitem" id="btn-new">Bắt đầu lại…</button>
+      </div>
+    </details>
   </div>
 </header>
+
+<section id="start" class="start" hidden>
+  <h2>Bắt đầu</h2>
+  <p class="muted">Chọn một cách để bắt đầu. Mọi thứ chạy ngay trên máy này, trang tự lưu nháp.</p>
+  <div class="start-cards">
+    <button type="button" class="start-card" data-start="open">
+      <b>Mở file Excel của trường</b>
+      <span>File mẫu đã điền, hoặc file cập nhật <code>_cap_nhat.xlsx</code> của lần xếp trước (giữ TKB đã xếp).</span>
+    </button>
+    <button type="button" class="start-card" data-start="new">
+      <b>Soạn mới trên trang</b>
+      <span>Luật và quy định mặc định; nhập số tiết ở bước Môn học, danh sách ở bước Giáo viên.</span>
+    </button>
+    <button type="button" class="start-card" data-start="sample">
+      <b>Xem thử với trường mẫu</b>
+      <span>29 lớp, 45 giáo viên tên giả: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì.</span>
+    </button>
+  </div>
+  <p class="start-links"><button type="button" class="link" data-start="template">Tải file mẫu trống để điền trong Excel</button>
+    <span id="start-back"> · <button type="button" class="link" data-start="back">← Quay lại kịch bản đang soạn</button></span></p>
+</section>
 
 <nav class="tabs" role="tablist">
   <button type="button" role="tab" data-tab="khung" class="active">1. Khung giờ &amp; quy định chung</button>
@@ -46,9 +75,8 @@
   <section id="tab-khung" class="tab active" role="tabpanel">
     <div class="grid2">
       <div class="card">
-        <div class="toolbar"><h2>Quy định chung</h2>
-          <button type="button" class="ghost small" data-import="frame" title="Lấy khung giờ và quy định chung từ sheet QUY ĐỊNH của một file Excel">Nhập từ Excel…</button></div>
-        <p class="muted">Sheet QUY ĐỊNH, bảng Quy định | Giá trị.</p>
+        <div class="toolbar"><h2>Quy định chung</h2></div>
+        <p class="muted">Áp dụng cho cả trường.</p>
         <div id="general-form" class="form"></div>
       </div>
       <div class="card">
@@ -72,7 +100,6 @@
         <h2>Môn học</h2>
         <div class="actions">
           <button type="button" id="btn-add-subject">+ Thêm môn</button>
-          <button type="button" class="ghost" data-import="subjects" title="Lấy môn học và quy định của môn từ sheet CHƯƠNG TRÌNH HỌC của một file Excel">Nhập từ Excel…</button>
           <button type="button" id="btn-add-grade" class="ghost">+ Thêm khối</button>
           <button type="button" id="btn-del-grade" class="ghost">− Bớt khối cuối</button>
           <label class="check"><input type="checkbox" id="subject-grid"> Bảng đầy đủ</label>
@@ -90,12 +117,11 @@
     <div class="card">
       <div class="toolbar">
         <h2>Chức vụ</h2>
-        <div class="actions"><button type="button" id="btn-add-role" data-act="add-role">+ Thêm chức vụ</button>
-          <button type="button" class="ghost" data-import="roles" title="Lấy các chức vụ từ sheet CHỨC VỤ của một file Excel">Nhập từ Excel…</button></div>
+        <div class="actions"><button type="button" id="btn-add-role" data-act="add-role">+ Thêm chức vụ</button></div>
       </div>
-      <p class="muted">Mỗi giáo viên có một chức vụ. Ba chức vụ có sẵn (Chủ Nhiệm, Bộ Môn, Quản Lý) theo luật của
-        chương trình: đánh dấu ở đây là sửa đúng các cột quy định của môn ở bước 2. Các chức vụ GV chuyên biệt do trường
-        tự đặt tên và chọn các môn được dạy (sheet CHỨC VỤ), vd <b>GV Nghệ thuật</b> dạy Âm nhạc và Mỹ thuật.</p>
+      <p class="muted">Mỗi giáo viên có một chức vụ. Ba chức vụ mặc định (Chủ Nhiệm, Bộ Môn, Quản Lý): đánh dấu ở đây
+        là sửa đúng các quy định của môn ở bước 2. Trường tự đặt thêm chức vụ cho giáo viên chuyên biệt và chọn các môn
+        được dạy, vd <b>GV Nghệ thuật</b> dạy Âm nhạc và Mỹ thuật.</p>
       <div id="role-hints"></div>
     </div>
     <div class="roles" id="role-cards"></div>
@@ -109,7 +135,6 @@
         <div class="actions">
           <select id="staff-filter" aria-label="Lọc theo chức vụ"></select>
           <button type="button" id="btn-add-staff">+ Thêm giáo viên</button>
-          <button type="button" class="ghost" data-import="staff" title="Lấy danh sách từ sheet NHÂN SỰ của một file Excel (thay hoặc thêm vào cuối)">Nhập từ Excel…</button>
           <button type="button" id="btn-paste" class="ghost">Dán từ Excel…</button>
         </div>
       </div>
@@ -130,20 +155,29 @@
         <div class="actions">
           <select id="new-kind" aria-label="Loại luật mới"></select>
           <button type="button" id="btn-add-rule">+ Thêm luật</button>
-          <button type="button" class="ghost" data-import="rules" title="Lấy các luật từ sheet LUẬT của một file Excel (thay hoặc thêm vào cuối)">Nhập luật từ Excel…</button>
-          <button type="button" class="ghost" id="btn-rules-export" title="Tải file Excel chỉ có các luật đang soạn (sheet LUẬT)">Xuất luật ra Excel</button>
-          <button type="button" class="ghost" id="btn-rules-template" title="Tải file Excel mẫu luật: các luật có sẵn mặc định">Tải mẫu luật</button>
-          <button type="button" class="ghost" id="btn-rules-reset" title="Thay mọi luật bằng các luật có sẵn mặc định">Về mặc định</button>
+          <details class="menu">
+            <summary class="btn ghost">Tệp luật ▾</summary>
+            <div class="menu-list" role="menu">
+              <button type="button" class="menu-item" role="menuitem" data-import="rules"
+                title="Lấy các luật từ một file Excel (file luật hay file đủ của trường khác): thay hoặc thêm vào cuối">Nhập luật từ Excel…</button>
+              <button type="button" class="menu-item" role="menuitem" id="btn-rules-export"
+                title="File Excel chỉ có các luật đang soạn: sửa trong Excel, chép sang trường khác">Xuất luật ra Excel</button>
+              <button type="button" class="menu-item" role="menuitem" id="btn-rules-template"
+                title="File Excel có các luật mặc định">Tải mẫu luật</button>
+              <button type="button" class="menu-item" role="menuitem" id="btn-rules-reset"
+                title="Thay mọi luật bằng các luật mặc định (hoàn tác được)">Về mặc định</button>
+            </div>
+          </details>
         </div>
       </div>
       <p class="muted">Mỗi luật là một câu, trả lời một trong bốn câu hỏi về các tiết: <b>Ở đâu</b> (xếp vào giờ nào),
         <b>Bao nhiêu</b> (số tiết, số lớp, số ngày), <b>Đi cùng nhau</b> (liền nhau, theo cặp, trước sau) và <b>Ai
-        dạy</b>. Mọi luật nằm ở sheet <b>LUẬT</b> của file Excel, các luật có sẵn được ghi sẵn: sửa số hoặc mức để
-        chỉnh, xóa để bỏ, thêm luật mới bằng một mẫu hoặc <b>Tự ghép</b>. Luật đánh dấu <span class="tag">có
-        sẵn</span> chương trình xếp như trước (cùng mã kết quả nếu không sửa). <b>Bắt buộc</b>: TKB phải theo đúng;
-        <b>ưu tiên</b>: cố theo, mức càng cao càng nặng.</p>
+        dạy</b>. Các luật <span class="tag">mặc định</span> đã đủ dùng: sửa số hoặc mức để chỉnh, bấm ✕ để bỏ, thêm
+        luật bằng một mẫu hoặc <b>Tự ghép</b>. <b>Bắt buộc</b>: TKB phải theo đúng; <b>ưu tiên</b>: cố theo, mức càng
+        cao càng nặng.</p>
       <ol id="rule-list" class="rule-list"></ol>
-      <p class="muted" id="rule-empty">Chưa có luật nào: bấm <b>Về mặc định</b> để có các luật có sẵn, hoặc thêm luật.</p>
+      <p class="muted" id="rule-empty">Chưa có luật nào: chọn <b>Tệp luật ▾ › Về mặc định</b> để có các luật mặc định,
+        hoặc thêm luật.</p>
       <p class="muted" id="rule-structure"></p>
     </div>
     <div class="card">
@@ -251,9 +285,9 @@
       <h2>Ghép luật</h2>
       <button value="cancel" class="icon" title="Đóng">✕</button>
     </div>
-    <p class="say-box">Luật đọc là: <b id="rule-say">…</b> <span class="tag" id="rule-native" hidden>có sẵn</span></p>
-    <p class="warn-text" id="rule-lost" hidden>Luật này sẽ không còn là luật có sẵn: chương trình xếp nó bằng bộ ghép
-      luật nên mã kết quả sẽ khác. Muốn giữ như cũ thì chỉ sửa số hoặc điểm.</p>
+    <p class="say-box">Luật đọc là: <b id="rule-say">…</b> <span class="tag" id="rule-native" hidden>mặc định</span></p>
+    <p class="warn-text" id="rule-lost" hidden>Luật này sẽ không còn là luật mặc định: chương trình xếp nó bằng bộ ghép
+      luật nên TKB sẽ khác (mã TKB khác). Muốn giữ như cũ thì chỉ sửa số hoặc điểm.</p>
     <ul id="rule-errors" class="warn-text"></ul>
     <div id="rule-body" class="detail"></div>
     <datalist id="class-list"></datalist>

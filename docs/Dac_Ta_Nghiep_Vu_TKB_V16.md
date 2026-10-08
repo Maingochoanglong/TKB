@@ -39,7 +39,7 @@
 | 21 | Tái lập | Thỉnh thoảng chạy lại vẫn ra TKB khác | Tắt phần chia sẻ không tất định giữa các luồng của OR-Tools: chạy lại luôn ra cùng TKB trên các máy cùng hệ điều hành; Actions kiểm trên 4 máy Windows (mục 9) |
 | 22 | Buổi sáng cho TV, Toán | – | **[Mềm]** TV, Toán ưu tiên buổi sáng; tiết tăng cường ưu tiên buổi chiều (mục 8.2). Rút ra từ TKB của hai trường khác (`docs/Tham_Khao_TKB_Truong_Khac.md`) |
 | 23 | Cột TIẾT của TKB, file mẫu | Buổi chiều ghi tiết 1–3; mẫu đầu ra V5 | Ghi **tiết trong ngày**: sáng 1–4, chiều **5–7**. Mẫu đầu ra `data/Output_Template_TKB_V8.xlsx` và `data/Output_Template_Thong_Ke_V8.xlsx` (sinh lại bằng `python tools/mau_dau_ra.py`) |
-| 24 | Mẫu file vào | Đọc cả mẫu cũ V5–V7 (chức vụ kèm số, `--program`, chuyển file cũ `--tu`); có file mẫu tên giả trong `data/` | **Chỉ đọc mẫu V8** (mục 2.1). `data/` chỉ còn file của trường; test dùng trường mẫu tên giả sinh bằng code (`tests/du_lieu_mau.py`) |
+| 24 | Mẫu file vào | Đọc cả mẫu cũ V5–V7 (chức vụ kèm số, `--program`, chuyển file cũ `--tu`); có file mẫu tên giả trong `data/` | **Chỉ đọc mẫu V8** (mục 2.1). `data/` chỉ còn file của trường; test dùng trường mẫu tên giả sinh bằng code (`tkb/truong_mau.py`) |
 | 25 | File thống kê `Thong_Ke.xlsx` | 6 sheet: Tổng quan, Danh sách nhân sự, Thống kê giáo viên, Phân công, Theo ngày, Theo chức vụ | **Một bảng:** Họ và Tên, Chức Vụ (Mã GV), số tiết từng môn, Tổng Tiết, dòng Tổng (mục 11.3). Mã kết quả, kiểm tra luật, tuyển thêm, dạy bù chỉ in ra màn hình |
 | 26 | Phân công | CP-SAT (2 lần giải, ~45 giây, khác nhau giữa Windows và Linux) | **Dự toán + phân công không dùng CP-SAT** (`tkb/phan_cong.py`): luồng chi phí nhỏ nhất rồi tìm kiếm cục bộ, dưới 1 giây, mọi máy ra cùng phân công. Dự toán (tiết thiếu, bù, tuyển, biên bù) in ra trước khi xếp (mục 8.1, 9) |
 | 27 | Bù giờ không đủ | Tự thêm người `chưa có` | **Báo lỗi, không tuyển, không ra TKB**: in từng tiết thiếu, ghi sheet `Thiếu tiết` vào `Thong_Ke.xlsx`, mã thoát 3 (mục 7.2) |
@@ -79,6 +79,7 @@
 | 61 | Đổi giữa năm, xếp lại ít xáo trộn | Nạp lại TKB đã xếp mà không còn đúng luật (một người xin nghỉ một buổi, đổi định mức, sửa tay một ô) hoặc đã sửa quy định thì bỏ cả TKB, xếp lại từ đầu: cả trường đổi lịch | **Xếp lại ít xáo trộn nhất** (mục 11.2): giữ mọi ô được (mỗi ô đổi môn trừ 5.000), giữ người dạy cũ (2.000 mỗi tiết), **ô khóa** ghi `(khóa)` trong sheet TKB đã xếp giữ nguyên bắt buộc; sheet **Thay đổi** liệt kê các ô đổi. Trường mẫu, một GV nghỉ chiều Thứ 5: đổi 15/928 ô (xếp từ đầu: 628). Chỉ đường nạp lại TKB cũ ra mã mới; xếp từ đầu giữ mã |
 | 62 | Luật cho từng giáo viên | Cột Giáo viên của sheet `LUẬT` chỉ nhận chức vụ: không ghi được giờ bận theo tiết của một người, không chọn được ai dạy lớp nào | Cột Giáo viên nhận **Mã GV hoặc họ tên** (mục 6.1): **giờ bận** (`Không xếp vào` + Giáo viên + Ngày/Tiết, để trống Môn; phân công bớt giờ đó) và **ép phân công** (`Chỉ giáo viên dạy` + Môn + Lớp + một người). Câu đọc lại ghi Mã GV, không ghi họ tên; tên không có hoặc trùng nhau báo lỗi kèm dòng. Không dùng thì mã kết quả không đổi |
 | 63 | Trường khác cài được | Phải cài Python và thư viện; nút Dừng, Mở file chưa thử trên Windows thật; chỉ Windows chạy test trong CI | **`TKB.exe`** (`tools/dong_goi.py`, PyInstaller): giải nén, bấm đúp, không cần Python; workflow `dong_goi.yml` dựng gói và chạy thử như người dùng (xếp bằng `--cli`, xếp và Dừng sớm qua giao diện). Test Dừng sớm và Mở file chạy trên 4 máy Windows và Linux; thêm CI Linux. Hướng dẫn ngắn có hình `docs/Huong_Dan_Su_Dung.md`. Tiến trình xếp in từng dòng ngay (bản đóng gói không theo `PYTHONUNBUFFERED`). Mã kết quả không đổi |
+| 64 | Giao diện dẫn đường | Mở trang là một kịch bản trống; tới bước 6 mới biết lỗi; 4 nút file ở đầu trang và một nút nhập ở mỗi bước; xóa phải xác nhận, không hoàn tác; nhiều chữ kỹ thuật (Dòng n, tên sheet) | **Trang bắt đầu** (mở file của trường / soạn mới / trường mẫu tên giả); menu **Tệp ▾** gom việc với file; **kiểm tra tự động** sau mỗi lần sửa (đọc lại như khi chạy, không dự toán): mỗi bước có dấu ✓ / ⚠ số lỗi, hộp lỗi đầu bước, dòng lỗi tô đỏ nhạt; **hoàn tác / làm lại** 50 bước (Ctrl+Z / Ctrl+Y), xóa không hỏi lại mà báo kèm nút Hoàn tác; chữ bớt kỹ thuật (luật **mặc định**, **mã TKB**). Chỉ đổi giao diện: mã kết quả không đổi |
 
 ---
 
@@ -172,7 +173,7 @@ Lấy từ cột Lớp của các dòng Chủ Nhiệm, vì mỗi lớp luôn có
 
 Lấy từ sheet `CHƯƠNG TRÌNH HỌC` của file vào (**bắt buộc**; code không chứa chương trình học nào).
 
-Ví dụ (trường mẫu tên giả của test, `tests/du_lieu_mau.py`):
+Ví dụ (trường mẫu tên giả của test, `tkb/truong_mau.py`):
 
 | Môn | Khối 1 | Khối 2 | Khối 3 | Khối 4 | Khối 5 |
 |---|---:|---:|---:|---:|---:|
@@ -571,7 +572,7 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
   - Phiên bản Python (đã thử 3.10 đến 3.14), thư mục chạy, thứ tự băm của Python.
   - Thứ tự dựng mô hình cố định, không phụ thuộc thứ tự lặp của `set`. Thứ tự các vùng xếp lại cố định (điểm QA, hòa thì theo tên lớp, số ngày); ngân sách của mỗi lần xếp lại cũng tính theo thời gian tất định.
 - **Tham số bộ giải ở chế độ tái lập** (`_configure` trong `tkb/solver.py`): `interleave_search` (các luồng chạy xen kẽ theo thứ tự cố định), dừng theo `max_deterministic_time`, và **tắt chia sẻ giữa các luồng** (`share_binary_clauses`, kéo theo `share_glue_clauses`, và `share_level_zero_bounds`). Phần chia sẻ này của OR-Tools 9.15 không tất định: đo trên dữ liệu mẫu, cùng một mô hình giải 6 lần ra 3 TKB khác nhau, lệch từ khoảng 60–120 đơn vị tính toán trở đi. Tắt đi thì chạy lặp 8 lần (có lúc 2 tiến trình song song) ra 8 lần cùng mã, chất lượng không giảm.
-- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình. Cùng mã là cùng TKB. Với các hằng số mặc định của `main.py` (file của trường `data/INPUT_V8.xlsx` hiện tại), mã trên Linux là **`5C2B-510F-5156`**, trên Windows là **`08F4-E2C6-3470`** (máy ảo Windows Server 2022/2025, Python 3.12/3.14). Trường mẫu tên giả của test (`tests/du_lieu_mau.py`) cho `72C2-3315-CE24` trên Linux.
+- **Mã kết quả:** mã băm của toàn bộ TKB (lớp, ngày, tiết, môn, giáo viên), in ra màn hình. Cùng mã là cùng TKB. Với các hằng số mặc định của `main.py` (file của trường `data/INPUT_V8.xlsx` hiện tại), mã trên Linux là **`5C2B-510F-5156`**, trên Windows là **`08F4-E2C6-3470`** (máy ảo Windows Server 2022/2025, Python 3.12/3.14). Trường mẫu tên giả của test (`tkb/truong_mau.py`) cho `72C2-3315-CE24` trên Linux.
 - **Theo hệ điều hành:** phân công (mục 8.1) giống nhau trên mọi máy. Bước xếp giờ: OR-Tools bản Windows và bản Linux ra TKB khác nhau (cùng đạt luật, cùng phân công), vì bản dựng khác trình biên dịch và phép tính số thực. `.github/workflows/windows.yml` kiểm mỗi lần đổi code: 4 máy ảo Windows (Windows Server 2022 và 2025, Python 3.12 và 3.14) chạy `main.py` với các hằng số mặc định, mỗi máy 2 lần, mọi mã phải trùng nhau; chỉ mã kết quả được tải lên, không tải file ra. Chưa thử macOS, chip ARM.
 - Đổi một trong các điều kiện trên thì TKB ra khác, nhưng vẫn đúng luật.
 - `tests/test_reproducible.py` kiểm tra:
@@ -753,7 +754,7 @@ Các hằng số nghiệp vụ dưới đây là **giá trị mặc định**: q
 
 ## 13. Kết quả tham chiếu với dữ liệu mẫu
 
-**Nhân sự** (trường mẫu tên giả của test, `tests/du_lieu_mau.py`): 45 người, gồm:
+**Nhân sự** (trường mẫu tên giả của test, `tkb/truong_mau.py`): 45 người, gồm:
 - 29 GVCN, ứng với 29 lớp: khối 1–4 mỗi khối 6 lớp, khối 5 có 5 lớp.
 - 5 bộ môn, 4 tiếng anh, 3 thể dục, 1 âm nhạc, 1 mỹ thuật, 1 tin học, 1 quản lý.
 - 2 người có định mức thấp hơn người cùng chức vụ: `Chủ Nhiệm 5/5` (16 tiết) và `Bộ Môn 5` (19 tiết).

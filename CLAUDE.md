@@ -29,8 +29,9 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), CHỨC VỤ, QUY ĐỊNH, LUẬT (the built-in rule rows), HƯỚNG DẪN. Class names
   are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
   `Input_Template_V8.xlsx` (`python -m tkb.template`, a test checks it is current) and the output templates
-  `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tests/du_lieu_mau.py`
-  (`CURRICULUM`, `sample_staff()`, `write_sample_input()`); `tests/conftest.py` writes it to a temp `INPUT_FILE`
+  `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tkb/truong_mau.py`
+  (`CURRICULUM`, `sample_staff()`, `write_sample_input()`; demo data, also the UI's "Xem thử với trường mẫu" via
+  `kich_ban.sample_scenario`, never read by the solver); `tests/conftest.py` writes it to a temp `INPUT_FILE`
   and has `small_staff()` plus `teacher(name, "bộ môn 1", lessons)` for hand-made staff.
 - **Privacy:** `data/INPUT_V8.xlsx` is the school's real file (real teacher names). Never print, quote, commit or
   upload teacher names or output files made from it (root `TKB.xlsx`, `Thong_Ke.xlsx`, `*_cap_nhat.xlsx`, `out/`
@@ -92,7 +93,13 @@ detail dialog) → Chức vụ (built-in role cards edit the subject columns nam
 dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
 counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật (all rules grouped, read-back
 sentences, composer dialog) →
-Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page.
+Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page. First visit (no draft, or
+Tệp › Bắt đầu lại) shows a start screen (open file / new / fake sample `/api/sample`); all file actions are in the
+`Tệp ▾` menu. Every edit goes through `changed()` in app.js: draft save, an undo snapshot 0.6 s after the last edit
+(`snap`/`travel`, 50 steps, Ctrl+Z/Y outside text fields; deletes show "Đã xóa … [Hoàn tác]" instead of confirm), and
+a quick check 1.5 s later (`/api/check` with `quick`: `kich_ban.check(quick=True)` stops before `phan_cong`) whose
+errors are split per step by the sheet named in the message (`sheetOf`/`sheetTab`) into tab marks ✓/⚠ n, a per-step
+error box and red rows (`markRows`, `data-row` = Excel row).
 Import (`/api/import` → `kich_ban.from_excel` + `sheets_in`) opens a dialog to take only some parts (staff replace/append,
 subjects+grades, roles, frame, custom rules, saved grid) into the current scenario; `/api/template` gives the blank template.
 `kich_ban.to_excel` writes it with `template.write_input` (same layout as the template); `from_excel` reads staff/program
@@ -214,7 +221,7 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
 - Current codes: small school (`tuyen_them`/`bu_gio`) Linux `4CCD-C868-AF11`/`51DE-A8CB-6CB7`, Windows the same
   (the small school is proven optimal at the LNS start, so these did not change with LNS);
   `python main.py` (school file as of now) Linux `5C2B-510F-5156`, Windows `08F4-E2C6-3470`; fake school of
-  `tests/du_lieu_mau.py` with main.py constants Linux `72C2-3315-CE24`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+  `tkb/truong_mau.py` with main.py constants Linux `72C2-3315-CE24`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and

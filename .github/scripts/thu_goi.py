@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from tests.du_lieu_mau import write_sample_input  # noqa: E402
+from tkb.truong_mau import write_sample_input  # noqa: E402
 
 FILES = ("TKB.xlsx", "TKB_chuc_vu.xlsx", "TKB_giao_vien.xlsx", "Thong_Ke.xlsx", "mau_cap_nhat.xlsx")
 

@@ -197,6 +197,11 @@ class App:
         with self.lock:
             return {"scenario": kich_ban.default_scenario()}
 
+    def sample(self, _):
+        """Trường mẫu tên giả (nút "Xem thử với trường mẫu" của trang bắt đầu)."""
+        with self.lock:
+            return {"scenario": kich_ban.sample_scenario(), "name": "truong_mau"}
+
     def _import(self, path: Path, name: str):
         try:
             with self.lock:
@@ -226,7 +231,8 @@ class App:
         run = {**RUN_DEFAULTS, **(data.get("run") or {})}
         run_argv(Path("x"), self.out_dir, "x", run)  # cài đặt chạy sai thì báo lỗi luôn
         with self.lock:
-            return kich_ban.check(data["scenario"], run["mode"], int(run["overtime_max"]), bool(run["student_rules"]))
+            return kich_ban.check(data["scenario"], run["mode"], int(run["overtime_max"]), bool(run["student_rules"]),
+                                  quick=bool(data.get("quick")))
 
     def export(self, data: dict) -> tuple[bytes, str]:
         name = safe_name(data.get("name"))
@@ -405,7 +411,8 @@ class Handler(BaseHTTPRequestHandler):
             if method == "POST" and name == "import":
                 return self._json(HTTPStatus.OK, app.import_file(self._body(),
                                                                  unquote(self.headers.get("X-File-Name") or "")))
-            routes = {("GET", "schema"): app.schema, ("GET", "new"): app.new, ("GET", "status"): app.status,
+            routes = {("GET", "schema"): app.schema, ("GET", "new"): app.new, ("GET", "sample"): app.sample,
+                      ("GET", "status"): app.status,
                       ("POST", "import_path"): app.import_path, ("POST", "check"): app.check, ("POST", "run"): app.run,
                       ("POST", "describe"): app.describe,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,

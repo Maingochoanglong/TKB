@@ -120,6 +120,16 @@ def test_blank_template(server, tmp_path):
     assert status == 200 and data["scenario"]["staff"] == [] and data["warnings"] == []
 
 
+def test_sample_and_quick_check(server):
+    """Trang bắt đầu: /api/sample cho trường mẫu tên giả; /api/check quick (kiểm tra tự động khi sửa) không dự toán."""
+    app, url = server
+    status, data = _call(url, "/api/sample", token=app.token)
+    assert status == 200 and len(data["scenario"]["staff"]) == 45 and data["name"] == "truong_mau"
+    status, res = _call(url, "/api/check", "POST", {"scenario": data["scenario"], "run": {"overtime_max": 3},
+                                                    "quick": True}, app.token)
+    assert status == 200 and res["errors"] == [] and not any(line.startswith("Dự toán") for line in res["info"])
+
+
 def test_files_only_inside_output_folder(server, tmp_path):
     app, url = server
     (tmp_path / "ngoai.xlsx").write_bytes(b"x")

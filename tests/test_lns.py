@@ -66,7 +66,7 @@ def test_ctrl_c_stops_after_the_current_region(sample_staff, monkeypatch):
 def test_same_timetable_in_new_processes():
     """Thứ tự vùng và ngân sách tất định: tiến trình mới, thứ tự băm khác vẫn ra cùng TKB."""
     script = ("from tkb import config; from tkb.solver import solve; "
-              "from tests.du_lieu_mau import CURRICULUM, sample_staff; "
+              "from tkb.truong_mau import CURRICULUM, sample_staff; "
               "s = config.Settings(time_limit=12, workers=4, mode=config.MODE_OVERTIME, overtime_max=2); "
               "print(solve(sample_staff(), CURRICULUM, s, log=lambda *_: None).fingerprint())")
     codes = {subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=dict(os.environ, PYTHONHASHSEED=seed),

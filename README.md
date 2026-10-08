@@ -34,11 +34,19 @@ Mở `giao_dien.py` rồi bấm **Run ▶** (hoặc chạy `python giao_dien.py`
 `http://127.0.0.1:8765/`. Trang này **chạy ngay trên máy**: không cần Internet, không có máy chủ ngoài, tên giáo viên không
 rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
 
-1. **Tạo mới** (quy định mặc định, chưa có nhân sự), hoặc làm trong Excel: **Tải file mẫu** (file mẫu trống đủ các
-   sheet, như `data/Input_Template_V8.xlsx`), điền rồi **Nhập từ Excel…**. Nhập được file vào V8 bất kỳ, kể cả file
-   cập nhật `*_cap_nhat.xlsx` của lần chạy trước. Hộp thoại nhập cho chọn phần nào lấy từ file (Giáo viên: thay danh
-   sách hoặc thêm vào cuối; Môn học; Chức vụ; Khung giờ và quy định chung; Luật: thay hoặc thêm vào cuối; TKB đã xếp), phần không chọn
-   giữ như đang soạn; chọn hết là thay toàn bộ. Mỗi bước cũng có nút **Nhập từ Excel…** chỉ lấy phần của bước đó.
+1. Lần đầu mở trang (hoặc **Tệp ▾ › Bắt đầu lại…**) là **trang bắt đầu** với ba cách: **Mở file Excel của trường**,
+   **Soạn mới trên trang** (luật và quy định mặc định, chưa có nhân sự), **Xem thử với trường mẫu** (trường mẫu tên giả
+   29 lớp, 45 giáo viên của `tkb/truong_mau.py`: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì). Mọi việc với
+   file nằm ở menu **Tệp ▾**: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (như
+   `data/Input_Template_V8.xlsx`, điền trong Excel rồi mở lại), Bắt đầu lại…. Mở được file vào V8 bất kỳ, kể cả file
+   cập nhật `*_cap_nhat.xlsx` của lần chạy trước. Hộp thoại mở file cho chọn phần nào lấy từ file (Giáo viên: thay danh
+   sách hoặc thêm vào cuối; Môn học; Chức vụ; Khung giờ và quy định chung; Luật: thay hoặc thêm vào cuối; TKB đã xếp),
+   phần không chọn giữ như đang soạn; file đủ (có nhân sự) mặc định thay toàn bộ, file chỉ có vài sheet (vd file luật)
+   chỉ chọn sẵn các phần file có.
+   - **Hoàn tác / làm lại**: nút ↶ ↷ ở đầu trang hoặc Ctrl+Z / Ctrl+Y (khi không gõ trong ô chữ), tối đa 50 bước, kể cả
+     xóa và thay cả kịch bản; vì vậy xóa không hỏi lại mà hiện "Đã xóa … [Hoàn tác]". Cạnh đó ghi giờ lưu nháp.
+   - **Kiểm tra tự động**: sửa xong khoảng 1,5 giây là trang đọc lại kịch bản như khi chạy (không dự toán); mỗi bước có
+     dấu **✓** hoặc **⚠ n** (số lỗi), đầu bước có hộp lỗi của bước đó, bấm vào lỗi để tới đúng dòng, dòng lỗi tô đỏ nhạt.
 2. Soạn kịch bản của trường theo từng bước (nút **Tiếp →** cuối mỗi trang):
    - **Khung giờ & quy định chung**: số tiết sáng/chiều, giới hạn nhóm môn, ghép cặp, ai được bù, ngày học (có thể thêm
      Thứ 7), tiết HĐTN cố định, tiết luôn do GVCN dạy, tiết hạn chế môn nặng.
@@ -56,7 +64,7 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      (GVCN không nghỉ buổi sáng). Trang ghi ra đúng chữ như ghi tay, vd `3/1, 3/2` và `Chiều T5, 2 buổi chiều`.
    - **Luật** (bộ ghép luật, sheet LUẬT): mọi luật, kể cả các luật có sẵn, xếp theo nhóm, mỗi luật một câu dễ đọc
      (luật có sẵn có tên riêng, vd "Mỗi buổi, một lớp học tối đa 2 tiết của một môn…") và nhãn **Bắt buộc** hoặc
-     **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **có sẵn** chương trình xếp như trước. **Sửa** mở hộp thoại
+     **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mặc định** chương trình xếp như trước. **Sửa** mở hộp thoại
      theo thứ tự câu luật: **Loại luật** (một ô chọn chia theo bốn câu hỏi **Ở đâu**, **Bao nhiêu**, **Đi cùng nhau**,
      **Ai dạy**, gồm các mẫu và "Tự ghép · <phép đo>") · **Với mỗi** · **Các tiết nào** (Môn, Khối, Lớp; các ô ít dùng
      nằm trong **Thêm điều kiện**, nhãn môn và nhãn giờ học tách riêng) · **Vào giờ nào** (họ Ở đâu) · **Thì** (Áp dụng
@@ -64,8 +72,9 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      Điểm, Nhóm trong **Nâng cao**). Hộp thoại hiện ngay **luật đọc là** (cùng câu chương trình in ra), lỗi nếu ghép
      sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (mã kết quả sẽ khác), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
      đa 3 lớp khác nhau (bắt buộc)". **✕** bỏ luật; chọn loại luật rồi **+ Thêm luật**.
-     **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (file chỉ có sheet LUẬT, HƯỚNG DẪN: sửa
-     trong Excel, chép sang trường khác), **Tải mẫu luật** (các luật có sẵn mặc định), **Về mặc định**.
+     Menu **Tệp luật ▾**: **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (file chỉ có sheet
+     LUẬT, HƯỚNG DẪN: sửa trong Excel, chép sang trường khác), **Tải mẫu luật** (các luật có sẵn mặc định), **Về mặc
+     định**.
 
    Đổi tên một môn thì các chức vụ, luật ghi môn đó đổi theo; đổi tên một chức vụ thì các giáo viên giữ chức vụ
    đó và các luật ghi chức vụ đó đổi theo.
@@ -73,11 +82,11 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
    - **Kiểm tra** (vài giây): đọc lại kịch bản đúng như khi chạy, báo lỗi (bấm vào lỗi để tới đúng dòng) và **dự toán**
      số tiết bù, tiết thiếu trước khi xếp.
    - **Xếp TKB**: lưu file vào `<tên>.xlsx` vào thư mục kết quả rồi chạy như `main.py`; hiện nhật ký, **Dừng sớm**
-     (như Ctrl+C: vẫn ghi TKB tốt nhất), mã kết quả và các file ra (nút Mở, Tải). **Nạp vào giao diện** mở file cập nhật
-     (có người cần tuyển và TKB đã xếp) để sửa tiếp, vd đổi "chưa có" thành tên người mới rồi xếp lại: TKB giữ nguyên.
-   - **Tải file Excel** (góc trên): file vào V8 đầy đủ (nhân sự, chương trình học kèm quy định, CHỨC VỤ, QUY ĐỊNH, LUẬT
-     RIÊNG, HƯỚNG DẪN), dùng
-     được cho `main.py` và dòng lệnh, gửi cho trường khác được.
+     (như Ctrl+C: vẫn ghi TKB tốt nhất), **mã TKB** (mã kết quả) và các file ra (nút Mở, Tải). **Nạp vào giao diện** mở
+     file cập nhật (có người cần tuyển và TKB đã xếp) để sửa tiếp, vd đổi "chưa có" thành tên người mới rồi xếp lại:
+     TKB giữ nguyên.
+   - **Tệp ▾ › Lưu ra file Excel**: file vào V8 đầy đủ (nhân sự, chương trình học kèm quy định, CHỨC VỤ, QUY ĐỊNH,
+     LUẬT, HƯỚNG DẪN), dùng được cho `main.py` và dòng lệnh, gửi cho trường khác được.
 
 - Thư mục kết quả mặc định `out/giao_dien` của dự án (đã bỏ qua trong git; bản `TKB.exe`: thư mục `TKB` trong thư mục
   người dùng); đổi ở trang Kiểm tra & xếp TKB. Kịch bản đang soạn được lưu
@@ -545,6 +554,6 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/chan_doan.py` | Quy định mâu thuẫn: đếm trước khi xếp; khi không xếp được thì thử nới từng nhóm luật để chỉ ra luật nào gây ra |
 | `tkb/writer.py` | Xuất Excel |
 | `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |
-| `tools/mau_dau_ra.py` | Sinh lại các file mẫu đầu ra `data/Output_Template_TKB_V8.xlsx`, `data/Output_Template_TKB_Giao_Vien_V8.xlsx`, `data/Output_Template_Thong_Ke_V8.xlsx` từ trường mẫu tên giả (`tests/du_lieu_mau.py`) |
+| `tools/mau_dau_ra.py` | Sinh lại các file mẫu đầu ra `data/Output_Template_TKB_V8.xlsx`, `data/Output_Template_TKB_Giao_Vien_V8.xlsx`, `data/Output_Template_Thong_Ke_V8.xlsx` từ trường mẫu tên giả (`tkb/truong_mau.py`) |
 
 Hướng dẫn cho Claude Code (lệnh, kiến trúc, luật bảo mật, mã tham chiếu): [`CLAUDE.md`](CLAUDE.md).
