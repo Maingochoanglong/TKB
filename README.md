@@ -90,6 +90,16 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      TKB giữ nguyên.
    - **Tệp ▾ › Lưu ra file Excel**: file vào V8 đầy đủ (nhân sự, chương trình học kèm quy định, CHỨC VỤ, QUY ĐỊNH,
      LUẬT, HƯỚNG DẪN), dùng được cho `main.py` và dòng lệnh, gửi cho trường khác được.
+4. **Thời khóa biểu** (bước 7): xếp xong bấm **Xem TKB trên trang** (hoặc mở file `_cap_nhat.xlsx`): TKB đã xếp hiện
+   thành lưới theo khối, theo lớp hoặc theo giáo viên (ô: môn, người dạy, 🔒 ô khóa, **bù** tiết dạy bù), kiểm mọi luật
+   bắt buộc như khi dùng lại TKB; tab có dấu ✓ hoặc ⚠ n.
+   - **Đổi hai tiết**: bấm một ô (các ô cùng lớp đổi được mà không sai luật bắt buộc nào viền xanh), rồi bấm ô thứ hai
+     cùng lớp: hai ô đổi chỗ và được khóa; trang kiểm lại ngay, ô sai luật viền đỏ, bấm vào câu lỗi để tới ô đó. Đổi
+     nhầm thì Hoàn tác. Nút trong khung chọn ô để khóa / mở khóa một ô; **Mở khóa n ô** bỏ mọi khóa.
+   - **Xếp lại phần còn lại** (TKB còn lỗi, hoặc luật đã sửa từ lúc xếp): chạy như Xếp TKB, giữ TKB đã xếp, tối đa
+     120 giây (thường dừng sớm vì đã tối ưu): ô khóa giữ nguyên, chỉ dời ít tiết nhất để đạt mọi luật; xong TKB mới tự
+     vào trang, các ô đã đổi tô vàng. Ô khóa sai luật bắt buộc (vd dời HĐTN khỏi tiết cố định) không giữ được: trang
+     báo rõ ô nào. TKB đúng mọi luật thì nút là **Ghi TKB này ra file Excel** (dùng lại nguyên vẹn, mã TKB mới).
 
 - Thư mục kết quả mặc định `out/giao_dien` của dự án (đã bỏ qua trong git; bản `TKB.exe`: thư mục `TKB` trong thư mục
   người dùng); đổi ở trang Kiểm tra & xếp TKB. Kịch bản đang soạn được lưu
@@ -172,6 +182,9 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
   - ô ghi thêm **`(khóa)`** ở dòng cuối (vd `Toán` / `Bộ Môn 2 (khóa)`, gõ tay trong sheet TKB đã xếp) giữ nguyên bắt buộc, cả môn lẫn người dạy; lần sau vẫn ghi `(khóa)`. Ô khóa không xếp được (giờ không học) bị bỏ qua; các ô khóa mâu thuẫn với luật thì chương trình bỏ khóa (in ra) và vẫn giữ TKB cũ nhiều nhất có thể;
   - màn hình in `So với TKB đã xếp trong file vào: đổi n/m ô`, file thống kê có sheet **Thay đổi** (`Lớp | Thứ | Tiết | Trước | Sau`).
   - Ví dụ trường mẫu (928 tiết): một giáo viên xin nghỉ chiều Thứ 5 → xếp lại ít xáo trộn đổi **15 ô** (chất lượng còn tốt hơn chút), xếp lại từ đầu đổi 628 ô.
+- **Sửa tay vài tiết trên trang** (giao diện, bước 7 Thời khóa biểu): đổi hai tiết cùng lớp bằng hai lần bấm, trang
+  kiểm luật ngay và khóa hai ô đó; **Xếp lại phần còn lại** chạy đúng cách xếp lại ít xáo trộn ở trên, rồi đưa TKB mới
+  vào trang (ô đổi tô vàng). Không phải sửa sheet TKB đã xếp trong Excel.
 - Muốn bỏ TKB cũ, xếp lại từ đầu: đặt `GIU_TKB_DA_XEP = False` (dòng lệnh: `--xep-lai`; giao diện: bỏ chọn "Giữ TKB đã xếp").
 - Cũng dùng được để có lại đúng TKB của máy khác: lấy file vào cập nhật của bản chạy trên Linux, chạy trên máy Windows thì ra đúng TKB bản Linux (cùng mã kết quả), và ngược lại.
 

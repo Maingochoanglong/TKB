@@ -2,7 +2,8 @@
 
 1. `TKB.exe --cli <file vào> ...` (đúng lệnh giao diện gọi khi xếp TKB), 30 giây: mã thoát 0, đủ các file ra.
 2. Mở giao diện (máy chủ của gói), lấy mã phiên trong trang, rồi qua /api/: nhập file, Kiểm tra, xếp 20 giây (giao diện
-   gọi lại chính TKB.exe --cli), xếp lần nữa rồi bấm Dừng sau khi đã có TKB khởi đầu: dừng sớm mà vẫn ghi TKB.
+   gọi lại chính TKB.exe --cli), xem TKB vừa xếp (bước 7: kiểm luật, thử đổi ô), xếp lần nữa rồi bấm Dừng sau khi đã
+   có TKB khởi đầu: dừng sớm mà vẫn ghi TKB.
 Gói chạy với môi trường không có PYTHONPATH/PYTHONHOME, thư mục làm việc ngoài dự án: không dùng Python của máy.
 
 Chạy: python .github/scripts/thu_goi.py dist/TKB/TKB.exe
@@ -97,6 +98,15 @@ def ui(exe: Path, work: Path) -> None:
             print("\n".join(state["lines"][-30:]))
             _fail(f"xếp qua giao diện thoát mã {state['exit']}")
         print(f"2. Giao diện, xếp TKB: đạt ({state['summary']['code']})")
+        updated = next(p for p in state["summary"]["files"] if p.endswith("_cap_nhat.xlsx"))  # bước 7: xem TKB
+        saved = _call(url, token, "api/import_path", {"path": updated})["scenario"]
+        view = _call(url, token, "api/timetable", {"scenario": saved, "run": run})
+        if not view["ok"] or len(view["classes"]) != 29:
+            _fail(f"Xem TKB trên trang: {view['errors'][:3] or view['input_errors'][:3]}")
+        cell = next(c for c in view["cells"] if c["subject"])
+        swaps = _call(url, token, "api/swaps", {"scenario": saved, "run": run, "cls": cell["cls"], "d": cell["d"],
+                                                "p": cell["p"]})["swaps"]
+        print(f"   Xem TKB trên trang: đạt ({len(view['cells'])} ô, thử đổi một ô với {len(swaps)} ô)")
         _call(url, token, "api/run", {"scenario": scenario, "run": {**run, "time_limit": 300}})
         _wait(url, token, lambda s: any("Khởi đầu:" in x for x in s["lines"]) or not s["running"], 600)
         _call(url, token, "api/stop", {})

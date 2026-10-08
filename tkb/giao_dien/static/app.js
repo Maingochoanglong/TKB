@@ -1053,7 +1053,7 @@ function renderRun() {
 // Bước của một sheet: lỗi đọc lại ghi tên sheet ở đầu câu (NHÂN SỰ, CHƯƠNG TRÌNH HỌC, CHỨC VỤ, QUY ĐỊNH, LUẬT…).
 function sheetTab(sheet) {
   return { [S.sheets.staff]: "gv", [S.sheets.program]: "mon", [S.sheets.roles]: "chucvu", [S.sheets.rules]: "khung",
-    [S.sheets.luat]: "luat", [S.sheets.custom]: "luat", [S.sheets.saved]: "xep" }[sheet] || null;
+    [S.sheets.luat]: "luat", [S.sheets.custom]: "luat", [S.sheets.saved]: "tkb" }[sheet] || null;
 }
 // Sheet và các dòng một câu lỗi nói tới, vd "NHÂN SỰ: Dòng 12, 15: …" -> {sheet: "NHÂN SỰ", rows: [12, 15]}.
 function sheetOf(text) {
@@ -1132,6 +1132,7 @@ async function quickCheck() {
   const seq = ++checkSeq;
   const res = await api("POST", "/api/check", { scenario: st.scenario, run: st.run, quick: true });
   if (seq === checkSeq) renderStepChecks(res);
+  if (st.scenario.saved) refreshTkb(); // dấu của bước 7: TKB còn đúng luật với dữ liệu vừa sửa không
 }
 // Tô đỏ nhạt các dòng có lỗi của một bước (data-row là số dòng trong sheet của file Excel).
 function markRows(tab) {
@@ -1188,7 +1189,10 @@ async function check() {
 }
 
 const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+let jobRunning = false;
 function setRunning(on) {
+  jobRunning = on;
+  $("#btn-tkb-run").disabled = on || !tkb || !!tkb.input_errors.length;
   $("#btn-run").disabled = on;
   $("#btn-check").disabled = on;
   $("#btn-stop").hidden = !on;
@@ -1227,6 +1231,7 @@ async function pollOnce() {
   logNext = s.next;
   const last = log.textContent.trim().split("\n").filter((l) => l.trim()).pop() || "";
   $("#log-info").textContent = s.elapsed !== undefined ? `${mmss(s.elapsed)}` : "";
+  if (repairing) repairStatus(s, last);
   if (s.running) {
     const what = s.stopping ? "Đang dừng: chờ xếp xong vùng đang xếp rồi ghi TKB tốt nhất…" : "Đang xếp TKB…";
     $("#run-status").innerHTML = `<span class="spinner"></span><div><b>${what}</b> ${mmss(s.elapsed)}<br><small>${esc(last)}</small></div>`;
@@ -1237,9 +1242,12 @@ async function pollOnce() {
   setRunning(false);
   $("#run-status").hidden = true;
   if (s.exit !== null) renderResult(s);
+  if (repairing) await afterRepair(s).catch(fail);
+  else if (st.scenario.saved) refreshTkb(); // nút Xếp lại của bước 7 dùng được lại
 }
 function renderResult(s) {
   const sum = s.summary || { files: [] };
+  const updated = sum.files.find((p) => /_cap_nhat\.xlsx$/i.test(p));
   const titles = {
     0: ["Đã xếp xong TKB, đạt mọi luật bắt buộc.", "good"],
     2: ["Đã xếp TKB nhưng còn vi phạm luật bắt buộc (xem nhật ký).", "bad"],
@@ -1259,8 +1267,345 @@ function renderResult(s) {
     ${sum.error ? `<pre class="errbox">${esc(sum.error.replace(/^LỖI: /, ""))}</pre>` : ""}
     ${sum.code ? `<div>Mã TKB <span class="big">${esc(sum.code)}</span><br><small>Cùng mã là cùng TKB: chạy lại với cùng dữ liệu và cài đặt thì ra đúng TKB này.</small></div>` : ""}
     ${files ? `<ul class="files">${files}</ul>` : ""}
-    <div class="actions"><button type="button" class="ghost" data-act="open" data-path="">Mở thư mục kết quả</button></div>
+    <div class="actions">${updated && [0, 2].includes(s.exit) ? `<button type="button" class="primary" data-act="view-tkb"
+      data-path="${esc(updated)}" data-code="${esc(sum.code || "")}">Xem TKB trên trang</button>` : ""}
+      <button type="button" class="ghost" data-act="open" data-path="">Mở thư mục kết quả</button></div>
   </div>`;
+}
+
+// ---------------------------------------------------------------- thời khóa biểu (bước 7)
+// TKB đã xếp của kịch bản (scenario.saved: các dòng của sheet TKB đã xếp) vẽ thành lưới theo lớp hoặc theo giáo viên.
+// Máy chủ đọc lưới và kiểm mọi luật bắt buộc như khi dùng lại TKB (kich_ban.Grid, /api/timetable); bấm hai ô cùng
+// lớp thì đổi chữ của hai ô trong scenario.saved, thêm chữ (khóa), rồi kiểm lại. Xếp lại = chạy như nút Xếp TKB với
+// "giữ TKB đã xếp": còn đúng luật thì dùng lại, sai thì sửa ít nhất, ô khóa giữ nguyên.
+const REPAIR_TIME = 120; // giây xếp lại (dừng sớm khi đã tối ưu, thường vài chục giây)
+let tkb = null; // kết quả /api/timetable gần nhất
+let tkbView = ""; // "k:<khối>" | "c:<lớp>" | "t:<Mã GV>"
+let tkbSel = null; // khóa ô đang chọn "lớp|ngày|tiết"
+let tkbSwaps = null; // Map khóa ô -> {new, fixed}: thử đổi với ô đang chọn
+let tkbChanged = new Set(); // các ô vừa đổi khi xếp lại (tô vàng)
+let tkbSeq = 0;
+let swapSeq = 0;
+let tkbLoading = null;
+let repairing = false;
+const cellKey = (cls, d, p) => `${cls}|${d}|${p}`;
+const tkbCell = (k) => tkb && tkb.byKey.get(k);
+const gradeOf = (cls) => classOrder(cls)[0];
+const hireName = (name) => fold(name) === fold(S.saved_marks.hire);
+
+function savedGet(c) { return ((st.scenario.saved || [])[c.r - 1] || [])[c.c - 1] ?? null; }
+function savedSet(c, value) {
+  const grid = st.scenario.saved;
+  while (grid.length < c.r) grid.push([]);
+  const row = grid[c.r - 1];
+  while (row.length < c.c) row.push(null);
+  row[c.c - 1] = value;
+}
+// Chữ của một ô có hoặc không có dấu khóa (cuối dòng cuối, như staff.parse_saved_grid đọc).
+function lockText(value, on) {
+  if (value == null || String(value).trim() === "") return null;
+  const flag = S.saved_marks.locked;
+  const lines = String(value).split(/\r?\n/).map((l) => {
+    const t = l.trimEnd();
+    return fold(t).endsWith(fold(flag)) ? t.slice(0, -flag.length).trimEnd() : t;
+  });
+  while (lines.length > 1 && !lines[lines.length - 1].trim()) lines.pop();
+  if (on) lines[lines.length - 1] += ` ${flag}`;
+  return lines.join("\n");
+}
+
+async function loadTimetable() {
+  if (!st || !st.scenario.saved) { tkb = null; renderTkb(); return; }
+  const seq = ++tkbSeq;
+  const res = await api("POST", "/api/timetable", { scenario: st.scenario, run: st.run });
+  if (seq !== tkbSeq) return;
+  res.byKey = new Map(res.cells.map((c) => [cellKey(c.cls, c.d, c.p), c]));
+  res.bad = new Set(res.errors.flatMap((e) => e.cells.map(([c, d, p]) => cellKey(c, d, p))));
+  tkb = res;
+  if (tkbSel && !tkb.byKey.has(tkbSel)) { tkbSel = null; tkbSwaps = null; }
+  renderTkb();
+}
+const refreshTkb = () => { tkbLoading = loadTimetable().catch(fail); return tkbLoading; };
+// Chờ lần đọc TKB mới nhất (một lần đọc cũ bị lần mới hơn thay thì chờ tiếp lần mới).
+async function settledTkb() {
+  let p;
+  do { p = tkbLoading; await p; } while (p !== tkbLoading);
+}
+
+function tkbMark() {
+  const btn = $('.tabs button[data-tab="tkb"]');
+  let mark = $(".mark", btn);
+  if (!st.scenario.saved || !tkb) { mark?.remove(); return; }
+  if (!mark) { mark = document.createElement("span"); btn.append(mark); }
+  const n = tkb.errors.length;
+  const wait = tkb.input_errors.length > 0;
+  mark.className = `mark ${n ? "bad" : wait ? "wait" : "good"}`;
+  mark.textContent = n ? `⚠ ${n}` : wait ? "?" : "✓";
+  mark.title = n ? `${n} lỗi luật bắt buộc trong TKB` : wait ? "Chưa kiểm được TKB: các bước trước còn lỗi"
+    : "TKB đạt mọi luật bắt buộc";
+}
+
+function renderTkb() {
+  const saved = !!(st && st.scenario.saved);
+  $("#tkb-empty").hidden = saved;
+  $("#tkb-card").hidden = !saved;
+  if (st) tkbMark();
+  if (!saved || !tkb) {
+    $("#tkb-pick").hidden = true;
+    $("#tkb-grid").innerHTML = "";
+    $("#tkb-status").innerHTML = saved ? `<div class="status"><span class="spinner"></span>Đang đọc TKB và kiểm luật…</div>` : "";
+    return;
+  }
+  const grades = [...new Set(tkb.classes.map(gradeOf))];
+  const load = new Map();
+  for (const c of tkb.cells) if (c.code) load.set(key(c.code), (load.get(key(c.code)) || 0) + 1);
+  const teachers = tkb.teachers.filter((t) => load.has(key(t.code)));
+  const valid = [...grades.map((g) => `k:${g}`), ...tkb.classes.map((c) => `c:${c}`), ...teachers.map((t) => `t:${t.code}`)];
+  if (!valid.includes(tkbView)) tkbView = valid[0] || "";
+  $("#tkb-view").innerHTML = `<optgroup label="Theo lớp">${grades.map((g) => `<option value="k:${esc(g)}">Khối ${esc(g)}
+    (${tkb.classes.filter((c) => gradeOf(c) === g).length} lớp)</option>`).join("")}
+    ${tkb.classes.map((c) => `<option value="c:${esc(c)}">Lớp ${esc(c)}</option>`).join("")}</optgroup>
+    <optgroup label="Theo giáo viên">${teachers.map((t) => `<option value="t:${esc(t.code)}">${esc(t.code)}${
+      t.name && !hireName(t.name) ? ` · ${esc(t.name)}` : hireName(t.name) ? " (cần tuyển)" : ""} · ${load.get(key(t.code))} tiết</option>`).join("")}</optgroup>`;
+  $("#tkb-view").value = tkbView;
+  $("#tkb-code").textContent = tkb.code ? `· mã TKB ${tkb.code}` : "";
+  const locked = tkb.cells.filter((c) => c.locked).length;
+  const unlock = $("#btn-tkb-unlock");
+  unlock.disabled = !locked;
+  unlock.textContent = locked ? `Mở khóa ${locked} ô` : "Không có ô khóa";
+  const fine = tkb.ok && !tkb.rules_changed;
+  const run = $("#btn-tkb-run");
+  run.textContent = fine ? "Ghi TKB này ra file Excel" : "Xếp lại phần còn lại";
+  run.title = fine ? "Chạy như nút Xếp TKB: TKB đúng mọi luật nên được dùng lại nguyên vẹn, ghi ra các file Excel"
+    : "Giữ các ô khóa, dời ít tiết nhất để đạt mọi luật bắt buộc (thường dưới một phút)";
+  run.disabled = !!tkb.input_errors.length || jobRunning;
+  const items = [];
+  if (tkb.input_errors.length) {
+    items.push(`<li class="warn">Các bước trước còn lỗi nên chưa kiểm được TKB: sửa các lỗi này trước.</li>`,
+      ...tkb.input_errors.map((t) => msgItem(t, "err")));
+  } else if (tkb.ok) {
+    items.push(`<li class="ok">✓ TKB đạt mọi luật bắt buộc.${locked ? ` ${locked} ô khóa.` : ""}</li>`);
+  } else if (tkb.errors.length) {
+    items.push(`<li class="err"><b>${tkb.errors.length} lỗi luật bắt buộc</b> (bấm vào lỗi để xem ô): đổi lại các ô,
+      bấm ↶ Hoàn tác, hoặc <b>Xếp lại phần còn lại</b>.</li>`,
+      ...tkb.errors.map((e, i) => `<li class="err" data-tkb-err="${i}">${esc(e.text)}</li>`));
+  }
+  if (tkb.rules_changed && !tkb.input_errors.length) {
+    items.push(`<li class="warn">Luật hay quy định đã sửa từ lúc xếp TKB này: bấm <b>Xếp lại phần còn lại</b> để xếp
+      theo luật mới, giữ TKB cũ nhiều nhất có thể.</li>`);
+  }
+  $("#tkb-status").innerHTML = items.length ? `<ul class="msgs">${items.join("")}</ul>` : "";
+  renderTkbGrid();
+  renderPick();
+  tkbMark();
+}
+
+function tkbCellHtml(c) {
+  if (!c) return `<td class="off"></td>`;
+  const k = cellKey(c.cls, c.d, c.p);
+  const cls = ["cell"];
+  if (!c.subject) cls.push("empty");
+  if (tkb.bad.has(k)) cls.push("bad");
+  if (k === tkbSel) cls.push("sel");
+  else if (tkbSwaps && tkbSel && tkbCell(tkbSel).cls === c.cls) {
+    const t = tkbSwaps.get(k);
+    if (t) cls.push(t.new ? "no" : t.fixed ? "better" : "can");
+  }
+  if (tkbChanged.has(k)) cls.push("changed");
+  const who = c.name && !hireName(c.name) ? c.name : c.code || "";
+  const title = c.subject ? [c.subject, c.code, c.name && !hireName(c.name) ? c.name : null,
+    c.overtime ? "tiết dạy bù" : null, c.locked ? "ô khóa" : null].filter(Boolean).join(" · ") : "Ô trống";
+  return `<td class="${cls.join(" ")}" data-cell="${esc(k)}" title="${esc(title)}">${c.overtime ? `<span class="ot">bù</span>` : ""}${
+    c.locked ? `<span class="lock" aria-label="ô khóa">🔒</span>` : ""}${c.subject
+    ? `<b>${esc(c.subject)}</b><small>${esc(who)}</small>` : "<small>trống</small>"}</td>`;
+}
+
+function renderTkbGrid() {
+  const periods = tkb.sessions.flatMap((s) => s.periods);
+  const starts = new Set(tkb.sessions.slice(1).map((s) => s.periods[0]));
+  const off = new Set(tkb.off.map(([d, p]) => `${d}|${p}`));
+  const head = `<thead><tr>${tkbView.startsWith("t:") ? "" : "<th>Lớp</th>"}<th>Tiết</th>${
+    tkb.days.map((d) => `<th>${esc(d)}</th>`).join("")}</tr></thead>`;
+  let body = "";
+  if (tkbView.startsWith("t:")) {
+    const code = key(tkbView.slice(2));
+    const at = new Map();
+    for (const c of tkb.cells) if (c.code && key(c.code) === code) {
+      const k = `${c.d}|${c.p}`;
+      at.set(k, [...(at.get(k) || []), c]);
+    }
+    body = periods.map((p) => `<tr class="${starts.has(p) ? "session" : ""}"><th class="per">${p}</th>${tkb.days.map((_, d) => {
+      if (off.has(`${d}|${p}`)) return `<td class="off">${esc(S.saved_marks.off)}</td>`;
+      const list = at.get(`${d}|${p}`) || [];
+      if (!list.length) return `<td class="cell empty off"></td>`;
+      const ks = list.map((c) => cellKey(c.cls, c.d, c.p));
+      const bad = ks.some((k) => tkb.bad.has(k)) || list.length > 1;
+      return `<td class="cell${bad ? " bad" : ""}${ks.some((k) => tkbChanged.has(k)) ? " changed" : ""}" data-cell="${esc(ks[0])}"
+        title="${esc(list.map((c) => `${c.cls} · ${c.subject}`).join("\n"))}">${list.some((c) => c.locked) ? `<span class="lock">🔒</span>` : ""}${
+        list.map((c) => `<b>${esc(c.cls)}</b><small>${esc(c.subject)}</small>`).join("")}</td>`;
+    }).join("")}</tr>`).join("");
+  } else {
+    const classes = tkbView.startsWith("k:") ? tkb.classes.filter((c) => String(gradeOf(c)) === tkbView.slice(2))
+      : [tkbView.slice(2)];
+    for (const cls of classes) {
+      body += periods.map((p, j) => `<tr class="${j === 0 ? "first" : starts.has(p) ? "session" : ""}">${
+        j === 0 ? `<th class="cls" rowspan="${periods.length}">${esc(cls)}</th>` : ""}<th class="per">${p}</th>${
+        tkb.days.map((_, d) => off.has(`${d}|${p}`) ? `<td class="off">${esc(S.saved_marks.off)}</td>`
+          : tkbCellHtml(tkbCell(cellKey(cls, d, p)))).join("")}</tr>`).join("");
+    }
+  }
+  $("#tkb-grid").innerHTML = `<table class="tkb">${head}<tbody>${body}</tbody></table>`;
+}
+
+function renderPick() {
+  const box = $("#tkb-pick");
+  const c = tkbSel && tkbCell(tkbSel);
+  box.hidden = !c;
+  if (!c) return;
+  const where = `lớp ${esc(c.cls)}, ${esc(tkb.days[c.d])} tiết ${c.p}`;
+  const what = c.subject ? `<b>${esc(c.subject)}</b> (${esc(c.code)}) · ${where}` : `ô trống · ${where}`;
+  let hint = "Đang tìm các ô đổi được…";
+  if (tkbSwaps) {
+    const ok = [...tkbSwaps.values()].filter((t) => !t.new).length;
+    hint = ok ? `Bấm một ô cùng lớp để đổi chỗ: <b>${ok}</b> ô viền xanh đổi được không sai luật bắt buộc.`
+      : "Không ô nào cùng lớp đổi được mà không sai luật bắt buộc (vẫn đổi được rồi xếp lại phần còn lại).";
+  }
+  box.innerHTML = `<span>Đã chọn ${what}. ${hint}</span><span class="actions">${c.subject
+    ? `<button type="button" class="ghost small" data-tkb="lock">${c.locked ? "Mở khóa ô này" : "🔒 Khóa ô này"}</button>` : ""}
+    <button type="button" class="ghost small" data-tkb="cancel">Bỏ chọn (Esc)</button></span>`;
+}
+
+async function pickCell(k) {
+  const c = tkbCell(k);
+  if (!c) return;
+  if (tkbView.startsWith("t:")) { // theo giáo viên: mở lớp của tiết đó, chọn sẵn ô
+    tkbView = `k:${gradeOf(c.cls)}`;
+    renderTkb();
+  }
+  const a = tkbSel && tkbCell(tkbSel);
+  if (a && k === tkbSel) { tkbSel = null; tkbSwaps = null; renderTkb(); return; }
+  const same = a && a.subject === c.subject && key(a.code) === key(c.code) && a.overtime === c.overtime;
+  if (a && a.cls === c.cls && !same) { await swapCells(a, c); return; }
+  tkbSel = k;
+  tkbSwaps = null;
+  renderTkbGrid();
+  renderPick();
+  if (!tkb.ok && tkb.errors.length === 0) return; // TKB chưa đọc được (lỗi đọc): không thử đổi
+  const seq = ++swapSeq;
+  const res = await api("POST", "/api/swaps", { scenario: st.scenario, run: st.run, cls: c.cls, d: c.d, p: c.p });
+  if (seq !== swapSeq || tkbSel !== k) return;
+  tkbSwaps = new Map(res.swaps.map((t) => [cellKey(c.cls, t.d, t.p), t]));
+  renderTkbGrid();
+  renderPick();
+}
+
+async function swapCells(a, b) {
+  const [va, vb] = [savedGet(a), savedGet(b)];
+  savedSet(a, lockText(vb, true));
+  savedSet(b, lockText(va, true));
+  tkbSel = null;
+  tkbSwaps = null;
+  tkbChanged.clear();
+  changed();
+  refreshTkb();
+  await settledTkb();
+  for (const k of [cellKey(a.cls, a.d, a.p), cellKey(b.cls, b.d, b.p)]) {
+    const el = $(`#tkb-grid [data-cell="${CSS.escape(k)}"]`);
+    if (el) { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+  }
+  const name = (c) => (c.subject ? esc(c.subject) : "ô trống");
+  done(`Đã đổi ${name(a)} (${esc(tkb.days[a.d])} tiết ${a.p}) với ${name(b)} (${esc(tkb.days[b.d])} tiết ${b.p}) lớp ${esc(a.cls)}` +
+    (tkb.ok ? ": TKB vẫn đạt mọi luật bắt buộc." : `: còn ${tkb.errors.length} lỗi luật bắt buộc (viền đỏ).`));
+}
+
+function toggleLock(c) {
+  savedSet(c, lockText(savedGet(c), !c.locked));
+  changed();
+  refreshTkb();
+}
+
+function unlockAll() {
+  const list = tkb.cells.filter((c) => c.locked);
+  for (const c of list) savedSet(c, lockText(savedGet(c), false));
+  changed();
+  refreshTkb();
+  done(`Đã mở khóa ${list.length} ô.`);
+}
+
+function showTkbError(i) {
+  const e = tkb.errors[i];
+  if (!e) return;
+  const cls = e.cells.length ? e.cells[0][0] : e.cls;
+  if (cls) tkbView = tkbView === `c:${cls}` ? tkbView : `k:${gradeOf(cls)}`;
+  else if (e.teacher) tkbView = `t:${e.teacher}`;
+  renderTkb();
+  const els = e.cells.map(([c, d, p]) => $(`#tkb-grid [data-cell="${CSS.escape(cellKey(c, d, p))}"]`)).filter(Boolean);
+  const first = els[0] || (cls && $(`#tkb-grid th.cls`));
+  first?.scrollIntoView({ block: "center", behavior: "smooth" });
+  for (const el of els) { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+}
+
+// Xếp lại từ bước 7: như nút Xếp TKB, luôn giữ TKB đã xếp, thời gian ngắn; xong thì lấy TKB mới vào kịch bản.
+async function repairRun() {
+  const limit = Number(st.run.time_limit) > 0 ? Math.min(Number(st.run.time_limit), REPAIR_TIME) : REPAIR_TIME;
+  await api("POST", "/api/run", { scenario: st.scenario, run: { ...st.run, keep_saved: true, time_limit: limit } });
+  repairing = true;
+  $("#log").textContent = "";
+  $("#run-result").innerHTML = "";
+  logNext = 0;
+  stopAt = 0;
+  renderTkb();
+  startPolling();
+}
+function repairStatus(s, last) {
+  const box = $("#tkb-run-status");
+  box.hidden = !s.running;
+  if (s.running) box.innerHTML = `<span class="spinner"></span><div><b>${s.stopping ? "Đang dừng…" : "Đang xếp lại…"}</b>
+    ${mmss(s.elapsed)}<br><small>${esc(last)}</small></div><button type="button" class="danger ghost small" data-tkb="stop">Dừng sớm</button>`;
+}
+async function afterRepair(s) {
+  repairing = false;
+  $("#tkb-run-status").hidden = true;
+  const file = (s.summary?.files || []).find((p) => /_cap_nhat\.xlsx$/i.test(p));
+  if (!file || ![0, 2].includes(s.exit)) {
+    renderTkb();
+    notify(`Xếp lại không ra TKB: ${esc((s.summary?.error || "xem nhật ký ở bước 6").replace(/^LỖI: /, ""))}`, "error",
+      { label: "Xem nhật ký", fn: () => showTab("xep") });
+    return;
+  }
+  // Ô khóa không giữ được (solver: "Bỏ qua: ô khóa …", hay bỏ mọi khóa khi các ô khóa mâu thuẫn với luật): báo rõ.
+  const log = $("#log").textContent;
+  const skipped = log.split("\n").filter((l) => /Bỏ qua: ô khóa /.test(l)).map((l) => l.replace(/^.*Bỏ qua: ô khóa /, ""));
+  const note = /: bỏ khóa,/.test(log) ? "Các ô khóa mâu thuẫn với luật bắt buộc nên đã bỏ khóa rồi xếp lại. "
+    : skipped.length ? `Ô khóa không giữ được: ${skipped.slice(0, 3).join("; ")}${skipped.length > 3 ? "; …" : ""}. ` : "";
+  await takeSaved(file, s.summary.code, note);
+}
+// Lấy TKB đã xếp (và danh sách nhân sự nếu lần chạy thêm người cần tuyển) từ file vào cập nhật của lần chạy vào kịch
+// bản, mở bước 7, tô các ô khác TKB trước đó. Các phần khác của kịch bản giữ như đang soạn.
+async function takeSaved(path, code, note = "") {
+  const before = st.scenario.saved && tkb ? new Map(tkb.cells.map((c) => [cellKey(c.cls, c.d, c.p), `${c.subject}|${c.code}`])) : null;
+  const data = await api("POST", "/api/import_path", { path });
+  const src = data.scenario;
+  if (!src.saved) throw new Error(`File ${path.split(/[\\/]/).pop()} không có TKB đã xếp`);
+  const sc = st.scenario;
+  const hires = src.staff.filter((t) => hireName(t.name)).length - sc.staff.filter((t) => hireName(t.name)).length;
+  if (hires > 0) { sc.staff = src.staff; staffBaseline = null; } // chế độ tuyển thêm: thêm người "chưa có"
+  sc.saved = src.saved;
+  tkbSel = null;
+  tkbSwaps = null;
+  tkbChanged = new Set();
+  changed();
+  renderStaff();
+  showTab("tkb");
+  await settledTkb();
+  if (before && tkb) {
+    const diff = tkb.cells.filter((c) => before.get(cellKey(c.cls, c.d, c.p)) !== `${c.subject}|${c.code}`);
+    if (diff.length && diff.length < tkb.cells.length / 2) tkbChanged = new Set(diff.map((c) => cellKey(c.cls, c.d, c.p)));
+    renderTkbGrid();
+  }
+  notify((code ? `Mã TKB <b>${esc(code)}</b>. ` : "") + esc(note) + (tkbChanged.size ? `Đổi ${tkbChanged.size} ô so với trước (tô vàng). `
+    : before ? "Không ô nào đổi. " : "") + (hires > 0 ? `Thêm ${hires} người cần tuyển ("${esc(S.saved_marks.hire)}") ở bước Giáo viên. ` : "") +
+    "Các file Excel ở bước 6.", "ok", { label: "Tới bước 6", fn: () => showTab("xep") });
 }
 
 // ---------------------------------------------------------------- dựng cả trang
@@ -1291,15 +1636,18 @@ function renderAll() {
   renderRun();
   $("#file-label").textContent = st.label || "Kịch bản mới";
   updateCounts();
+  if (!st.scenario.saved) tkb = null;
+  if (st.scenario.saved) refreshTkb(); else renderTkb();
 }
 // Mỗi bước dựng lại khi mở: bước Chức vụ sửa quy định của môn, bước Môn học hiện ai dạy, nên luôn khớp nhau.
 const RENDER_TAB = { mon: () => renderSubjects(), chucvu: () => renderRoles(), gv: () => renderStaff(),
-  luat: () => renderRules() };
+  luat: () => renderRules(), tkb: () => refreshTkb() };
 function showTab(name) {
   if (!$(`#tab-${name}`)) name = "khung";
   if (st) RENDER_TAB[name]?.();
   markRows(name);
   $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  $(`.tabs button[data-tab="${name}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }); // thanh tab hẹp
   $$(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${name}`));
   try { localStorage.setItem(TAB_KEY, name); } catch { /* bỏ qua */ }
 }
@@ -1667,6 +2015,9 @@ async function onClick(e) {
     case "open":
       await api("POST", "/api/open", { path: btn.dataset.path }).catch(fail);
       return;
+    case "view-tkb":
+      await takeSaved(btn.dataset.path, btn.dataset.code).catch(fail);
+      return;
     case "load":
       try {
         const data = await api("POST", "/api/import_path", { path: btn.dataset.path });
@@ -1835,6 +2186,22 @@ function wire() {
     if (!confirm("Dừng hẳn: không ghi TKB của lần chạy này. Tiếp tục?")) return;
     await api("POST", "/api/kill", {}).catch(fail);
   };
+  $("#tkb-view").onchange = (e) => { tkbView = e.target.value; renderTkb(); };
+  $("#tab-tkb").addEventListener("click", (e) => {
+    const cell = e.target.closest("[data-cell]");
+    if (cell) { pickCell(cell.dataset.cell).catch(fail); return; }
+    const err = e.target.closest("[data-tkb-err]");
+    if (err) { showTkbError(Number(err.dataset.tkbErr)); return; }
+    const act = e.target.closest("[data-tkb]")?.dataset.tkb;
+    if (act === "cancel") { tkbSel = null; tkbSwaps = null; renderTkb(); }
+    if (act === "lock" && tkbSel) toggleLock(tkbCell(tkbSel));
+    if (act === "stop") $("#btn-stop").click();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && tkbSel && !$("dialog[open]")) { tkbSel = null; tkbSwaps = null; renderTkb(); }
+  });
+  $("#btn-tkb-unlock").onclick = unlockAll;
+  $("#btn-tkb-run").onclick = () => repairRun().catch(fail);
   $("#btn-out-dir").onclick = async () => {
     try {
       const res = await api("POST", "/api/settings", { out_dir: $("#out-dir").value });

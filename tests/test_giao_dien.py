@@ -130,6 +130,26 @@ def test_sample_and_quick_check(server):
     assert status == 200 and res["errors"] == [] and not any(line.startswith("Dự toán") for line in res["info"])
 
 
+def test_timetable_view_and_swaps(server, small_updated):
+    """Bước 7: /api/timetable vẽ TKB đã xếp kèm lỗi luật; /api/swaps thử đổi một ô với các ô cùng lớp. Đổi ô (chỉ
+    phần TKB của kịch bản đổi) thì dùng lại bài toán đã dựng; file cập nhật x_cap_nhat.xlsx nhập vào có tên x."""
+    app, url = server
+    status, data = _call(url, "/api/import", "POST", small_updated.read_bytes(), app.token,
+                         {"X-File-Name": quote(small_updated.name)})
+    assert status == 200 and data["name"] == "nho"
+    body = {"scenario": data["scenario"], "run": {"overtime_max": 4}}
+    status, view = _call(url, "/api/timetable", "POST", body, app.token)
+    assert status == 200 and view["ok"] and view["classes"] == ["3/1", "3/2"]
+    grid = app.grid[1]
+    status, res = _call(url, "/api/swaps", "POST", {**body, "cls": "3/1", "d": 1, "p": 3}, app.token)
+    assert status == 200 and res["swaps"] and {"d", "p", "new", "fixed"} <= set(res["swaps"][0])
+    moved = {**data["scenario"], "saved": [*data["scenario"]["saved"][:-1], []]}
+    assert _call(url, "/api/timetable", "POST", {**body, "scenario": moved}, app.token)[0] == 200
+    assert app.grid[1] is grid
+    _call(url, "/api/timetable", "POST", {**body, "run": {"overtime_max": 3}}, app.token)
+    assert app.grid[1] is not grid  # cài đặt chạy đổi: dựng lại
+
+
 def test_files_only_inside_output_folder(server, tmp_path):
     app, url = server
     (tmp_path / "ngoai.xlsx").write_bytes(b"x")

@@ -71,6 +71,12 @@ xong phần đang xếp rồi vẫn ghi TKB tốt nhất có được. Xong thì
 
 ![Kết quả: mã TKB và các file ra](hinh/9_ket_qua.jpg)
 
+Bấm **Xem TKB trên trang** để mở bước **7. Thời khóa biểu**: TKB hiện thành lưới theo khối, theo lớp hoặc theo giáo
+viên (chọn ở ô đầu trang). Mỗi ô ghi môn và người dạy (rê chuột thấy Mã GV); **bù** là tiết dạy bù, 🔒 là ô khóa. Trang
+kiểm lại mọi luật bắt buộc: đạt thì có dòng xanh "TKB đạt mọi luật bắt buộc" và dấu ✓ trên tab.
+
+![Bước 7: thời khóa biểu trên trang](hinh/10_tkb.jpg)
+
 | File | Nội dung |
 |---|---|
 | `TKB.xlsx` | TKB theo lớp, mỗi khối một sheet; mỗi ô ghi môn và tên giáo viên |
@@ -95,8 +101,16 @@ Luôn làm việc trên file **`<tên>_cap_nhat.xlsx`** của lần chạy trư�
   từng ô, mã TKB giữ nguyên, chỉ thêm tên.
 - **Có thay đổi** (một người xin nghỉ một buổi, đổi định mức, sửa luật, sửa tay vài ô): chương trình **xếp lại ít xáo
   trộn nhất**, giữ mọi ô được, chỉ dời các tiết cần dời. Sheet **Thay đổi** của `Thong_Ke.xlsx` liệt kê các ô đổi.
-- **Khóa ô**: ở sheet **TKB đã xếp** của file cập nhật, thêm chữ `(khóa)` vào cuối ô (vd dòng thứ hai `Bộ Môn 2
-  (khóa)`): ô đó giữ nguyên bắt buộc khi xếp lại.
+- **Đổi vài tiết trên trang** (bước 7): bấm một tiết, các ô cùng lớp đổi được mà không sai luật bắt buộc nào có viền
+  xanh; bấm ô thứ hai cùng lớp để đổi chỗ. Hai ô vừa đổi được khóa 🔒. Trang kiểm luật ngay: sai thì ô có lỗi viền đỏ,
+  câu lỗi ghi rõ ai trùng giờ, luật nào sai (bấm vào câu để tới ô). Đổi nhầm thì **↶ Hoàn tác**.
+  ![Đổi hai tiết: chọn một ô, các ô viền xanh đổi được](hinh/11_doi_o.jpg)
+- **Xếp lại phần còn lại**: còn lỗi sau khi đổi thì bấm nút này (thường dưới một phút): ô khóa giữ nguyên, chương
+  trình chỉ dời ít tiết nhất để đạt mọi luật, rồi đưa TKB mới vào trang, các ô đã đổi tô vàng. Ô khóa mà chính nó sai
+  luật bắt buộc (vd dời HĐTN khỏi tiết cố định) không giữ được: trang báo ô nào. TKB đã đúng mọi luật thì nút ghi
+  **Ghi TKB này ra file Excel**.
+- **Khóa ô**: trên trang, chọn ô rồi bấm **🔒 Khóa ô này**; hoặc ở sheet **TKB đã xếp** của file cập nhật, thêm chữ
+  `(khóa)` vào cuối ô (vd dòng thứ hai `Bộ Môn 2 (khóa)`): ô đó giữ nguyên bắt buộc khi xếp lại.
 - **Giờ bận theo tiết**: luật "Không xếp vào", Giáo viên ghi Mã GV hoặc họ tên, Ngày và Tiết, để trống Môn.
 - **Chọn ai dạy lớp nào**: luật "Chỉ giáo viên dạy", Môn, Lớp và một người, vd Tiếng Anh lớp 3/1 chỉ `Tiếng Anh 2` dạy.
 

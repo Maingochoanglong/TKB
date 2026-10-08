@@ -205,6 +205,15 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `RULE_KEYS`, `STAFF_COLS
 - `_lines(exc, sheet)` — Các dòng lỗi của một InputError (dòng tiêu đề "... có n lỗi:" bỏ đi), thêm tên sheet nếu lỗi chưa ghi.
 - `describe(scenario, rows, student_rules)` — Câu đọc lại của từng luật (rows; mặc định các luật của kịch bản), theo quy định của kịch bản: {rules: [{text,
 - `check(scenario, mode, overtime_max, student_rules, quick)` — Kiểm tra kịch bản như khi chạy: ghi ra file tạm, đọc lại bằng các hàm đọc của chương trình, đếm tìm các quy
+- `grid_key(scenario, mode, overtime_max, student_rules)` — Khóa của một Grid: mọi thứ trừ TKB đã xếp (đổi ô trên TKB thì dùng lại bài toán đã dựng).
+- `class Grid` — Kịch bản đã đọc để xem và đổi ô của TKB đã xếp (scenario["saved"]) trên giao diện: đọc file vào và dựng bài
+  - `._lessons(saved)`
+  - `.view(grid)` — TKB đã xếp để vẽ trên trang: {days, sessions, classes, teachers, cells, errors, ok, code, rules_changed}.
+  - `.swaps(grid, day, period)` — Thử đổi ô (cls, day, period) với từng ô khác của lớp (trừ ô cùng môn, cùng người dạy): [{d, p, new,
+- `timetable(scenario, mode, overtime_max, student_rules)` — Grid(...).view của TKB đã xếp trong kịch bản (một lần, không giữ lại).
+- `_cells(saved, staff)`
+- `_teachers(staff)`
+- `_marked(text, problem, cells)` — Một lỗi của checker kèm các ô nó nói tới (tô viền đỏ trên trang), tìm theo chữ: lớp, Mã GV, Thứ, tiết, buổi,
 
 ## tkb/lns.py — Xếp giờ với phân công cố định: CP-SAT khởi đầu, rồi lặp QA -> xếp lại từng vùng (LNS) đến khi dừng.
 - `class LnsResult`
@@ -398,6 +407,7 @@ Hằng số: `RELAXED`
 - `_hire_assignment(plan, work, split)` — Phân công cố định khi tiết bù/tiết thiếu do người mới dạy; (course, người mới) -> người bù từng tiết.
 - `_to_overtime(solution, problem, owners)` — TKB chế độ bù: các ô của người mới trả về đúng người bù (cùng vị trí môn).
 - `reuse(staff, curriculum, settings, rows)` — Dùng lại TKB đã xếp (sheet config.SAVED_SHEET của file vào cập nhật, staff.read_saved_timetable) thay cho
+- `saved_lessons(problem, rows)` — Các tiết của TKB đã xếp (staff.read_saved_timetable) trong bài toán `problem`, chưa kiểm luật: (các tiết, lỗi
 - `_parse_saved(problem, rows)` — Các ô của TKB đã xếp (staff.read_saved_timetable) theo tên trong bài toán: [(lớp, (ngày, tiết), môn, GV, tiết
 - `class KeptCell` — Một ô của TKB cũ khi xếp lại ít xáo trộn.
 - `class Previous` — TKB cũ để xếp lại ít xáo trộn (solve(previous=...)): (lớp, (ngày, tiết)) -> ô; các ô không đọc được bỏ qua.
@@ -435,7 +445,8 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_S
 - `find_sheet(wb, name)` — Sheet có tên `name` (không phân biệt hoa thường), hoặc None.
 - `staff_sheet(wb)` — Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có, không thì sheet đầu tiên.
 - `class SavedTimetable` — TKB đã xếp đọc từ file vào cập nhật (sheet config.SAVED_SHEET).
-- `read_saved_timetable(path)` — Sheet config.SAVED_SHEET của file vào (TKB đã xếp dạng lưới Lớp | Tiết | Thứ 2 …, mỗi ô "môn" xuống dòng
+- `read_saved_timetable(path)` — Sheet config.SAVED_SHEET của file vào (TKB đã xếp, xem parse_saved_grid). File không có sheet này: None.
+- `parse_saved_grid(grid)` — TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
 - `_blank(value)`
 - `_find_columns(ws)` — Dòng tiêu đề và vị trí các cột (mẫu V8). Bắt buộc: Họ và Tên, Chức Vụ, Số Tiết/Tuần; không bắt buộc: Lớp,
 - `_to_lessons(value, title)`
@@ -547,6 +558,9 @@ Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XL
   - `.import_path(data)`
   - `.describe(data)`
   - `.check(data)`
+  - `._grid(data)` — Bài toán của kịch bản để xem, đổi ô TKB (gọi trong self.lock): dựng lại khi kịch bản (trừ TKB) hay cài
+  - `.timetable(data)` — TKB đã xếp của kịch bản để vẽ trên trang, kèm lỗi luật bắt buộc và các ô có lỗi (kich_ban.Grid.view).
+  - `.swaps(data)` — Các ô cùng lớp đổi chỗ được với một ô mà không thêm lỗi luật bắt buộc (kich_ban.Grid.swaps).
   - `.export(data)`
   - `.rules_file(data)` — File Excel chỉ có các luật (sheet LUẬT, HƯỚNG DẪN): các luật của kịch bản, hoặc (mẫu) các luật mặc định.
   - `.template()` — File vào mẫu trống (python -m tkb.template): nhà trường điền trong Excel rồi nhập lại.
@@ -620,8 +634,8 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_chan_doan.py`: test_no_conflict_with_default_rules, test_session_limit_too_small_for_the_lessons, test_pairs_against_daily_limit, test_student_rules_off_skips_the_count, test_solve_stops_before_solving_on_a_counted_conflict, test_diagnosis_names_the_rules_in_conflict, test_diagnosis_of_a_solvable_school_blames_the_time, test_relaxing_rules_changes_nothing_by_default
 - `tests/test_chuc_vu.py`: test_read_sheet_and_rules_code, test_sheet_errors_all_at_once, test_role_with_many_subjects, test_role_subject_errors, test_unknown_role_is_still_an_error, test_role_without_teacher_is_hired_for_forbidden_subjects, test_solve_with_a_role_of_many_subjects, test_custom_rule_for_a_role_of_many_subjects, test_checker_finds_a_subject_outside_the_role, test_scenario_roles_round_trip
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
-- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
-- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample
+- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
+- `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
 - `tests/test_luat_co_san.py`: test_default_rows_change_nothing, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_cross_check_with_the_checker, test_generic_lowering_replaces_the_native_one
 - `tests/test_luat_rieng.py`: test_parse_each_kind, test_parse_errors, test_read_sheet_and_rules_code, test_no_custom_rules_change_nothing, test_hard_rules_hold_and_are_checked, test_soft_rules_are_preferred, test_teacher_day_cap_limits_the_assignment, test_precheck_and_validate, test_diagnosis_names_the_custom_rule

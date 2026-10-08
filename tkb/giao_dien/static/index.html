@@ -67,6 +67,7 @@
   <button type="button" role="tab" data-tab="gv">4. Giáo viên <span class="count" id="count-gv"></span></button>
   <button type="button" role="tab" data-tab="luat">5. Luật <span class="count" id="count-luat"></span></button>
   <button type="button" role="tab" data-tab="xep">6. Kiểm tra &amp; xếp TKB</button>
+  <button type="button" role="tab" data-tab="tkb">7. Thời khóa biểu</button>
 </nav>
 
 <div id="notice" class="notice" hidden></div>
@@ -244,6 +245,35 @@
     <div class="card" id="log-card" hidden>
       <div class="toolbar"><h2>Nhật ký chạy</h2><span class="muted" id="log-info"></span></div>
       <pre id="log" class="log"></pre>
+    </div>
+  </section>
+
+  <section id="tab-tkb" class="tab" role="tabpanel">
+    <div class="card" id="tkb-empty">
+      <h2>Chưa có thời khóa biểu</h2>
+      <p class="muted">Xếp TKB ở bước 6 rồi bấm <b>Xem TKB trên trang</b>; hoặc mở file <code>_cap_nhat.xlsx</code> của lần
+        xếp trước (<b>Tệp ▾ › Mở file Excel…</b>): file đó giữ TKB đã xếp.</p>
+      <div class="actions"><button type="button" data-go="xep">Tới bước 6: Kiểm tra &amp; xếp TKB</button></div>
+    </div>
+    <div class="card" id="tkb-card" hidden>
+      <div class="toolbar">
+        <h2>Thời khóa biểu <span class="muted small-text" id="tkb-code"></span></h2>
+        <div class="actions">
+          <select id="tkb-view" aria-label="Xem theo lớp hay giáo viên"></select>
+          <button type="button" id="btn-tkb-unlock" class="ghost" title="Bỏ chữ (khóa) ở mọi ô: xếp lại được dời mọi ô">Mở khóa mọi ô</button>
+          <button type="button" id="btn-tkb-run" class="primary"></button>
+        </div>
+      </div>
+      <p class="muted">Bấm một tiết rồi bấm một tiết khác <b>cùng lớp</b> để đổi chỗ hai tiết: các ô viền xanh đổi được mà
+        không sai luật bắt buộc nào. Ô vừa đổi được khóa 🔒 (xếp lại vẫn giữ nguyên). Trang kiểm luật ngay sau mỗi lần đổi;
+        sai thì ô có lỗi viền đỏ. Đổi nhầm thì bấm <b>↶ Hoàn tác</b>.</p>
+      <div id="tkb-pick" class="pick" hidden></div>
+      <div id="tkb-status"></div>
+      <div id="tkb-run-status" class="status" hidden></div>
+      <div class="table-wrap tall" id="tkb-grid"></div>
+      <p class="muted small-text legend"><span class="cell-demo bad"></span> có lỗi luật bắt buộc
+        <span class="cell-demo can"></span> đổi được với ô đang chọn <span class="cell-demo changed"></span> vừa đổi khi
+        xếp lại · 🔒 ô khóa · <b class="ot">bù</b> tiết dạy bù</p>
     </div>
   </section>
 </main>

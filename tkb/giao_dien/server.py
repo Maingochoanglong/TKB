@@ -179,6 +179,7 @@ class App:
         self.token = token
         self.lock = threading.Lock()  # kịch bản <-> Excel đổi tạm config (rules.applied): mỗi lúc một việc
         self.job: Job | None = None
+        self.grid: tuple[str, kich_ban.Grid] | None = None  # bài toán của TKB đang xem (đổi ô thì dùng lại)
 
     def inside(self, path) -> Path:
         """Đường dẫn trong thư mục kết quả, không thì báo lỗi."""
@@ -210,8 +211,9 @@ class App:
             raise InputError(f"Không đọc được file {name}: {exc}") from None
         except Exception as exc:  # không phải file Excel (.xlsx) hợp lệ
             raise InputError(f"Không đọc được file {name} (cần file Excel .xlsx): {exc}") from None
-        return {"scenario": scenario, "warnings": warnings, "name": safe_name(Path(name).stem),
-                "sheets": kich_ban.sheets_in(path)}
+        # File cập nhật "x_cap_nhat.xlsx": xếp lại vẫn ghi x.xlsx, x_cap_nhat.xlsx (không thành x_cap_nhat_cap_nhat).
+        stem = re.sub(r"(_cap_nhat)+$", "", Path(name).stem, flags=re.IGNORECASE) or Path(name).stem
+        return {"scenario": scenario, "warnings": warnings, "name": safe_name(stem), "sheets": kich_ban.sheets_in(path)}
 
     def import_file(self, body: bytes, name: str):
         with tempfile.TemporaryDirectory() as tmp:
@@ -233,6 +235,28 @@ class App:
         with self.lock:
             return kich_ban.check(data["scenario"], run["mode"], int(run["overtime_max"]), bool(run["student_rules"]),
                                   quick=bool(data.get("quick")))
+
+    def _grid(self, data: dict) -> kich_ban.Grid:
+        """Bài toán của kịch bản để xem, đổi ô TKB (gọi trong self.lock): dựng lại khi kịch bản (trừ TKB) hay cài
+        đặt chạy đổi."""
+        run = {**RUN_DEFAULTS, **(data.get("run") or {})}
+        run_argv(Path("x"), self.out_dir, "x", run)
+        args = (run["mode"], int(run["overtime_max"]), bool(run["student_rules"]))
+        key = kich_ban.grid_key(data["scenario"], *args)
+        if self.grid is None or self.grid[0] != key:
+            self.grid = key, kich_ban.Grid(data["scenario"], *args)
+        return self.grid[1]
+
+    def timetable(self, data: dict):
+        """TKB đã xếp của kịch bản để vẽ trên trang, kèm lỗi luật bắt buộc và các ô có lỗi (kich_ban.Grid.view)."""
+        with self.lock:
+            return self._grid(data).view(data["scenario"].get("saved"))
+
+    def swaps(self, data: dict):
+        """Các ô cùng lớp đổi chỗ được với một ô mà không thêm lỗi luật bắt buộc (kich_ban.Grid.swaps)."""
+        with self.lock:
+            return {"swaps": self._grid(data).swaps(data["scenario"].get("saved"), str(data.get("cls")),
+                                                    int(data.get("d", -1)), int(data.get("p", -1)))}
 
     def export(self, data: dict) -> tuple[bytes, str]:
         name = safe_name(data.get("name"))
@@ -414,7 +438,8 @@ class Handler(BaseHTTPRequestHandler):
             routes = {("GET", "schema"): app.schema, ("GET", "new"): app.new, ("GET", "sample"): app.sample,
                       ("GET", "status"): app.status,
                       ("POST", "import_path"): app.import_path, ("POST", "check"): app.check, ("POST", "run"): app.run,
-                      ("POST", "describe"): app.describe,
+                      ("POST", "describe"): app.describe, ("POST", "timetable"): app.timetable,
+                      ("POST", "swaps"): app.swaps,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
                       ("POST", "settings"): app.settings}
             handler = routes.get((method, name))

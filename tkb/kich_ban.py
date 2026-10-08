@@ -23,6 +23,8 @@ Giá trị theo loại ô: "yes" → true/false; "int", "order" → số hoặc 
 from __future__ import annotations
 
 import datetime
+import hashlib
+import json
 import tempfile
 from contextlib import ExitStack
 from pathlib import Path
@@ -34,8 +36,8 @@ from .program import read_program
 from .rules import (DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, MAX_DAYS, NO, PERIOD_COLS, PERIOD_KEY, VALUE, YES,
                     _day_name, applied, luat_row, read_rules, rule_tables, subject_columns, visible)
 from .rules import SUBJECT_COLS as _ALL_SUBJECT_COLS
-from .staff import (InputError, _find_columns, _fold, _NO, _YES, clean_name, find_sheet, normalize, read_staff,
-                    staff_sheet, subject_key)
+from .staff import (InputError, _find_columns, _fold, _NO, _YES, class_sort_key, clean_name, find_sheet, normalize,
+                    read_staff, staff_sheet, subject_key)
 from .template import NOTES, STAFF_HEADERS, program_rows, write_input
 
 VERSION = 2  # 2: mọi luật ở `rules` (sheet LUẬT)
@@ -94,6 +96,9 @@ def schema() -> dict:
         "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "roles": config.ROLES_SHEET,
                    "rules": config.RULES_SHEET, "luat": luat_rieng.RULES_SHEET, "custom": luat_rieng.SHEET,
                    "saved": config.SAVED_SHEET},
+        # Chữ đánh dấu ô của sheet TKB đã xếp (staff.parse_saved_grid): giao diện thêm, bỏ khi khóa ô, đổi ô.
+        "saved_marks": {"locked": config.SAVED_LOCKED, "overtime": config.SAVED_OVERTIME,
+                        "hire": config.SUPPLEMENT_NAME, "off": config.OFF_LABEL},
     }
 
 
@@ -522,3 +527,207 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
                 if len(rows) > 30:
                     info.append(f"... và {len(rows) - 30} dòng khác")
     return result()
+
+
+# ---- TKB đã xếp trên giao diện: xem, đổi ô, kiểm luật tức thì ----
+
+def grid_key(scenario: dict, mode: str, overtime_max: int, student_rules: bool) -> str:
+    """Khóa của một Grid: mọi thứ trừ TKB đã xếp (đổi ô trên TKB thì dùng lại bài toán đã dựng)."""
+    text = json.dumps([{k: v for k, v in scenario.items() if k != "saved"}, mode, overtime_max, student_rules],
+                      ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+class Grid:
+    """Kịch bản đã đọc để xem và đổi ô của TKB đã xếp (scenario["saved"]) trên giao diện: đọc file vào và dựng bài
+    toán một lần (như solver.reuse: build_problem, không xếp), mỗi lần xem hay thử đổi ô chỉ dựng lại các tiết và
+    chạy checker (vài chục ms). Giao diện giữ lại theo grid_key. Đổi tạm config (rules.applied) nên không gọi song
+    song."""
+
+    def __init__(self, scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = config.OVERTIME_MAX,
+                 student_rules: bool = True):
+        from .allocation import build_problem
+        from .rules import code
+
+        self.student_rules = student_rules
+        self.errors: list[str] = []  # lỗi đọc kịch bản: chưa kiểm được TKB
+        self.values: dict = {}
+        self.staff: list = []
+        self.problem = None
+        self.rules_code = None
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "kich_ban.xlsx"
+            to_excel({**scenario, "saved": None}, path)
+            try:
+                self.values = read_rules(path)
+            except InputError as exc:
+                self.errors = _lines(exc)
+                return
+            with applied(self.values):
+                try:
+                    curriculum = read_program(path)
+                    self.staff = read_staff(path, subjects=[s for req in curriculum.values() for s in req])
+                    bo_ghep.know_staff(self.staff)
+                    self.problem = build_problem(self.staff, curriculum, {},
+                                                 overtime_max=overtime_max if mode == config.MODE_OVERTIME else 0)
+                except InputError as exc:
+                    self.errors = _lines(exc)
+                    return
+                self.rules_code = code()
+
+    def _lessons(self, saved) -> tuple[list, list[str]]:
+        from .checker import check
+        from .solver import saved_lessons
+
+        lessons, errors = saved_lessons(self.problem, saved.rows)
+        if not errors:
+            errors = check(self.problem, lessons, self.student_rules)
+        return lessons, errors
+
+    def view(self, grid: list[list] | None) -> dict:
+        """TKB đã xếp để vẽ trên trang: {days, sessions, classes, teachers, cells, errors, ok, code, rules_changed}.
+        cells: mọi ô của lưới, cả ô trống ({cls, d, p, r, c, subject, code, name, overtime, locked}; r, c là dòng,
+        cột trong scenario["saved"] đếm từ 1); errors: [{text, cells: [[lớp, ngày, tiết]], cls, teacher}], câu lỗi
+        ghi Mã GV."""
+        from .staff import parse_saved_grid
+
+        saved = parse_saved_grid(grid or [])
+        with applied(self.values):
+            bo_ghep.know_staff(self.staff)
+            days = sorted(config.DAY_SESSIONS)  # các ngày học liền nhau từ Thứ 2 (như sheet TKB đã xếp)
+            periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
+            out = {"days": [config.DAYS[d] for d in days],
+                   "sessions": [{"name": s.name, "periods": list(s.periods)}
+                                for s in max(config.DAY_SESSIONS.values(), key=len, default=())],
+                   "off": [[d, p] for d in days for p in sorted(set().union(*periods.values()) - periods[d])],
+                   "code": saved.result_code, "cells": _cells(saved, self.staff), "teachers": _teachers(self.staff)}
+            out["classes"] = sorted({c["cls"] for c in out["cells"]}, key=class_sort_key)
+            out["rules_changed"] = saved.rules_code not in (None, self.rules_code) and self.problem is not None
+            if self.problem is None:
+                return {**out, "ok": False, "input_errors": self.errors, "errors": []}
+            if not saved.rows:
+                return {**out, "ok": False, "input_errors": [], "errors": []}
+            _, errors = self._lessons(saved)
+            return {**out, "ok": not errors, "input_errors": [],
+                    "errors": [_marked(text, self.problem, out["cells"]) for text in errors]}
+
+    def swaps(self, grid: list[list] | None, cls: str, day: int, period: int) -> list[dict]:
+        """Thử đổi ô (cls, day, period) với từng ô khác của lớp (trừ ô cùng môn, cùng người dạy): [{d, p, new,
+        fixed}], new là số lỗi mới (0: đổi được), fixed là số lỗi cũ hết đi. Lưới không đọc được (lỗi đọc, sai số
+        tiết) thì không thử."""
+        from dataclasses import replace
+
+        from .checker import check
+        from .staff import parse_saved_grid
+
+        saved = parse_saved_grid(grid or [])
+        if self.problem is None or not saved.rows:
+            return []
+        with applied(self.values):
+            bo_ghep.know_staff(self.staff)
+            lessons, base = self._lessons(saved)
+            if not lessons:
+                return []
+            base = set(base)
+            slots = sorted({(d, p) for d, sessions in config.DAY_SESSIONS.items() for s in sessions
+                            for p in s.periods})
+            mine = {(les.day, les.period): i for i, les in enumerate(lessons) if les.class_name == cls}
+            out = []
+            here = mine.get((day, period))
+            same = (lambda i: i is not None and here is not None and
+                    (lessons[i].subject, lessons[i].teacher, lessons[i].overtime)
+                    == (lessons[here].subject, lessons[here].teacher, lessons[here].overtime))
+            for slot in slots:
+                if slot == (day, period) or (slot not in mine and here is None) or same(mine.get(slot)):
+                    continue  # đổi với chính nó, hai ô trống, hai tiết như nhau: không đổi gì
+                trial = list(lessons)
+                for i, to in ((mine.get((day, period)), slot), (mine.get(slot), (day, period))):
+                    if i is not None:
+                        trial[i] = replace(trial[i], day=to[0], period=to[1])
+                errors = set(check(self.problem, trial, self.student_rules))
+                out.append({"d": slot[0], "p": slot[1], "new": len(errors - base), "fixed": len(base - errors)})
+            return out
+
+
+def timetable(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = config.OVERTIME_MAX,
+              student_rules: bool = True) -> dict:
+    """Grid(...).view của TKB đã xếp trong kịch bản (một lần, không giữ lại)."""
+    return Grid(scenario, mode, overtime_max, student_rules).view(scenario.get("saved"))
+
+
+def _cells(saved, staff) -> list[dict]:
+    name_of = {normalize(t.code): t.name for t in staff}
+    day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
+    out = []
+    for cls, day, period, r, c, i in saved.places:
+        d = day_of.get(normalize(day))
+        try:
+            p = int(period)
+        except (TypeError, ValueError):
+            continue
+        if d is None:
+            continue
+        cell = {"cls": cls, "d": d, "p": p, "r": r, "c": c, "subject": None, "code": None, "name": None,
+                "overtime": False, "locked": False}
+        if i is not None:
+            _, _, _, subject, code, overtime, locked, _ = saved.rows[i]
+            cell.update(subject=subject, code=code, name=name_of.get(normalize(code)), overtime=overtime,
+                        locked=locked)
+        out.append(cell)
+    return out
+
+
+def _teachers(staff) -> list[dict]:
+    return [{"code": t.code, "name": t.name, "cls": t.class_name} for t in staff]
+
+
+def _marked(text: str, problem, cells: list[dict]) -> dict:
+    """Một lỗi của checker kèm các ô nó nói tới (tô viền đỏ trên trang), tìm theo chữ: lớp, Mã GV, Thứ, tiết, buổi,
+    môn trong câu. Câu của checker ghi chức vụ chuẩn hóa (Teacher.title): đổi ra Mã GV."""
+    import re
+
+    def find(names, within: str):
+        found = []
+        for name in sorted(names, key=len, reverse=True):
+            pattern = rf"(?<![\w/]){re.escape(name)}(?![\w/])"
+            if re.search(pattern, within):
+                found.append(name)
+                within = re.sub(pattern, " ", within)
+        return found, within
+
+    teachers = sorted(problem.teachers.values(), key=lambda t: len(t.title), reverse=True)
+    for t in teachers:
+        text = re.sub(rf"(?<![\w/]){re.escape(t.title)}(?![\w/])", t.code, text)
+    body = text
+    for r in config.CUSTOM_RULES:  # "LUẬT dòng n: <câu của luật>: <chỗ sai>": chỉ đọc chỗ sai
+        head = luat_rieng.label(r) + ": "
+        if body.startswith(head):
+            body = body[len(head):]
+            break
+    codes, rest = find({t.code for t in problem.teachers.values()}, body)
+    classes, rest = find({c["cls"] for c in cells}, rest)
+    labels = {problem.subject_label(s): s for s in {c.subject for c in problem.courses}}
+    subjects = set()
+    for name in sorted(labels, key=len, reverse=True):
+        pattern = rf"(?<!\w){re.escape(name)}(?!\w)"
+        if re.search(pattern, rest):
+            subjects.add(name)
+            rest = re.sub(pattern, " ", rest)
+    subjects |= {s for s in labels if config.SUBJECT_GROUPS.get(labels[s]) in {labels.get(x) for x in subjects}}
+    days = [i for i, d in enumerate(config.DAYS) if re.search(rf"(?<!\w){re.escape(d)}(?!\d)", rest, re.IGNORECASE)]
+    periods: set[int] = set()
+    for m in re.finditer(r"tiết (\d+(?:\s*(?:,|–|-|và)\s*\d+)*)", rest):
+        numbers = [int(x) for x in re.findall(r"\d+", m.group(1))]
+        periods |= set(range(numbers[0], numbers[-1] + 1)) if "–" in m.group(1) else set(numbers)
+    if not periods:
+        for s in {s for sessions in config.DAY_SESSIONS.values() for s in sessions}:
+            if re.search(rf"buổi {re.escape(s.name)}(?!\w)", rest, re.IGNORECASE):
+                periods |= set(s.periods)
+    marks = []
+    if days:
+        chosen = [c for c in cells if c["subject"] and c["d"] in days and (not periods or c["p"] in periods)
+                  and (c["cls"] in classes if classes else c["code"] in codes if codes else False)]
+        narrowed = [c for c in chosen if c["subject"] in subjects]
+        marks = [[c["cls"], c["d"], c["p"]] for c in (narrowed or chosen)]
+    return {"text": text, "cells": marks, "cls": classes[0] if classes else None,
+            "teacher": codes[0] if codes else None}

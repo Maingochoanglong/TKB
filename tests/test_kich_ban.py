@@ -256,3 +256,80 @@ def test_quick_check_and_sample():
     res = kich_ban.check(sample, quick=True)
     assert res["errors"] == ["LUẬT, dòng 26: kiểu luật Học trước phải ghi cột Môn thứ hai"]
     assert res["unchecked"] == ["CHƯƠNG TRÌNH HỌC", "NHÂN SỰ", "LUẬT", ""]  # trang hiện "?", không hiện ✓
+
+
+def _swap(grid, a, b):
+    """Đổi chữ của hai ô (vị trí r, c như kich_ban.Grid.view trả về) như trang web làm, thêm dấu khóa."""
+    grid = [list(row) for row in grid]
+    for cell in (a, b):
+        grid[cell["r"] - 1] += [None] * (cell["c"] - len(grid[cell["r"] - 1]))
+    va, vb = grid[a["r"] - 1][a["c"] - 1], grid[b["r"] - 1][b["c"] - 1]
+    grid[a["r"] - 1][a["c"] - 1] = f"{vb} {config.SAVED_LOCKED}"
+    grid[b["r"] - 1][b["c"] - 1] = f"{va} {config.SAVED_LOCKED}"
+    return grid
+
+
+def test_timetable_view_marks_errors_and_tries_swaps(small_updated):
+    """Bước 7 của giao diện: TKB đã xếp đọc thành các ô (kèm vị trí trong lưới, họ tên người dạy), đúng mọi luật;
+    đổi hai ô làm sai luật thì báo lỗi ghi Mã GV và chỉ đúng các ô; thử đổi chỉ ra các ô đổi được."""
+    from tkb.staff import parse_saved_grid
+
+    scenario, _ = kich_ban.from_excel(small_updated)
+    saved = parse_saved_grid(scenario["saved"])
+    assert saved == read_saved_timetable(small_updated)  # một bộ đọc cho file và cho lưới của kịch bản
+    for cls, day, period, r, c, i in saved.places:  # mọi ô (cả ô trống), trừ ô Nghỉ
+        value = scenario["saved"][r - 1][c - 1] if c <= len(scenario["saved"][r - 1]) else None
+        assert value != config.OFF_LABEL and (i is None) == (value is None)
+    grid = kich_ban.Grid(scenario, config.MODE_OVERTIME, 4)
+    view = grid.view(scenario["saved"])
+    assert view["ok"] and not view["errors"] and not view["rules_changed"] and view["code"] == saved.result_code
+    assert view["classes"] == ["3/1", "3/2"] and view["off"] == [[4, 5], [4, 6], [4, 7]]
+    taught = [c for c in view["cells"] if c["subject"]]
+    assert len(taught) == 2 * sum(CURRICULUM[3].values())
+    names = {t.name for t in small_staff(general=False)}
+    assert all(c["name"] in names and c["code"] for c in taught)
+    cell = {(c["cls"], c["d"], c["p"]): c for c in view["cells"]}
+
+    a = cell["3/1", 0, 2]
+    tried = grid.swaps(scenario["saved"], "3/1", 0, 2)
+    assert tried and all(t["fixed"] == 0 for t in tried)
+    others = {(t["d"], t["p"]): cell["3/1", t["d"], t["p"]] for t in tried}
+    assert all((o["subject"], o["code"]) != (a["subject"], a["code"]) for o in others.values())  # không thử đổi vô ích
+    good = next(t for t in tried if t["new"] == 0)
+    assert grid.view(_swap(scenario["saved"], a, others[good["d"], good["p"]]))["ok"]
+    bad = next(t for t in tried if t["new"] > 0)
+    b = others[bad["d"], bad["p"]]
+    after = grid.view(_swap(scenario["saved"], a, b))
+    assert not after["ok"] and len(after["errors"]) >= bad["new"]
+    marked = {tuple(m) for e in after["errors"] for m in e["cells"]}
+    assert marked and marked <= {(c["cls"], c["d"], c["p"]) for c in after["cells"] if c["subject"]}
+    assert ("3/1", 0, 2) in marked or ("3/1", b["d"], b["p"]) in marked
+    assert all(c["locked"] for c in after["cells"] if (c["d"], c["p"]) in {(0, 2), (b["d"], b["p"])} and c["cls"] == "3/1")
+    titles = [t.title for t in grid.problem.teachers.values()]
+    assert not any(title in e["text"] for e in after["errors"] for title in titles)  # Mã GV, không phải chức vụ chuẩn hóa
+    # Sửa luật sau khi xếp: TKB vẫn xem được, báo cần xếp lại theo luật mới.
+    changed_rules = {**scenario, "rules": scenario["rules"][:-1]}
+    assert kich_ban.timetable(changed_rules, config.MODE_OVERTIME, 4)["rules_changed"]
+    # Các bước trước còn lỗi: chưa kiểm được TKB, vẫn có các ô để xem.
+    broken = {**scenario, "staff": [{**scenario["staff"][0], "lessons": "abc"}, *scenario["staff"][1:]]}
+    view = kich_ban.timetable(broken, config.MODE_OVERTIME, 4)
+    assert view["input_errors"] and not view["ok"] and len(view["cells"]) == len(cell)
+
+
+def test_error_marks_follow_the_message():
+    """Các ô một câu lỗi nói tới: lớp, Thứ, tiết (cả "tiết 3–4", "tiết 1, 3"), buổi, môn; Mã GV thay chức vụ."""
+    from tkb.allocation import build_problem
+
+    problem = build_problem(small_staff(general=False), CURRICULUM, {}, overtime_max=4)
+    cells = [{"cls": c, "d": d, "p": p, "subject": s, "code": code}
+             for c in ("3/1", "3/2") for d in range(5) for p in range(1, 8)
+             for s, code in [("Toán" if p < 3 else "Tiếng Việt", f"Chủ Nhiệm {c}")]]
+    mark = lambda text: kich_ban._marked(text, problem, cells)  # noqa: E731
+    found = mark("tiếng anh 1 dạy 2 lớp cùng lúc Thứ 3 tiết 2: 3/1, 3/2")
+    assert found["text"].startswith("Tiếng Anh 1 dạy") and found["teacher"] == "Tiếng Anh 1"
+    assert sorted(found["cells"]) == [["3/1", 1, 2], ["3/2", 1, 2]]
+    assert mark("Lớp 3/2 Thứ 2 tiết 3–4: hai tiết liền")["cells"] == [["3/2", 0, 3], ["3/2", 0, 4]]
+    assert mark("Lớp 3/1 Thứ 4 buổi Sáng: môn Toán không học liền (tiết 1, 3)")["cells"] == [["3/1", 2, 1]]
+    assert mark("Lớp 3/1 Thứ 5: 2 tiết Toán (tối đa 1 mỗi ngày)")["cells"] == [["3/1", 3, 1], ["3/1", 3, 2]]
+    assert mark("Lớp 3/1: môn Toán có 5 tiết, cần 6") == {"text": "Lớp 3/1: môn Toán có 5 tiết, cần 6", "cells": [],
+                                                           "cls": "3/1", "teacher": None}

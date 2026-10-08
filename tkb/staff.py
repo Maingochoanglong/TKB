@@ -13,7 +13,7 @@ import datetime
 import re
 import unicodedata
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import openpyxl
@@ -218,23 +218,37 @@ class SavedTimetable:
     rows: list[tuple]  # (lớp, thứ, tiết, môn, Mã GV, tiết bù?, ô khóa?, vị trí trong sheet) như chữ trong file
     result_code: str | None  # mã kết quả lúc xếp
     rules_code: str | None  # mã các quy định lúc xếp (rules.code)
+    # Mọi ô của lưới, cả ô trống (trừ ô "Nghỉ"): (lớp, thứ, tiết, dòng, cột, chỉ số trong rows hoặc None nếu ô
+    # trống), dòng và cột đếm từ 1 như Excel; giao diện đổi chữ của ô theo vị trí này.
+    places: list[tuple] = field(default_factory=list)
 
 
 def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
-    """Sheet config.SAVED_SHEET của file vào (TKB đã xếp dạng lưới Lớp | Tiết | Thứ 2 …, mỗi ô "môn" xuống dòng
-    "Mã GV", thêm config.SAVED_OVERTIME ở tiết bù, config.SAVED_LOCKED ở ô khóa). File không có sheet này: None; không
-    có bảng: không có dòng nào."""
+    """Sheet config.SAVED_SHEET của file vào (TKB đã xếp, xem parse_saved_grid). File không có sheet này: None."""
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = find_sheet(wb, config.SAVED_SHEET)
     if ws is None:
         return None
+    return parse_saved_grid([list(row) for row in ws.iter_rows(values_only=True)])
+
+
+def parse_saved_grid(grid: list[list]) -> SavedTimetable:
+    """TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
+    Tiết | Thứ 2 …, tên lớp ở dòng đầu mỗi khối, mỗi ô "môn" xuống dòng "Mã GV", thêm config.SAVED_OVERTIME ở tiết
+    bù, config.SAVED_LOCKED ở ô khóa; mã kết quả và mã quy định ở các dòng trên bảng. Không có bảng: không có dòng
+    nào."""
+    def cell(r: int, c: int):
+        row = grid[r - 1] if 0 < r <= len(grid) else []
+        return row[c - 1] if 0 < c <= len(row) else None
+
+    width = max((len(row) for row in grid), default=0)
     codes: dict[str, str] = {}
     header = None
-    for r in range(1, min(ws.max_row, 10) + 1):
-        cells = {c: ws.cell(r, c).value for c in range(1, ws.max_column + 1) if not _blank(ws.cell(r, c).value)}
+    for r in range(1, min(len(grid), 10) + 1):
+        cells = {c: cell(r, c) for c in range(1, width + 1) if not _blank(cell(r, c))}
         for c, value in cells.items():
-            if normalize(value) in map(normalize, config.SAVED_CODES) and not _blank(ws.cell(r, c + 1).value):
-                codes[normalize(value)] = str(ws.cell(r, c + 1).value).strip()
+            if normalize(value) in map(normalize, config.SAVED_CODES) and not _blank(cell(r, c + 1)):
+                codes[normalize(value)] = str(cell(r, c + 1)).strip()
         heads = {normalize(v): c for c, v in cells.items()}
         if header is None and "lớp" in heads and "tiết" in heads:
             header = r, heads["lớp"], heads["tiết"], {c: str(v) for c, v in cells.items() if _fold(v).startswith("thu")}
@@ -242,14 +256,18 @@ def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
     if header is None:
         return SavedTimetable([], result_code, rules_code)
     header_row, class_col, period_col, day_cols = header
-    rows, cls = [], None
-    for r in range(header_row + 1, ws.max_row + 1):
-        if not _blank(ws.cell(r, class_col).value):
-            cls = clean_name(ws.cell(r, class_col).value)
-        period = ws.cell(r, period_col).value
+    rows, places, cls = [], [], None
+    for r in range(header_row + 1, len(grid) + 1):
+        if not _blank(cell(r, class_col)):
+            cls = clean_name(cell(r, class_col))
+        period = cell(r, period_col)
         for c, day in day_cols.items():
-            value = ws.cell(r, c).value
-            if _blank(value) or normalize(value) == normalize(config.OFF_LABEL):
+            value = cell(r, c)
+            if not _blank(value) and normalize(value) == normalize(config.OFF_LABEL):
+                continue
+            place = (cls, day, period, r, c)
+            if _blank(value):
+                places.append((*place, None))
                 continue
             lines = [line.strip() for line in str(value).splitlines() if line.strip()]
             flags = {}
@@ -260,11 +278,13 @@ def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
                         flags[flag] = True
             lines = [line for line in lines if line]
             if not lines:
+                places.append((*place, None))
                 continue
             code = lines[-1] if len(lines) > 1 else ""
+            places.append((*place, len(rows)))
             rows.append((cls, day, period, lines[0], code, flags.get(config.SAVED_OVERTIME, False),
                          flags.get(config.SAVED_LOCKED, False), f"dòng {r}, {clean_name(day)}"))
-    return SavedTimetable(rows, result_code, rules_code)
+    return SavedTimetable(rows, result_code, rules_code, places)
 
 
 def _blank(value) -> bool:

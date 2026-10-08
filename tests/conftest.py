@@ -46,3 +46,18 @@ def small_staff(general: bool = True):
     if general:
         rows.append(("BM", "bộ môn 1", 23))
     return [teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
+
+
+@pytest.fixture(scope="session")
+def small_updated(tmp_path_factory):
+    """File vào cập nhật (có sheet TKB đã xếp) của trường nhỏ, chế độ bù giờ +4, xếp 20 giây: dùng chung cho các
+    test xem và đổi ô TKB trên giao diện."""
+    from tkb.__main__ import main
+    from tkb.template import write_staff_template
+
+    folder = tmp_path_factory.mktemp("nho_da_xep")
+    write_staff_template(folder / "nho.xlsx", small_staff(general=False), CURRICULUM)
+    argv = [str(folder / "nho.xlsx"), "-o", str(folder / "TKB.xlsx"), "--mode", "bu_gio", "--max-overtime", "4",
+            "--time-limit", "20", "--workers", "4"]
+    assert main(argv) == 0
+    return folder / "nho_cap_nhat.xlsx"

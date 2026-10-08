@@ -93,7 +93,15 @@ detail dialog) → Chức vụ (built-in role cards edit the subject columns nam
 dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
 counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật (all rules grouped, read-back
 sentences, composer dialog) →
-Kiểm tra & xếp; renaming a subject/role updates roles, custom rules and staff in the page. First visit (no draft, or
+Kiểm tra & xếp → Thời khóa biểu (step 7: the saved grid `scenario["saved"]` as class/grade/teacher grids;
+`kich_ban.Grid` reads the scenario and builds the problem once, cached per `grid_key` = scenario without "saved" + run
+settings in `App.grid`; `view` = `staff.parse_saved_grid` (the one grid reader, also behind `read_saved_timetable`;
+`places` give each cell's (row, col)) + `solver.saved_lessons` + `checker.check` → `/api/timetable` cells and errors
+whose cells `_marked` finds from the message text (class, Thứ, tiết, buổi, subject; titles rewritten to Mã GV);
+`/api/swaps` re-checks each same-class swap (no-op swaps skipped). A swap swaps the two cells' text in
+`scenario.saved` and adds " (khóa)"; "Xếp lại phần còn lại" = `/api/run` with keep_saved and ≤ `REPAIR_TIME` 120 s,
+then `takeSaved` copies the new grid (and staff if hires changed) from `<name>_cap_nhat.xlsx` and marks changed
+cells; step 6's result has "Xem TKB trên trang" doing the same); renaming a subject/role updates roles, custom rules and staff in the page. First visit (no draft, or
 Tệp › Bắt đầu lại) shows a start screen (open file / new / fake sample `/api/sample`); all file actions are in the
 `Tệp ▾` menu. Every edit goes through `changed()` in app.js: draft save, an undo snapshot 0.6 s after the last edit
 (`snap`/`travel`, 50 steps, Ctrl+Z/Y outside text fields; deletes show "Đã xóa … [Hoàn tác]" instead of confirm), and

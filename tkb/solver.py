@@ -813,9 +813,20 @@ def reuse(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings:
     problem = build_problem(staff, curriculum, {}, overtime_max=overtime_max)
     if not rows:
         return None, [f"sheet {config.SAVED_SHEET} không có bảng TKB (dòng tiêu đề Lớp | Tiết | Thứ 2 …)"]
-    parsed, errors = _parse_saved(problem, rows)
+    lessons, errors = saved_lessons(problem, rows)
+    if not errors:
+        errors = check(problem, lessons, settings.student_rules)
     if errors:
         return None, errors
+    return Solution(problem, "Dùng lại TKB đã xếp", lessons, 0, 0, 0.0, "dùng lại TKB đã xếp"), []
+
+
+def saved_lessons(problem: Problem, rows: list[tuple]) -> tuple[list[Lesson], list[str]]:
+    """Các tiết của TKB đã xếp (staff.read_saved_timetable) trong bài toán `problem`, chưa kiểm luật: (các tiết, lỗi
+    của các ô không đọc được và các môn sai số tiết). Có lỗi đọc ô thì không có tiết nào."""
+    parsed, errors = _parse_saved(problem, rows)
+    if errors:
+        return [], errors
     # Mỗi (lớp, môn) có thể có hai course: phần GVCN (homeroom) và phần còn lại; tiết của GVCN (trừ tiết bù) vào
     # phần GVCN trước.
     homeroom_of = {t.class_name: t.title for t in problem.teachers.values() if t.class_name}
@@ -843,11 +854,7 @@ def reuse(staff: list[Teacher], curriculum: dict[int, dict[str, int]], settings:
     errors += [f"Lớp {key[0]}: môn {problem.subject_label(key[1])} có {n} tiết, chương trình học cần {need}"
                for key, need in sorted(_need(problem).items())
                if (n := sum(1 for les in lessons if (les.class_name, les.subject) == key)) != need]
-    if not errors:
-        errors = check(problem, lessons, settings.student_rules)
-    if errors:
-        return None, errors
-    return Solution(problem, "Dùng lại TKB đã xếp", lessons, 0, 0, 0.0, "dùng lại TKB đã xếp"), []
+    return lessons, errors
 
 
 def _parse_saved(problem: Problem, rows: list[tuple]) -> tuple[list[tuple], list[str]]:
