@@ -42,7 +42,8 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 - `supplement_capacity(role, teachers)` — Định mức GV bổ sung: Số tiết lớn nhất của GV cùng chức vụ trong file vào;
 - `make_supplements(role, count, teachers, label)`
 - `overtime_allowance(t, overtime_max)` — Số tiết bù tối đa của một GV ở chế độ bù giờ. GV đang hưởng thai sản không dạy bù.
-- `overtime_cost(t, w)` — Giá tiết bù thứ nhất của t (mỗi tiết sau đắt thêm w.overtime_second). Ai bù trước: GVCN hợp đồng, GVCN
+- `overtime_rank(t)` — Thứ tự dạy bù của t (1 = trước nhất): cột Thứ Tự Bù; không ghi thì GVCN hợp đồng 1, GVCN khác 2, bộ môn hợp đồng
+- `overtime_cost(t, w, ranks)` — Giá tiết bù thứ nhất của t (mỗi tiết sau đắt thêm w.overtime_second) theo thứ tự dạy bù (overtime_rank; `ranks`:
 - `keep_cost(t, class_name, w)` — Giá mỗi tiết GV không chủ nhiệm t dạy lớp `class_name` khi lệch TKB cũ (cột Lớp Đang Dạy): khác mọi khối
 - `previous_cost(t, course, w)` — Xếp lại ít xáo trộn: giá mỗi tiết t dạy (lớp, môn) của course mà TKB cũ không giao cho t (Teacher.previous).
 - `build_problem(staff, curriculum, supplement_counts, overtime_max)` — Dựng bài toán.
@@ -167,7 +168,7 @@ Hằng số: `SECONDS`
   · GV: không trùng giờ, không vượt định mức.
   · Quyền dạy.
   · GVCN dạy đủ phần đã phân; phần dạy thêm chỉ là tiết bù hợp lệ (chế độ bù giờ).
-  · Bù giờ: GVCN được ưu tiên bù lớp mình. Bộ môn đang dạy bù mà còn dạy ở lớp X một môn GVCN lớp X được dạy, trong khi GVCN lớp X chưa bù hết mức, thì chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ dạy lớp mình nên giờ đó rảnh) và bớt tiết bù của bộ môn: phân công chưa đúng thứ tự ưu tiên.
+  · Bù giờ: GVCN được ưu tiên bù lớp mình. Bộ môn đang dạy bù mà còn dạy ở lớp X một môn GVCN lớp X được dạy, trong khi GVCN lớp X chưa bù hết mức và đứng trước bộ môn đó trong thứ tự dạy bù (cột Thứ Tự Bù; mặc định GVCN luôn trước), thì chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ dạy lớp mình nên giờ đó rảnh) và bớt tiết bù của bộ môn: phân công chưa đúng thứ tự ưu tiên.
   · HĐTN: 2 slot cố định + phần còn lại trong các ngày linh hoạt.
 - `_check_teacher_order(problem, lessons)` — Liên tiết do 1 người dạy; nhóm môn ưu tiên của GVCN: tiết của người khác không trước tiết GVCN đầu tuần.
 - `_check_teacher_sessions(problem, lessons)` — Cơ sở và buổi nghỉ: GV chỉ-cơ-sở-2 (cột Cơ sở 2, thai sản) không dạy lớp cơ sở 1; mỗi buổi một GV chỉ dạy ở
@@ -508,6 +509,7 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_A
 - `parse_saved_grid(grid)` — TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
 - `_blank(value)`
 - `_find_columns(ws)` — Dòng tiêu đề và vị trí các cột (mẫu V8). Bắt buộc: Họ và Tên, Chức Vụ, Số Tiết/Tuần; không bắt buộc: Lớp,
+- `parse_order(value)` — Cột Thứ Tự Bù: số nguyên dương (1 = dạy bù trước nhất); trống: None.
 - `_to_lessons(value, title)`
 - `make_teacher(name, role, index, class_name, lessons, row, label, **extra)` — `extra`: các trường không bắt buộc của Teacher (maternity, contract, campus2, history, off_sessions, off_any,
 - `_check_extras(teachers)` — Lỗi của các cột không bắt buộc cần cả danh sách mới kiểm được (lớp trong Lớp Đang Dạy, thai sản, buổi nghỉ).
@@ -720,5 +722,6 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_staff.py`: test_bad_lessons, test_duplicates_rejected, test_read_sample_staff, test_program_file_is_read_as_written, test_subject_names_match_rules_loosely, test_columns_and_auto_numbering, test_numbered_titles_are_rejected, test_old_headers_are_rejected, test_class_errors, test_class_turned_into_date, test_program_sheet_aliases_and_total_row, test_missing_program_sheet_is_an_error, test_all_errors_at_once, test_named_classes_and_optional_columns, test_optional_column_errors
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_overtime_lessons_keep_the_leave_of_the_teacher, test_overtime_of_a_general_teacher_never_clashes, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_is_plain, test_saved_input_template_is_up_to_date, test_blank_template, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
+- `tests/test_thu_tu_bu.py`: test_parse_order, test_default_order_keeps_the_old_prices, test_general_teacher_first, test_general_teacher_first_end_to_end, test_order_only_matters_for_overtime
 - `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog
 - `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_teacher_timetable, test_quality_sheet, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style

@@ -50,6 +50,8 @@ class Teacher:
     # Cột Nhãn: nhãn tự đặt (vd "Bán thời gian", "Tổ Toán"), như ghi trong file; cột Giáo viên của sheet LUẬT ghi nhãn là
     # các GV có nhãn đó (bo_ghep.picks).
     tags: tuple[str, ...] = ()
+    # Cột Thứ Tự Bù: ai dạy bù trước (1 = trước nhất); None = theo chức vụ và cột Hợp Đồng (allocation.overtime_rank).
+    overtime_order: int | None = None
 
     @property
     def tag_keys(self) -> frozenset[str]:
@@ -445,7 +447,8 @@ def _blank(value) -> bool:
 
 # Cột không bắt buộc: khóa -> tiêu đề trong file.
 OPTIONAL_COLUMNS = {"maternity": "Thai Sản", "contract": "Hợp Đồng", "campus2": "Cơ sở 2",
-                    "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ", "extra_roles": "Chức Vụ Thêm", "tags": "Nhãn"}
+                    "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ", "extra_roles": "Chức Vụ Thêm", "tags": "Nhãn",
+                    "overtime_order": "Thứ Tự Bù"}
 
 
 def _find_columns(ws) -> tuple[int, dict[str, int]]:
@@ -466,6 +469,20 @@ def _find_columns(ws) -> tuple[int, dict[str, int]]:
     raise InputError("Không tìm thấy dòng tiêu đề có đủ các cột 'Họ và Tên', 'Chức Vụ', 'Số Tiết/Tuần' (mẫu V8)")
 
 
+def parse_order(value) -> int | None:
+    """Cột Thứ Tự Bù: số nguyên dương (1 = dạy bù trước nhất); trống: None."""
+    if _blank(value):
+        return None
+    try:
+        number = float(str(value).strip())
+    except ValueError:
+        number = 0
+    if isinstance(value, bool) or number != int(number) or number < 1:
+        raise InputError(f"cột {OPTIONAL_COLUMNS['overtime_order']} ghi số nguyên dương (1 = dạy bù trước nhất): "
+                         f"{value!r}")
+    return int(number)
+
+
 def _to_lessons(value, title: str) -> int:
     if isinstance(value, bool) or value is None:
         raise InputError(f"Số tiết của '{title}' bị trống hoặc không hợp lệ")
@@ -481,7 +498,7 @@ def _to_lessons(value, title: str) -> int:
 def make_teacher(name, role: str, index: int | None, class_name: str | None, lessons,
                  row: int | None = None, label: str = "", **extra) -> Teacher:
     """`extra`: các trường không bắt buộc của Teacher (maternity, contract, campus2, history, off_sessions, off_any,
-    extra_roles, tags)."""
+    extra_roles, tags, overtime_order)."""
     title = canonical_title(role, index, class_name)
     return Teacher(
         name=str(name).strip() if name is not None else "",
@@ -580,7 +597,8 @@ def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
             off_sessions, off_any = parse_off(cell(r, "off"))
             extra = {key: parse_yes(cell(r, key), OPTIONAL_COLUMNS[key]) for key in ("maternity", "contract", "campus2")}
             extra.update(history=parse_classes(cell(r, "history")), off_sessions=off_sessions, off_any=off_any,
-                         extra_roles=parse_extra_roles(cell(r, "extra_roles"), role), tags=parse_tags(cell(r, "tags")))
+                         extra_roles=parse_extra_roles(cell(r, "extra_roles"), role), tags=parse_tags(cell(r, "tags")),
+                         overtime_order=parse_order(cell(r, "overtime_order")))
             rows.append([r, name, role, index, class_name, lessons, label, extra])
         except InputError as exc:
             errors.append(f"Dòng {r}: {exc}")

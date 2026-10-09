@@ -14,8 +14,8 @@ from .conftest import CURRICULUM, INPUT_SHEETS, small_staff, plain_rules
 
 ROOT = Path(__file__).resolve().parent.parent
 HEADER = ("Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy", "Buổi Nghỉ",
-          "Chức Vụ Thêm", "Nhãn")
-NONE7 = (None,) * 7  # 7 cột không bắt buộc để trống
+          "Chức Vụ Thêm", "Nhãn", "Thứ Tự Bù")
+NONE8 = (None,) * 8  # 8 cột không bắt buộc để trống
 
 
 def _key(teachers):
@@ -36,7 +36,7 @@ def test_template_is_plain(tmp_path, sample_staff):
     assert ws["A1"].font.name == "Times New Roman" and ws["A1"].font.sz == 14 and ws["A1"].font.b
     assert ws["B2"].font.sz == 14 and not ws["B2"].font.b and ws["B2"].border.left.style == "thin"
     assert ws["B2"].alignment.horizontal == "center" and ws.row_dimensions[2].height == 25
-    assert ws.max_column == 11
+    assert ws.max_column == 12
     # Đơn giản: không tô nền, chữ đen, không cố định dòng/cột, không danh sách thả xuống, không định dạng theo điều
     # kiện, không ghi chú trong ô, không sheet ẩn.
     for sheet in wb.worksheets:
@@ -108,8 +108,8 @@ def test_updated_staff_keeps_template_and_style(tmp_path):
     assert not any(c.comment for sheet in wb.worksheets for row in sheet.iter_rows() for c in row)
     rows = _rows(ws)
     assert rows[0] == HEADER + ("Mã GV", "Số Tiết Thực Dạy", "Số Tiết Dư")
-    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, *NONE7, "Chủ Nhiệm 3/1", 19, None)
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *NONE7, "Bộ Môn 1", 8, 15)
+    assert rows[1] == ("CN A", "Chủ Nhiệm", "3/1", 19, *NONE8, "Chủ Nhiệm 3/1", 19, None)
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *NONE8, "Bộ Môn 1", 8, 15)
     # Dòng mới và cột mới cùng style với file vào.
     last = len(rows)
     for cell in (ws.cell(last, 2), ws.cell(last, 10), ws.cell(1, 11)):
@@ -157,14 +157,15 @@ def test_optional_columns_round_trip(tmp_path):
     staff = small_staff()
     staff = [replace(t, campus2=True, maternity=True, off_any=(("Chiều", 2),)) if t.class_name == "3/1" else
              replace(t, contract=True, history=frozenset({"3/1"}), off_sessions=frozenset({(3, "Chiều"), (4, "Sáng")}),
-                     tags=("Tổ Anh", "Bán thời gian"))
+                     tags=("Tổ Anh", "Bán thời gian"), overtime_order=2)
              if not t.class_name else t for t in staff]
     path = tmp_path / "mau.xlsx"
     write_staff_template(path, staff, CURRICULUM)
     ws = openpyxl.load_workbook(path)["NHÂN SỰ"]
     assert [c.value for c in ws[4]][4:] == [None, "Có", None, "3/1", "Chiều T5, Sáng T6", None,
-                                            "Tổ Anh, Bán thời gian"]  # dòng TA
-    fields = lambda ts: [(t.maternity, t.contract, t.campus2, t.history, t.off_sessions, t.off_any, t.tags) for t in ts]
+                                            "Tổ Anh, Bán thời gian", 2]  # dòng TA
+    fields = lambda ts: [(t.maternity, t.contract, t.campus2, t.history, t.off_sessions, t.off_any,  # noqa: E731
+                          t.tags, t.overtime_order) for t in ts]
     assert fields(read_staff(path)) == fields(staff)
 
 

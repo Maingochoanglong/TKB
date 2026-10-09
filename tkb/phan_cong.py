@@ -166,7 +166,7 @@ def _flow(problem: Problem, w: config.Weights, demand: dict[int, int], base_load
         regular = min(t.max_lessons - base_load[g], limit)
         if regular > 0:
             mcf.add(node_t[g], sink, regular, 0)
-        first = overtime_cost(t, w)
+        first = overtime_cost(t, w, problem.overtime_order)
         for k in range(min(problem.overtime.get(g, 0), limit - max(regular, 0))):  # tiết bù thứ k+1 đắt dần
             mcf.add(node_t[g], sink, 1, first + k * w.overtime_second)
     mcf.run(source, sink)

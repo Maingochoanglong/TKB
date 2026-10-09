@@ -234,7 +234,7 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 
 ## Đầu vào
 
-**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet bắt buộc `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (kèm các cột quy định của môn) và các sheet không bắt buộc `LỚP` (danh sách lớp: tên lớp, tên khối tùy ý, lớp có thể chưa có GVCN), `CHỨC VỤ` (chức vụ GV chuyên biệt tự đặt), `QUY ĐỊNH` (khung giờ, ai được bù, nhãn của ngày và tiết), `LUẬT` (mọi luật xếp TKB, mỗi dòng một câu ghép; không có thì dùng các luật có sẵn). Chương trình tìm sheet theo tên, không phân biệt hoa thường; các sheet khác (ví dụ `HƯỚNG DẪN`) được bỏ qua. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 7 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn`.
+**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet bắt buộc `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (kèm các cột quy định của môn) và các sheet không bắt buộc `LỚP` (danh sách lớp: tên lớp, tên khối tùy ý, lớp có thể chưa có GVCN), `CHỨC VỤ` (chức vụ GV chuyên biệt tự đặt), `QUY ĐỊNH` (khung giờ, ai được bù, nhãn của ngày và tiết), `LUẬT` (mọi luật xếp TKB, mỗi dòng một câu ghép; không có thì dùng các luật có sẵn). Chương trình tìm sheet theo tên, không phân biệt hoa thường; các sheet khác (ví dụ `HƯỚNG DẪN`) được bỏ qua. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 8 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù`.
 
 **Sheet `NHÂN SỰ`:**
 
@@ -256,7 +256,7 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 - **Số Tiết/Tuần** là mức tối đa mỗi tuần của từng người (ai được giảm tiết thì ghi mức đã giảm).
 - **Thai Sản**, **Hợp Đồng**, **Cơ sở 2**: ghi `Có` hoặc để trống.
   - Thai sản: không dạy bù, và chỉ dạy các lớp ở cơ sở 2. GVCN thai sản thì lớp phải ở cơ sở 2.
-  - Hợp đồng: khi phải bù, GVCN hợp đồng bù trước GVCN khác, bộ môn hợp đồng bù trước bộ môn khác.
+  - Hợp đồng: khi phải bù, GVCN hợp đồng bù trước GVCN khác, bộ môn hợp đồng bù trước bộ môn khác (khi không ghi cột Thứ Tự Bù).
   - Cơ sở 2: trên dòng Chủ Nhiệm nghĩa là lớp đó học ở cơ sở 2; trên dòng khác nghĩa là GV đó chỉ dạy ở cơ sở 2.
 - **Lớp Đang Dạy** (GV bộ môn, chuyên biệt): các lớp người đó dạy trong TKB cũ, cách nhau bằng dấu phẩy. TKB mới ưu tiên giữ người đó ở khối cũ, sau đó ở lớp cũ.
 - **Buổi Nghỉ**: buổi cố định (`Chiều T5`, `Sáng thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, có dấu hay không. Chương trình không xếp tiết vào các buổi đó; với "số buổi bất kỳ" thì chương trình tự chọn buổi. GVCN không nghỉ buổi sáng được, vì tiết 1 luôn do GVCN dạy.
@@ -269,6 +269,7 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
   Giáo viên của sheet `LUẬT` ghi một nhãn là mọi giáo viên có nhãn đó, vd luật `Không xếp vào`, Giáo viên
   `Bán thời gian`, Buổi `Chiều`. Thai Sản, Hợp Đồng, Cơ sở 2 ghi `Có` cũng là nhãn cùng tên (Chủ Nhiệm có lớp ở cơ sở 2
   có nhãn `Cơ sở 2`), vd luật cho mọi giáo viên `Hợp Đồng`.
+- **Thứ Tự Bù**: ai dạy bù trước khi phải bù giờ, số nguyên dương: `1` bù trước nhất, người cùng số bù ngang nhau (mọi người +1 rồi mới +2). Để trống thì như trước: GVCN hợp đồng `1`, GVCN `2`, bộ môn hợp đồng `3`, bộ môn `4`; vd ghi `1` cho các bộ môn bán thời gian để họ bù trước GVCN. Chỉ có tác dụng với người được dạy bù (Chủ Nhiệm, Bộ Môn theo sheet `QUY ĐỊNH`, không thai sản). Dùng nhiều hơn 4 mức thì các mức chia đều khoảng giá, thứ tự +1 trước +2 giữa các mức có thể xen nhau.
 - Các cột khác (ví dụ cột STT, cột ghi chú) được bỏ qua, ghi gì cũng được.
 - Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN. Nếu dãy lớp của một khối bị hụt (ví dụ có 1/3, 1/5 mà không có 1/4) thì chương trình cảnh báo.
 - Khi file có lỗi, chương trình **liệt kê tất cả lỗi một lần** kèm số dòng (ví dụ `Lớp 1/1 có hai Chủ Nhiệm (dòng 11 và 26)`).
@@ -542,8 +543,8 @@ Dưới đây là các quy tắc với giá trị mặc định. Phần lớn s�
 **Chế độ bù giờ** (`CHE_DO = "bu_gio"`)
 - Chỉ GVCN và bộ môn được dạy bù (vượt Số tiết định mức), mỗi người tối đa `SO_TIET_BU_TOI_DA` tiết/tuần.
 - GVCN chỉ bù ở lớp mình, không bù môn của giáo viên chuyên biệt, **trừ Âm nhạc và Mỹ thuật** (`HOMEROOM_OVERTIME_SPECIALIST`; Tin học, Tiếng Anh, Thể dục thì không). Thứ tự môn: môn ưu tiên của GVCN (lấy lại tiết đã bị cắt) → TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ → Âm nhạc, Mỹ thuật; ưu tiên nhận trọn một môn thay vì chia đôi. Âm nhạc, Mỹ thuật GVCN chỉ nhận phần giáo viên chuyên biệt và bộ môn không dạy hết (theo dự toán).
-- GVCN bù trước; bộ môn chỉ bù khi GVCN đã bù hết mức. Bộ kiểm tra báo lỗi nếu bộ môn dạy bù ở một lớp mà GVCN lớp đó còn được bù và dạy được môn đó.
-- Có cột `Hợp Đồng` thì thứ tự bù là: **GVCN hợp đồng → GVCN khác → bộ môn hợp đồng → bộ môn khác** (`overtime_homeroom_contract`, `overtime_homeroom`, `overtime_general_contract`, `overtime_general`).
+- GVCN bù trước; bộ môn chỉ bù khi GVCN đã bù hết mức. Bộ kiểm tra báo lỗi nếu bộ môn dạy bù ở một lớp mà GVCN lớp đó còn được bù, dạy được môn đó và đứng trước bộ môn trong thứ tự dạy bù.
+- Thứ tự bù mặc định: **GVCN hợp đồng → GVCN khác → bộ môn hợp đồng → bộ môn khác** (`overtime_homeroom_contract`, `overtime_homeroom`, `overtime_general_contract`, `overtime_general`); cột **Thứ Tự Bù** của sheet NHÂN SỰ đổi thứ tự này cho từng người (`allocation.overtime_rank`).
 - Chia đều trong từng nhóm trên: mọi người bù +1 rồi mới có người bù +2.
 - GV đang hưởng thai sản không dạy bù.
 - **Bù hết mức vẫn thiếu thì báo lỗi, không tuyển thêm, không ra TKB**: màn hình in từng lớp, môn, số tiết thiếu và cách sửa; `Thong_Ke.xlsx` có sheet `Thiếu tiết`; mã thoát 3.

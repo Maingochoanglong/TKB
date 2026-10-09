@@ -36,6 +36,7 @@ class Problem:
     slots: list[tuple[int, int]]
     warnings: list[str] = field(default_factory=list)
     overtime: dict[str, int] = field(default_factory=dict)  # GV -> số tiết được dạy bù tối đa
+    overtime_order: dict[str, int] = field(default_factory=dict)  # GV được bù -> thứ tự dạy bù (overtime_rank)
     overtime_max: int = 0  # > 0: chế độ bù giờ
     specialists: dict[str, tuple[str, ...]] = field(default_factory=dict)  # chức vụ chuyên biệt -> các môn được dạy
     subject_labels: dict[str, str] = field(default_factory=dict)  # môn -> tên như ghi trong file vào
@@ -255,12 +256,25 @@ def overtime_allowance(t: Teacher, overtime_max: int) -> int:
     return overtime_max
 
 
-def overtime_cost(t: Teacher, w: config.Weights) -> int:
-    """Giá tiết bù thứ nhất của t (mỗi tiết sau đắt thêm w.overtime_second). Ai bù trước: GVCN hợp đồng, GVCN
-    khác, bộ môn hợp đồng, bộ môn khác; bốn mức cách nhau đủ xa để thứ tự này không đổi."""
-    if t.class_name:
-        return w.overtime_homeroom_contract if t.contract else w.overtime_homeroom
-    return w.overtime_general_contract if t.contract else w.overtime_general
+def overtime_rank(t: Teacher) -> int:
+    """Thứ tự dạy bù của t (1 = trước nhất): cột Thứ Tự Bù; không ghi thì GVCN hợp đồng 1, GVCN khác 2, bộ môn hợp đồng
+    3, bộ môn khác 4."""
+    if t.overtime_order is not None:
+        return t.overtime_order
+    return (1 if t.contract else 2) if t.class_name else (3 if t.contract else 4)
+
+
+def overtime_cost(t: Teacher, w: config.Weights, ranks: dict[str, int] | None = None) -> int:
+    """Giá tiết bù thứ nhất của t (mỗi tiết sau đắt thêm w.overtime_second) theo thứ tự dạy bù (overtime_rank; `ranks`:
+    thứ tự của mọi người được bù, Problem.overtime_order). Thứ tự 1–4 là bốn mức w.overtime_* (GVCN hợp đồng, GVCN,
+    bộ môn hợp đồng, bộ môn), cách nhau đủ xa để thứ tự này không đổi; ghi số khác thì các thứ tự đang dùng chia đều
+    khoảng giá đó (mức đắt nhất vẫn rẻ hơn một tiết thiếu)."""
+    tiers = (w.overtime_homeroom_contract, w.overtime_homeroom, w.overtime_general_contract, w.overtime_general)
+    rank = (ranks or {}).get(t.title) or overtime_rank(t)
+    used = sorted(set((ranks or {}).values()) | {rank})
+    if used[-1] <= len(tiers):
+        return tiers[rank - 1]
+    return tiers[0] + used.index(rank) * (tiers[-1] - tiers[0]) // (len(used) - 1)
 
 
 def keep_cost(t: Teacher, class_name: str, w: config.Weights) -> int:
@@ -419,6 +433,10 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
             by_role.setdefault(role, []).append(t)
 
     overtime = {t.title: n for t in staff if (n := overtime_allowance(t, overtime_max)) > 0}
+    overtime_order = {g: overtime_rank(teacher_of[g]) for g in overtime}
+    for t in staff:  # cột Thứ Tự Bù của người không được dạy bù thì không có tác dụng
+        if t.overtime_order is not None and overtime_allowance(t, 1) == 0:
+            warnings.append(f"{t.code}: không được dạy bù (chức vụ, thai sản) nên cột Thứ Tự Bù không có tác dụng")
     manager_pool_lessons: dict[str, int] = {m.title: 0 for m in managers}
     for cls, grade, subject, n in pool:
         # GV chỉ dạy cơ sở 2 (đánh dấu Cơ sở 2, hoặc thai sản) không dạy lớp ở cơ sở 1.
@@ -478,6 +496,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         slots=slots,
         warnings=warnings,
         overtime=overtime,
+        overtime_order=overtime_order,
         overtime_max=max(overtime_max, 0),
         specialists=specialists,
         subject_labels=subject_labels,

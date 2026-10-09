@@ -4,8 +4,8 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from . import config
-from .allocation import (Problem, all_slots, campus_label, homeroom_only, manager_allowed, may_teach, paired_groups,
-                         subject_group)
+from .allocation import (Problem, all_slots, campus_label, homeroom_only, manager_allowed, may_teach, overtime_rank,
+                         paired_groups, subject_group)
 from .solver import Lesson
 from .staff import grade_of
 
@@ -112,8 +112,9 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                               f"không bù môn chuyên biệt" + (f" trừ {allowed_spec}" if allowed_spec else "") + ")")
 
     # Bù giờ: GVCN được ưu tiên bù lớp mình. Bộ môn đang dạy bù mà còn dạy ở lớp X một môn GVCN lớp X
-    # được dạy, trong khi GVCN lớp X chưa bù hết mức, thì chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ
-    # dạy lớp mình nên giờ đó rảnh) và bớt tiết bù của bộ môn: phân công chưa đúng thứ tự ưu tiên.
+    # được dạy, trong khi GVCN lớp X chưa bù hết mức và đứng trước bộ môn đó trong thứ tự dạy bù (cột Thứ Tự Bù;
+    # mặc định GVCN luôn trước), thì chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ dạy lớp mình nên giờ đó rảnh)
+    # và bớt tiết bù của bộ môn: phân công chưa đúng thứ tự ưu tiên.
     over = {g: n - teachers[g].max_lessons for g, n in load.items()
             if g in problem.overtime and n > teachers[g].max_lessons}
     reported = set()
@@ -126,7 +127,8 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             continue
         spare = problem.overtime.get(cn, 0) - over.get(cn, 0) if cn else 0
         key = (g, les.class_name, les.subject)
-        if spare > 0 and cn in problem.courses[les.course_id].teachers and key not in reported:
+        first = cn and overtime_rank(teachers[cn]) < overtime_rank(teachers[g])
+        if spare > 0 and first and cn in problem.courses[les.course_id].teachers and key not in reported:
             reported.add(key)
             errors.append(f"{g} dạy bù {over[g]} tiết trong khi {cn} còn được bù {spare} tiết: nên để "
                           f"GVCN dạy {les.subject} lớp {les.class_name}")
