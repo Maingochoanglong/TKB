@@ -67,7 +67,8 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
             continue
         grade = grade_of(les.class_name)
         at = f"{les.class_name} {where(les.day, les.period)}"
-        if les.period in config.HOMEROOM_PERIODS and t.class_name != les.class_name and config.on("tiet_gvcn"):
+        if les.period in config.HOMEROOM_PERIODS and t.class_name != les.class_name and config.on("tiet_gvcn") \
+                and les.class_name not in problem.no_homeroom:
             errors.append(f"{at}: tiết của GVCN nhưng giao cho {t.title}")
         if t.role == config.ROLE_HOMEROOM:
             if t.class_name != les.class_name:

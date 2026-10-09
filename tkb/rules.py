@@ -30,7 +30,9 @@ from pathlib import Path
 import openpyxl
 
 from . import bo_ghep, config, luat_rieng
-from .staff import _NO, _YES, InputError, _fold, clean_name, find_sheet, normalize, subject_key
+from .program import grade_columns, grade_head
+from .staff import (_NO, _YES, InputError, _fold, canonical_class, clean_name, find_sheet, normalize, parse_grade,
+                    subject_key)
 
 YES, NO = "Có", "Không"
 MAX_DAYS = 6  # cách ghi cũ của bảng Ngày (cột Học buổi sáng/chiều): Thứ 2 – Thứ 7
@@ -44,7 +46,7 @@ OLD_SHEETS = ("QUY ĐỊNH CHUNG", "QUY ĐỊNH NGÀY", "QUY ĐỊNH TIẾT", "Q
 class Col:
     header: str  # tiêu đề cột (bảng chung: chữ ở cột Quy định)
     key: str  # hằng số trong tkb/config.py, hoặc phần của quy định ghép từ nhiều cột (chữ thường)
-    kind: str  # "yes": Có/Không; "int": số nguyên dương; "order": số thứ tự 1, 2...; "text": chữ
+    kind: str  # "yes": Có/Không; "int": số nguyên dương; "order": số thứ tự 1, 2...; "text": chữ; "grade": tên khối
     note: str
 
 
@@ -91,7 +93,8 @@ SUBJECT_COLS = (
     Col("Bộ Môn không dạy", "GENERAL_FORBIDDEN_SUBJECTS", "yes",
         "GV bộ môn không dạy môn này; trường chưa có GV chuyên biệt của môn thì chương trình tuyển thêm. Ghi theo "
         "ngoại lệ để môn mới (ô trống) mặc nhiên bộ môn dạy được."),
-    Col("Quản lý dạy khối", "MANAGER_RULES", "int", "Khối mà Quản Lý được dạy môn này, vd Kỹ năng sống: 4."),
+    Col("Quản lý dạy khối", "MANAGER_RULES", "grade",
+        "Khối mà Quản Lý được dạy môn này (tên khối như ở cột Khối <tên>), vd Kỹ năng sống: 4."),
     Col("GVCN bù môn chuyên biệt", "HOMEROOM_OVERTIME_SPECIALIST", "yes",
         "Môn có GV chuyên biệt mà GVCN vẫn được dạy bù ở lớp mình (nhận sau cùng)."),
     Col("Nhóm môn", "group", "int",
@@ -109,6 +112,8 @@ SUBJECT_COLS = (
 )
 # Sheet CHỨC VỤ: hai cột (thêm cột Ghi chú nếu cần).
 ROLE_NAME, ROLE_SUBJECTS = "Chức vụ", "Môn được dạy"
+# Sheet LỚP (không bắt buộc): mỗi dòng một lớp (thêm cột Ghi chú nếu cần).
+CLASS_NAME, CLASS_GRADE, CLASS_CAMPUS2 = "Lớp", "Khối", "Cơ sở 2"
 # Cột của bản trước mà nay là số của một dòng luật (sheet LUẬT): vẫn đọc được ở file cũ, không ghi, không hiện.
 LEGACY = frozenset({"SESSION_GROUP_LIMIT", "PAIR_MIN_LESSONS", "DAILY_LIMITS"})
 # Cách ghi khung giờ của bản trước (số tiết buổi sáng/chiều chung mọi ngày, cột Có/Không học buổi sáng/chiều): vẫn
@@ -126,14 +131,14 @@ ATTRS = (*FRAME_ATTRS, "SESSION_GROUP_LIMIT", "PAIR_MIN_LESSONS", "OVERTIME_ROLE
          "HDTN_FLEX_DAYS", "HOMEROOM_PERIODS", "HEAVY_LATE_PERIODS", "DISPLAY_NAMES", "HDTN", "HOMEROOM_PRIORITY",
          "HOMEROOM_CUT_ORDER", "HOMEROOM_FILL_ORDER", "HOMEROOM_ONLY_SUBJECTS", "GENERAL_FORBIDDEN_SUBJECTS",
          "MANAGER_RULES", "HOMEROOM_OVERTIME_SPECIALIST", "SUBJECT_GROUPS", "DAILY_LIMITS", "PAIR_EXCLUDED",
-         "HEAVY_SUBJECTS", "MORNING_SUBJECTS", "CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS")
+         "HEAVY_SUBJECTS", "MORNING_SUBJECTS", "CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS", "CLASSES")
 # Không ghi gì thì không tính vào mã quy định (mã cũ giữ nguyên).
-OPTIONAL_ATTRS = ("CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS")
+OPTIONAL_ATTRS = ("CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS", "CLASSES")
 # Tên quy định khi in "khác mặc định".
 LABELS = {**{c.key: c.header for c in (*GENERAL, *DAY_COLS, *PERIOD_COLS, *SUBJECT_COLS)},
           **{a: "Khung giờ" for a in FRAME_ATTRS}, "OVERTIME_ROLES": "Được dạy bù",
           "SUBJECT_GROUPS": "Nhóm môn, Môn tăng cường", "CUSTOM_RULES": "Luật riêng", "CUSTOM_ROLES": "Chức vụ",
-          "OFF": "Luật có sẵn bị bỏ", "WEIGHTS": "Điểm của luật ưu tiên"}
+          "OFF": "Luật có sẵn bị bỏ", "WEIGHTS": "Điểm của luật ưu tiên", "CLASSES": "Lớp"}
 DEFAULTS = {attr: copy.deepcopy(getattr(config, attr)) for attr in ATTRS}  # giá trị mặc định trong tkb/config.py
 # Tên môn trong tkb/config.py (và chữ viết tắt mặc định), để khớp tên môn ghi trong sheet CHƯƠNG TRÌNH HỌC.
 _KNOWN = {**{subject_key(label): s for s, label in config.DISPLAY_NAMES.items()},
@@ -206,7 +211,10 @@ def _row(ws, r: int) -> dict[int, object]:
 
 
 def _is_grade(head: str) -> bool:
-    return re.fullmatch(r"khối \d+", head) is not None
+    try:
+        return grade_head(head) is not None
+    except InputError:
+        return False
 
 
 class _Reader:
@@ -258,6 +266,15 @@ class _Reader:
             if not _blank(value) and str(value).strip() in ("0", "0.0"):
                 return 0
             return self.number(sheet, row, col.header, value) or 0
+        if col.kind == "grade" and not _blank(value):
+            try:
+                grade = parse_grade(value)
+            except InputError:
+                grade = 0
+            if grade == 0:
+                self.error(sheet, row, f"cột {col.header} ghi tên một khối, vd 4, đang ghi {value!r}")
+                return None
+            return grade
         return None if _blank(value) else clean_name(value)
 
     def table(self, ws, header_row: int, end_row: int, key_col: int, cols: tuple[Col, ...], strict: bool):
@@ -460,6 +477,7 @@ class _Reader:
         if not found:
             return False
         rows = [(r, k, v) for r, k, v in rows if normalize(k) not in ("tổng", "tổng cộng")]
+        grades = self.program_grades(ws)
         labels = {subject_key(v["DISPLAY_NAMES"]): clean_name(k) for _, k, v in rows if v.get("DISPLAY_NAMES")}
         names: list[tuple[int, str, dict]] = []
         seen: dict[str, int] = {}
@@ -493,7 +511,13 @@ class _Reader:
                         order[x] = s
                 v[col.key] = [order[n] for n in sorted(order)]
             elif col.key == "MANAGER_RULES":
-                v[col.key] = [config.ManagerRule(subject=s, grade=x) for _, s, x in cells if x is not None]
+                rules = []
+                for r, s, x in cells:
+                    if x is None:
+                        continue
+                    # Tên khối viết như cột Khối <tên>; khối không có trong chương trình học thì luật không áp dụng.
+                    rules.append(config.ManagerRule(subject=s, grade=grades.get(_fold(str(x)), x)))
+                v[col.key] = rules
             elif col.key == "DAILY_LIMITS":
                 v[col.key] = {s: x for _, s, x in cells if x is not None}
             else:
@@ -600,6 +624,70 @@ class _Reader:
                 else:
                     roles.append(config.Role(label, tuple(names.values()), r))
 
+    def program_grades(self, ws) -> dict[str, int | str]:
+        """Các khối của sheet chương trình học (cột Khối <tên>): {tên viết thường bỏ dấu: khối}."""
+        try:
+            found = grade_columns(ws)
+        except InputError:
+            return {}  # read_program báo lỗi
+        return {_fold(str(g)): g for g in found[2]} if found else {}
+
+    # ---- sheet LỚP: mỗi dòng một lớp ----
+    def classes(self, ws, grades: dict[str, int | str]) -> None:
+        """Bảng có dòng tiêu đề chứa cột Lớp; các dòng sau là các lớp (dòng trống bỏ qua): tên lớp tùy ý, Khối (tên
+        khối như cột Khối <tên> của sheet chương trình học; trống: các chữ số đầu tên lớp), Cơ sở 2 (Có/Không).
+        Sheet không có lớp nào: như không có sheet (lớp lấy từ các dòng Chủ Nhiệm)."""
+        sheet = ws.title
+        self.values["CLASSES"] = ()
+        heads = {normalize(CLASS_NAME): "name", normalize(CLASS_GRADE): "grade", normalize(CLASS_CAMPUS2): "campus2"}
+        header_row = next((r for r in range(1, min(ws.max_row, 20) + 1)
+                           if normalize(CLASS_NAME) in {normalize(v) for v in _row(ws, r).values()}), None)
+        if header_row is None:
+            if ws.max_row > 1 or _row(ws, 1):
+                self.error(sheet, None, f"không có dòng tiêu đề có cột {CLASS_NAME}")
+            return
+        cols: dict[str, int] = {}
+        for c, value in _row(ws, header_row).items():
+            key = heads.get(normalize(value))
+            if key is not None:
+                cols[key] = c
+            elif normalize(value) != normalize(NOTE):
+                self.error(sheet, header_row, f"không có cột nào tên '{clean_name(value)}' (các cột: {CLASS_NAME}, "
+                                              f"{CLASS_GRADE}, {CLASS_CAMPUS2}, {NOTE})")
+        get = lambda r, key: ws.cell(r, cols[key]).value if key in cols else None  # noqa: E731
+        out: list[config.SchoolClass] = []
+        seen: dict[str, int] = {}
+        for r in range(header_row + 1, ws.max_row + 1):
+            name, grade = get(r, "name"), get(r, "grade")
+            campus2 = self.yes(sheet, r, CLASS_CAMPUS2, get(r, "campus2"))
+            if _blank(name):
+                if not _blank(grade):
+                    self.error(sheet, r, f"thiếu tên lớp ở cột {CLASS_NAME}")
+                continue
+            name = canonical_class(name)
+            if _fold(name) in seen:
+                self.error(sheet, r, f"lớp '{name}' đã ghi ở dòng {seen[_fold(name)]}")
+                continue
+            seen[_fold(name)] = r
+            if _blank(grade):
+                m = re.match(r"\d+", name)
+                if m is None:
+                    self.error(sheet, r, f"lớp '{name}' chưa ghi {CLASS_GRADE}")
+                    continue
+                grade = int(m.group())
+            else:
+                try:
+                    grade = parse_grade(grade)
+                except InputError as exc:
+                    self.error(sheet, r, f"cột {CLASS_GRADE}: {exc}")
+                    continue
+                grade = grades.get(_fold(str(grade)), grade)
+            if grades and grade not in grades.values():
+                self.error(sheet, r, f"lớp '{name}': không có cột Khối {grade} ở sheet {config.PROGRAM_SHEET}")
+                continue
+            out.append(config.SchoolClass(name, grade, campus2, r))
+        self.values["CLASSES"] = tuple(out)
+
     def frame(self) -> dict[str, object]:
         """Khung giờ của file (DAYS, DAY_SESSIONS, MORNING, AFTERNOON; {} nếu file không ghi): đọc xong sheet QUY ĐỊNH
         thì tính ngay, để cột Ngày, Buổi của sheet LUẬT đọc theo tên ngày, tên buổi của chính file."""
@@ -673,7 +761,12 @@ def read_rules(path: str | Path, warn=lambda text: None) -> dict[str, object] | 
     if ws is not None:
         reader.roles(ws)
         found = True
-    with applied(reader.frame()):  # cột Ngày, Buổi của các dòng luật theo khung giờ của file
+    ws = find_sheet(wb, config.CLASSES_SHEET)
+    if ws is not None:
+        reader.classes(ws, reader.program_grades(program) if program is not None else {})
+        found = found or bool(reader.values["CLASSES"])  # sheet LỚP trống: như không có
+    # Cột Ngày, Buổi, Lớp của các dòng luật theo khung giờ và các lớp của file.
+    with applied({**reader.frame(), **{a: reader.values[a] for a in ("CLASSES",) if a in reader.values}}):
         ws = find_sheet(wb, luat_rieng.SHEET)
         if ws is not None:
             reader.custom(ws)
@@ -746,6 +839,8 @@ def _canonical(attr: str, value):
         return [replace(r, row=0, group_label="") for r in value]
     if attr == "WEIGHTS":
         return sorted(value.items())
+    if attr == "CLASSES":  # số dòng, thứ tự dòng không phải là quy định
+        return sorted(((c.name, c.grade, c.campus2) for c in value), key=repr)
     if attr == "CUSTOM_ROLES":  # dòng một môn trùng tên chức vụ là như không ghi (chức vụ trùng tên môn có sẵn)
         from .program import canonical_subject
         key = lambda name: subject_key(canonical_subject(name))  # noqa: E731
@@ -788,6 +883,11 @@ def rule_tables() -> list[tuple[list[str], list[list]]]:
 def role_rows() -> list[list]:
     """Các dòng của sheet CHỨC VỤ theo config hiện tại: [tên chức vụ, các môn cách nhau bằng dấu phẩy]."""
     return [[r.name, ", ".join(r.subjects)] for r in config.CUSTOM_ROLES]
+
+
+def class_rows() -> list[list]:
+    """Các dòng của sheet LỚP theo config hiện tại: [lớp, khối, Có/Không ở cơ sở 2]."""
+    return [[c.name, c.grade, _yn(c.campus2)] for c in config.CLASSES]
 
 
 def luat_headers() -> list[str]:
@@ -862,6 +962,14 @@ def notes() -> list[tuple[str, str]]:
              f"sheet {config.STAFF_SHEET}, GV có Chức Vụ là tên đó chỉ dạy các môn này. Chức vụ không ghi ở đây mà "
              f"trùng tên một môn (vd Tiếng Anh) thì chỉ dạy môn đó. Môn Bộ Môn không dạy mà chưa có GV nào dạy được "
              f"thì chương trình tuyển thêm chức vụ đầu tiên ở đây dạy môn đó (không có thì chức vụ trùng tên môn)."),
+            (config.CLASSES_SHEET,
+             f"Không bắt buộc. Mỗi dòng một lớp: cột {CLASS_NAME} ghi tên lớp tùy ý (vd 1/1, 1A, Lá 2), cột "
+             f"{CLASS_GRADE} ghi tên khối như ở các cột Khối <tên> của sheet {config.PROGRAM_SHEET} (vd 1 hoặc Lá; "
+             f"trống: các chữ số đầu tên lớp), cột {CLASS_CAMPUS2} ghi Có nếu lớp học ở cơ sở 2. Có sheet này thì danh "
+             f"sách lớp lấy ở đây: Chủ Nhiệm ghi Lớp là một lớp của sheet, lớp không có Chủ Nhiệm vẫn được xếp (các "
+             f"môn chia cho GV khác; môn Chỉ GVCN dạy, tiết Luôn do GVCN dạy, tiết HĐTN cố định của GVCN không áp "
+             f"dụng cho lớp đó). Không có sheet này (hoặc sheet trống) thì lớp là lớp của các dòng Chủ Nhiệm, ghi "
+             f"dạng khối/số thứ tự (1/1) hoặc khối rồi tên lớp (1A)."),
             (luat_rieng.RULES_SHEET,
              "Mọi luật xếp TKB, mỗi dòng một luật, đọc như một câu: Với mỗi [cột Với mỗi] · các tiết [Môn, Nhãn, Khối, "
              "Lớp, Ngày, Tiết, Buổi, Giáo viên] · thì [Phép đo] [So sánh] [Số] · khi [Áp dụng khi]. Mỗi luật trả lời "

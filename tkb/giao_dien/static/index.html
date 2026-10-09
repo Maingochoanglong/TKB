@@ -63,11 +63,12 @@
 <nav class="tabs" role="tablist">
   <button type="button" role="tab" data-tab="khung" class="active">1. Khung giờ &amp; quy định chung</button>
   <button type="button" role="tab" data-tab="mon">2. Môn học <span class="count" id="count-mon"></span></button>
-  <button type="button" role="tab" data-tab="chucvu">3. Chức vụ <span class="count" id="count-cv"></span></button>
-  <button type="button" role="tab" data-tab="gv">4. Giáo viên <span class="count" id="count-gv"></span></button>
-  <button type="button" role="tab" data-tab="luat">5. Luật <span class="count" id="count-luat"></span></button>
-  <button type="button" role="tab" data-tab="xep">6. Kiểm tra &amp; xếp TKB</button>
-  <button type="button" role="tab" data-tab="tkb">7. Thời khóa biểu</button>
+  <button type="button" role="tab" data-tab="lop">3. Lớp <span class="count" id="count-lop"></span></button>
+  <button type="button" role="tab" data-tab="chucvu">4. Chức vụ <span class="count" id="count-cv"></span></button>
+  <button type="button" role="tab" data-tab="gv">5. Giáo viên <span class="count" id="count-gv"></span></button>
+  <button type="button" role="tab" data-tab="luat">6. Luật <span class="count" id="count-luat"></span></button>
+  <button type="button" role="tab" data-tab="xep">7. Kiểm tra &amp; xếp TKB</button>
+  <button type="button" role="tab" data-tab="tkb">8. Thời khóa biểu</button>
 </nav>
 
 <div id="notice" class="notice" hidden></div>
@@ -112,10 +113,37 @@
         </div>
       </div>
       <p class="muted">Mỗi môn một dòng: số tiết/tuần từng khối (trống hoặc 0: khối đó không học). Bấm <b>Sửa</b> để xem
-        và sửa các quy định của môn. Cột <b>Ai dạy</b> theo bước 3 (Chức vụ).</p>
+        và sửa các quy định của môn. Cột <b>Ai dạy</b> theo bước 4 (Chức vụ).</p>
       <div class="table-wrap tall"><table id="subject-table" class="grid sticky"></table></div>
     </div>
     <details class="card help"><summary>Giải thích các cột quy định của môn</summary><dl id="help-mon"></dl></details>
+    <div class="next"><button type="button" data-go="lop">Tiếp: Lớp →</button></div>
+  </section>
+
+  <section id="tab-lop" class="tab" role="tabpanel">
+    <div class="card">
+      <div class="toolbar">
+        <h2>Khối</h2>
+        <div class="actions">
+          <input type="text" id="new-grade" class="short" placeholder="Tên khối" aria-label="Tên khối mới">
+          <button type="button" data-act="add-grade">+ Thêm khối</button>
+        </div>
+      </div>
+      <p class="muted">Tên khối tùy ý, vd <b>1</b>, <b>2</b> hoặc <b>Lá</b>, <b>Chồi</b>. Số tiết/tuần của từng khối ghi
+        ở bước 2 (Môn học). Đổi tên khối ở đây thì đổi theo ở mọi bước.</p>
+      <div id="grade-list" class="grade-list"></div>
+    </div>
+    <div class="card">
+      <div class="toolbar">
+        <h2>Lớp</h2>
+        <div class="actions">
+          <button type="button" data-act="add-class">+ Thêm lớp</button>
+          <button type="button" data-act="classes-from-homeroom" class="ghost">Lấy từ các Chủ Nhiệm</button>
+        </div>
+      </div>
+      <p class="muted" id="class-summary"></p>
+      <div class="table-wrap"><table id="class-table" class="grid"></table></div>
+    </div>
     <div class="next"><button type="button" data-go="chucvu">Tiếp: Chức vụ →</button></div>
   </section>
 
@@ -148,6 +176,7 @@
       <p class="muted" id="staff-summary"></p>
       <div class="table-wrap tall"><table id="staff-table" class="grid sticky"></table></div>
       <datalist id="role-list"></datalist>
+      <datalist id="class-list"></datalist>
       <datalist id="subject-list"></datalist>
       <datalist id="session-list"></datalist>
     </div>
@@ -258,9 +287,9 @@
   <section id="tab-tkb" class="tab" role="tabpanel">
     <div class="card" id="tkb-empty">
       <h2>Chưa có thời khóa biểu</h2>
-      <p class="muted">Xếp TKB ở bước 6 rồi bấm <b>Xem TKB trên trang</b>; hoặc mở file <code>_cap_nhat.xlsx</code> của lần
+      <p class="muted">Xếp TKB ở bước 7 rồi bấm <b>Xem TKB trên trang</b>; hoặc mở file <code>_cap_nhat.xlsx</code> của lần
         xếp trước (<b>Tệp ▾ › Mở file Excel…</b>): file đó giữ TKB đã xếp.</p>
-      <div class="actions"><button type="button" data-go="xep">Tới bước 6: Kiểm tra &amp; xếp TKB</button></div>
+      <div class="actions"><button type="button" data-go="xep">Tới bước 7: Kiểm tra &amp; xếp TKB</button></div>
     </div>
     <div class="card" id="tkb-card" hidden>
       <div class="toolbar">

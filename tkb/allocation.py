@@ -6,8 +6,8 @@ from dataclasses import dataclass, field, replace
 
 from . import config
 from .program import canonical_subject, missing_rule_subjects, subjects_in_order
-from .staff import (SPECIAL_ROLES, InputError, Teacher, class_sort_key, classes_from_staff, clean_name, grade_of,
-                    normalize, role_errors, subject_key)
+from .staff import (_CLASS_RE, SPECIAL_ROLES, InputError, Teacher, class_list, class_sort_key, clean_name,
+                    class_campus2, grade_key, grade_of, normalize, role_errors, subject_key)
 
 
 @dataclass
@@ -40,7 +40,9 @@ class Problem:
     specialists: dict[str, tuple[str, ...]] = field(default_factory=dict)  # chức vụ chuyên biệt -> các môn được dạy
     subject_labels: dict[str, str] = field(default_factory=dict)  # môn -> tên như ghi trong file vào
     subject_order: list[str] = field(default_factory=list)  # các môn theo thứ tự dòng trong file vào
-    campus2: frozenset[str] = frozenset()  # các lớp ở cơ sở 2 (cột Cơ sở 2 trên dòng Chủ Nhiệm)
+    campus2: frozenset[str] = frozenset()  # các lớp ở cơ sở 2 (cột Cơ sở 2 của sheet LỚP hay của dòng Chủ Nhiệm)
+    # Các lớp không có GVCN (sheet LỚP): mọi môn chia cho GV khác; tiết luôn do GVCN dạy, GVCN trước không áp dụng.
+    no_homeroom: frozenset[str] = frozenset()
     # (course, người tuyển mới) -> người bù: các tiết đó là tiết bù của người bù (chế độ bù giờ dạy đúng các ô này),
     # nên khi xếp giờ cũng chiếm lịch của người bù (solver.build_timetable). Chỉ có ở bài toán xếp giờ (solver.solve).
     covers: dict[tuple[int, str], str] = field(default_factory=dict)
@@ -271,17 +273,20 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     staff = [replace(t, label=role_labels[t.role]) for t in staff]
     specialist = {s for subjects in specialists.values() for s in subjects}
     slots = all_slots()
-    classes = classes_from_staff(staff)
+    classes = class_list(staff)
     homeroom = {t.class_name: t for t in staff if t.class_name}
     managers = [t for t in staff if t.role == config.ROLE_MANAGER]
-    campus2 = frozenset(c for c, t in homeroom.items() if t.campus2)
+    campus2 = frozenset(c for c in classes if class_campus2(c) or (c in homeroom and homeroom[c].campus2))
+    no_homeroom = frozenset(c for c in classes if c not in homeroom)
 
-    for g in sorted({grade_of(c) for c in classes}):
+    for g in sorted({grade_of(c) for c in classes}, key=grade_key):
         # Lớp ghi dạng khối/số thứ tự: báo số thứ tự bị bỏ trống.
-        numbers = {int(c.split("/")[1]) for c in classes if "/" in c and grade_of(c) == g}
+        numbers = {int(m.group(2)) for c in classes if (m := _CLASS_RE.match(c)) and grade_of(c) == g}
         missing = [f"{g}/{n}" for n in range(1, max(numbers, default=0)) if n not in numbers]
         if missing:
-            warnings.append(f"Khối {g} không có lớp {', '.join(missing)} (không có Chủ Nhiệm nào ghi lớp này)")
+            warnings.append(f"Khối {g} không có lớp {', '.join(missing)} (không có Chủ Nhiệm nào ghi lớp này)"
+                            if not config.CLASSES else f"Khối {g} không có lớp {', '.join(missing)} (sheet "
+                            f"{config.CLASSES_SHEET} không ghi lớp này)")
         if g not in curriculum:
             raise InputError(f"Không có chương trình học cho Khối {g}")
         total = sum(curriculum[g].values())
@@ -305,6 +310,15 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     for cls in classes:
         grade = grade_of(cls)
         req = curriculum[grade]
+        if cls in no_homeroom:  # lớp không có GVCN: mọi môn chia cho GV khác
+            for subject, n in req.items():
+                if n <= 0:
+                    continue
+                if subject in homeroom_only():
+                    raise InputError(f"Lớp {cls} không có Chủ Nhiệm nên không ai dạy được môn {subject} (môn chỉ GVCN "
+                                     f"được dạy: bỏ Có ở cột Chỉ GVCN dạy của môn này hoặc thêm Chủ Nhiệm cho lớp)")
+                pool.append((cls, grade, subject, n))
+            continue
         cn = homeroom[cls]
         take = split_homeroom(cls, req, cn.max_lessons, reserved_by_grade.get(grade, set()), specialist)
         homeroom_take[cls] = take
@@ -367,8 +381,8 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         eligible = [t.title for r in roles_for_subject(subject, specialists) for t in by_role.get(r, [])
                     if cls in campus2 or not t.campus2_only or not config.on("co_so_2")]
         # GVCN bù ở lớp mình: không bù môn của GV chuyên biệt, trừ HOMEROOM_OVERTIME_SPECIALIST.
-        if homeroom[cls].title in overtime and (subject not in specialist
-                                                or subject in config.HOMEROOM_OVERTIME_SPECIALIST):
+        if cls in homeroom and homeroom[cls].title in overtime and (subject not in specialist
+                                                                    or subject in config.HOMEROOM_OVERTIME_SPECIALIST):
             eligible.append(homeroom[cls].title)
         for m in managers:
             if (cls in campus2 or not m.campus2_only or not config.on("co_so_2")) and \
@@ -388,6 +402,16 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
             eligible = kept
         if not eligible:
             raise InputError(f"Lớp {cls}: không có GV nào được phép dạy môn {subject}")
+        if subject == config.HDTN and cls in no_homeroom:  # lớp không có GVCN: tiết HĐTN như các lớp khác
+            n_fixed = min(n, len(fixed_hdtn))
+            if n_fixed:
+                courses.append(Course(len(courses), cls, grade, subject, n_fixed, eligible,
+                                      fixed_slots=fixed_hdtn[:n_fixed]))
+            if n > n_fixed:
+                flex = config.on("hdtn_ngay")
+                courses.append(Course(len(courses), cls, grade, subject, n - n_fixed, eligible,
+                                      allowed_days=tuple(config.HDTN_FLEX_DAYS) if flex else None, flex_hdtn=True))
+            continue
         courses.append(Course(len(courses), cls, grade, subject, n, eligible))
 
     manager_load: dict[str, int] = {}
@@ -413,4 +437,5 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         subject_labels=subject_labels,
         subject_order=subject_order,
         campus2=campus2,
+        no_homeroom=no_homeroom,
     )

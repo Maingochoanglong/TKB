@@ -49,26 +49,32 @@ không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (
    ![Bước 1: khung giờ](hinh/2_khung_gio.jpg)
 2. **Môn học**: số tiết mỗi khối; **Sửa** để mở các quy định của môn (ai dạy, môn nặng, ưu tiên buổi sáng…).
    ![Bước 2: môn học](hinh/3_mon_hoc.jpg)
-3. **Chức vụ**: Chủ Nhiệm, Bộ Môn, Quản Lý và các chức vụ GV chuyên biệt (vd Tiếng Anh, GV Nghệ thuật) với các môn
+3. **Lớp** (không bắt buộc): tên các khối (tùy ý, vd `1`, `2` hoặc `Lá`, `Chồi`; đổi tên thì đổi theo ở mọi bước) và
+   danh sách lớp: tên lớp tùy ý, khối, lớp ở cơ sở 2. **Lấy từ các Chủ Nhiệm** chép các lớp đang có. Lớp chưa có Chủ
+   Nhiệm vẫn xếp được: các môn của lớp chia cho giáo viên khác (môn chỉ GVCN dạy thì lớp phải có Chủ Nhiệm). Để trống
+   danh sách thì lớp là cột Lớp của các Chủ Nhiệm, ghi dạng `1/1` hoặc `1A`.
+   ![Bước 3: lớp](hinh/3b_lop.jpg)
+4. **Chức vụ**: Chủ Nhiệm, Bộ Môn, Quản Lý và các chức vụ GV chuyên biệt (vd Tiếng Anh, GV Nghệ thuật) với các môn
    được dạy.
-   ![Bước 3: chức vụ](hinh/4_chuc_vu.jpg)
-4. **Giáo viên**: họ tên, chức vụ, lớp chủ nhiệm, số tiết/tuần; **Sửa** để ghi thai sản, hợp đồng, cơ sở 2, lớp đang
-   dạy, buổi nghỉ. Mỗi người có một **Mã GV** theo thứ tự dòng trong chức vụ, vd `Bộ Môn 3`, `Chủ Nhiệm 1/1`.
-   ![Bước 4: giáo viên](hinh/5_giao_vien.jpg)
-5. **Luật**: mọi luật xếp TKB, mỗi luật một câu dễ đọc, nhãn **Bắt buộc** hoặc **Ưu tiên** (thấp, vừa, cao, rất
+   ![Bước 4: chức vụ](hinh/4_chuc_vu.jpg)
+5. **Giáo viên**: họ tên, chức vụ, lớp chủ nhiệm (có danh sách lớp ở bước 3 thì chọn trong đó), số tiết/tuần; **Sửa**
+   để ghi thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ. Mỗi người có một **Mã GV** theo thứ tự dòng trong chức
+   vụ, vd `Bộ Môn 3`, `Chủ Nhiệm 1/1`.
+   ![Bước 5: giáo viên](hinh/5_giao_vien.jpg)
+6. **Luật**: mọi luật xếp TKB, mỗi luật một câu dễ đọc, nhãn **Bắt buộc** hoặc **Ưu tiên** (thấp, vừa, cao, rất
    cao). Các luật mặc định đã đủ dùng; sửa số, đổi mức, bỏ hay thêm luật khi trường cần. Bỏ dấu ô **Dùng** để **tạm
    tắt** một luật (luật mờ đi, chương trình bỏ qua; đánh dấu lại là dùng lại), bấm ✕ để xóa hẳn. Ô **Tìm luật** lọc
    theo môn, lớp, chữ trong câu. Menu **Tệp luật ▾** để nhập, xuất luật ra Excel (chép luật sang trường khác) hay
    đưa các luật về mặc định.
-   ![Bước 5: danh sách luật](hinh/6_luat.jpg)
+   ![Bước 6: danh sách luật](hinh/6_luat.jpg)
 
    **Thêm luật**: chọn loại luật rồi **+ Thêm luật**; hộp thoại hỏi lần lượt các tiết nào, vào giờ nào, thì sao, mức
    nào, và đọc lại ngay thành câu. Ví dụ **giờ bận** của một giáo viên: loại "Không xếp vào", Giáo viên `Bộ Môn 3`,
    Ngày Thứ 2, Tiết 1-2, để trống Môn.
    ![Ghép luật: giờ bận của một giáo viên](hinh/7_ghep_luat.jpg)
-6. **Kiểm tra & xếp TKB**: chọn chế độ (bù giờ hay tuyển thêm), số tiết bù tối đa, thời gian; bấm **Kiểm tra** (vài
+7. **Kiểm tra & xếp TKB**: chọn chế độ (bù giờ hay tuyển thêm), số tiết bù tối đa, thời gian; bấm **Kiểm tra** (vài
    giây): lỗi hiện kèm chỗ sửa (bấm vào lỗi để tới đúng dòng), cùng **dự toán** số tiết bù, tiết thiếu.
-   ![Bước 6: kiểm tra và dự toán](hinh/8_kiem_tra.jpg)
+   ![Bước 7: kiểm tra và dự toán](hinh/8_kiem_tra.jpg)
 
 ## 3. Xếp TKB và đọc kết quả
 
@@ -84,11 +90,11 @@ Các file ra nằm trong mục **Các file Excel**, mỗi file có nút **Mở**
 
 ![Kết quả: mã TKB và các file ra](hinh/9_ket_qua.jpg)
 
-Bấm **Xem TKB trên trang** để mở bước **7. Thời khóa biểu**: TKB hiện thành lưới theo khối, theo lớp hoặc theo giáo
+Bấm **Xem TKB trên trang** để mở bước **8. Thời khóa biểu**: TKB hiện thành lưới theo khối, theo lớp hoặc theo giáo
 viên (chọn ở ô đầu trang). Mỗi ô ghi môn và người dạy (rê chuột thấy Mã GV); **bù** là tiết dạy bù, 🔒 là ô khóa. Trang
 kiểm lại mọi luật bắt buộc: đạt thì có dòng xanh "TKB đạt mọi luật bắt buộc" và dấu ✓ trên tab.
 
-![Bước 7: thời khóa biểu trên trang](hinh/10_tkb.jpg)
+![Bước 8: thời khóa biểu trên trang](hinh/10_tkb.jpg)
 
 | File | Nội dung |
 |---|---|
@@ -114,7 +120,7 @@ Luôn làm việc trên file **`<tên>_cap_nhat.xlsx`** của lần chạy trư�
   từng ô, mã TKB giữ nguyên, chỉ thêm tên.
 - **Có thay đổi** (một người xin nghỉ một buổi, đổi định mức, sửa luật, sửa tay vài ô): chương trình **xếp lại ít xáo
   trộn nhất**, giữ mọi ô được, chỉ dời các tiết cần dời. Sheet **Thay đổi** của `Thong_Ke.xlsx` liệt kê các ô đổi.
-- **Đổi vài tiết trên trang** (bước 7): bấm một tiết, các ô cùng lớp đổi được mà không sai luật bắt buộc nào có viền
+- **Đổi vài tiết trên trang** (bước 8): bấm một tiết, các ô cùng lớp đổi được mà không sai luật bắt buộc nào có viền
   xanh; bấm ô thứ hai cùng lớp để đổi chỗ. Hai ô vừa đổi được khóa 🔒. Trang kiểm luật ngay: sai thì ô có lỗi viền đỏ,
   câu lỗi ghi rõ ai trùng giờ, luật nào sai (bấm vào câu để tới ô). Đổi nhầm thì **↶ Hoàn tác**.
   ![Đổi hai tiết: chọn một ô, các ô viền xanh đổi được](hinh/11_doi_o.jpg)
@@ -125,7 +131,7 @@ Luôn làm việc trên file **`<tên>_cap_nhat.xlsx`** của lần chạy trư�
 - **Khóa ô**: trên trang, chọn ô rồi bấm **🔒 Khóa ô này**; hoặc ở sheet **TKB đã xếp** của file cập nhật, thêm chữ
   `(khóa)` vào cuối ô (vd dòng thứ hai `Bộ Môn 2 (khóa)`): ô đó giữ nguyên bắt buộc khi xếp lại.
 - **Giờ bận theo tiết**: luật "Không xếp vào", Giáo viên ghi Mã GV hoặc họ tên, Ngày và Tiết, để trống Môn.
-- **Chọn ai dạy lớp nào**: ở bước 7, chọn một tiết của môn đó rồi chọn người ở ô **Người dạy … lớp …** (chỉ có ở các môn
+- **Chọn ai dạy lớp nào**: ở bước 8, chọn một tiết của môn đó rồi chọn người ở ô **Người dạy … lớp …** (chỉ có ở các môn
   không có phần GVCN dạy): trang ghi luật "Chỉ giáo viên dạy" ở bước Luật; bấm **Xếp lại phần còn lại** để đổi người
   dạy, giữ TKB cũ nhiều nhất. Cũng ghi tay được ở bước Luật: "Chỉ giáo viên dạy", Môn, Lớp và một người, vd Tiếng Anh
   lớp 3/1 chỉ `Tiếng Anh 2` dạy.

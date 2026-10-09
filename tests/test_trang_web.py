@@ -159,3 +159,39 @@ def test_free_time_frame(page):
     page.keyboard.press("Escape")
     _wait_mark(page, "khung", "✓")
     _wait_mark(page, "gv", "✓")
+
+
+def test_class_step(page):
+    """Bước Lớp: lấy lớp từ các Chủ Nhiệm, thêm khối tên chữ và một lớp chưa có Chủ Nhiệm, đổi tên khối thì số tiết
+    của môn và khối của lớp đổi theo; Chủ Nhiệm chọn Lớp trong danh sách; lỗi của sheet LỚP về đúng bước, đúng dòng."""
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    _wait_mark(page, "lop", "✓")
+    page.click('.tabs [data-tab="lop"]')
+    assert "Chưa ghi lớp nào" in page.text_content("#class-summary")
+    page.click('[data-act="classes-from-homeroom"]')
+    assert page.text_content("#count-lop") == "29"
+    page.fill("#new-grade", "Lá")
+    page.click('[data-act="add-grade"]')
+    page.click('[data-act="add-class"]')
+    name = page.locator('#class-table [data-f="class"][data-i="29"][data-k="name"]')
+    name.fill("Lá 1")
+    name.press("Tab")
+    page.select_option('#class-table [data-f="class"][data-i="29"][data-k="grade"]', "Lá")
+    assert "1 lớp chưa có Chủ Nhiệm" in page.text_content("#class-summary")
+    grade = page.locator('#grade-list [data-f="grade"]').last
+    grade.fill("Mầm")
+    grade.press("Tab")
+    sc = page.evaluate("({grades: st.scenario.grades, cls: st.scenario.classes[29], lessons: st.scenario.subjects[0].lessons})")
+    assert sc["grades"] == [1, 2, 3, 4, 5, "Mầm"] and sc["cls"] == {"name": "Lá 1", "grade": "Mầm", "campus2": False}
+    assert "Mầm" in sc["lessons"] and "Lá" not in sc["lessons"]
+    _wait_mark(page, "lop", "✓")
+    # Chủ Nhiệm ghi lớp không có trong danh sách: lỗi ở bước Giáo viên; xóa lớp 1/1 khỏi danh sách cũng vậy.
+    page.click('#class-table [data-act="del-class"][data-i="0"]')
+    _wait_mark(page, "gv", "⚠")
+    assert "1/1" in page.text_content("#tab-gv .step-errors")
+    page.click('.tabs [data-tab="gv"]')
+    options = page.evaluate("[...document.querySelectorAll('#class-list option')].map((o) => o.value)")
+    assert "Lá 1" in options and "1/1" not in options and len(options) == 29
+    page.click("#btn-undo")
+    _wait_mark(page, "gv", "✓")

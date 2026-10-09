@@ -46,7 +46,7 @@ class Teacher:
     off_any: tuple[tuple[str | None, int], ...] = ()  # nghỉ thêm n buổi bất kỳ: (tên buổi, None = buổi nào cũng được; n)
 
     @property
-    def grade(self) -> int | None:
+    def grade(self) -> int | str | None:
         return grade_of(self.class_name) if self.class_name else None
 
     @property
@@ -101,29 +101,103 @@ _CLASS_RE = re.compile(r"^(\d+)\s*/\s*(\d+)$")
 _CLASS_NAMED_RE = re.compile(r"^(\d+)\s*([^\W\d_]+)\s*(\d*)$")  # khối + chữ + số, vd "1D15", "2A"
 
 
-def parse_class(value) -> str:
-    """Cột Lớp: khối/số thứ tự, vd "1/1", hoặc khối + tên lớp, vd "1D15" (khối là các chữ số đầu)."""
-    if isinstance(value, (datetime.date, datetime.datetime)):
-        raise InputError(f"cột Lớp bị Excel đổi thành ngày tháng ({value:%d/%m}); hãy chọn lớp từ danh sách "
-                         f"thả xuống hoặc định dạng cột Lớp là Text")
-    text = normalize(value)
+def _numbered_class(text: str) -> str | None:
+    """Tên lớp theo cách ghi có khối ở đầu: "1/1", "1 / 1" -> "1/1"; "1d15" -> "1D15"; cách ghi khác: None."""
     if m := _CLASS_RE.match(text):
         return f"{int(m.group(1))}/{int(m.group(2))}"
     if m := _CLASS_NAMED_RE.match(text):
         return f"{int(m.group(1))}{m.group(2).upper()}{m.group(3)}"
-    raise InputError(f"cột Lớp phải ghi dạng khối/số thứ tự (vd '1/1') hoặc khối rồi tên lớp (vd '1D15'), "
-                     f"đang ghi {value!r}")
+    return None
 
 
-def grade_of(class_name: str) -> int:
-    """Khối của một lớp: các chữ số đầu tên lớp, vd "1/2" và "1D15" đều là khối 1."""
-    return int(re.match(r"\d+", class_name).group())
+def canonical_class(value) -> str:
+    """Tên lớp ở sheet LỚP: "1 / 1" viết thành "1/1", tên khác giữ như ghi (vd "1 Blue", "Lá 2")."""
+    if m := _CLASS_RE.match(normalize(value)):
+        return f"{int(m.group(1))}/{int(m.group(2))}"
+    return clean_name(value)
 
 
-def class_sort_key(class_name: str) -> tuple[int, str, int]:
-    """Sắp lớp theo khối, rồi phần chữ, rồi số: "1/2" trước "1/10", "1D9" trước "1D15"."""
+_school_cache: tuple = (None, {}, {})
+
+
+def _school() -> tuple[dict[str, config.SchoolClass], dict[str, str]]:
+    """Các lớp của sheet LỚP (config.CLASSES): ({tên: lớp}, {tên viết thường bỏ dấu: tên}); trống nếu file không có
+    sheet LỚP."""
+    global _school_cache
+    if _school_cache[0] is not config.CLASSES:
+        _school_cache = (config.CLASSES, {c.name: c for c in config.CLASSES},
+                         {_fold(c.name): c.name for c in config.CLASSES})
+    return _school_cache[1], _school_cache[2]
+
+
+def parse_class(value) -> str:
+    """Cột Lớp: một lớp của sheet LỚP (tên tùy ý); file không có sheet LỚP thì khối/số thứ tự, vd "1/1", hoặc khối +
+    tên lớp, vd "1D15" (khối là các chữ số đầu)."""
+    if isinstance(value, (datetime.date, datetime.datetime)):
+        raise InputError(f"cột Lớp bị Excel đổi thành ngày tháng ({value:%d/%m}); hãy chọn lớp từ danh sách "
+                         f"thả xuống hoặc định dạng cột Lớp là Text")
+    names = _school()[1]
+    if names:  # tên như ghi ở sheet LỚP, không phân biệt hoa thường; "1d15" cũng khớp lớp "1D15"
+        for key in (canonical_class(value), _numbered_class(normalize(value))):
+            if key and _fold(key) in names:
+                return names[_fold(key)]
+        raise InputError(f"lớp {clean_name(value)!r} không có trong sheet {config.CLASSES_SHEET}")
+    name = _numbered_class(normalize(value))
+    if name is None:
+        raise InputError(f"cột Lớp phải ghi dạng khối/số thứ tự (vd '1/1') hoặc khối rồi tên lớp (vd '1D15'), "
+                         f"đang ghi {value!r}; muốn đặt tên lớp tùy ý thì ghi các lớp ở sheet {config.CLASSES_SHEET}")
+    return name
+
+
+def parse_grade(value) -> int | str:
+    """Tên khối (cột Khối <tên> của sheet CHƯƠNG TRÌNH HỌC, cột Khối của sheet LỚP, LUẬT): ghi toàn chữ số thì là số
+    (vd 1), không thì giữ chữ như ghi (vd "Lá", "Year 7")."""
+    if isinstance(value, bool) or (isinstance(value, (int, float)) and (value != int(value) or value < 0)):
+        raise InputError(f"tên khối không hợp lệ: {value!r}")
+    if isinstance(value, (int, float)):
+        return int(value)
+    text = clean_name("" if value is None else value)
+    if not text:
+        raise InputError("thiếu tên khối")
+    return int(text) if text.isdigit() else text
+
+
+def natural_key(text: str) -> tuple:
+    """Thứ tự tự nhiên của chữ: phần số so theo số ("Lá 2" trước "Lá 10"), phần chữ không phân biệt hoa thường, dấu."""
+    return tuple((0, int(p), "") if p.isdigit() else (1, 0, _fold(p)) for p in re.findall(r"\d+|\D+", text))
+
+
+def grade_key(grade) -> tuple:
+    """Thứ tự khối: các khối số theo số (1 < 2 < 10), rồi các khối tên chữ theo thứ tự tự nhiên."""
+    return (0, grade) if isinstance(grade, int) else (1, natural_key(str(grade)))
+
+
+def grade_of(class_name: str) -> int | str:
+    """Khối của một lớp: cột Khối của sheet LỚP; lớp không có ở đó thì các chữ số đầu tên lớp, vd "1/2" và "1D15"
+    đều là khối 1."""
+    known = _school()[0].get(class_name)
+    if known is not None:
+        return known.grade
+    m = re.match(r"\d+", class_name)
+    if m is None:
+        raise InputError(f"không biết lớp {class_name!r} thuộc khối nào (ghi lớp này ở sheet {config.CLASSES_SHEET})")
+    return int(m.group())
+
+
+def class_campus2(class_name: str) -> bool:
+    """Lớp ghi Có ở cột Cơ sở 2 của sheet LỚP (lớp ở cơ sở 2 còn có thể đánh dấu ở dòng Chủ Nhiệm)."""
+    known = _school()[0].get(class_name)
+    return known is not None and known.campus2
+
+
+def class_sort_key(class_name: str) -> tuple:
+    """Sắp lớp theo khối (grade_key), rồi theo tên: "1/2" trước "1/10", "1D9" trước "1D15", "Lá 2" trước "Lá 10"."""
+    try:
+        grade = grade_key(grade_of(class_name))
+    except InputError:
+        grade = (2,)
     m = re.match(r"(\d+)\D*?([^\W\d_]*)(\d*)$", class_name)
-    return int(m.group(1)), m.group(2), int(m.group(3) or 0)
+    return grade, ((0, m.group(2), int(m.group(3) or 0)) if m else (1, natural_key(class_name)))
 
 
 def _fold(text) -> str:
@@ -345,12 +419,13 @@ def make_teacher(name, role: str, index: int | None, class_name: str | None, les
 def _check_extras(teachers: list[Teacher]) -> list[str]:
     """Lỗi của các cột không bắt buộc cần cả danh sách mới kiểm được (lớp trong Lớp Đang Dạy, thai sản, buổi nghỉ)."""
     errors: list[str] = []
-    classes = {t.class_name: t for t in teachers if t.class_name}
+    classes = set(class_list(teachers))
     for t in teachers:
-        unknown = sorted(t.history - classes.keys(), key=class_sort_key)
+        unknown = sorted(t.history - classes, key=class_sort_key)
         if unknown:
-            errors.append(f"Dòng {t.row}: cột Lớp Đang Dạy có lớp không có Chủ Nhiệm nào: {', '.join(unknown)}")
-        if t.class_name and t.maternity and not t.campus2:
+            where = f"không có trong sheet {config.CLASSES_SHEET}" if config.CLASSES else "không có Chủ Nhiệm nào"
+            errors.append(f"Dòng {t.row}: cột Lớp Đang Dạy có lớp {where}: {', '.join(unknown)}")
+        if t.class_name and t.maternity and not (t.campus2 or class_campus2(t.class_name)):
             errors.append(f"Dòng {t.row}: GVCN thai sản chỉ dạy ở cơ sở 2 nhưng lớp {t.class_name} không đánh dấu "
                           f"Cơ sở 2")
         if t.class_name:
@@ -386,8 +461,9 @@ def validate(teachers: list[Teacher]) -> None:
                 errors.append(f"Trùng chức vụ '{t.role} {t.index}' (dòng {keys[key].row} và {t.row})")
             else:
                 keys[key] = t
-    if not homeroom:
-        errors.append("Không có Chủ Nhiệm nào nên không xác định được danh sách lớp")
+    if not homeroom and not config.CLASSES:
+        errors.append(f"Không có Chủ Nhiệm nào nên không xác định được danh sách lớp (hoặc ghi các lớp ở sheet "
+                      f"{config.CLASSES_SHEET})")
     if errors:
         raise InputError("\n".join(errors))
 
@@ -416,7 +492,8 @@ def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
             index = class_name = None
             if role == config.ROLE_HOMEROOM:
                 if _blank(cls):
-                    raise InputError("Chủ Nhiệm phải ghi Lớp dạng khối/số thứ tự, vd '1/1'")
+                    raise InputError(f"Chủ Nhiệm phải ghi Lớp (một lớp của sheet {config.CLASSES_SHEET})"
+                                     if config.CLASSES else "Chủ Nhiệm phải ghi Lớp dạng khối/số thứ tự, vd '1/1'")
                 class_name = parse_class(cls)
             elif not _blank(cls):
                 raise InputError(f"chỉ Chủ Nhiệm mới ghi Lớp (chức vụ đang là {title!r})")
@@ -453,5 +530,8 @@ def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
     return teachers
 
 
-def classes_from_staff(teachers: list[Teacher]) -> list[str]:
-    return sorted((t.class_name for t in teachers if t.class_name), key=class_sort_key)
+def class_list(teachers: list[Teacher]) -> list[str]:
+    """Các lớp của trường: sheet LỚP (lớp có thể không có GVCN); file không có sheet LỚP thì lớp của các dòng Chủ
+    Nhiệm."""
+    names = [c.name for c in config.CLASSES] or [t.class_name for t in teachers if t.class_name]
+    return sorted(names, key=class_sort_key)
