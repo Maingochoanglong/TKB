@@ -41,11 +41,12 @@ def test_grade_names_and_order():
     old = ["2/1", "1D15", "1/10", "1D9", "1/2"]
     assert sorted(old, key=class_sort_key) == ["1/2", "1/10", "1D9", "1D15", "2/1"]
     school = (config.SchoolClass("Lá 10", "Lá"), config.SchoolClass("Chồi 1", "Chồi"), config.SchoolClass("Lá 2", "Lá"),
-              config.SchoolClass("1A", 1))
+              config.SchoolClass("1A", 1), config.SchoolClass("1 Blue", 1))
     with applied({"CLASSES": school}):
         assert sorted(c.name for c in school) != sorted((c.name for c in school), key=class_sort_key)
-        assert sorted((c.name for c in school), key=class_sort_key) == ["1A", "Chồi 1", "Lá 2", "Lá 10"]
+        assert sorted((c.name for c in school), key=class_sort_key) == ["1A", "1 Blue", "Chồi 1", "Lá 2", "Lá 10"]
         assert grade_of("Lá 10") == "Lá" and parse_class("lá  10") == "Lá 10"
+        assert parse_class("1 blue") == "1 Blue" and parse_class("1a") == "1A"
         with pytest.raises(InputError, match="không có trong sheet LỚP"):
             parse_class("Lá 3")
 

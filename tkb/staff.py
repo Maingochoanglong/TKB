@@ -111,8 +111,10 @@ def _numbered_class(text: str) -> str | None:
 
 
 def canonical_class(value) -> str:
-    """Tên lớp ở sheet LỚP: lớp ghi có khối ở đầu viết theo một cách ("1 / 1" -> "1/1"), tên khác giữ như ghi."""
-    return _numbered_class(normalize(value)) or clean_name(value)
+    """Tên lớp ở sheet LỚP: "1 / 1" viết thành "1/1", tên khác giữ như ghi (vd "1 Blue", "Lá 2")."""
+    if m := _CLASS_RE.match(normalize(value)):
+        return f"{int(m.group(1))}/{int(m.group(2))}"
+    return clean_name(value)
 
 
 _school_cache: tuple = (None, {}, {})
@@ -135,11 +137,11 @@ def parse_class(value) -> str:
         raise InputError(f"cột Lớp bị Excel đổi thành ngày tháng ({value:%d/%m}); hãy chọn lớp từ danh sách "
                          f"thả xuống hoặc định dạng cột Lớp là Text")
     names = _school()[1]
-    if names:
-        name = names.get(_fold(canonical_class(value)))
-        if name is None:
-            raise InputError(f"lớp {clean_name(value)!r} không có trong sheet {config.CLASSES_SHEET}")
-        return name
+    if names:  # tên như ghi ở sheet LỚP, không phân biệt hoa thường; "1d15" cũng khớp lớp "1D15"
+        for key in (canonical_class(value), _numbered_class(normalize(value))):
+            if key and _fold(key) in names:
+                return names[_fold(key)]
+        raise InputError(f"lớp {clean_name(value)!r} không có trong sheet {config.CLASSES_SHEET}")
     name = _numbered_class(normalize(value))
     if name is None:
         raise InputError(f"cột Lớp phải ghi dạng khối/số thứ tự (vd '1/1') hoặc khối rồi tên lớp (vd '1D15'), "

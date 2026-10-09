@@ -470,7 +470,7 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_A
 - `role_errors(teachers, subjects)` — Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý, không có trong sheet CHỨC VỤ (config.CUSTOM_ROLES) và không trùng
 - `canonical_title(role, index, class_name)`
 - `_numbered_class(text)` — Tên lớp theo cách ghi có khối ở đầu: "1/1", "1 / 1" -> "1/1"; "1d15" -> "1D15"; cách ghi khác: None.
-- `canonical_class(value)` — Tên lớp ở sheet LỚP: lớp ghi có khối ở đầu viết theo một cách ("1 / 1" -> "1/1"), tên khác giữ như ghi.
+- `canonical_class(value)` — Tên lớp ở sheet LỚP: "1 / 1" viết thành "1/1", tên khác giữ như ghi (vd "1 Blue", "Lá 2").
 - `_school()` — Các lớp của sheet LỚP (config.CLASSES): ({tên: lớp}, {tên viết thường bỏ dấu: tên}); trống nếu file không có
 - `parse_class(value)` — Cột Lớp: một lớp của sheet LỚP (tên tùy ý); file không có sheet LỚP thì khối/số thứ tự, vd "1/1", hoặc khối +
 - `parse_grade(value)` — Tên khối (cột Khối <tên> của sheet CHƯƠNG TRÌNH HỌC, cột Khối của sheet LỚP, LUẬT): ghi toàn chữ số thì là số
