@@ -5,7 +5,7 @@ import json
 
 import openpyxl
 
-from tkb import config, kich_ban, luat_co_san, luat_rieng
+from tkb import bo_mau, config, kich_ban, luat_co_san, luat_rieng
 from tkb.program import read_program
 from tkb.rules import DEFAULTS, LEGACY, SUBJECT_COLS, applied, code, read_rules
 from tkb.staff import read_saved_timetable, read_staff
@@ -89,7 +89,7 @@ def test_rules_edited_in_the_scenario_reach_the_file(tmp_path):
     rules = read_rules(out)
     assert rules["SESSION_GROUP_LIMIT"] == 3
     assert rules["DAYS"][-1] == "Thứ 7" and len(rules["DAY_SESSIONS"]) == 6
-    assert config.TIENG_ANH in rules["MORNING_SUBJECTS"] and rules["DISPLAY_NAMES"][config.TIENG_ANH] == "TA"
+    assert bo_mau.TIENG_ANH in rules["MORNING_SUBJECTS"] and rules["DISPLAY_NAMES"][bo_mau.TIENG_ANH] == "TA"
 
 
 def test_old_draft_frame_is_upgraded(tmp_path):

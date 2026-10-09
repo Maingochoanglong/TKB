@@ -33,11 +33,11 @@ from pathlib import Path
 
 import openpyxl
 
-from . import bo_ghep, config, khung_gio, luat_co_san, luat_rieng
+from . import bo_ghep, bo_mau, config, khung_gio, luat_co_san, luat_rieng
 from .program import grade_columns, read_program
 from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, NO, PERIOD_COLS,
-                    PERIOD_KEY, SESSION_PREFIX, VALUE, YES, applied, luat_row, read_rules, rule_tables, subject_columns,
-                    visible)
+                    PERIOD_KEY, SESSION_PREFIX, VALUE, YES, applied, luat_row, mau as rules_mau, read_rules,
+                    rule_tables, subject_columns, visible)
 from .rules import SUBJECT_COLS as _ALL_SUBJECT_COLS
 from .staff import (InputError, _find_columns, _fold, _NO, _YES, class_list, class_sort_key, clean_name, find_sheet,
                     grade_key, grade_of, normalize, parse_grade, read_staff, staff_sheet, subject_key)
@@ -90,6 +90,7 @@ def schema() -> dict:
         "day": [_col(c) for c in DAY_COLS_V],
         "period": [_col(c) for c in PERIOD_COLS],
         "days": DAY_SUGGESTIONS,
+        "presets": [{"key": k, "name": name, "note": note} for k, (name, note) in bo_mau.PRESETS.items()],
         "session_prefix": SESSION_PREFIX,
         "custom": {"columns": [{"key": k, "header": h} for k, h in (luat_rieng.GROUP, *luat_rieng.COLUMNS)],
                    "kinds": [{"key": k.key, "label": k.label, "needs": list(k.needs), "uses": list(k.uses),
@@ -372,16 +373,17 @@ def sample_scenario() -> dict:
     return scenario
 
 
-def default_scenario() -> dict:
-    """Kịch bản trống như file mẫu (python -m tkb.template): chưa có nhân sự, các môn có quy định mặc định với số tiết
-    để trống, mọi quy định là giá trị mặc định."""
-    grades, _, rows = program_rows(None)
-    names = [row[0] for row in rows]
-    general, frame, periods, by_subject, _ = _rules_part(names)
+def default_scenario(mau: str | None = None) -> dict:
+    """Kịch bản trống như file mẫu (python -m tkb.template): chưa có nhân sự, các môn có quy định của bộ luật mẫu `mau`
+    (tkb/bo_mau.py; không ghi: giá trị mặc định, tức bộ Tiểu học Việt Nam) với số tiết để trống."""
+    with applied(rules_mau(mau) if mau else None):
+        grades, _, rows = program_rows(None)
+        names = [row[0] for row in rows]
+        general, frame, periods, by_subject, _ = _rules_part(names)
+        luat = [rule_dict(r) for r in (luat_co_san.rows() if mau else luat_co_san.default_rows())]
     return {"version": VERSION, "staff": [], "grades": grades,
             "subjects": [{"name": n, "lessons": {str(g): None for g in grades}, "rules": by_subject[n]} for n in names],
-            "classes": [], "roles": [], "general": general, **frame, "periods": periods,
-            "rules": [rule_dict(r) for r in luat_co_san.default_rows()], "saved": None}
+            "classes": [], "roles": [], "general": general, **frame, "periods": periods, "rules": luat, "saved": None}
 
 
 # ---- ghi kịch bản ra file Excel ----

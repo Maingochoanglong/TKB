@@ -6,7 +6,7 @@ from dataclasses import replace
 import openpyxl
 import pytest
 
-from tkb import bo_ghep, checker, config, luat_co_san, luat_rieng, solver
+from tkb import bo_ghep, bo_mau, checker, config, luat_co_san, luat_rieng, solver
 from tkb.rules import DEFAULTS, applied, code, read_rules
 from tkb.template import write_staff_template
 
@@ -179,7 +179,7 @@ def test_legacy_file_rows(tmp_path):
     wb.save(path)
     rules = read_rules(path)
     assert "RULES" not in rules and rules["SESSION_GROUP_LIMIT"] == 3 and rules["OFF"] == frozenset()
-    assert rules["DAILY_LIMITS"] == {config.TIENG_ANH: 2}  # cột cũ có thì là đủ (Toán để trống: không giới hạn)
+    assert rules["DAILY_LIMITS"] == {bo_mau.TIENG_ANH: 2}  # cột cũ có thì là đủ (Toán để trống: không giới hạn)
     assert [r.kind for r in rules["CUSTOM_RULES"]] == ["khong_xep"]
     with applied(rules):
         assert luat_co_san.rows()[0].number == 3  # dòng mặc định lấy số từ cột cũ

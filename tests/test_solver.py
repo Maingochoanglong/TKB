@@ -3,7 +3,7 @@ from collections import Counter
 
 import pytest
 
-from tkb import config
+from tkb import bo_mau, config
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.phan_cong import phan_cong, tach_tiet_bu
@@ -51,7 +51,7 @@ def test_checker_detects_violations(small_solution):
     sol = small_solution
     lessons = list(sol.lessons)
     # GVCN lớp 3/2 dạy sang lớp 3/1.
-    i = next(k for k, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == config.TV)
+    i = next(k for k, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == bo_mau.TV)
     bad = lessons[:i] + [dataclasses.replace(lessons[i], teacher="chủ nhiệm 3/2")] + lessons[i + 1:]
     errors = check(sol.problem, bad)
     assert any("không phải GVCN" in e for e in errors)
@@ -95,8 +95,8 @@ def test_extra_lessons_after_main_lessons(small_solution):
 def test_checker_flags_extra_lesson_before_main(small_solution):
     sol = small_solution
     lessons = sol.lessons
-    e = next(l for l in lessons if l.subject == config.TOAN_TC)
-    main = next(l for l in lessons if l.class_name == e.class_name and l.day == e.day and l.subject == config.TOAN)
+    e = next(l for l in lessons if l.subject == bo_mau.TOAN_TC)
+    main = next(l for l in lessons if l.class_name == e.class_name and l.day == e.day and l.subject == bo_mau.TOAN)
     swapped = [dataclasses.replace(l, period=main.period) if l is e
                else dataclasses.replace(l, period=e.period) if l is main else l for l in lessons]
     assert any("phải sau các tiết Toán" in err for err in check(sol.problem, swapped))
@@ -112,7 +112,7 @@ def test_slot_capacity_limits_assignment():
     problem = build_problem(staff, CURRICULUM, {}, overtime_max=2)
     plan = phan_cong(problem, FAST.weights)
     assert plan.missing_total() == 28 - 26
-    assert {problem.courses[cid].subject for cid in plan.missing} == {config.TIENG_ANH}
+    assert {problem.courses[cid].subject for cid in plan.missing} == {bo_mau.TIENG_ANH}
     split = tach_tiet_bu(problem, plan, staff, include_missing=True)
     assert {r: len(g) for r, g in split.items()} == {"tiếng anh": 1}
 
@@ -185,7 +185,7 @@ def test_overtime_homeroom_before_general():
 def test_checker_flags_invalid_overtime(overtime_solution):
     sol = overtime_solution
     lessons = list(sol.lessons)
-    i = next(k for k, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == config.TIENG_ANH)
+    i = next(k for k, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == bo_mau.TIENG_ANH)
     bad = lessons[:i] + [dataclasses.replace(lessons[i], teacher="chủ nhiệm 3/1")] + lessons[i + 1:]
     errors = check(sol.problem, bad)
     assert any("dạy bù" in e for e in errors)
@@ -223,7 +223,7 @@ def test_contiguous_when_a_subject_must_repeat_in_a_session():
     staff = [teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
     sol = solve(staff, CURRICULUM, FAST, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
-    pairs = Counter((l.class_name, l.day, l.period < 5, l.subject) for l in sol.lessons if l.subject == config.TV)
+    pairs = Counter((l.class_name, l.day, l.period < 5, l.subject) for l in sol.lessons if l.subject == bo_mau.TV)
     assert sum(1 for n in pairs.values() if n == 2) >= 2 * 5
     assert split_subjects(sol.lessons) == []
 
@@ -280,16 +280,16 @@ def test_checker_flags_new_teacher_rules(overtime_solution):
     lessons = list(sol.lessons)
     grid = {(l.class_name, l.day, l.period): i for i, l in enumerate(lessons)}
     # Liên tiết do 2 người: đổi người dạy một tiết trong cặp TV liền nhau.
-    i = next(i for (c, d, p), i in grid.items() if lessons[i].subject == config.TV
-             and (j := grid.get((c, d, p + 1))) is not None and lessons[j].subject == config.TV and p != 4)
+    i = next(i for (c, d, p), i in grid.items() if lessons[i].subject == bo_mau.TV
+             and (j := grid.get((c, d, p + 1))) is not None and lessons[j].subject == bo_mau.TV and p != 4)
     bad = list(lessons)
     bad[i] = dataclasses.replace(bad[i], teacher="tiếng anh 1")
     errors = check(sol.problem, bad)
     assert any("do 2 người dạy" in e for e in errors)
     # Toán 2 tiết trong một ngày.
-    t = [i for i, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == config.TOAN]
+    t = [i for i, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == bo_mau.TOAN]
     other = next(i for i, l in enumerate(lessons) if l.class_name == "3/1" and l.day == lessons[t[0]].day
-                 and l.subject not in (config.TOAN, config.HDTN) and l.period != 1)
+                 and l.subject not in (bo_mau.TOAN, config.HDTN) and l.period != 1)
     bad = list(lessons)
     bad[t[1]], bad[other] = (dataclasses.replace(bad[t[1]], day=bad[other].day, period=bad[other].period),
                              dataclasses.replace(bad[other], day=bad[t[1]].day, period=bad[t[1]].period))
@@ -301,9 +301,9 @@ def test_checker_flags_other_teacher_before_homeroom(small_solution):
     sol = small_solution
     lessons = list(sol.lessons)
     # Tiết TV đầu tuần của lớp 3/1 giao cho bộ môn: người khác dạy trước GVCN.
-    i = min((i for i, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == config.TV and l.period != 1),
+    i = min((i for i, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == bo_mau.TV and l.period != 1),
             key=lambda i: (lessons[i].day, lessons[i].period))
-    first = min((l.day, l.period) for l in lessons if l.class_name == "3/1" and l.subject == config.TV)
+    first = min((l.day, l.period) for l in lessons if l.class_name == "3/1" and l.subject == bo_mau.TV)
     bad = list(lessons)
     bad[i] = dataclasses.replace(bad[i], teacher="bộ môn 1")
     if (lessons[i].day, lessons[i].period) == first:
@@ -316,7 +316,7 @@ def test_vietnamese_is_paired_in_grade_one():
     staff = [teacher(n, t, s, row=i + 2) for i, (n, t, s) in enumerate(rows)]
     sol = solve(staff, CURRICULUM, FAST, log=lambda *_: None)
     assert check(sol.problem, sol.lessons) == []
-    per_session = Counter((l.class_name, l.day, l.period < 5) for l in sol.lessons if l.subject == config.TV)
+    per_session = Counter((l.class_name, l.day, l.period < 5) for l in sol.lessons if l.subject == bo_mau.TV)
     assert set(per_session.values()) == {2}  # 14 tiết = 7 cặp liền, mỗi cặp một người dạy
 
 
@@ -343,10 +343,10 @@ def test_locked_cells_that_break_rules_are_released(small_solution):
     """Ô khóa không xếp được (chiều Thứ 6 không học) bị bỏ qua; ô khóa mâu thuẫn với luật (hai tiết Toán một
     ngày) thì bỏ khóa và xếp lại, vẫn giữ TKB cũ nhiều nhất có thể."""
     first = small_solution
-    toan = sorted((l for l in first.lessons if l.class_name == "3/1" and l.subject == config.TOAN),
+    toan = sorted((l for l in first.lessons if l.class_name == "3/1" and l.subject == bo_mau.TOAN),
                   key=lambda l: (l.day, l.period))
     a, b = toan[0], next(l for l in toan if l.day != toan[0].day)
-    other = next(l for l in first.lessons if l.class_name == "3/1" and l.day == a.day and l.subject != config.TOAN
+    other = next(l for l in first.lessons if l.class_name == "3/1" and l.day == a.day and l.subject != bo_mau.TOAN
                  and l.period not in config.HOMEROOM_PERIODS and l.subject != config.HDTN)
     swap = {(b.day, b.period): (other.day, other.period), (other.day, other.period): (b.day, b.period)}
     rows = _rows(first, locked=lambda l: l in (a, b, other),

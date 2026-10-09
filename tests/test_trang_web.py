@@ -195,3 +195,21 @@ def test_class_step(page):
     assert "Lá 1" in options and "1/1" not in options and len(options) == 29
     page.click("#btn-undo")
     _wait_mark(page, "gv", "✓")
+
+
+def test_new_from_empty_preset(page):
+    """Trang bắt đầu, Soạn mới bộ Trống: chưa có môn nào, các luật có sẵn theo quy ước Tạm tắt (bật lại bằng ô Dùng);
+    bộ Tiểu học Việt Nam có đủ các môn mặc định."""
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="new"][data-mau="trong"]')
+    page.wait_for_selector("#start", state="hidden")
+    sc = page.evaluate("({subjects: st.scenario.subjects.length, off: st.scenario.rules.filter((r) => r.off).length,"
+                       " rules: st.scenario.rules.length})")
+    assert sc["subjects"] == 0 and sc["off"] == 14 and sc["rules"] == 23
+    assert page.text_content("#count-luat") == "9"
+    _wait_mark(page, "mon", "⚠")  # chưa có môn nào: bước Môn học báo
+    page.click("#file-menu summary")
+    page.click("#btn-new")
+    page.click('[data-start="new"][data-mau="tieu_hoc_vn"]')
+    page.wait_for_function("document.querySelector('#count-mon').textContent === '15'")
+    assert page.evaluate("st.scenario.rules.filter((r) => r.off).length") == 0

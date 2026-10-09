@@ -4,41 +4,27 @@ Dữ liệu của trường (danh sách môn, số tiết từng khối, giáo v
 file vào, không ghi ở đây. Solver không hard-code số lớp, số tiết hay quyền dạy.
 Các luật nghiệp vụ (khung giờ, HĐTN, GVCN, quyền dạy, bù giờ, luật bảo vệ học sinh, môn nặng, tên viết tắt) nhà
 trường sửa trong file vào (các cột quy định của sheet CHƯƠNG TRÌNH HỌC và sheet QUY ĐỊNH, tkb/rules.py); giá trị
-dưới đây chỉ dùng cho quy định file vào không ghi.
+dưới đây chỉ dùng cho quy định file vào không ghi. Các giá trị gắn với tên môn không ghi ở đây: lấy từ bộ luật mẫu
+Tiểu học Việt Nam (tkb/bo_mau.py), một dữ liệu như mọi bộ mẫu khác.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 
-# --------------------------------------------------------------------------
-# Môn học
-# --------------------------------------------------------------------------
-# Danh sách môn và số tiết từng khối lấy từ sheet CHƯƠNG TRÌNH HỌC của file vào. Các tên dưới đây chỉ
-# dùng để gắn luật cho môn; so khớp với tên trong file không phân biệt hoa thường, dấu câu và chữ "và"
-# (vd "Lịch Sử và Địa Lý" khớp "Lịch sử - Địa lý"). Môn trong file không có ở đây vẫn được xếp bình
-# thường, chỉ không có luật riêng.
-TV = "Tiếng Việt"
-TOAN = "Toán"
-HDTN = "Hoạt động trải nghiệm"
-KH = "Khoa học"
-LSDL = "Lịch sử - Địa lý"
-DD = "Đạo đức"
-TNXH = "Tự nhiên xã hội"
-KNS = "Kỹ năng sống"
-CONG_NGHE = "Công nghệ"
-TOAN_TC = "Toán tăng cường"
-TV_TC = "Tiếng Việt tăng cường"
-TIENG_ANH = "Tiếng Anh"
-TIN_HOC = "Tin học"
-AM_NHAC = "Âm nhạc"
-MY_THUAT = "Mỹ thuật"
+from . import bo_mau
 
+_MAU = deepcopy(bo_mau.TIEU_HOC_VN)  # bộ mẫu dùng làm giá trị mặc định (file vào không ghi quy định đó)
+
+# --------------------------------------------------------------------------
+# Môn học: danh sách môn và số tiết từng khối lấy từ sheet CHƯƠNG TRÌNH HỌC của file vào. Tên môn trong các quy
+# định so khớp với tên trong file không phân biệt hoa thường, dấu câu và chữ "và"; môn không có quy định nào vẫn
+# được xếp bình thường.
+# --------------------------------------------------------------------------
 # Tên môn hiển thị trong ô TKB (viết tắt); môn không có ở đây giữ nguyên tên.
-DISPLAY_NAMES: dict[str, str] = {
-    HDTN: "HĐTN",
-    TNXH: "TNXH",
-    TV_TC: "TV tăng cường",
-}
+DISPLAY_NAMES: dict[str, str] = _MAU["DISPLAY_NAMES"]
+# Môn chào cờ, sinh hoạt lớp (cột Môn HĐTN); "" là trường không có môn này.
+HDTN: str = _MAU["HDTN"]
 
 # --------------------------------------------------------------------------
 # Khung thời gian
@@ -68,10 +54,10 @@ DAY_SESSIONS: dict[int, tuple[Session, ...]] = {
 OFF_LABEL = "Nghỉ"
 
 # --------------------------------------------------------------------------
-# HĐTN: 2 tiết cố định + tiết còn lại xếp giữa tuần, ưu tiên cuối buổi
+# HĐTN: các tiết cố định (ngày, tiết) và các ngày xếp tiết còn lại (ưu tiên cuối buổi)
 # --------------------------------------------------------------------------
-HDTN_FIXED_SLOTS: list[tuple[int, int]] = [(0, 1), (4, 4)]  # (ngày, tiết): T2 tiết 1, T6 tiết 4
-HDTN_FLEX_DAYS: list[int] = [1, 2, 3]  # Thứ 3 - Thứ 5
+HDTN_FIXED_SLOTS: list[tuple[int, int]] = _MAU["HDTN_FIXED_SLOTS"]
+HDTN_FLEX_DAYS: list[int] = _MAU["HDTN_FLEX_DAYS"]
 
 # --------------------------------------------------------------------------
 # Chức vụ và quyền dạy
@@ -131,11 +117,11 @@ SAVED_LOCKED = "(khóa)"
 SAVED_CODES = ("Mã kết quả", "Mã quy định")
 
 # Môn chỉ GVCN của lớp được dạy.
-HOMEROOM_ONLY_SUBJECTS: set[str] = {HDTN}
+HOMEROOM_ONLY_SUBJECTS: set[str] = _MAU["HOMEROOM_ONLY_SUBJECTS"]
 
 # GV bộ môn dạy được mọi môn trừ các môn sau. Môn bị cấm mà trường chưa có GV chuyên biệt thì chương
 # trình tự thêm chức vụ trùng tên môn để tuyển (vd "tin học 1").
-GENERAL_FORBIDDEN_SUBJECTS: set[str] = {TIENG_ANH, TIN_HOC, HDTN}
+GENERAL_FORBIDDEN_SUBJECTS: set[str] = _MAU["GENERAL_FORBIDDEN_SUBJECTS"]
 
 
 @dataclass(frozen=True)
@@ -150,19 +136,19 @@ class ManagerRule:
     classes: tuple[str, ...] | None = None
 
 
-MANAGER_RULES: list[ManagerRule] = [ManagerRule(subject=KNS, grade=4)]
+MANAGER_RULES: list[ManagerRule] = [ManagerRule(subject=s, grade=g) for s, g in _MAU["MANAGER_RULES"]]
 
 # --------------------------------------------------------------------------
 # Phân công GVCN
 # --------------------------------------------------------------------------
-# GVCN nhận trọn các môn này của lớp mình (HĐTN luôn là GVCN).
-HOMEROOM_PRIORITY: list[str] = [TV, TOAN, HDTN, KH, LSDL, DD]
+# GVCN nhận trọn các môn này của lớp mình.
+HOMEROOM_PRIORITY: list[str] = _MAU["HOMEROOM_PRIORITY"]
 # Vượt định mức: cắt theo thứ tự này, chỉ môn có hơn 1 tiết; GVCN giữ lại ít nhất 1 tiết.
-HOMEROOM_CUT_ORDER: list[str] = [TV, TOAN, KH, LSDL]
+HOMEROOM_CUT_ORDER: list[str] = _MAU["HOMEROOM_CUT_ORDER"]
 # Thiếu định mức: nhận thêm theo thứ tự này (không bao giờ nhận môn của GV chuyên biệt).
-HOMEROOM_FILL_ORDER: list[str] = [TV_TC, TOAN_TC, TNXH, KNS, CONG_NGHE]
-# Các tiết luôn do GVCN của lớp dạy, ở mọi ngày (tiết 1-4 là buổi sáng, 5-7 là buổi chiều).
-HOMEROOM_PERIODS: set[int] = {1}
+HOMEROOM_FILL_ORDER: list[str] = _MAU["HOMEROOM_FILL_ORDER"]
+# Các tiết luôn do GVCN của lớp dạy, ở mọi ngày.
+HOMEROOM_PERIODS: set[int] = _MAU["HOMEROOM_PERIODS"]
 
 # --------------------------------------------------------------------------
 # GV bổ sung khi thiếu người
@@ -182,33 +168,33 @@ MODES = (MODE_HIRE, MODE_OVERTIME)
 # HOMEROOM_OVERTIME_SPECIALIST); GVCN bù trước, bộ môn chỉ bù khi GVCN đã bù hết mức.
 OVERTIME_ROLES: set[str] = {ROLE_HOMEROOM, ROLE_GENERAL}
 # Môn của GV chuyên biệt mà GVCN vẫn được dạy bù ở lớp mình (nhận sau cùng, sau các môn trong
-# HOMEROOM_FILL_ORDER). Tin học, Tiếng Anh, Thể dục thì không.
-HOMEROOM_OVERTIME_SPECIALIST: set[str] = {AM_NHAC, MY_THUAT}
+# HOMEROOM_FILL_ORDER).
+HOMEROOM_OVERTIME_SPECIALIST: set[str] = _MAU["HOMEROOM_OVERTIME_SPECIALIST"]
 OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức được duyệt)
 
 # --------------------------------------------------------------------------
 # Luật bảo vệ học sinh
 # --------------------------------------------------------------------------
 # Môn nặng: hạn chế xếp vào các tiết này (mục tiêu mềm, trọng số Weights.heavy_late).
-HEAVY_SUBJECTS: set[str] = {TOAN, TOAN_TC, TV, TV_TC, TIENG_ANH, KH, TIN_HOC}
-HEAVY_LATE_PERIODS: set[int] = {7}
+HEAVY_SUBJECTS: set[str] = _MAU["HEAVY_SUBJECTS"]
+HEAVY_LATE_PERIODS: set[int] = _MAU["HEAVY_LATE_PERIODS"]
 # Buổi sáng dành cho môn chính (mục tiêu mềm, như TKB các trường khác: docs/Tham_Khao_TKB_Truong_Khac.md):
-# mỗi tiết TV, Toán xếp vào buổi chiều bị phạt (Weights.morning_core).
-MORNING_SUBJECTS: set[str] = {TV, TOAN}
+# mỗi tiết của các môn này xếp vào buổi chiều bị phạt (Weights.morning_core).
+MORNING_SUBJECTS: set[str] = _MAU["MORNING_SUBJECTS"]
 # Nhóm môn: môn tăng cường (khóa) tính chung với môn chính (giá trị) cho các luật liên tiết, số tiết mỗi buổi
 # và ghép cặp. Luật cứng đi kèm (luật bảo vệ học sinh): tiết tăng cường là tiết luyện bài vừa học nên trong một
 # ngày phải có tiết chính cùng nhóm đứng trước nó và không có tiết chính nào đứng sau nó (không cần liền, không
 # cần cùng người dạy, không cần buổi chiều).
-SUBJECT_GROUPS: dict[str, str] = {TV_TC: TV, TOAN_TC: TOAN}
+SUBJECT_GROUPS: dict[str, str] = _MAU["SUBJECT_GROUPS"]
 # Mỗi nhóm môn tối đa ngần ấy tiết mỗi buổi. Luật cứng đi kèm: môn nào có từ 2 tiết trong một buổi thì
 # các tiết đó phải liền nhau, vd sáng "TV, Toán, TV, Anh" là sai, phải là "Toán, TV, TV, Anh".
 SESSION_GROUP_LIMIT = 2
-# Môn -> số tiết tối đa mỗi ngày, chỉ áp dụng khi số tiết/tuần không quá số ngày học (Toán mỗi ngày 1 tiết).
-DAILY_LIMITS: dict[str, int] = {TOAN: 1}
+# Môn -> số tiết tối đa mỗi ngày, chỉ áp dụng khi số tiết/tuần không quá số ngày học.
+DAILY_LIMITS: dict[str, int] = _MAU["DAILY_LIMITS"]
 # Nhóm môn có từ ngần ấy tiết/tuần và tổng số tiết chẵn thì xếp thành các cặp 2 tiết liền nhau, cùng người
 # dạy (mỗi buổi 0 hoặc 2 tiết của nhóm), vd TV + TV tăng cường khối 1–3. Trừ các nhóm trong PAIR_EXCLUDED.
 PAIR_MIN_LESSONS = 6
-PAIR_EXCLUDED: set[str] = {TOAN, HDTN}  # Toán: mỗi ngày 1 tiết (DAILY_LIMITS); HĐTN: có ô cố định
+PAIR_EXCLUDED: set[str] = _MAU["PAIR_EXCLUDED"]
 
 
 # --------------------------------------------------------------------------

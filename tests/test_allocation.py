@@ -1,6 +1,6 @@
 import pytest
 
-from tkb import config
+from tkb import bo_mau, config
 from tkb.allocation import build_problem, split_homeroom
 from tkb.staff import InputError, make_teacher
 
@@ -12,23 +12,23 @@ C = config
 def test_homeroom_split_sample(sample_staff):
     p = build_problem(sample_staff, CURRICULUM)
     take = p.homeroom_take
-    assert take["1/1"] == {C.TV: 10, C.TOAN: 5, C.HDTN: 3, C.DD: 1}  # cắt 4 tiết TV
-    assert take["2/1"] == {C.TV: 10, C.TOAN: 5, C.HDTN: 3, C.DD: 1}  # vừa đủ 19
-    assert take["3/1"][C.TV_TC] == 1 and take["3/1"][C.TOAN_TC] == 2  # bù TV TC rồi Toán TC
-    assert take["4/1"][C.TV] == 6  # cắt 1 tiết TV
-    assert take["5/5"][C.TV] == 3 and sum(take["5/5"].values()) == 16  # GVCN 16 tiết
+    assert take["1/1"] == {bo_mau.TV: 10, bo_mau.TOAN: 5, C.HDTN: 3, bo_mau.DD: 1}  # cắt 4 tiết TV
+    assert take["2/1"] == {bo_mau.TV: 10, bo_mau.TOAN: 5, C.HDTN: 3, bo_mau.DD: 1}  # vừa đủ 19
+    assert take["3/1"][bo_mau.TV_TC] == 1 and take["3/1"][bo_mau.TOAN_TC] == 2  # bù TV TC rồi Toán TC
+    assert take["4/1"][bo_mau.TV] == 6  # cắt 1 tiết TV
+    assert take["5/5"][bo_mau.TV] == 3 and sum(take["5/5"].values()) == 16  # GVCN 16 tiết
     for cls, t in take.items():
         quota = next(x.max_lessons for x in sample_staff if x.class_name == cls)
         assert sum(t.values()) == quota
-        assert t[C.DD] == 1 and t[C.HDTN] == 3
+        assert t[bo_mau.DD] == 1 and t[C.HDTN] == 3
 
 
 def test_fill_order_never_takes_specialist_subjects():
     req = CURRICULUM[3]
-    take = split_homeroom("3/1", req, 30, reserved=set(), specialist={C.TIENG_ANH, C.TIN_HOC, C.CONG_NGHE})
-    for s in (C.TV_TC, C.TOAN_TC, C.TNXH, C.KNS):
+    take = split_homeroom("3/1", req, 30, reserved=set(), specialist={bo_mau.TIENG_ANH, bo_mau.TIN_HOC, bo_mau.CONG_NGHE})
+    for s in (bo_mau.TV_TC, bo_mau.TOAN_TC, bo_mau.TNXH, bo_mau.KNS):
         assert take[s] == req[s]
-    for s in (C.TIENG_ANH, C.TIN_HOC, C.CONG_NGHE, "Thể dục", "Âm nhạc", "Mỹ thuật"):
+    for s in (bo_mau.TIENG_ANH, bo_mau.TIN_HOC, bo_mau.CONG_NGHE, "Thể dục", "Âm nhạc", "Mỹ thuật"):
         assert s not in take  # môn của GV chuyên biệt
     assert sum(take.values()) == 22
 
@@ -36,17 +36,17 @@ def test_fill_order_never_takes_specialist_subjects():
 def test_fill_order_priority():
     req = CURRICULUM[3]
     take = split_homeroom("3/1", req, 17, reserved=set())  # thiếu 1 -> TV TC trước
-    assert take.get(C.TV_TC) == 1 and C.TOAN_TC not in take
+    assert take.get(bo_mau.TV_TC) == 1 and bo_mau.TOAN_TC not in take
     take = split_homeroom("3/1", req, 18, reserved=set())  # thiếu 2 -> TV TC rồi Toán TC
-    assert take.get(C.TV_TC) == 1 and take.get(C.TOAN_TC) == 1
-    take = split_homeroom("3/1", req, 21, reserved={C.TNXH})  # môn dành riêng không bị lấy
-    assert C.TNXH not in take and take[C.KNS] == 1 and take[C.CONG_NGHE] == 1
+    assert take.get(bo_mau.TV_TC) == 1 and take.get(bo_mau.TOAN_TC) == 1
+    take = split_homeroom("3/1", req, 21, reserved={bo_mau.TNXH})  # môn dành riêng không bị lấy
+    assert bo_mau.TNXH not in take and take[bo_mau.KNS] == 1 and take[bo_mau.CONG_NGHE] == 1
 
 
 def test_cut_only_multi_lesson_subjects():
     req = CURRICULUM[1]
     take = split_homeroom("1/1", req, 6, reserved=set())
-    assert take == {C.TV: 1, C.TOAN: 1, C.HDTN: 3, C.DD: 1}
+    assert take == {bo_mau.TV: 1, bo_mau.TOAN: 1, C.HDTN: 3, bo_mau.DD: 1}
     with pytest.raises(InputError):
         split_homeroom("1/1", req, 5, reserved=set())
 
@@ -59,12 +59,12 @@ def test_permissions(sample_staff):
             assert c.homeroom and p.teachers[c.teachers[0]].class_name == c.class_name
         if c.homeroom:
             continue
-        if c.subject in (C.TIENG_ANH, C.TIN_HOC):
+        if c.subject in (bo_mau.TIENG_ANH, bo_mau.TIN_HOC):
             assert roles == {r for r, s in p.specialists.items() if s == (c.subject,)}
         if c.subject in ("Thể dục", "Âm nhạc", "Mỹ thuật"):
             assert config.ROLE_GENERAL in roles and len(roles) == 2
         if config.ROLE_MANAGER in roles:
-            assert c.subject == C.KNS and c.grade == 4
+            assert c.subject == bo_mau.KNS and c.grade == 4
     manager_courses = [c for c in p.courses if "quản lý 1" in c.teachers]
     assert len(manager_courses) == 6 and p.manager_load == {"quản lý 1": 4}
 
@@ -91,14 +91,14 @@ def test_overtime_allowances_and_eligibility(sample_staff):
     assert p.overtime["chủ nhiệm 5/5"] == 2 and p.overtime["bộ môn 5"] == 2  # định mức thấp cũng được bù
     assert all(p.teachers[g].role in C.OVERTIME_ROLES for g in p.overtime)
     pool = {(c.class_name, c.subject): c for c in p.courses if not c.homeroom}
-    assert "chủ nhiệm 1/1" in pool["1/1", C.TV].teachers
-    assert "chủ nhiệm 1/1" in pool["1/1", C.TNXH].teachers
-    assert "chủ nhiệm 1/1" not in pool["1/1", C.TIENG_ANH].teachers  # không bù môn chuyên biệt
+    assert "chủ nhiệm 1/1" in pool["1/1", bo_mau.TV].teachers
+    assert "chủ nhiệm 1/1" in pool["1/1", bo_mau.TNXH].teachers
+    assert "chủ nhiệm 1/1" not in pool["1/1", bo_mau.TIENG_ANH].teachers  # không bù môn chuyên biệt
     assert "chủ nhiệm 1/1" not in pool["1/1", "Thể dục"].teachers
-    assert "chủ nhiệm 1/1" in pool["1/1", C.AM_NHAC].teachers  # trừ Âm nhạc, Mỹ thuật
-    assert "chủ nhiệm 1/1" in pool["1/1", C.MY_THUAT].teachers
-    assert "chủ nhiệm 3/1" not in pool["3/1", C.TIN_HOC].teachers
-    assert "chủ nhiệm 1/2" not in pool["1/1", C.TV].teachers  # chỉ bù lớp mình
+    assert "chủ nhiệm 1/1" in pool["1/1", bo_mau.AM_NHAC].teachers  # trừ Âm nhạc, Mỹ thuật
+    assert "chủ nhiệm 1/1" in pool["1/1", bo_mau.MY_THUAT].teachers
+    assert "chủ nhiệm 3/1" not in pool["3/1", bo_mau.TIN_HOC].teachers
+    assert "chủ nhiệm 1/2" not in pool["1/1", bo_mau.TV].teachers  # chỉ bù lớp mình
     hire = build_problem(sample_staff, CURRICULUM)
     assert hire.overtime == {} and not hire.overtime_mode()
     assert all(not hire.teachers[g].class_name for c in hire.courses if not c.homeroom for g in c.teachers)
@@ -134,17 +134,17 @@ def test_specialists_come_from_subject_names():
              _v8("E", "Bộ Môn", 20, index=1, row=6)]
     p = build_problem(staff, SCHOOL)
     # Chức vụ trùng tên môn là GV chuyên biệt; môn lạ ("Múa") vẫn được xếp.
-    assert p.specialists["tiếng anh"] == (C.TIENG_ANH,) and p.specialists["thể dục"] == ("Thể Dục",)
+    assert p.specialists["tiếng anh"] == (bo_mau.TIENG_ANH,) and p.specialists["thể dục"] == ("Thể Dục",)
     assert p.specialists["múa"] == ("Múa",)
     # Tin học: bộ môn không được dạy, trường chưa có GV -> tự thêm chức vụ trùng tên môn để tuyển.
-    assert p.specialists["tin học"] == (C.TIN_HOC,) and p.supplement_roles["tin học"] == ["tin học 1"]
+    assert p.specialists["tin học"] == (bo_mau.TIN_HOC,) and p.supplement_roles["tin học"] == ["tin học 1"]
     assert p.teachers["tin học 1"].label == "Tin Học" and p.teachers["tin học 1"].code == "Tin Học 1"
     # Định mức người tuyển thêm: lấy Số tiết lớn nhất của GV không chủ nhiệm, không quản lý trong file.
     assert p.teachers["tin học 1"].max_lessons == 23
     assert p.teachers["tiếng anh 1"].code == "Tiếng Anh 1"
     # Tên môn trong file được giữ để in ra, tên viết tắt theo config.
-    assert p.subject_label(C.LSDL) == "Lịch Sử và Địa Lý" and p.subject_label(C.HDTN) == "HĐTN"
-    assert p.subject_order[:3] == [C.TV, C.TOAN, C.HDTN]
+    assert p.subject_label(bo_mau.LSDL) == "Lịch Sử và Địa Lý" and p.subject_label(C.HDTN) == "HĐTN"
+    assert p.subject_order[:3] == [bo_mau.TV, bo_mau.TOAN, C.HDTN]
 
 
 def test_unknown_role_is_rejected():
@@ -158,4 +158,4 @@ def test_rule_subjects_missing_from_file_are_warned():
     staff = [_v8("A", "Chủ Nhiệm", 19, cls="3/1", row=2), _v8("E", "Bộ Môn", 23, index=1, row=3),
              _v8("B", "Tiếng Anh", 23, index=1, row=4)]
     warnings = build_problem(staff, SCHOOL).warnings
-    assert any("không có trong chương trình học" in w and C.KH in w and C.LSDL not in w for w in warnings)
+    assert any("không có trong chương trình học" in w and bo_mau.KH in w and bo_mau.LSDL not in w for w in warnings)

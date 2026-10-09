@@ -243,9 +243,10 @@ class App:
         return {**kich_ban.schema(), "modes": MODES, "run_defaults": RUN_DEFAULTS, "out_dir": str(self.out_dir),
                 "files": FILE_NAMES, "running": bool(self.job and self.job.running)}
 
-    def new(self, _):
+    def new(self, query: dict):
+        """Kịch bản mới theo bộ luật mẫu `mau` (tkb/bo_mau.py; không ghi: Tiểu học Việt Nam)."""
         with self.lock:
-            return {"scenario": kich_ban.default_scenario()}
+            return {"scenario": kich_ban.default_scenario((query.get("mau") or [None])[0])}
 
     def sample(self, _):
         """Trường mẫu tên giả (nút "Xem thử với trường mẫu" của trang bắt đầu)."""
