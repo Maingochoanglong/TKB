@@ -29,7 +29,7 @@ def test_run_writes_outputs(tmp_path):
     assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê", "Chất lượng"]
     assert openpyxl.load_workbook(out_dir / "TKB_giao_vien.xlsx").sheetnames == ["Giáo viên", "Tổng hợp"]
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *(None,) * 5, "Bộ Môn 1", 8, 15)  # 5 cột không bắt buộc trống
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *(None,) * 6, "Bộ Môn 1", 8, 15)  # 6 cột không bắt buộc trống
     stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê")
     total = [r[0] for r in stats].index("Tổng")  # dưới dòng Tổng là chú thích màu
     assert stats[total - 1][:2] == ("tuyển thêm", "Bộ Môn 1") and stats[total - 1][-4:] == (8, 23, None, 15)

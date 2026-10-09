@@ -252,8 +252,10 @@ const teachersOf = (name) => st.scenario.staff.filter((t) => key(t.role) && key(
 function addImplicitRoles() {
   const subjects = Object.fromEntries(subjectNames().map((n) => [key(n), n]));
   for (const t of st.scenario.staff) {
-    const k = key(t.role);
-    if (k && !roleOf(t.role) && subjects[k]) st.scenario.roles.push({ name: String(t.role).trim(), subjects: [subjects[k]] });
+    for (const r of [t.role, ...extraList(t)]) { // cả chức vụ ở cột Chức Vụ Thêm
+      const k = key(r);
+      if (k && !roleOf(r) && subjects[k]) st.scenario.roles.push({ name: String(r).trim(), subjects: [subjects[k]] });
+    }
   }
 }
 // Ai dạy một môn: [chữ, có người dạy chưa].
@@ -279,7 +281,10 @@ function renameSubject(from, to) {
 }
 function renameRole(from, to) {
   if (!key(from) || key(from) === key(to)) return;
-  for (const t of st.scenario.staff) if (key(t.role) === key(from)) t.role = to;
+  for (const t of st.scenario.staff) {
+    if (key(t.role) === key(from)) t.role = to;
+    if (extraList(t).some((r) => key(r) === key(from))) t.extra_roles = extraList(t).map((r) => (key(r) === key(from) ? to : r)).join(", ");
+  }
   for (const rule of st.scenario.rules) {
     rule.role = listOf(rule.role).map((x) => (key(x) === key(from) ? to : x)).join(", ");
   }
@@ -333,6 +338,7 @@ function renderDetail() {
         : `<input type="text" disabled placeholder="Chỉ Chủ Nhiệm ghi Lớp">`;
       if (c.key === "history") return formBlock(c.header, `<div id="hist-box">${historyBox(t, i)}</div>`, c.note);
       if (c.key === "off") return formBlock(c.header, `<div id="off-box">${offBox(t, i)}</div>`, c.note);
+      if (c.key === "extra_roles") return formBlock(c.header, `<div id="extra-box">${extraBox(t, i)}</div>`, c.note);
       return formRow(c.header, field, c.note);
     }).join("")}</fieldset>`;
   }
@@ -379,6 +385,28 @@ function setHistory(t, list) {
   const uniq = [...new Map(list.map((c) => [classKey(c), c])).values()];
   t.history = [...uniq.filter((c) => known.has(classKey(c))).sort(byClass), ...uniq.filter((c) => !known.has(classKey(c)))]
     .join(", ");
+}
+// Cột Chức Vụ Thêm: các chức vụ khác người này giữ (Bộ Môn, chức vụ GV chuyên biệt của bước 4), cách nhau dấu phẩy
+// như staff.parse_extra_roles; quyền dạy là hợp các chức vụ (vd GVCN dạy thêm Tiếng Anh ở các lớp khác).
+const extraList = (t) => String(t.extra_roles || "").split(/[,;+]/).map((r) => r.trim()).filter(Boolean);
+const extraRoles = () => [...new Map([S.roles[1], ...st.scenario.roles.map(named).filter(Boolean)]
+  .map((n) => [key(n), n])).values()];
+function setExtra(t, list) {
+  const order = extraRoles().map(key);
+  const uniq = [...new Map(list.map((r) => [key(r), r])).values()];
+  const rank = (r) => { const k = order.indexOf(key(r)); return k < 0 ? order.length : k; };
+  t.extra_roles = uniq.sort((a, b) => rank(a) - rank(b)).join(", ");
+}
+function extraBox(t, i) {
+  if (key(t.role) === key(S.roles[2])) return `<p class="muted">Quản Lý dạy các môn ghi ở cột Quản lý dạy khối, không ghi chức vụ thêm.</p>`;
+  const names = extraRoles().filter((n) => key(n) !== key(t.role));
+  const chosen = new Set(extraList(t).map(key));
+  const known = new Set([...extraRoles(), t.role].map(key));
+  const unknown = extraList(t).filter((r) => !known.has(key(r)));
+  return `<div class="checks">${names.map((n) => `<label class="check-item"><input type="checkbox" data-f="extra"
+    data-i="${i}" data-r="${esc(n)}" ${chosen.has(key(n)) ? "checked" : ""}> ${esc(n)}</label>`).join("")}</div>` +
+    unknown.map((r) => `<p class="warn-text">Không có chức vụ "${esc(r)}" ở bước 4
+    <button type="button" class="icon" data-act="extra-drop" data-i="${i}" data-r="${esc(r)}" title="Bỏ chức vụ này">✕</button></p>`).join("");
 }
 function historyBox(t, i) {
   if (isHomeroom(t)) return `<p class="muted">Chủ Nhiệm dạy lớp mình; cột này dành cho GV bộ môn, chuyên biệt.</p>`;
@@ -2187,6 +2215,10 @@ function onEdit(e) {
       renderStaff();
       if (detail) renderDetail();
     }
+  } else if (d.f === "extra") {
+    const t = sc.staff[i];
+    const rest = extraList(t).filter((r) => key(r) !== key(d.r));
+    setExtra(t, v ? [...rest, d.r] : rest);
   } else if (d.f === "hist") {
     const t = sc.staff[i];
     const rest = histList(t).filter((c) => classKey(c) !== classKey(d.c));
@@ -2248,6 +2280,12 @@ async function onClick(e) {
       const keys = new Set(grade.map(classKey));
       setHistory(t, all ? histList(t).filter((c) => !keys.has(classKey(c))) : [...histList(t), ...grade]);
       $("#hist-box").innerHTML = historyBox(t, i);
+      break;
+    }
+    case "extra-drop": {
+      const t = sc.staff[i];
+      setExtra(t, extraList(t).filter((r) => r !== btn.dataset.r));
+      $("#extra-box").innerHTML = extraBox(t, i);
       break;
     }
     case "hist-drop": {
@@ -2333,6 +2371,9 @@ async function onClick(e) {
       const role = sc.roles[i];
       const n = teachersOf(role.name);
       if (n) for (const t of sc.staff) if (key(t.role) === key(role.name)) t.role = "";
+      for (const t of sc.staff) {
+        if (extraList(t).some((r) => key(r) === key(role.name))) setExtra(t, extraList(t).filter((r) => key(r) !== key(role.name)));
+      }
       sc.roles.splice(i, 1);
       renderRoles();
       renderRoleList();

@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from . import config
-from .allocation import Problem, all_slots, homeroom_only, manager_allowed, paired_groups, subject_group
+from .allocation import Problem, all_slots, homeroom_only, manager_allowed, may_teach, paired_groups, subject_group
 from .solver import Lesson
 from .staff import grade_of
 
@@ -71,10 +71,13 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                 and les.class_name not in problem.no_homeroom:
             errors.append(f"{at}: tiết của GVCN nhưng giao cho {t.title}")
         if t.role == config.ROLE_HOMEROOM:
-            if t.class_name != les.class_name:
-                errors.append(f"{at}: {t.title} không phải GVCN lớp này")
+            if t.class_name != les.class_name and not may_teach(t, les.subject, problem.specialists):
+                errors.append(f"{at}: {t.title} không phải GVCN lớp này" + (
+                    f" và chức vụ thêm ({', '.join(t.extra_roles)}) không dạy {les.subject}" if t.extra_roles else ""))
         elif les.subject in homeroom_only():
             errors.append(f"{at}: {les.subject} chỉ GVCN được dạy, nhưng giao cho {t.title}")
+        elif t.extra_roles and may_teach(t, les.subject, problem.specialists):
+            pass  # được dạy theo chức vụ chính hay chức vụ thêm (cột Chức Vụ Thêm)
         elif t.role == config.ROLE_GENERAL:
             if les.subject in config.GENERAL_FORBIDDEN_SUBJECTS:
                 errors.append(f"{at}: bộ môn không được dạy {les.subject} ({t.title})")
@@ -92,6 +95,9 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                       if les.class_name == cls and teachers[les.teacher].class_name == cls)
         want = Counter({s: n for s, n in take.items() if n > 0})
         extra = got - want
+        cn = teachers[homeroom[cls]]
+        if cn.extra_roles:  # tiết theo chức vụ thêm (cột Chức Vụ Thêm) ở lớp mình không phải tiết bù của GVCN
+            extra = Counter({s: n for s, n in extra.items() if not may_teach(cn, s, problem.specialists)})
         if want - got:
             errors.append(f"Lớp {cls}: GVCN dạy {dict(got)}, phân công là {take}")
         elif extra:
@@ -115,6 +121,8 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
         if g not in over or teachers[g].class_name:
             continue
         cn = homeroom.get(les.class_name)
+        if cn and teachers[cn].extra_roles:  # GVCN có chức vụ thêm còn dạy lớp khác: giờ đó chưa chắc rảnh
+            continue
         spare = problem.overtime.get(cn, 0) - over.get(cn, 0) if cn else 0
         key = (g, les.class_name, les.subject)
         if spare > 0 and cn in problem.courses[les.course_id].teachers and key not in reported:

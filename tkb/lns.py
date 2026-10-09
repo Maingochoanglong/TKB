@@ -153,7 +153,8 @@ class _Search:
         classes = sorted(problem.classes, key=_class_key)
         out = [("lớp", f"lớp {c}", self.free([c], days), limits["lớp"])
                for c in sorted(classes, key=lambda c: (-round(by_class[c]), _class_key(c))) if by_class[c] > 0]
-        homeroom = {g for g, t in problem.teachers.items() if t.class_name}
+        # GVCN chỉ dạy lớp mình; GVCN có chức vụ thêm (cột Chức Vụ Thêm) dạy cả lớp khác nên tính như GV dạy chung
+        homeroom = {g for g, t in problem.teachers.items() if t.class_name and not t.extra_roles}
         hot = sorted(cost.items(), key=lambda kv: (-round(kv[1]), _class_key(kv[0][0]), kv[0][1]))
         for (c, d), _ in hot[:config.LNS_HOTSPOTS]:
             shared = {l.teacher for l in lessons if l.class_name == c and l.day == d and l.teacher not in homeroom}

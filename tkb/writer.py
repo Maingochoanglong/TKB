@@ -715,7 +715,10 @@ def role_rows(solution: Solution) -> list[list[str]]:
     tuyển), mỗi dòng [tên chức vụ, các môn được dạy]. Đó là các chức vụ trùng tên môn: ghi ra thì như không ghi
     (rules.code không đổi), chỉ để nhà trường thấy mỗi chức vụ dạy môn nào."""
     problem = solution.problem
-    held = {t.role: t.label or t.role for t in reversed(staff_rows(solution)) if t.role in problem.specialists}
+    rows = staff_rows(solution)
+    held = {r: problem.subject_labels.get(problem.specialists[r][0], r)  # chức vụ chỉ có ở cột Chức Vụ Thêm
+            for t in rows for r in t.extra_roles if r in problem.specialists}
+    held.update({t.role: t.label or t.role for t in reversed(rows) if t.role in problem.specialists})
     return [[held[role], ", ".join(problem.subject_labels.get(s, s) for s in subjects)]
             for role, subjects in problem.specialists.items() if role in held]
 
