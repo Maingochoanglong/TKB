@@ -89,6 +89,7 @@
 | 71 | Bộ luật mẫu | Giá trị mặc định gắn tên môn (môn GVCN nhận trọn, môn nặng, HĐTN, Toán mỗi ngày 1 tiết…) nằm trong code (`tkb/config.py`); soạn mới chỉ có cách khởi đầu của trường tiểu học Việt Nam | Các giá trị đó là dữ liệu của bộ luật mẫu **Tiểu học Việt Nam** (`tkb/bo_mau.py`; `config.py` lấy từ đây, nên file không ghi quy định chạy như trước). Thêm bộ mẫu **Trống**: không môn nào có quy định riêng, không HĐTN, không tiết luôn do GVCN dạy hay tiết hạn chế môn nặng, mọi ngày hai buổi; sheet `LUẬT` ghi mọi luật có sẵn, chỉ bật các luật theo dữ liệu trường ghi (buổi nghỉ, cơ sở) và các ưu tiên chung (tải ngày, rải đều, tiết trống, liên tiết cùng người dạy), các luật khác Tạm tắt. Chọn bộ mẫu ở trang bắt đầu của giao diện (Soạn mới) hoặc `python -m tkb.template <file> --mau trong`. Mã kết quả không đổi |
 | 72 | Một người nhiều chức vụ | Mỗi người đúng một chức vụ; GVCN chỉ dạy lớp mình (phần GVCN và tiết bù), nên GVCN dạy thêm Tiếng Anh ở lớp khác hay dạy như bộ môn ở lớp khác thì không ghi được | Cột **Chức Vụ Thêm** không bắt buộc của sheet NHÂN SỰ (mục 2.1.1): các chức vụ khác người đó cũng giữ (Bộ Môn hoặc chức vụ GV chuyên biệt); quyền dạy là hợp các chức vụ, ở mọi lớp, trong định mức (mục 4). GVCN có chức vụ thêm chỉ nhận trọn các môn ưu tiên của lớp mình (và môn cùng nhóm), không nhận thêm cho đủ định mức, phần còn lại dùng cho chức vụ thêm (mục 5.3); khi bù thì bù như bộ môn (mục 7.2). Chủ Nhiệm ghi `Bộ Môn` ở cột này là cách bỏ "GVCN chỉ dạy lớp mình" cho từng người. Luật của sheet `LUẬT` ghi chức vụ ở cột Giáo viên khớp cả người giữ chức vụ đó ở cột này. Giao diện: ô đánh dấu Chức Vụ Thêm trong trang chi tiết giáo viên. Cột trống: như cũ, cùng mã kết quả |
 | 73 | Nhãn giáo viên, nhãn lớp | Luật chỉ nhắm được chức vụ, một người, một lớp hay khối: muốn áp cho một nhóm người (vd người bán thời gian, tổ Toán) hay nhóm lớp (lớp song ngữ) phải ghi từng người, từng lớp | Cột **Nhãn** không bắt buộc của sheet NHÂN SỰ và sheet `LỚP` (mục 2.1.1, 2.2): các nhãn tự đặt, không tự có nghĩa gì. Cột Giáo viên của sheet `LUẬT` ghi một nhãn là mọi GV có nhãn đó, cột Lớp ghi một nhãn lớp là mọi lớp có nhãn đó (mục 6.1). Thai Sản, Hợp Đồng, Cơ sở 2 ghi Có cũng là nhãn cùng tên (người và lớp). Nhãn lớp vào mã quy định; không ghi nhãn: như cũ, cùng mã kết quả |
+| 74 | Nhiều cơ sở | Chỉ có hai cơ sở (cột Có/Không `Cơ sở 2`): trường ba điểm trường trở lên không ghi được | Cột **Cơ sở** của sheet `LỚP` ghi tên cơ sở (điểm trường) tùy ý, bao nhiêu cơ sở cũng được; trống là `Cơ sở 1`, cột `Cơ sở 2` của dòng Chủ Nhiệm và cột Có/Không `Cơ sở 2` của bản trước vẫn đọc được (mục 2.2). Luật cứng mỗi buổi một cơ sở và luật ưu tiên hạn chế đổi cơ sở trong ngày (mỗi lần đổi bị phạt) áp cho mọi số cơ sở (mục 4.1); mỗi cơ sở một file TKB; thống kê, câu báo lỗi ghi tên cơ sở. Tên cơ sở cũng là nhãn lớp ở cột Lớp của sheet `LUẬT`. Hai cơ sở `Cơ sở 1`, `Cơ sở 2` giữ cách mã hóa cũ: cùng mã kết quả |
 
 ---
 
@@ -124,7 +125,7 @@
 |---|---|---|
 | `NHÂN SỰ` | Có | Danh sách nhân sự (mục 2.1.1). Nếu không có sheet tên này thì đọc sheet đầu tiên |
 | `CHƯƠNG TRÌNH HỌC` | Có | Chương trình học (mục 2.3). Thiếu sheet này thì báo lỗi |
-| `LỚP` | Không | Danh sách lớp: tên lớp, khối, cơ sở 2; lớp có thể chưa có GVCN (mục 2.2) |
+| `LỚP` | Không | Danh sách lớp: tên lớp, khối, cơ sở, nhãn; lớp có thể chưa có GVCN (mục 2.2) |
 | `CHỨC VỤ` | Không | Các chức vụ GV chuyên biệt do trường đặt và các môn mỗi chức vụ được dạy (mục 2.1.2) |
 | `QUY ĐỊNH` | Không | Các luật nghiệp vụ khác ngoài quy định của môn (quy định của môn là các cột của sheet CHƯƠNG TRÌNH HỌC), mỗi ô ghi Có, Không hoặc số (mục 2.5). Không có sheet, bảng hoặc cột thì dùng giá trị mặc định trong `tkb/config.py` |
 
@@ -179,14 +180,17 @@ Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối
 
 ### 2.2. Danh sách lớp
 
-- **Có sheet `LỚP`** (ít nhất một lớp): danh sách lớp lấy ở đây, mỗi dòng `Lớp | Khối | Cơ sở 2 | Nhãn` (cột `Ghi chú`
+- **Có sheet `LỚP`** (ít nhất một lớp): danh sách lớp lấy ở đây, mỗi dòng `Lớp | Khối | Cơ sở | Nhãn` (cột `Ghi chú`
   bỏ qua). Tên lớp tùy ý, không trùng nhau (không phân biệt hoa thường; `1 / 1` viết thành `1/1`). Khối ghi đúng tên một cột
   `Khối <tên>` của sheet chương trình học (không phân biệt hoa thường, dấu); để trống thì là các chữ số đầu tên lớp.
   Chủ Nhiệm ghi Lớp là một lớp của sheet (mỗi lớp nhiều nhất một Chủ Nhiệm); **lớp chưa có Chủ Nhiệm vẫn hợp lệ** (mục
-  5). Cột Lớp Đang Dạy và cột Lớp của sheet `LUẬT` theo các tên lớp này. Lớp ở cơ sở 2: `Cơ sở 2 = Có` ở sheet `LỚP`
-  hoặc trên dòng Chủ Nhiệm. **Nhãn**: các nhãn tự đặt cách nhau dấu phẩy, không trùng tên lớp nào (`staff.class_tags`);
-  cột Lớp của sheet `LUẬT` ghi một nhãn là mọi lớp có nhãn đó; lớp ghi `Cơ sở 2 = Có` có nhãn `Cơ sở 2`. Nhãn lớp vào
-  mã quy định (chỉ khi có ghi).
+  5). Cột Lớp Đang Dạy và cột Lớp của sheet `LUẬT` theo các tên lớp này. **Cơ sở**: tên cơ sở (điểm trường) tùy ý,
+  bao nhiêu cơ sở cũng được, cùng tên khác hoa thường là một; trống là `Cơ sở 1`, trừ lớp có `Cơ sở 2 = Có` trên dòng
+  Chủ Nhiệm (`staff.campus_of`); cột Có/Không `Cơ sở 2` của bản trước vẫn đọc được (Có = cơ sở `Cơ sở 2`). Các cơ sở
+  xếp theo thứ tự: `Cơ sở 1` trước, rồi theo thứ tự lớp (`Problem.campuses`). **Nhãn**: các nhãn tự đặt cách nhau dấu
+  phẩy (`staff.class_tags`). Nhãn và tên cơ sở không trùng tên lớp nào; cột Lớp của sheet `LUẬT` ghi một nhãn hay một
+  tên cơ sở là mọi lớp có nhãn đó, ở cơ sở đó. Nhãn lớp, tên cơ sở khác `Cơ sở 1`, `Cơ sở 2` vào mã quy định (chỉ khi
+  có ghi).
 - **Không có sheet** (hoặc sheet chỉ có dòng tiêu đề): lấy từ cột Lớp của các dòng Chủ Nhiệm, ghi `khối/số` (`1/1`)
   hoặc khối rồi tên lớp (`1D15`); khối là các chữ số đầu. Lớp ở cơ sở 2 là các lớp có `Cơ sở 2 = Có` trên dòng Chủ
   Nhiệm. Mã quy định không đổi so với trước.
@@ -320,14 +324,15 @@ Ví dụ (trường mẫu tên giả của test, `tkb/truong_mau.py`):
 
 Theo các cột không bắt buộc của sheet NHÂN SỰ (mục 2.1.1). File không có các cột này thì không có luật nào dưới đây.
 
-- **[Cứng] Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở.**
+- **[Cứng] Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở**, dù trường có bao nhiêu cơ sở (mục 2.2).
   - Buổi là sáng hoặc chiều của một ngày. Ví dụ sáng Thứ 2 có tiết ở cơ sở 2 thì cả buổi sáng đó người ấy chỉ dạy các lớp cơ sở 2. Giữa buổi sáng và buổi chiều thì đổi cơ sở được.
   - Áp dụng cho mọi người, kể cả người cần tuyển, để chế độ tuyển thêm vẫn dùng đúng TKB của chế độ bù. GVCN không có chức vụ thêm chỉ dạy lớp mình nên luôn thỏa.
-  - Cài đặt (`solver._teacher_sessions`): mỗi GV có tiết ở cả hai cơ sở, mỗi buổi có một biến "buổi này ở cơ sở 2"; mỗi tiết của người đó kéo theo biến này đúng hoặc sai tùy cơ sở của lớp.
-- **[Mềm] Cả ngày ở một cơ sở:** mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia bị phạt `campus_day_switch` (10000, mục 8.2).
+  - Cài đặt (`solver._teacher_sessions`): mỗi (GV, buổi) có thể dạy ở hai cơ sở có một biến "buổi này ở cơ sở sau"; mỗi tiết của người đó kéo theo biến này đúng hoặc sai tùy cơ sở của lớp. Ba cơ sở trở lên: mỗi cơ sở một biến "buổi này ở cơ sở này", nhiều nhất một biến đúng.
+  - Muốn một người chỉ dạy ở một cơ sở: nhãn cho người đó (cột Nhãn) và luật Chỉ giáo viên dạy, Lớp là các cơ sở khác, Giáo viên `trừ <nhãn>` (lọc ngay khi phân công).
+- **[Mềm] Cả ngày ở một cơ sở:** mỗi lần một GV đổi cơ sở trong ngày (dạy ở k cơ sở: k − 1 lần; hai cơ sở: mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia) bị phạt `campus_day_switch` (10000, mục 8.2).
   - Không để cứng: với file của trường, luật cứng cả ngày không tìm được TKB trong 1200 (trạng thái UNKNOWN).
   - Thử mức phạt trên file của trường (chế độ bù, 1200, Linux): không phạt 21 lần; 300: 8 lần; 1000: 4 lần; 3000: 4 lần, chi phí các mục tiêu khác gần như bằng khi không phạt. Chọn 3000, sau nâng lên 10000 (mục 0, dòng 51). Bản chính thức (QA của các vòng xếp lại cũng tính phạt này) còn **1 lần** trên cả Linux và Windows (mục 9).
-  - Cài đặt (`solver._campus_day_switch`): mỗi (GV, ngày) có thể dạy cả hai cơ sở có hai biến "có dạy cơ sở 1", "có dạy cơ sở 2" và biến "cả hai" ≥ tổng − 1, phạt biến "cả hai". QA của các vòng xếp lại tính cùng mức phạt (mục 9). Màn hình in số lần còn lại.
+  - Cài đặt (`solver._campus_day_switch`): mỗi (GV, ngày) có thể dạy ở hai cơ sở có hai biến "có dạy cơ sở này" và biến "cả hai" ≥ tổng − 1, phạt biến "cả hai"; ba cơ sở trở lên: số lần đổi ≥ số cơ sở có dạy − 1, phạt mỗi lần. QA của các vòng xếp lại tính cùng mức phạt (mục 9). Màn hình in số lần còn lại.
 - **[Cứng] Thai sản:** không dạy bù (mục 7.2); chỉ dạy các lớp ở cơ sở 2. GV có `Cơ sở 2 = Có` trên dòng không phải Chủ Nhiệm cũng chỉ dạy các lớp ở cơ sở 2.
 - **[Cứng] Buổi nghỉ:**
   - buổi nghỉ cố định không có tiết nào của người đó;
@@ -651,7 +656,7 @@ Năm file, ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: ch�
 
 | File | Nội dung |
 |---|---|
-| `TKB.xlsx` | **Chỉ thời khóa biểu**: các sheet Khối (mục 11.1). Trường có lớp ở cơ sở 2: tách thành `TKB_diem_chinh.xlsx` (lớp cơ sở 1) và `TKB_diem_phu.xlsx` (lớp cơ sở 2) |
+| `TKB.xlsx` | **Chỉ thời khóa biểu**: các sheet Khối (mục 11.1). Trường có nhiều cơ sở: mỗi cơ sở một file, `TKB_diem_chinh.xlsx` (Cơ sở 1), `TKB_diem_phu.xlsx` (Cơ sở 2), cơ sở tên khác `TKB_<tên không dấu>.xlsx` (`writer.campus_paths`) |
 | `TKB_chuc_vu.xlsx` | Cùng TKB, mỗi ô thêm dòng thứ 3 là chức vụ (Mã GV), để theo dõi ai dạy tiết nào. Hai cơ sở: tách như `TKB.xlsx` |
 | `TKB_giao_vien.xlsx` | TKB của từng giáo viên, in mỗi người một trang, và bảng tổng hợp (mục 11.5) |
 | `Thong_Ke.xlsx` | Số tiết từng môn của mỗi giáo viên và chất lượng TKB theo từng dòng luật (mục 11.3) |
@@ -719,7 +724,7 @@ Sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xlsx`), style t
 | Số Tiết Bù | Số tiết dạy bù vượt định mức (chế độ bù giờ); trống là không bù |
 | Môn Dạy Bù | Chỉ khi có tiết bù: số tiết bù từng môn, vd `TNXH 2, KNS 1`; dòng Tổng ghi số ô tô cam |
 | Số Tiết Dư | Định mức − Tổng Tiết khi dạy ít hơn định mức; trống là dạy đủ |
-| Buổi Ở Cơ Sở 2 | Chỉ khi trường có lớp ở cơ sở 2, cho người dạy ở cả hai cơ sở: các buổi người đó dạy ở cơ sở 2, vd `Sáng T3, Chiều T5`; dòng Tổng ghi số người |
+| Buổi Ở Cơ Sở 2 | Chỉ khi trường có nhiều cơ sở, cho người dạy ở nhiều cơ sở: các buổi người đó dạy ở cơ sở 2, vd `Sáng T3, Chiều T5`; dòng Tổng ghi số người. Cơ sở tên khác `Cơ sở 1`, `Cơ sở 2` hay hơn hai cơ sở: cột **Buổi Ở Cơ Sở Khác**, các buổi không ở cơ sở đầu, ba cơ sở trở lên ghi thêm tên cơ sở (`Sáng T3 (Điểm Tân Phú)`) |
 | Đổi Cơ Sở Trong Ngày | Như trên: các ngày sáng một cơ sở, chiều cơ sở kia, vd `T5: sáng cơ sở 1, chiều cơ sở 2`; dòng Tổng ghi số lần |
 
 - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển. Cuối bảng có dòng **Tổng** (tổng từng môn và tổng tiết toàn trường).

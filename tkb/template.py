@@ -36,7 +36,7 @@ from openpyxl.utils import get_column_letter
 
 from . import bo_mau, config
 from . import luat_rieng
-from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, CLASS_TAGS, ROLE_NAME, ROLE_SUBJECTS, applied, class_rows,
+from .rules import (CLASS_CAMPUS, CLASS_GRADE, CLASS_NAME, CLASS_TAGS, ROLE_NAME, ROLE_SUBJECTS, applied, class_rows,
                     default_subjects, luat_headers, luat_rows, mau as preset, notes as rule_notes, role_rows,
                     rule_tables, subject_columns)
 from .staff import Teacher, class_sort_key, grade_key, off_text
@@ -208,18 +208,18 @@ def write_roles_sheet(wb, rows: list[list] | None = None, index: int | None = No
 
 
 def write_classes_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
-    """Sheet LỚP ở vị trí `index`: Lớp | Khối | Cơ sở 2 | Nhãn, các dòng `rows` (không có thì theo các lớp của sheet
+    """Sheet LỚP ở vị trí `index`: Lớp | Khối | Cơ sở | Nhãn, các dòng `rows` (không có thì theo các lớp của sheet
     LỚP đang dùng; trống: lớp lấy từ các dòng Chủ Nhiệm), kẻ sẵn vài dòng trống để nhà trường điền."""
     rows = class_rows() if rows is None else rows
     ws = wb.create_sheet(config.CLASSES_SHEET, index)
-    ws.append([CLASS_NAME, CLASS_GRADE, CLASS_CAMPUS2, CLASS_TAGS])
+    ws.append([CLASS_NAME, CLASS_GRADE, CLASS_CAMPUS, CLASS_TAGS])
     for row in rows:
         ws.append(row)
     _style_rows(ws, 1, 1, 4, header=True)
     _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, 4, left=(1,))
     for r in range(2, LAST_ROW + 1):
         ws.cell(r, 1).number_format = "@"  # tên lớp là chữ, để Excel không đổi "1/1" thành ngày tháng
-    _widths(ws, (16, 12, 11, 24))
+    _widths(ws, (16, 12, 18, 24))
 
 
 def write_luat_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:

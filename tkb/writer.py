@@ -19,9 +19,10 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidationList
 
 from . import config, khung_gio
+from .allocation import campus_label
 from .solver import Solution, session_of
-from .staff import (Teacher, _find_columns, class_sort_key, clean_name, find_sheet, grade_key, grade_of, normalize,
-                    staff_sheet)
+from .staff import (CAMPUS1, CAMPUS2, Teacher, _find_columns, _fold, class_sort_key, clean_name, find_sheet, grade_key,
+                    grade_of, normalize, staff_sheet)
 from .style import CellStyle, Style
 from .rules import code as rules_code, subject_columns
 from . import luat_rieng
@@ -48,7 +49,8 @@ CHANGES_SHEET = "Thay đổi"  # file thống kê khi xếp lại ít xáo trộ
 CHANGES_HEADERS = ("Lớp", "Thứ", "Tiết", "Trước", "Sau")
 TOTAL_HEADER = "Tổng Tiết"
 # File thống kê, trường có lớp ở cơ sở 2: ai dạy ở cả hai cơ sở (các buổi ở cơ sở 2), ai đổi cơ sở trong ngày.
-MOVE_HEADERS = ("Buổi Ở Cơ Sở 2", "Đổi Cơ Sở Trong Ngày")
+MOVE_HEADERS = ("Buổi Ở Cơ Sở 2", "Đổi Cơ Sở Trong Ngày")  # trường có Cơ sở 1, Cơ sở 2 (xem move_headers)
+MOVE_OTHER = "Buổi Ở Cơ Sở Khác"  # cột đầu khi các cơ sở có tên khác hay có hơn hai cơ sở
 # File thống kê: tô nền cả dòng để biết ai dạy bù (chế độ bù giờ), ai là người cần tuyển (chế độ tuyển thêm).
 OVERTIME_FILL = "FFEB9C"  # vàng nhạt
 HIRE_FILL = "C6EFCE"  # xanh lá nhạt
@@ -61,7 +63,7 @@ SPARE_LEGEND = "Dạy ít hơn định mức (còn dư tiết)"
 OVERTIME_CELL_FILL = "F4B183"  # cam
 OVERTIME_CELL_LEGEND = "Môn có tiết dạy bù"
 # Trường có lớp ở cơ sở 2 (cột Cơ sở 2): TKB tách thành hai file, hậu tố tên file -> lớp ở cơ sở 2?
-CAMPUS_FILES = (("diem_chinh", False), ("diem_phu", True))
+CAMPUS_FILES = {_fold(CAMPUS1): "diem_chinh", _fold(CAMPUS2): "diem_phu"}  # đuôi file TKB của hai cơ sở mặc định
 
 
 def teacher_labels(teachers: dict[str, Teacher], with_codes: bool = False) -> dict[str, str]:
@@ -184,16 +186,20 @@ def staff_rows(solution: Solution) -> list[Teacher]:
 
 
 def campus_paths(path: str | Path, problem) -> list[tuple[Path, list[str] | None]]:
-    """Các file TKB cần ghi: (đường dẫn, các lớp; None = cả trường). Trường có lớp ở cơ sở 2 thì tách thành
-    <tên>_diem_chinh (lớp cơ sở 1) và <tên>_diem_phu (lớp cơ sở 2); cơ sở nào không có lớp thì không có file."""
+    """Các file TKB cần ghi: (đường dẫn, các lớp; None = cả trường). Trường có nhiều cơ sở thì mỗi cơ sở một file:
+    <tên>_diem_chinh (Cơ sở 1), <tên>_diem_phu (Cơ sở 2), cơ sở khác <tên>_<tên cơ sở không dấu>."""
     path = Path(path)
-    if not problem.campus2:
+    if not problem.campuses:
         return [(path, None)]
-    out = []
-    for suffix, at2 in CAMPUS_FILES:
-        classes = [c for c in problem.classes if (c in problem.campus2) == at2]
-        if classes:
-            out.append((path.with_name(f"{path.stem}_{suffix}{path.suffix}"), classes))
+    out, used = [], set()
+    for at, name in enumerate(problem.campuses):
+        slug = re.sub(r"[^a-z0-9]+", "_", _fold(name)).strip("_")
+        suffix = CAMPUS_FILES.get(_fold(name)) or slug or f"co_so_{at + 1}"
+        if suffix in used:
+            suffix = f"{suffix}_{at + 1}"
+        used.add(suffix)
+        classes = [c for c in problem.classes if problem.campus[c] == at]
+        out.append((path.with_name(f"{path.stem}_{suffix}{path.suffix}"), classes))
     return out
 
 
@@ -219,9 +225,13 @@ def _print_setup(ws) -> None:
 
 
 def _teacher_cell(solution: Solution, les) -> str:
-    """Ô TKB giáo viên: lớp (lớp ở cơ sở 2 ghi thêm "(CS2)"), xuống dòng môn; tiết dạy bù ghi thêm " (bù)"."""
+    """Ô TKB giáo viên: lớp (lớp không ở cơ sở đầu ghi thêm cơ sở: "(CS2)" với Cơ sở 2, tên cơ sở với cơ sở khác),
+    xuống dòng môn; tiết dạy bù ghi thêm " (bù)"."""
     problem = solution.problem
-    cls = f"{les.class_name} (CS2)" if les.class_name in problem.campus2 else les.class_name
+    cls = les.class_name
+    if problem.campus.get(cls, 0):
+        name = problem.campus_name(cls)
+        cls = f"{cls} ({'CS2' if _fold(name) == _fold(CAMPUS2) else name})"
     return f"{cls}\n{problem.subject_label(les.subject)}{' (bù)' if les.overtime else ''}"
 
 
@@ -327,28 +337,37 @@ def _stats_name(t: Teacher) -> str:
     return HIRE_LABEL if t.supplementary else t.name or None
 
 
+def move_headers(problem) -> tuple[str, str]:
+    """Hai cột thống kê người dạy ở nhiều cơ sở (MOVE_HEADERS; các cơ sở khác Cơ sở 1, Cơ sở 2: MOVE_OTHER)."""
+    default = [_fold(n) for n in problem.campuses] == [_fold(CAMPUS1), _fold(CAMPUS2)]
+    return MOVE_HEADERS if default else (MOVE_OTHER, MOVE_HEADERS[1])
+
+
 def campus_moves(solution: Solution) -> dict[str, tuple[list[str], list[str]]]:
-    """GV dạy ở cả hai cơ sở -> (các buổi ở cơ sở 2, vd "Sáng T3"; các ngày sáng một cơ sở, chiều cơ sở kia,
-    vd "T5: sáng cơ sở 1, chiều cơ sở 2"). Luật cứng: mỗi buổi chỉ một cơ sở."""
-    campus2 = solution.problem.campus2
+    """GV dạy ở nhiều cơ sở -> (các buổi không ở cơ sở đầu, vd "Sáng T3", có hơn hai cơ sở thì ghi thêm tên cơ sở; các
+    ngày đổi cơ sở, vd "T5: sáng cơ sở 1, chiều cơ sở 2"). Luật cứng: mỗi buổi chỉ một cơ sở."""
+    problem = solution.problem
     sess = session_of()
-    where = defaultdict(set)  # (GV, ngày, buổi) -> {lớp ở cơ sở 2?}
+    where = defaultdict(set)  # (GV, ngày, buổi) -> các cơ sở (chỉ số trong problem.campuses)
     for les in solution.lessons:
-        where[les.teacher, les.day, sess[les.day, les.period]].add(les.class_name in campus2)
+        where[les.teacher, les.day, sess[les.day, les.period]].add(problem.campus.get(les.class_name, 0))
     campuses = defaultdict(set)
     for (g, _, _), cs in where.items():
         campuses[g] |= cs
     day = khung_gio.short_day
+    named = len(problem.campuses) > 2
     out = {}
     for g in sorted(g for g, cs in campuses.items() if len(cs) > 1):
         keys = sorted((d, config.DAY_SESSIONS[d].index(s), s) for (h, d, s) in where if h == g)
-        at2 = [f"{s.name} {day(d)}" for d, _, s in keys if True in where[g, d, s]]
+        away = [f"{s.name} {day(d)}" + (f" ({problem.campuses[max(where[g, d, s])]})" if named else "")
+                for d, _, s in keys if max(where[g, d, s]) > 0]
         switches = []
         for d in sorted({d for d, _, _ in keys}):
-            parts = [(s.name.lower(), 2 if True in where[g, d, s] else 1) for dd, _, s in keys if dd == d]
+            parts = [(s.name.lower(), max(where[g, d, s])) for dd, _, s in keys if dd == d]
             if len({c for _, c in parts}) > 1:
-                switches.append(f"{day(d)}: " + ", ".join(f"{n} cơ sở {c}" for n, c in parts))
-        out[g] = (at2, switches)
+                switches.append(f"{day(d)}: " + ", ".join(f"{n} {campus_label(problem.campuses[c])}"
+                                                          for n, c in parts))
+        out[g] = (away, switches)
     return out
 
 
@@ -359,8 +378,8 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
     Chỉ có cột cho các môn có người dạy, theo thứ tự môn trong chương trình học; ô trống là không dạy môn đó.
     Số Tiết/Tuần là định mức (người cần tuyển: định mức tuyển); Số Tiết Bù là số tiết dạy bù vượt định mức
     (chế độ bù giờ); Môn Dạy Bù (chỉ khi có tiết bù) ghi số tiết bù từng môn; Số Tiết Dư là định mức − Tổng Tiết
-    khi dạy ít hơn định mức. Trường có lớp ở cơ sở 2: thêm hai
-    cột MOVE_HEADERS cho người dạy ở cả hai cơ sở (xem campus_moves).
+    khi dạy ít hơn định mức. Trường có nhiều cơ sở: thêm hai
+    cột move_headers cho người dạy ở nhiều cơ sở (xem campus_moves).
     """
     problem = solution.problem
     count = Counter((les.teacher, les.subject) for les in solution.lessons)
@@ -370,10 +389,11 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
     detail = [OVERTIME_DETAIL_HEADER] if extra else []
     header = [style.staff_headers["name"], "Chức Vụ", *(problem.subject_label(s) for s in subjects), TOTAL_HEADER,
               style.staff_headers["lessons"], OVERTIME_HEADER, *detail, SPARE_HEADER]
-    moves = campus_moves(solution) if problem.campus2 else None
+    moves = campus_moves(solution) if problem.campuses else None
+    moving = move_headers(problem)
     if moves is not None:
-        header += MOVE_HEADERS
-    text = {OVERTIME_DETAIL_HEADER, *MOVE_HEADERS}  # cột chữ: dòng Tổng không cộng
+        header += moving
+    text = {OVERTIME_DETAIL_HEADER, *moving}  # cột chữ: dòng Tổng không cộng
     overtime = solution.overtime()
     rows = []
     for t in staff_rows(solution):
@@ -389,8 +409,8 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
             rows[-1] += [", ".join(at2) or None, "; ".join(switches) or None]
     summary = {OVERTIME_DETAIL_HEADER: f"{len(extra)} ô"}
     if moves is not None:
-        summary.update({MOVE_HEADERS[0]: f"{len(moves)} người",
-                        MOVE_HEADERS[1]: f"{sum(len(sw) for _, sw in moves.values())} lần"})
+        summary.update({moving[0]: f"{len(moves)} người",
+                        moving[1]: f"{sum(len(sw) for _, sw in moves.values())} lần"})
     rows.append(["Tổng", None, *(summary[h] if h in text else sum(r[c] or 0 for r in rows)
                                  for c, h in enumerate(header) if c >= 2)])
     return header, rows
@@ -444,10 +464,12 @@ def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style
         if color == OVERTIME_FILL and n_cells:
             texts.append((OVERTIME_CELL_FILL, f"{OVERTIME_CELL_LEGEND}: {n_cells} ô, {sum(extra.values())} tiết "
                                               f"(số tiết từng môn ở cột {OVERTIME_DETAIL_HEADER})"))
-    moves = campus_moves(solution) if solution.problem.campus2 else {}
+    moves = campus_moves(solution) if solution.problem.campuses else {}
     if moves:
-        texts.append((None, f"Dạy ở cả hai cơ sở: {len(moves)} người (cột {MOVE_HEADERS[0]}); đổi cơ sở trong "
-                            f"ngày: {sum(len(sw) for _, sw in moves.values())} lần (cột {MOVE_HEADERS[1]})"))
+        moving = move_headers(solution.problem)
+        many = "cả hai" if len(solution.problem.campuses) == 2 else "nhiều"
+        texts.append((None, f"Dạy ở {many} cơ sở: {len(moves)} người (cột {moving[0]}); đổi cơ sở trong "
+                            f"ngày: {sum(len(sw) for _, sw in moves.values())} lần (cột {moving[1]})"))
     legend = []
     for color, text in texts:
         cell = style.body_cell(ws, top, 1, None)

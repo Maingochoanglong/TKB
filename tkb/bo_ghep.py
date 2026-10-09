@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from . import config
 from .config import CustomRule
-from .staff import _fold, class_tags, grade_key, grade_of
+from .staff import CAMPUS1, _fold, class_tags, grade_key, grade_of
 
 
 # --------------------------------------------------------------------------
@@ -422,7 +422,7 @@ def _key(dim: str, a: Atom, problem):
     return {"lop": lambda: a.cls, "gv": lambda: a.teacher, "mon": lambda: a.subject,
             "nhom_mon": lambda: subject_group(a.subject), "khoi": lambda: a.grade, "ngay": lambda: a.day,
             "buoi": lambda: (a.day, a.session), "o": lambda: (a.day, a.period),
-            "co_so": lambda: a.cls in problem.campus2}[dim]()
+            "co_so": lambda: problem.campus.get(a.cls, 0)}[dim]()
 
 
 class _Source:
@@ -657,6 +657,7 @@ def _label(problem, subject: str) -> str:
 
 
 def _where(L: Luat, key: tuple, problem) -> str:
+    from .allocation import campus_label
     parts = []
     for d, v in zip(L.scope, key):
         parts.append({"lop": lambda: f"lớp {v}", "gv": lambda: problem.teachers[v].code if v in problem.teachers else v,
@@ -664,7 +665,7 @@ def _where(L: Luat, key: tuple, problem) -> str:
                       "khoi": lambda: f"khối {v}", "ngay": lambda: _day(v),
                       "buoi": lambda: f"{_day(v[0])} buổi {v[1].lower()}",
                       "o": lambda: f"{_day(v[0])} tiết {v[1]}",
-                      "co_so": lambda: "cơ sở 2" if v else "cơ sở 1"}[d]())
+                      "co_so": lambda: campus_label(problem.campuses[v] if problem.campuses else CAMPUS1)}[d]())
     return " ".join(parts) or "cả trường"
 
 

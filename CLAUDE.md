@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-SAT. Input: one Excel file with
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
-only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code; both split into `*_diem_chinh`/`*_diem_phu` when
-the file has campus-2 classes, `writer.campus_paths`), `TKB_giao_vien.xlsx` (`writer.write_teacher_timetable`: one
+only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code; both split per campus — `*_diem_chinh`/`*_diem_phu`/`*_<campus slug>` —
+when the school has several campuses, `writer.campus_paths`), `TKB_giao_vien.xlsx` (`writer.write_teacher_timetable`: one
 block per teacher, a page break after each, plus sheet `Tổng hợp` one row per teacher), `Thong_Ke.xlsx` (sheet
 `Chất lượng` = `writer.quality_rows`: violations/points per row of sheet LUẬT counted with `bo_ghep.violations`; sheet
 `Thống kê`, one table: lessons per subject
@@ -25,10 +25,12 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   khối`: a grade name): per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
   periods); school-defined specialist roles teaching several subjects are rows of sheet `CHỨC VỤ`; optional sheet `LỚP`
-  (`Lớp | Khối | Cơ sở 2 | Nhãn`, `rules._Reader.classes` → `config.CLASSES` of `config.SchoolClass`; empty sheet =
-  none); column `Nhãn` of NHÂN SỰ (`Teacher.tags`; `Teacher.tag_keys` adds the Có columns' headers) and of LỚP
-  (`SchoolClass.tags`, `staff.class_tags`; campus-2 classes get tag `Cơ sở 2`) are free tags with no meaning of their
-  own: LUẬT's Giáo viên column matches staff tags (`bo_ghep.picks`, `teacher_ok`), its Lớp column expands class tags
+  (`Lớp | Khối | Cơ sở | Nhãn`, `rules._Reader.classes` → `config.CLASSES` of `config.SchoolClass`; empty sheet =
+  none; `Cơ sở` = free campus name, blank = `staff.CAMPUS1`, old Có/Không column `Cơ sở 2` still read;
+  `staff.campus_of` → `Problem.campus` class → index into `Problem.campuses`, empty for one campus; `Problem.campus2`
+  = classes at the campus named `Cơ sở 2`, used by maternity/`co_so_2`); column `Nhãn` of NHÂN SỰ (`Teacher.tags`;
+  `Teacher.tag_keys` adds the Có columns' headers and a homeroom teacher's campus) and of LỚP (`SchoolClass.tags`,
+  `staff.class_tags`; each class's campus name is a tag too) are free tags with no meaning of their own: LUẬT's Giáo viên column matches staff tags (`bo_ghep.picks`, `teacher_ok`), its Lớp column expands class tags
   (`bo_ghep._classes` in `make`); class tags enter `rules.code()` only when written;
   **every scheduling
   rule, built-in ones included, is a row of sheet `LUẬT`** (old files: sheet `LUẬT RIÊNG`; see Architecture).
@@ -249,7 +251,7 @@ Each rule below (except who-may-teach and the assignment/LNS rows) is a default 
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 (`main.py` `SO_TIET_BU_TOI_DA` = 3 for the school file); GVCN overtime never in specialist subjects except Âm nhạc/Mỹ thuật, capped by the flow estimate | `OVERTIME_ROLES`, `OVERTIME_MAX`, `HOMEROOM_OVERTIME_SPECIALIST`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
 | Soft: heavy subjects at p7, TV/Toán mornings, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |
-| Campuses: a teacher teaches at one campus per session (hard), soft penalty per teacher-day at both campuses (whole-day hard was infeasible); maternity/`Cơ sở 2` non-homeroom teach only campus-2 classes; `Buổi Nghỉ` fixed and "n buổi" leave (hard) | columns → `Teacher.campus2/maternity/off_sessions/off_any`, `Problem.campus2`; `Weights.campus_day_switch` | `allocation.build_problem` (eligibility), `phan_cong.teacher_slots`, `solver._teacher_sessions`, `solver._campus_day_switch` (+ `lns._Search.qa`); `checker._check_teacher_sessions` |
+| Campuses (any number; two campuses keep the old encoding and codes): a teacher teaches at one campus per session (hard), soft penalty per campus change in a day (whole-day hard was infeasible); maternity/`Cơ sở 2` non-homeroom teach only campus-2 classes; `Buổi Nghỉ` fixed and "n buổi" leave (hard) | columns → `Teacher.campus2/maternity/off_sessions/off_any`, `Problem.campus2`; `Weights.campus_day_switch` | `allocation.build_problem` (eligibility), `phan_cong.teacher_slots`, `solver._teacher_sessions`, `solver._campus_day_switch` (+ `lns._Search.qa`); `checker._check_teacher_sessions` |
 | Overtime order: homeroom contract → homeroom → general contract → general; maternity no overtime; keep old grade then class (`Lớp Đang Dạy`) | `Weights.overtime_*`, `keep_grade`, `keep_class` | `allocation.overtime_cost`, `keep_cost`, `overtime_allowance`; used in `phan_cong._flow`, `_Local._part`, `solver._Allocation` |
 | Timetabling loop: start share (≤ `LNS_START_MAX`), region limits, stop rules | `LNS_*`, `Settings.time_limit` (1200) | `lns.improve`, `lns._Search.regions` |
 

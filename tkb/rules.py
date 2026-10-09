@@ -31,8 +31,8 @@ import openpyxl
 
 from . import bo_ghep, config, luat_rieng
 from .program import grade_columns, grade_head
-from .staff import (_NO, _YES, InputError, _fold, canonical_class, clean_name, find_sheet, normalize, parse_grade,
-                    parse_tags, subject_key)
+from .staff import (_NO, _YES, CAMPUS1, CAMPUS2, InputError, _fold, canonical_class, clean_name, find_sheet,
+                    normalize, parse_grade, parse_tags, subject_key)
 
 YES, NO = "Có", "Không"
 MAX_DAYS = 6  # cách ghi cũ của bảng Ngày (cột Học buổi sáng/chiều): Thứ 2 – Thứ 7
@@ -113,7 +113,8 @@ SUBJECT_COLS = (
 # Sheet CHỨC VỤ: hai cột (thêm cột Ghi chú nếu cần).
 ROLE_NAME, ROLE_SUBJECTS = "Chức vụ", "Môn được dạy"
 # Sheet LỚP (không bắt buộc): mỗi dòng một lớp (thêm cột Ghi chú nếu cần).
-CLASS_NAME, CLASS_GRADE, CLASS_CAMPUS2, CLASS_TAGS = "Lớp", "Khối", "Cơ sở 2", "Nhãn"
+CLASS_NAME, CLASS_GRADE, CLASS_CAMPUS, CLASS_TAGS = "Lớp", "Khối", "Cơ sở", "Nhãn"
+CLASS_CAMPUS2 = "Cơ sở 2"  # cột Có/Không của bản trước (Có: lớp ở Cơ sở 2): vẫn đọc được, không ghi
 # Cột của bản trước mà nay là số của một dòng luật (sheet LUẬT): vẫn đọc được ở file cũ, không ghi, không hiện.
 LEGACY = frozenset({"SESSION_GROUP_LIMIT", "PAIR_MIN_LESSONS", "DAILY_LIMITS"})
 # Cách ghi khung giờ của bản trước (số tiết buổi sáng/chiều chung mọi ngày, cột Có/Không học buổi sáng/chiều): vẫn
@@ -635,13 +636,13 @@ class _Reader:
     # ---- sheet LỚP: mỗi dòng một lớp ----
     def classes(self, ws, grades: dict[str, int | str]) -> None:
         """Bảng có dòng tiêu đề chứa cột Lớp; các dòng sau là các lớp (dòng trống bỏ qua): tên lớp tùy ý, Khối (tên
-        khối như cột Khối <tên> của sheet chương trình học; trống: các chữ số đầu tên lớp), Cơ sở 2 (Có/Không), Nhãn
-        (các nhãn tự đặt, cách nhau dấu phẩy; không trùng tên lớp). Sheet không có lớp nào: như không có sheet (lớp lấy
-        từ các dòng Chủ Nhiệm)."""
+        khối như cột Khối <tên> của sheet chương trình học; trống: các chữ số đầu tên lớp), Cơ sở (tên cơ sở tùy ý,
+        trống: Cơ sở 1; bản trước: cột Cơ sở 2 Có/Không), Nhãn (các nhãn tự đặt, cách nhau dấu phẩy). Nhãn và tên cơ sở
+        không trùng tên lớp. Sheet không có lớp nào: như không có sheet (lớp lấy từ các dòng Chủ Nhiệm)."""
         sheet = ws.title
         self.values["CLASSES"] = ()
-        heads = {normalize(CLASS_NAME): "name", normalize(CLASS_GRADE): "grade", normalize(CLASS_CAMPUS2): "campus2",
-                 normalize(CLASS_TAGS): "tags"}
+        heads = {normalize(CLASS_NAME): "name", normalize(CLASS_GRADE): "grade", normalize(CLASS_CAMPUS): "campus",
+                 normalize(CLASS_CAMPUS2): "campus2", normalize(CLASS_TAGS): "tags"}
         header_row = next((r for r in range(1, min(ws.max_row, 20) + 1)
                            if normalize(CLASS_NAME) in {normalize(v) for v in _row(ws, r).values()}), None)
         if header_row is None:
@@ -655,13 +656,17 @@ class _Reader:
                 cols[key] = c
             elif normalize(value) != normalize(NOTE):
                 self.error(sheet, header_row, f"không có cột nào tên '{clean_name(value)}' (các cột: {CLASS_NAME}, "
-                                              f"{CLASS_GRADE}, {CLASS_CAMPUS2}, {CLASS_TAGS}, {NOTE})")
+                                              f"{CLASS_GRADE}, {CLASS_CAMPUS}, {CLASS_TAGS}, {NOTE})")
         get = lambda r, key: ws.cell(r, cols[key]).value if key in cols else None  # noqa: E731
         out: list[config.SchoolClass] = []
         seen: dict[str, int] = {}
+        campuses: dict[str, str] = {}
         for r in range(header_row + 1, ws.max_row + 1):
             name, grade = get(r, "name"), get(r, "grade")
-            campus2 = self.yes(sheet, r, CLASS_CAMPUS2, get(r, "campus2"))
+            campus = "" if _blank(get(r, "campus")) else clean_name(get(r, "campus"))
+            if not campus and self.yes(sheet, r, CLASS_CAMPUS2, get(r, "campus2")):
+                campus = CAMPUS2
+            campus = campuses.setdefault(_fold(campus), campus)  # cùng một cơ sở ghi khác hoa thường: một tên
             if _blank(name):
                 if not _blank(grade):
                     self.error(sheet, r, f"thiếu tên lớp ở cột {CLASS_NAME}")
@@ -687,11 +692,11 @@ class _Reader:
             if grades and grade not in grades.values():
                 self.error(sheet, r, f"lớp '{name}': không có cột Khối {grade} ở sheet {config.PROGRAM_SHEET}")
                 continue
-            out.append(config.SchoolClass(name, grade, campus2, r, parse_tags(get(r, "tags"))))
-        for c in out:  # nhãn trùng tên lớp thì cột Lớp của sheet LUẬT không rõ là lớp hay nhãn
-            for tag in c.tags:
-                if _fold(tag) in seen:
-                    self.error(sheet, c.row, f"nhãn '{tag}' trùng tên lớp ở dòng {seen[_fold(tag)]}")
+            out.append(config.SchoolClass(name, grade, campus, r, parse_tags(get(r, "tags"))))
+        for c in out:  # nhãn, tên cơ sở trùng tên lớp thì cột Lớp của sheet LUẬT không rõ là lớp hay nhãn
+            for what, tag in (*(("nhãn", t) for t in c.tags), ("tên cơ sở", c.campus)):
+                if tag and _fold(tag) in seen:
+                    self.error(sheet, c.row, f"{what} '{tag}' trùng tên lớp ở dòng {seen[_fold(tag)]}")
         self.values["CLASSES"] = tuple(out)
 
     def frame(self) -> dict[str, object]:
@@ -871,7 +876,10 @@ def _canonical(attr: str, value):
     if attr == "WEIGHTS":
         return sorted(value.items())
     if attr == "CLASSES":  # số dòng, thứ tự dòng không phải là quy định
-        return sorted(((c.name, c.grade, c.campus2, *((sorted(map(_fold, c.tags)),) if c.tags else ()))
+        def campus(name: str):  # Cơ sở 1, Cơ sở 2 như cột Có/Không của bản trước (cùng mã)
+            key = _fold(name or CAMPUS1)
+            return {_fold(CAMPUS1): False, _fold(CAMPUS2): True}.get(key, key)
+        return sorted(((c.name, c.grade, campus(c.campus), *((sorted(map(_fold, c.tags)),) if c.tags else ()))
                        for c in value), key=repr)
     if attr == "CUSTOM_ROLES":  # dòng một môn trùng tên chức vụ là như không ghi (chức vụ trùng tên môn có sẵn)
         from .program import canonical_subject
@@ -918,8 +926,8 @@ def role_rows() -> list[list]:
 
 
 def class_rows() -> list[list]:
-    """Các dòng của sheet LỚP theo config hiện tại: [lớp, khối, Có/Không ở cơ sở 2, nhãn]."""
-    return [[c.name, c.grade, _yn(c.campus2), ", ".join(c.tags) or None] for c in config.CLASSES]
+    """Các dòng của sheet LỚP theo config hiện tại: [lớp, khối, cơ sở, nhãn]."""
+    return [[c.name, c.grade, c.campus or None, ", ".join(c.tags) or None] for c in config.CLASSES]
 
 
 def luat_headers() -> list[str]:
@@ -997,10 +1005,10 @@ def notes() -> list[tuple[str, str]]:
             (config.CLASSES_SHEET,
              f"Không bắt buộc. Mỗi dòng một lớp: cột {CLASS_NAME} ghi tên lớp tùy ý (vd 1/1, 1A, Lá 2), cột "
              f"{CLASS_GRADE} ghi tên khối như ở các cột Khối <tên> của sheet {config.PROGRAM_SHEET} (vd 1 hoặc Lá; "
-             f"trống: các chữ số đầu tên lớp), cột {CLASS_CAMPUS2} ghi Có nếu lớp học ở cơ sở 2, cột {CLASS_TAGS} ghi "
-             f"các nhãn tự đặt cách nhau dấu phẩy (vd Song ngữ; không trùng tên lớp): cột Lớp của sheet "
-             f"{config.RULES_SHEET_ROWS} ghi nhãn là mọi lớp có nhãn đó, lớp ghi Có ở cột {CLASS_CAMPUS2} có nhãn "
-             f"{CLASS_CAMPUS2}. Có sheet này thì danh "
+             f"trống: các chữ số đầu tên lớp), cột {CLASS_CAMPUS} ghi tên cơ sở (điểm trường) lớp học, tùy ý, bao "
+             f"nhiêu cơ sở cũng được (trống: {CAMPUS1}), cột {CLASS_TAGS} ghi các nhãn tự đặt cách nhau dấu phẩy (vd "
+             f"Song ngữ; không trùng tên lớp): cột Lớp của sheet {config.RULES_SHEET_ROWS} ghi nhãn hay tên cơ sở là "
+             f"mọi lớp có nhãn đó, ở cơ sở đó. Có sheet này thì danh "
              f"sách lớp lấy ở đây: Chủ Nhiệm ghi Lớp là một lớp của sheet, lớp không có Chủ Nhiệm vẫn được xếp (các "
              f"môn chia cho GV khác; môn Chỉ GVCN dạy, tiết Luôn do GVCN dạy, tiết HĐTN cố định của GVCN không áp "
              f"dụng cho lớp đó). Không có sheet này (hoặc sheet trống) thì lớp là lớp của các dòng Chủ Nhiệm, ghi "
