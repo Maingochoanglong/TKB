@@ -6,8 +6,8 @@ from dataclasses import dataclass, field, replace
 
 from . import config
 from .program import canonical_subject, missing_rule_subjects, subjects_in_order
-from .staff import (_CLASS_RE, SPECIAL_ROLES, InputError, Teacher, class_list, class_sort_key, clean_name,
-                    class_campus2, grade_key, grade_of, normalize, role_errors, subject_key)
+from .staff import (_CLASS_RE, CAMPUS1, CAMPUS2, SPECIAL_ROLES, InputError, Teacher, _fold, campus_of, class_list,
+                    class_sort_key, clean_name, grade_key, grade_of, normalize, role_errors, subject_key)
 
 
 @dataclass
@@ -40,7 +40,10 @@ class Problem:
     specialists: dict[str, tuple[str, ...]] = field(default_factory=dict)  # chức vụ chuyên biệt -> các môn được dạy
     subject_labels: dict[str, str] = field(default_factory=dict)  # môn -> tên như ghi trong file vào
     subject_order: list[str] = field(default_factory=list)  # các môn theo thứ tự dòng trong file vào
-    campus2: frozenset[str] = frozenset()  # các lớp ở cơ sở 2 (cột Cơ sở 2 của sheet LỚP hay của dòng Chủ Nhiệm)
+    campus2: frozenset[str] = frozenset()  # các lớp ở Cơ sở 2 (cột Cơ sở của sheet LỚP hay cột Cơ sở 2 của Chủ Nhiệm)
+    # Lớp -> chỉ số cơ sở trong `campuses` (tên các cơ sở: Cơ sở 1 trước, rồi theo thứ tự lớp); một cơ sở: trống.
+    campus: dict[str, int] = field(default_factory=dict)
+    campuses: tuple[str, ...] = ()
     # Các lớp không có GVCN (sheet LỚP): mọi môn chia cho GV khác; tiết luôn do GVCN dạy, GVCN trước không áp dụng.
     no_homeroom: frozenset[str] = frozenset()
     # (course, người tuyển mới) -> người bù: các tiết đó là tiết bù của người bù (chế độ bù giờ dạy đúng các ô này),
@@ -63,6 +66,19 @@ class Problem:
 
     def class_courses(self, class_name: str) -> list[Course]:
         return [c for c in self.courses if c.class_name == class_name]
+
+    def campus_name(self, class_name: str) -> str:
+        """Tên cơ sở của lớp (trường một cơ sở: Cơ sở 1)."""
+        return self.campuses[self.campus[class_name]] if self.campuses else CAMPUS1
+
+    def campus_label(self, class_name: str) -> str:
+        """Tên cơ sở của lớp trong câu: "cơ sở 1", "cơ sở 2" viết thường; tên khác giữ như ghi."""
+        return campus_label(self.campus_name(class_name))
+
+
+def campus_label(name: str) -> str:
+    """Tên cơ sở trong câu: tên bắt đầu bằng "Cơ sở" viết thường chữ đầu (vd "cơ sở 2"), tên khác giữ như ghi."""
+    return name[0].lower() + name[1:] if _fold(name).startswith("co so") else name
 
 
 def all_slots() -> list[tuple[int, int]]:
@@ -294,7 +310,15 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     classes = class_list(staff)
     homeroom = {t.class_name: t for t in staff if t.class_name}
     managers = [t for t in staff if t.role == config.ROLE_MANAGER]
-    campus2 = frozenset(c for c in classes if class_campus2(c) or (c in homeroom and homeroom[c].campus2))
+    # Cơ sở của từng lớp (cột Cơ sở của sheet LỚP, cột Cơ sở 2 của dòng Chủ Nhiệm); cùng tên khác hoa thường là một.
+    names: dict[str, str] = {}
+    where = {c: names.setdefault(_fold(n), n)
+             for c in classes for n in (campus_of(c, c in homeroom and homeroom[c].campus2),)}
+    order = list(dict.fromkeys(where[c] for c in classes))
+    order.sort(key=lambda n: _fold(n) != _fold(CAMPUS1))  # Cơ sở 1 trước, các cơ sở khác theo thứ tự lớp
+    campuses = tuple(order) if len(order) > 1 else ()
+    campus = {c: order.index(n) for c, n in where.items()} if campuses else {}
+    campus2 = frozenset(c for c, n in where.items() if _fold(n) == _fold(CAMPUS2))
     no_homeroom = frozenset(c for c in classes if c not in homeroom)
 
     for g in sorted({grade_of(c) for c in classes}, key=grade_key):
@@ -459,5 +483,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         subject_labels=subject_labels,
         subject_order=subject_order,
         campus2=campus2,
+        campus=campus,
+        campuses=campuses,
         no_homeroom=no_homeroom,
     )

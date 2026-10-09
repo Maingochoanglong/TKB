@@ -25,6 +25,9 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
   - `.specialist_subjects()`
   - `.subject_label(subject)` — Tên môn in trong TKB: tên viết tắt trong config, không có thì tên như trong file vào.
   - `.class_courses(class_name)`
+  - `.campus_name(class_name)` — Tên cơ sở của lớp (trường một cơ sở: Cơ sở 1).
+  - `.campus_label(class_name)` — Tên cơ sở của lớp trong câu: "cơ sở 1", "cơ sở 2" viết thường; tên khác giữ như ghi.
+- `campus_label(name)` — Tên cơ sở trong câu: tên bắt đầu bằng "Cơ sở" viết thường chữ đầu (vd "cơ sở 2"), tên khác giữ như ghi.
 - `all_slots()`
 - `subject_group(subject)` — Nhóm môn: môn tăng cường đi cùng môn chính (config.SUBJECT_GROUPS), môn khác là nhóm riêng.
 - `paired_groups(grade_req, grade)` — Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS, và luật riêng "Học 2
@@ -45,6 +48,7 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 - `build_problem(staff, curriculum, supplement_counts, overtime_max)` — Dựng bài toán.
   · Môn có luật trong config được gọi theo tên trong config; tên như trong file giữ lại để in ra.
   · Sắp môn theo tên: đổi thứ tự dòng trong file chương trình học không làm đổi TKB.
+  · Cơ sở của từng lớp (cột Cơ sở của sheet LỚP, cột Cơ sở 2 của dòng Chủ Nhiệm); cùng tên khác hoa thường là một.
   · Môn/khối dành riêng cho quản lý thì GVCN không lấy để bù.
   · Nhu cầu tối đa theo chức vụ để dựng đủ GV bổ sung dự kiến.
 
@@ -355,7 +359,7 @@ Hằng số: `_GRADE_HEAD`
 - `missing_rule_subjects(curriculum)` — Môn có luật (sheet QUY ĐỊNH hoặc config) nhưng không có trong chương trình học (thường do gõ khác tên).
 
 ## tkb/rules.py — Quy định nghiệp vụ trong file vào: nhà trường tự sửa trong Excel, không cần sửa mã nguồn.
-Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY_KEY`, `DAY_COLS`, `PERIOD_KEY`, `PERIOD_COLS`, `SUBJECT_KEY`, `SUBJECT_COLS`, `LEGACY`, `LEGACY_FRAME`, `FRAME_ATTRS`, `ATTRS`, `OPTIONAL_ATTRS`, `LABELS`, `DEFAULTS`, `_KNOWN`, `_ROLES`
+Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY_KEY`, `DAY_COLS`, `PERIOD_KEY`, `PERIOD_COLS`, `SUBJECT_KEY`, `SUBJECT_COLS`, `CLASS_CAMPUS2`, `LEGACY`, `LEGACY_FRAME`, `FRAME_ATTRS`, `ATTRS`, `OPTIONAL_ATTRS`, `LABELS`, `DEFAULTS`, `_KNOWN`, `_ROLES`
 - `class Col`
 - `visible(cols)` — Các cột quy định còn ghi trong file mẫu và hiện trên giao diện (bỏ các cột LEGACY, LEGACY_FRAME).
 - `_day_name(d)`
@@ -394,7 +398,7 @@ Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY
 - `_yn(on)`
 - `rule_tables()` — Ba bảng của sheet QUY ĐỊNH theo config hiện tại: [(tiêu đề, các dòng)].
 - `role_rows()` — Các dòng của sheet CHỨC VỤ theo config hiện tại: [tên chức vụ, các môn cách nhau bằng dấu phẩy].
-- `class_rows()` — Các dòng của sheet LỚP theo config hiện tại: [lớp, khối, Có/Không ở cơ sở 2, nhãn].
+- `class_rows()` — Các dòng của sheet LỚP theo config hiện tại: [lớp, khối, cơ sở, nhãn].
 - `luat_headers()` — Tiêu đề sheet LUẬT: Nhóm, các cột câu luật, Luật đọc là (chương trình ghi, khi đọc bỏ qua).
 - `luat_row(rule)` — Một dòng của sheet LUẬT (cùng thứ tự cột với luat_headers).
 - `luat_rows()` — Các dòng của sheet LUẬT theo config hiện tại: mọi luật, kể cả luật có sẵn (luat_co_san.rows).
@@ -428,8 +432,8 @@ Hằng số: `RELAXED`
 - `class TimetableModel` — Mô hình xếp giờ đã dựng. x[course, slot]: course có tiết ở slot; z[course, GV, slot]: GV nào dạy tiết đó
   - `.lessons(value)` — Các tiết của nghiệm; value(biến) -> giá trị (vd CpSolver.Value).
 - `timetable(problem, settings, fixed, hint, log, keep)` — Xếp giờ. Phân công cố định: CP-SAT khởi đầu rồi xếp lại từng vùng (tkb/lns.py). Mô hình tích hợp (vừa
-- `_teacher_sessions(m, problem, occ_terms, occ_campus)` — Luật cứng theo buổi của từng GV: buổi nghỉ (cột Buổi Nghỉ) và mỗi buổi chỉ dạy ở một cơ sở (cột Cơ sở 2).
-- `_campus_day_switch(m, occ_campus, weight)` — Mục tiêu mềm: phạt `weight` mỗi (GV, ngày) dạy ở cả hai cơ sở (sáng một nơi, chiều nơi kia).
+- `_teacher_sessions(m, problem, occ_terms, occ_campus)` — Luật cứng theo buổi của từng GV: buổi nghỉ (cột Buổi Nghỉ) và mỗi buổi chỉ dạy ở một cơ sở.
+- `_campus_day_switch(m, occ_campus, weight)` — Mục tiêu mềm: phạt `weight` mỗi lần đổi cơ sở trong ngày của một GV (sáng một nơi, chiều nơi kia): mỗi (GV,
 - `build_timetable(problem, settings, fixed, hint, keep)` — Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights); keep: TKB cũ để xếp lại ít xáo trộn
   · Mỗi lớp mỗi slot đúng 1 tiết (hoặc tối đa 1 nếu chương trình ít hơn số slot).
   · GV dạy course tại slot nào. Tiết của người mới mà là tiết bù của một người (problem.covers) chiếm lịch của cả hai: chế độ tuyển người mới dạy, chế độ bù giờ người bù dạy đúng ô đó.
@@ -469,7 +473,7 @@ Hằng số: `RELAXED`
 Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_ANY_OFF_RE`, `OPTIONAL_COLUMNS`
 - `class InputError` — Lỗi dữ liệu đầu vào.
 - `class Teacher`
-  - `.tag_keys()` — Các nhãn của GV (chuẩn hóa) để khớp cột Giáo viên của sheet LUẬT: cột Nhãn, và tên các cột Có/Không ghi Có
+  - `.tag_keys()` — Các nhãn của GV (chuẩn hóa) để khớp cột Giáo viên của sheet LUẬT: cột Nhãn, tên các cột Có/Không ghi Có
   - `.grade()`
   - `.campus2_only()` — GV không chủ nhiệm chỉ dạy các lớp ở cơ sở 2 (đánh dấu Cơ sở 2, hoặc đang hưởng thai sản).
   - `.code()` — Mã GV hiển thị trong các file ra, vd "Bộ Môn 5", "Chủ Nhiệm 1/1".
@@ -487,9 +491,10 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_A
 - `natural_key(text)` — Thứ tự tự nhiên của chữ: phần số so theo số ("Lá 2" trước "Lá 10"), phần chữ không phân biệt hoa thường, dấu.
 - `grade_key(grade)` — Thứ tự khối: các khối số theo số (1 < 2 < 10), rồi các khối tên chữ theo thứ tự tự nhiên.
 - `grade_of(class_name)` — Khối của một lớp: cột Khối của sheet LỚP; lớp không có ở đó thì các chữ số đầu tên lớp, vd "1/2" và "1D15"
-- `class_tags()` — Nhãn lớp của sheet LỚP: {nhãn viết thường bỏ dấu: các lớp có nhãn đó}. Lớp ghi Có ở cột Cơ sở 2 có nhãn Cơ sở 2.
+- `class_tags()` — Nhãn lớp của sheet LỚP: {nhãn viết thường bỏ dấu: các lớp có nhãn đó}. Tên cơ sở của lớp (cột Cơ sở; trống là
 - `parse_tags(value)` — Cột Nhãn (NHÂN SỰ, LỚP): các nhãn tự đặt cách nhau bằng dấu phẩy hoặc chấm phẩy, giữ như ghi (bỏ nhãn trùng).
-- `class_campus2(class_name)` — Lớp ghi Có ở cột Cơ sở 2 của sheet LỚP (lớp ở cơ sở 2 còn có thể đánh dấu ở dòng Chủ Nhiệm).
+- `campus_of(class_name, campus2)` — Cơ sở của lớp: cột Cơ sở của sheet LỚP; không ghi thì Cơ sở 2 nếu dòng Chủ Nhiệm của lớp ghi Có ở cột Cơ sở 2
+- `class_campus2(class_name)` — Lớp ở cơ sở tên Cơ sở 2 theo sheet LỚP (lớp ở cơ sở 2 còn có thể đánh dấu ở dòng Chủ Nhiệm).
 - `class_sort_key(class_name)` — Sắp lớp theo khối (grade_key), rồi theo tên: "1/2" trước "1/10", "1D9" trước "1D15", "Lá 2" trước "Lá 10".
 - `_fold(text)` — Chữ thường, bỏ dấu tiếng Việt (so khớp "Chiều T5" với "chieu thu 5").
 - `parse_yes(value, column)` — Cột Có/Không: trống hoặc "Không" là không; "Có", "x", "1" là có.
@@ -539,7 +544,7 @@ Hằng số: `STAFF_HEADERS`, `STAFF_WIDTHS`, `RULES_WIDTHS`, `GUIDE_SHEET`, `GU
 - `_program_sheet(wb, grades, heads, rows)` — Sheet CHƯƠNG TRÌNH HỌC: Môn học | Khối ... | các cột quy định `heads`; mỗi dòng một môn.
 - `write_rules_sheet(wb, index, tables)` — Sheet QUY ĐỊNH ở vị trí `index`: ba bảng (quy định chung, ngày, tiết), cách nhau một dòng trống. `tables`:
 - `write_roles_sheet(wb, rows, index)` — Sheet CHỨC VỤ ở vị trí `index`: Chức vụ | Môn được dạy, các dòng `rows` (không có thì theo các chức vụ đang
-- `write_classes_sheet(wb, rows, index)` — Sheet LỚP ở vị trí `index`: Lớp | Khối | Cơ sở 2 | Nhãn, các dòng `rows` (không có thì theo các lớp của sheet
+- `write_classes_sheet(wb, rows, index)` — Sheet LỚP ở vị trí `index`: Lớp | Khối | Cơ sở | Nhãn, các dòng `rows` (không có thì theo các lớp của sheet
 - `write_luat_sheet(wb, rows, index)` — Sheet LUẬT ở vị trí `index`: tiêu đề và các dòng luật (không có thì theo các luật đang dùng, kể cả luật có
 - `write_guide(wb, extra, index)` — Sheet HƯỚNG DẪN: cách ghi từng sheet, từng cột, rồi các dòng `extra` (vd giải thích kết quả).
 - `write_input(path, staff, program, tables, extra, rules, roles, classes)` — Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
@@ -552,7 +557,7 @@ Hằng số: `_SUBJECTS`, `_LESSONS`, `CURRICULUM`, `_CLASSES`, `STAFF_ROWS`
 - `write_sample_input(path)` — Ghi file vào mẫu V8 của trường mẫu (sheet NHÂN SỰ + CHƯƠNG TRÌNH HỌC).
 
 ## tkb/writer.py — Xuất ra Excel: TKB (chỉ các sheet Khối); file thống kê (số tiết từng môn của mỗi giáo viên); file vào
-Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `OVERTIME_DETAIL_HEADER`, `SPARE_HEADER`, `STATS_SHEET`, `SHORTAGE_SHEET`, `TEACHER_SHEET`, `TEACHER_SUMMARY_SHEET`, `QUALITY_SHEET`, `QUALITY_HEADERS`, `QUALITY_EXAMPLES`, `CHANGES_SHEET`, `CHANGES_HEADERS`, `TOTAL_HEADER`, `MOVE_HEADERS`, `OVERTIME_FILL`, `HIRE_FILL`, `OVERTIME_LEGEND`, `HIRE_LEGEND`, `SPARE_FILL`, `SPARE_LEGEND`, `OVERTIME_CELL_FILL`, `OVERTIME_CELL_LEGEND`, `CAMPUS_FILES`, `OLD_NOTES_SHEET`, `LIST_SHEET`, `_ROW_FORMULA`
+Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEADER`, `LOAD_HEADER`, `OVERTIME_HEADER`, `OVERTIME_DETAIL_HEADER`, `SPARE_HEADER`, `STATS_SHEET`, `SHORTAGE_SHEET`, `TEACHER_SHEET`, `TEACHER_SUMMARY_SHEET`, `QUALITY_SHEET`, `QUALITY_HEADERS`, `QUALITY_EXAMPLES`, `CHANGES_SHEET`, `CHANGES_HEADERS`, `TOTAL_HEADER`, `MOVE_HEADERS`, `MOVE_OTHER`, `OVERTIME_FILL`, `HIRE_FILL`, `OVERTIME_LEGEND`, `HIRE_LEGEND`, `SPARE_FILL`, `SPARE_LEGEND`, `OVERTIME_CELL_FILL`, `OVERTIME_CELL_LEGEND`, `CAMPUS_FILES`, `OLD_NOTES_SHEET`, `LIST_SHEET`, `_ROW_FORMULA`
 - `teacher_labels(teachers, with_codes)` — Chức vụ -> tên hiển thị dưới tên môn trong TKB.
 - `class GridRow` — Một hàng của bảng TKB: tiết thứ k của một buổi. Khung giờ mỗi ngày một khác (tkb/khung_gio.py) thì hàng đó có
   - `.period(d)`
@@ -561,15 +566,16 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `_merge(ws, style, r1, c1, r2, c2, value)`
 - `_grade_sheets(wb, solution, style, with_codes, classes)`
 - `staff_rows(solution)` — GV thật theo thứ tự file gốc, sau đó GV bổ sung được dùng.
-- `campus_paths(path, problem)` — Các file TKB cần ghi: (đường dẫn, các lớp; None = cả trường). Trường có lớp ở cơ sở 2 thì tách thành
+- `campus_paths(path, problem)` — Các file TKB cần ghi: (đường dẫn, các lớp; None = cả trường). Trường có nhiều cơ sở thì mỗi cơ sở một file:
 - `write_timetable(solution, path, style, with_codes, classes)` — File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics).
 - `_print_setup(ws)` — In: khổ ngang, co vừa 1 trang theo chiều rộng (thiết lập in, không phải định dạng ô).
-- `_teacher_cell(solution, les)` — Ô TKB giáo viên: lớp (lớp ở cơ sở 2 ghi thêm "(CS2)"), xuống dòng môn; tiết dạy bù ghi thêm " (bù)".
+- `_teacher_cell(solution, les)` — Ô TKB giáo viên: lớp (lớp không ở cơ sở đầu ghi thêm cơ sở: "(CS2)" với Cơ sở 2, tên cơ sở với cơ sở khác),
 - `_teacher_blocks(ws, solution, style, teachers)` — Sheet TEACHER_SHEET: mỗi giáo viên một bảng BUỔI | TIẾT | các ngày, dòng tựa ghi tên, Mã GV, số tiết; ngắt
 - `_teacher_summary(ws, solution, style, teachers)` — Sheet TEACHER_SUMMARY_SHEET: mỗi giáo viên một dòng, mỗi cột một (ngày, tiết), ô ghi lớp dạy giờ đó.
 - `write_teacher_timetable(solution, path, style)` — File TKB giáo viên: sheet TEACHER_SHEET (mỗi giáo viên một bảng ngày × tiết, ô ghi lớp và môn, ngắt trang để
 - `_stats_name(t)`
-- `campus_moves(solution)` — GV dạy ở cả hai cơ sở -> (các buổi ở cơ sở 2, vd "Sáng T3"; các ngày sáng một cơ sở, chiều cơ sở kia,
+- `move_headers(problem)` — Hai cột thống kê người dạy ở nhiều cơ sở (MOVE_HEADERS; các cơ sở khác Cơ sở 1, Cơ sở 2: MOVE_OTHER).
+- `campus_moves(solution)` — GV dạy ở nhiều cơ sở -> (các buổi không ở cơ sở đầu, vd "Sáng T3", có hơn hai cơ sở thì ghi thêm tên cơ sở; các
 - `subject_table(solution, style)` — Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết | Số Tiết/Tuần | Số Tiết Bù | (Môn Dạy Bù) |
 - `_fill(color)`
 - `row_marks(solution, spare)` — GV -> (màu nền, số tiết): người dạy bù (số tiết bù) và người cần tuyển thêm (số tiết thực dạy); spare: thêm
@@ -696,6 +702,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_chan_doan.py`: test_no_conflict_with_default_rules, test_session_limit_too_small_for_the_lessons, test_pairs_against_daily_limit, test_student_rules_off_skips_the_count, test_solve_stops_before_solving_on_a_counted_conflict, test_diagnosis_names_the_rules_in_conflict, test_diagnosis_of_a_solvable_school_blames_the_time, test_relaxing_rules_changes_nothing_by_default
 - `tests/test_chuc_vu.py`: test_read_sheet_and_rules_code, test_sheet_errors_all_at_once, test_role_with_many_subjects, test_role_subject_errors, test_unknown_role_is_still_an_error, test_role_without_teacher_is_hired_for_forbidden_subjects, test_solve_with_a_role_of_many_subjects, test_custom_rule_for_a_role_of_many_subjects, test_checker_finds_a_subject_outside_the_role, test_scenario_roles_round_trip
 - `tests/test_chuc_vu_them.py`: test_parse_extra_roles, test_unknown_extra_role, test_homeroom_with_general_role_teaches_other_classes, test_homeroom_teacher_also_teaches_english, test_extra_role_beyond_quota, test_scenario_keeps_extra_roles
+- `tests/test_co_so.py`: test_three_campuses_end_to_end, test_checker_and_campus_rule_with_three_campuses, test_old_campus_column_and_errors
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end

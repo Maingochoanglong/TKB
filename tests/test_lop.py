@@ -54,8 +54,8 @@ def test_grade_names_and_order():
 def test_class_sheet_is_read(tmp_path):
     path = _file(tmp_path, [("3/1", 3, False), ("3 / 2", None, False), ("lá 1", "lá", True)])
     rules = read_rules(path)
-    assert [(c.name, c.grade, c.campus2) for c in rules["CLASSES"]] == [("3/1", 3, False), ("3/2", 3, False),
-                                                                         ("lá 1", "Lá", True)]
+    assert [(c.name, c.grade, c.campus) for c in rules["CLASSES"]] == [("3/1", 3, ""), ("3/2", 3, ""),
+                                                                        ("lá 1", "Lá", "Cơ sở 2")]
     with applied(rules):
         staff = read_staff(path)
         assert class_list(staff) == ["3/1", "3/2", "lá 1"] and grade_of("lá 1") == "Lá"
@@ -135,9 +135,9 @@ def test_scenario_keeps_classes_and_grade_names(tmp_path):
     path = _file(tmp_path, [("3/1", 3, False), ("", None, False), ("lá 1", "Lá", True)])
     sc, _ = kich_ban.from_excel(path)
     assert sc["grades"] == [3, "Lá"] and sc["subjects"][0]["lessons"] == {"3": 7, "Lá": 6}
-    assert sc["classes"] == [{"name": "3/1", "grade": 3, "campus2": False, "tags": ""},
-                             {"name": "", "grade": None, "campus2": False, "tags": ""},
-                             {"name": "lá 1", "grade": "Lá", "campus2": True, "tags": ""}]
+    assert sc["classes"] == [{"name": "3/1", "grade": 3, "campus": "", "tags": ""},
+                             {"name": "", "grade": None, "campus": "", "tags": ""},
+                             {"name": "lá 1", "grade": "Lá", "campus": "Cơ sở 2", "tags": ""}]
     again = tmp_path / "lai.xlsx"
     kich_ban.to_excel(sc, again)
     assert kich_ban.from_excel(again)[0] == sc

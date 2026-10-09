@@ -35,9 +35,10 @@ def test_parse_tags_and_tag_keys():
     t = next(t for t in small_staff() if t.title == "bộ môn 1")
     assert dataclasses.replace(t, tags=("Tổ Toán",), contract=True).tag_keys == {"tổ toán", "hợp đồng"}
     cn = next(t for t in small_staff() if t.class_name == "3/1")
-    with applied({"CLASSES": (config.SchoolClass("3/1", 3, True, 2, ("Song ngữ",)), config.SchoolClass("3/2", 3))}):
+    school = (config.SchoolClass("3/1", 3, "Cơ sở 2", 2, ("Song ngữ",)), config.SchoolClass("3/2", 3))
+    with applied({"CLASSES": school}):
         assert cn.tag_keys == {"cơ sở 2"}  # lớp ở cơ sở 2 theo sheet LỚP
-        assert class_tags() == {"song ngu": ("3/1",), "co so 2": ("3/1",)}
+        assert class_tags() == {"song ngu": ("3/1",), "co so 2": ("3/1",), "co so 1": ("3/2",)}
 
 
 def test_rules_by_staff_and_class_tags(tmp_path, capsys):
