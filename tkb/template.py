@@ -3,7 +3,7 @@ viền mảnh). Không cố định dòng/cột, không danh sách thả xuống
 cột nằm ở sheet HƯỚNG DẪN.
 
 - Sheet "NHÂN SỰ": Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy |
-  Buổi Nghỉ (5 cột sau không bắt buộc)
+  Buổi Nghỉ | Chức Vụ Thêm (6 cột sau không bắt buộc)
   - Chức Vụ: Chủ Nhiệm, Bộ Môn, Quản Lý, một chức vụ của sheet CHỨC VỤ hoặc tên một môn (GV chuyên biệt, vd
     "Tiếng Anh"); không ghi số thứ tự (chương trình tự đánh số theo thứ tự dòng).
   - Lớp chỉ ghi cho Chủ Nhiệm: một lớp của sheet LỚP, hoặc (sheet LỚP trống) khối/số thứ tự, vd 1/1, hay khối
@@ -42,8 +42,8 @@ from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, ROLE_NAME, ROLE_SUBJ
 from .staff import Teacher, class_sort_key, grade_key, off_text
 
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
-                 "Buổi Nghỉ"]
-STAFF_WIDTHS = (34, 16, 8, 17, 12, 12, 11, 26, 24)
+                 "Buổi Nghỉ", "Chức Vụ Thêm"]
+STAFF_WIDTHS = (34, 16, 8, 17, 12, 12, 11, 26, 24, 22)
 RULES_WIDTHS = (40, 16, 16, 20, 24)  # sheet QUY ĐỊNH: cột đầu (Quy định, Ngày, Tiết) và các cột giá trị
 GUIDE_SHEET = "HƯỚNG DẪN"
 GUIDE_HEADERS = ("Mục", "Cách ghi")
@@ -79,9 +79,15 @@ NOTES = {
                     "3D18). TKB mới ưu tiên giữ khối, rồi giữ lớp.",
     "Buổi Nghỉ": "Buổi không xếp tiết: buổi cố định (vd Chiều T5, Sáng T6) hoặc số buổi bất kỳ (vd 2 buổi chiều), "
                  "cách nhau bằng dấu phẩy. GVCN không nghỉ được buổi có tiết Luôn do GVCN dạy (sheet QUY ĐỊNH).",
+    "Chức Vụ Thêm": "Các chức vụ khác người này cũng giữ, cách nhau bằng dấu phẩy: Bộ Môn hoặc chức vụ GV chuyên biệt "
+                    "(vd Tiếng Anh). Người đó dạy được cả các môn của các chức vụ này, ở mọi lớp, trong định mức; vd "
+                    "Chủ Nhiệm ghi Bộ Môn thì dạy được cả các lớp khác. Chủ Nhiệm có chức vụ thêm dạy phần GVCN nhận "
+                    "trọn của lớp mình (không nhận thêm cho đủ định mức), phần định mức còn lại dùng cho chức vụ thêm. "
+                    "Mã GV theo chức vụ chính (cột Chức Vụ).",
 }
 GUIDE = [
-    (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Năm cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ "
+    (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Sáu cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ, "
+                         "Chức Vụ Thêm "
                          "không bắt buộc (để trống hoặc xóa cột)."),
     *((f"{config.STAFF_SHEET}: {head}", note) for head, note in NOTES.items()),
     (config.PROGRAM_SHEET, "Mỗi môn một dòng: cột Môn học ghi tên môn (dùng đúng tên này ở sheet CHỨC VỤ, hoặc ở cột "
@@ -108,8 +114,9 @@ def role_label(t: Teacher) -> str:
 def staff_row(t: Teacher) -> list:
     flag = lambda on: YES if on else None
     history = ", ".join(sorted(t.history, key=class_sort_key)) or None
+    extra = ", ".join(config.ROLE_LABELS.get(r) or r.title() for r in t.extra_roles) or None
     return [t.name or None, role_label(t), t.class_name, t.max_lessons, flag(t.maternity), flag(t.contract),
-            flag(t.campus2), history, off_text(t) or None]
+            flag(t.campus2), history, off_text(t) or None, extra]
 
 
 def _style_rows(ws, first: int, last: int, n_cols: int, header: bool = False, left: tuple[int, ...] = ()) -> None:

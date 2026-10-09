@@ -20,7 +20,7 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 ## Working rules
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
-  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`; optional
+  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB` (and `Quản lý dạy
   khối`: a grade name): per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
@@ -174,7 +174,14 @@ Specialist roles (sheet `CHỨC VỤ`, `config.CUSTOM_ROLES` of `config.Role(nam
 subject teaches that one subject; an uncovered `GENERAL_FORBIDDEN_SUBJECTS` subject gets the first sheet role teaching it,
 else a subject-named role; sheet roles nobody holds and nobody needs are dropped). `specialist_subjects()` is the union.
 `rules.code()` leaves out an empty list and rows that only restate a subject-named role, so the codes are unchanged;
-the updated input adds the sheet with the held specialist roles (`writer.role_rows`).
+the updated input adds the sheet with the held specialist roles (`writer.role_rows`). Column `Chức Vụ Thêm`
+(`Teacher.extra_roles`, `staff.parse_extra_roles`: Bộ Môn or specialist roles, never Chủ Nhiệm/Quản Lý) widens who may
+teach: `allocation.may_teach` (checker), `by_role` in `build_problem`, `resolve_roles`; a homeroom teacher with extras
+takes only the priority subjects (+ same group, `split_homeroom(fill=False)`) and counts as a general teacher in
+assignment and overtime (`phan_cong._homeroom_only`, `tach_tiet_bu` hires a role that can teach the subject);
+`as_specialist` decides `general_on_specialist`; LUẬT role names match extras (`bo_ghep.picks`, `teacher_ok`). A
+homeroom teacher with extra `Bộ Môn` is how a school drops "GVCN only teaches their class" per person. Empty column =
+old behaviour and codes.
 
 Rules = rows of sheet `LUẬT` (`config.RULES_SHEET_ROWS`), each one sentence of the rule composer (`tkb/bo_ghep.py`;
 cells read/written and described in `tkb/luat_rieng.py` as `config.CustomRule`): "for each [scope dims `SCOPES`] ·
