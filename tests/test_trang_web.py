@@ -122,3 +122,76 @@ def test_timetable_view_swap_and_undo(page, small_updated):
     assert int(page.text_content("#count-luat")) == rules
     page.select_option("#tkb-view", index=page.locator("#tkb-view option").count() - 1)  # theo giáo viên
     assert page.locator("#tkb-grid td.cell[data-cell]").count() > 0
+
+
+def test_free_time_frame(page):
+    """Bước Khung giờ: thêm ngày (Thứ 7), thêm và đặt tên buổi (Tối), mỗi ngày số tiết riêng; bảng Tiết theo ngày dài
+    nhất, hộp thoại Buổi Nghỉ có buổi mới; kiểm tra vẫn ✓ và kịch bản ghi đúng khung giờ."""
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    _wait_mark(page, "khung", "✓")
+    page.click('.tabs [data-tab="khung"]')
+    page.click('[data-act="day-add"]')
+    assert page.input_value('#day-table input[data-f="day-name"] >> nth=5') == "Thứ 7"
+    page.fill('#day-table input[data-f="day-count"][data-i="5"][data-j="1"]', "")  # Thứ 7 chỉ học sáng
+    page.locator('#day-table input[data-f="day-count"][data-i="5"][data-j="1"]').press("Tab")
+    page.click('[data-act="session-add"]')
+    name = page.locator('#day-table input[data-f="session-name"][data-j="2"]')
+    name.fill("Tối")
+    name.press("Tab")
+    count = page.locator('#day-table input[data-f="day-count"][data-i="3"][data-j="2"]')  # Thứ 5 có 2 tiết buổi tối
+    count.fill("2")
+    count.press("Tab")
+    frame = page.evaluate("({sessions: st.scenario.sessions, days: st.scenario.days.map((d) => [d.name, d.periods])})")
+    assert frame["sessions"] == ["Sáng", "Chiều", "Tối"]
+    assert frame["days"][3] == ["Thứ 5", {"Sáng": 4, "Chiều": 3, "Tối": 2}]
+    assert frame["days"][5][0] == "Thứ 7" and frame["days"][5][1]["Sáng"] == 4 and not frame["days"][5][1]["Chiều"]
+    rows = page.locator("#period-table tbody tr")
+    assert rows.count() == 9 and rows.nth(8).locator("td").nth(1).text_content() == "Tối"
+    # Hộp thoại Buổi Nghỉ của một giáo viên không chủ nhiệm: có cột Thứ 7, hàng Tối (chỉ Thứ 5 có buổi tối).
+    page.click('.tabs [data-tab="gv"]')
+    row = next(i for i, role in enumerate(page.evaluate("st.scenario.staff.map((t) => t.role)")) if role == "Bộ Môn")
+    page.click(f'[data-act="edit-staff"][data-i="{row}"]')
+    grid = page.locator("#off-box .off-grid")
+    assert grid.locator("thead th").last.text_content() == "Thứ 7"
+    page.check('#off-box input[data-f="off-fixed"][data-d="3"][data-s="Tối"]')
+    assert page.evaluate(f"st.scenario.staff[{row}].off") == "Tối T5"
+    page.keyboard.press("Escape")
+    _wait_mark(page, "khung", "✓")
+    _wait_mark(page, "gv", "✓")
+
+
+def test_class_step(page):
+    """Bước Lớp: lấy lớp từ các Chủ Nhiệm, thêm khối tên chữ và một lớp chưa có Chủ Nhiệm, đổi tên khối thì số tiết
+    của môn và khối của lớp đổi theo; Chủ Nhiệm chọn Lớp trong danh sách; lỗi của sheet LỚP về đúng bước, đúng dòng."""
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    _wait_mark(page, "lop", "✓")
+    page.click('.tabs [data-tab="lop"]')
+    assert "Chưa ghi lớp nào" in page.text_content("#class-summary")
+    page.click('[data-act="classes-from-homeroom"]')
+    assert page.text_content("#count-lop") == "29"
+    page.fill("#new-grade", "Lá")
+    page.click('[data-act="add-grade"]')
+    page.click('[data-act="add-class"]')
+    name = page.locator('#class-table [data-f="class"][data-i="29"][data-k="name"]')
+    name.fill("Lá 1")
+    name.press("Tab")
+    page.select_option('#class-table [data-f="class"][data-i="29"][data-k="grade"]', "Lá")
+    assert "1 lớp chưa có Chủ Nhiệm" in page.text_content("#class-summary")
+    grade = page.locator('#grade-list [data-f="grade"]').last
+    grade.fill("Mầm")
+    grade.press("Tab")
+    sc = page.evaluate("({grades: st.scenario.grades, cls: st.scenario.classes[29], lessons: st.scenario.subjects[0].lessons})")
+    assert sc["grades"] == [1, 2, 3, 4, 5, "Mầm"] and sc["cls"] == {"name": "Lá 1", "grade": "Mầm", "campus2": False}
+    assert "Mầm" in sc["lessons"] and "Lá" not in sc["lessons"]
+    _wait_mark(page, "lop", "✓")
+    # Chủ Nhiệm ghi lớp không có trong danh sách: lỗi ở bước Giáo viên; xóa lớp 1/1 khỏi danh sách cũng vậy.
+    page.click('#class-table [data-act="del-class"][data-i="0"]')
+    _wait_mark(page, "gv", "⚠")
+    assert "1/1" in page.text_content("#tab-gv .step-errors")
+    page.click('.tabs [data-tab="gv"]')
+    options = page.evaluate("[...document.querySelectorAll('#class-list option')].map((o) => o.value)")
+    assert "Lá 1" in options and "1/1" not in options and len(options) == 29
+    page.click("#btn-undo")
+    _wait_mark(page, "gv", "✓")

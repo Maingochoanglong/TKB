@@ -21,13 +21,20 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
   sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`; optional
-  business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB`: per-subject rules
+  business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB` (and `Quản lý dạy
+  khối`: a grade name): per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
-  periods); school-defined specialist roles teaching several subjects are rows of sheet `CHỨC VỤ`; **every scheduling
+  periods); school-defined specialist roles teaching several subjects are rows of sheet `CHỨC VỤ`; optional sheet `LỚP`
+  (`Lớp | Khối | Cơ sở 2`, `rules._Reader.classes` → `config.CLASSES` of `config.SchoolClass`; empty sheet = none);
+  **every scheduling
   rule, built-in ones included, is a row of sheet `LUẬT`** (old files: sheet `LUẬT RIÊNG`; see Architecture).
   `python -m tkb.template` writes a plain template (black text, no fill/freeze/dropdowns/comments/hidden sheets) with
-  NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), CHỨC VỤ, QUY ĐỊNH, LUẬT (the built-in rule rows), HƯỚNG DẪN. Class names
-  are `g/n` or grade + name (`1D15`): use `staff.grade_of` / `class_sort_key`, never split on "/". `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
+  NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), LỚP, CHỨC VỤ, QUY ĐỊNH, LUẬT (the built-in rule rows), HƯỚNG DẪN. Grades
+  are free names (`Khối <tên>` columns, `staff.parse_grade`: all digits → int, else the text; sort with
+  `staff.grade_key`, never `sorted()` alone). Class names are free with sheet `LỚP`, else `g/n` or grade + name
+  (`1D15`): use `staff.grade_of` / `class_sort_key` / `class_list`, never split on "/". A class of sheet `LỚP` may have
+  no homeroom teacher (`Problem.no_homeroom`: no homeroom share, period-1 and GVCN-first rules skip it, HĐTN stays
+  fixed; homeroom-only subjects there are an error). `data/` holds the school's real file `INPUT_V8.xlsx`, the blank input template
   `Input_Template_V8.xlsx` (`python -m tkb.template`, a test checks it is current) and the output templates
   `Output_Template_{TKB,Thong_Ke}_V8.xlsx`. Tests use a generated fake-name school: `tkb/truong_mau.py`
   (`CURRICULUM`, `sample_staff()`, `write_sample_input()`; demo data, also the UI's "Xem thử với trường mẫu" via
@@ -38,8 +45,10 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   are git-ignored). When analysing its output, read subject names only. CI runs this file but uploads only the
   result-code line, never `out/`.
 - Never hard-code school data (classes, subjects, lesson counts, teachers) in code: it all comes from the input
-  file. `tkb/config.py` holds the defaults of the rules (overridden by the file's rules), weights and LNS
-  params. A new business rule the school may want to change gets a `Col` in `tkb/rules.py` (read in `_Reader`,
+  file. The app must not be tied to any country's rules: the code holds mechanisms only, every rule, frame and name is
+  data the school can change, and defaults are a removable template (plan: frame and classes free, roles as rules,
+  staff tags; one PR per phase). `tkb/config.py` holds the defaults of the rules (overridden by the file's rules),
+  weights and LNS params. A new business rule the school may want to change gets a `Col` in `tkb/rules.py` (read in `_Reader`,
   written in `rule_tables`/`subject_columns`, listed in `ATTRS`), keeping the Có/Không/number convention.
 - Hard rules are the school's decisions: do not loosen or tighten one without asking.
 
@@ -89,7 +98,8 @@ Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 1
 `out/giao_dien`) serving a no-dependency HTML/JS page. The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
 JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself
 (subject detail groups `kich_ban.SUBJECT_GROUPS`, ungrouped columns go to "Khác"). Steps: Khung giờ → Môn học (list +
-detail dialog) → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
+detail dialog) → Lớp (grade names: rename updates lessons, classes, manager grade, LUẬT Khối; class table
+`scenario["classes"]` = sheet LỚP, "Lấy từ các Chủ Nhiệm") → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
 `scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select; the detail
 dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
 counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật (all rules grouped, read-back
@@ -97,7 +107,7 @@ sentences, composer dialog, a "Dùng" switch per rule = column `Tạm tắt` of 
 (`repr=False, compare=False`, so `rules.code` and `luat_co_san.fits` ignore it); `rules._rules_rows` applies only rows
 not off, which therefore act like deleted rows but stay in `config.RULES`, the updated input and the quality sheet
 ("tắt")) →
-Kiểm tra & xếp → Thời khóa biểu (step 7: the saved grid `scenario["saved"]` as class/grade/teacher grids;
+Kiểm tra & xếp → Thời khóa biểu (step 8: the saved grid `scenario["saved"]` as class/grade/teacher grids;
 `kich_ban.Grid` reads the scenario and builds the problem once, cached per `grid_key` = scenario without "saved" + run
 settings in `App.grid`; `view` = `staff.parse_saved_grid` (the one grid reader, also behind `read_saved_timetable`;
 `places` give each cell's (row, col)) + `solver.saved_lessons` + `checker.check` → `/api/timetable` cells and errors
@@ -107,7 +117,7 @@ the "Chỉ giáo viên dạy" rules, only subjects with no homeroom share) feeds
 which adds or edits that rule (`setTeacher`) so a repair run moves the subject to the new teacher. A swap swaps the two cells' text in
 `scenario.saved` and adds " (khóa)"; "Xếp lại phần còn lại" = `/api/run` with keep_saved and ≤ `REPAIR_TIME` 120 s,
 then `takeSaved` copies the new grid (and staff if hires changed) from `<name>_cap_nhat.xlsx` and marks changed
-cells; step 6's result has "Xem TKB trên trang" doing the same). Step 6's result card is a summary: `server.summary` parses the
+cells; step 7's result has "Xem TKB trên trang" doing the same). Step 7's result card is a summary: `server.summary` parses the
 printed lines (stop reason, seconds, reuse, changed cells, hires, overtime, soft lines) and `server.quality` reads the
 `Chất lượng` sheet of the stats file once per job (top 5 soft rules by points). Subjects, staff and rules have search
 boxes (`search`, client-side; `jumpTo` clears the box); renaming a subject/role updates roles, custom rules and staff in the page. First visit (no draft, or
@@ -204,8 +214,13 @@ edits work, the composer cross-checks the checker and its lowering can replace n
 `/api/rules_file`).
 
 `checker.check` re-verifies every hard rule independently of the model: a new hard rule goes in both
-`solver.timetable` and `checker`. Slots are `(day 0–4, period 1–7)`: 1–4 morning, 5–7 afternoon, Friday
-afternoon off (`config.DAY_SESSIONS`). Subject names in config match file names loosely via
+`solver.timetable` and `checker`. Slots are `(day index, period in the day)`; the frame is free data (table `Ngày` of
+sheet QUY ĐỊNH: one row per school day, any name, one column `Buổi <name>` per session holding that day's number of
+periods; old files' `Số tiết buổi sáng/chiều` + `Học buổi sáng/chiều` still read, same rules code) → `config.DAYS`,
+`config.DAY_SESSIONS` (periods numbered 1..n per day in session order; default Mon–Fri, 1–4 morning, 5–7 afternoon,
+Friday afternoon off). Never assume two sessions, a session's periods or day names: go through `tkb/khung_gio.py`
+(`session_at(d, p)`, `day_index`/`day_list`/`split_session_day` for typed text, `first_session_name`); `config.MORNING`/
+`AFTERNOON` only keep the rules code of old frames. LUẬT rows are parsed under the file's frame (`_Reader.frame`). Subject names in config match file names loosely via
 `staff.subject_key` → `program.canonical_subject`.
 
 Each rule below (except who-may-teach and the assignment/LNS rows) is a default row of sheet `LUẬT` (`luat_co_san.NATIVES`; deleting the row turns it off, its number/points come from the row).
@@ -239,10 +254,10 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table
   "Chạy trên máy khác" (codes of `python main.py`), the spec (§0 history row, §9), and the output templates
   (`python tools/mau_dau_ra.py`).
-- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `4CCD-C868-AF11`/`51DE-A8CB-6CB7`, Windows the same
-  (the small school is proven optimal at the LNS start, so these did not change with LNS);
-  `python main.py` (school file as of now) Linux `5C2B-510F-5156`, Windows `08F4-E2C6-3470`; fake school of
-  `tkb/truong_mau.py` with main.py constants Linux `72C2-3315-CE24`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `5444-2BE7-93B3`/`1F0E-EA75-72A3`, Windows
+  `ACDF-23D8-8E1D`/`435A-D916-6EF5`;
+  `python main.py` (school file as of now) Linux `FF2F-F451-28ED`, Windows `DEB9-056B-FF59`; fake school of
+  `tkb/truong_mau.py` with main.py constants Linux `515A-B49D-D6A7`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
@@ -250,7 +265,7 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   differs (~35 min).
 - `linux.yml`: on PRs and pushes to main; pytest on ubuntu-24.04 / Python 3.12 (incl. the Linux reference codes and
   the Playwright/Chromium page tests `tests/test_trang_web.py`: start screen, step marks, undo, rule switch, search,
-  timetable swap; skipped where Playwright is not installed).
+  timetable swap, frame and class steps; skipped where Playwright is not installed).
 - `file_that_windows.yml`: manual (or when the file itself changes); same run once on 2 VMs with Python 3.14.
 - `dong_goi.yml` (manual, tags `v*`, PRs touching packaging/UI entry): `tools/dong_goi.py` builds `dist/TKB/TKB.exe`
   (PyInstaller onedir, `requirements-build.txt` pins it; static pages as data, `--collect-all ortools`; refuses any

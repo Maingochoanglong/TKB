@@ -65,7 +65,7 @@ def test_import_check_export(server):
     status, data = _call(url, "/api/import", "POST", INPUT_FILE.read_bytes(), app.token,
                          {"X-File-Name": "Truong%20M%E1%BA%ABu.xlsx"})
     assert status == 200 and len(data["scenario"]["staff"]) == 45 and data["name"] == "Truong Mẫu"
-    assert data["sheets"] == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT"]
+    assert data["sheets"] == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "LỚP", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT"]
     status, res = _call(url, "/api/check", "POST", {"scenario": data["scenario"], "run": {"overtime_max": 2}}, app.token)
     assert status == 200 and res["errors"] == []
     status, xlsx = _call(url, "/api/export", "POST", {"scenario": data["scenario"], "name": "a/b"}, app.token)

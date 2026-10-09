@@ -20,7 +20,7 @@ from dataclasses import dataclass, field, replace
 from . import config
 from .allocation import Problem, paired_groups, subject_group
 from .rules import applied
-from .staff import Teacher, grade_of
+from .staff import Teacher, grade_key, grade_of
 
 SECONDS = 30  # thời lượng mỗi lần thử khi chẩn đoán (đơn vị như THOI_GIAN_TOI_DA)
 
@@ -49,7 +49,7 @@ def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
     pair_sessions = sum(1 for s in sessions if len(s.periods) >= 2)
     n_days = len(config.DAY_SESSIONS)
     limit = config.SESSION_GROUP_LIMIT if config.on("nhom_buoi") else 10 ** 6
-    for g in sorted({grade_of(c) for c in problem.classes}):
+    for g in sorted({grade_of(c) for c in problem.classes}, key=grade_key):
         req = problem.curriculum[g]
         groups: dict[str, dict[str, int]] = {}
         for s, n in req.items():

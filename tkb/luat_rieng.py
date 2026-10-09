@@ -107,7 +107,8 @@ _BY_LABEL = {subject_key(k.label): k for k in KINDS} | {subject_key(k.key): k fo
 
 
 def _day_label(d: int) -> str:
-    return f"Thứ {d + 2}"
+    from .khung_gio import day_name
+    return day_name(d)
 
 
 def _numbers(text: str) -> list[int] | None:
@@ -125,8 +126,40 @@ def _numbers(text: str) -> list[int] | None:
     return sorted(set(out))
 
 
+def _class(text: str) -> str:
+    """Tên lớp ở cột Lớp: lớp của sheet LỚP ghi khác hoa thường vẫn khớp; không có sheet LỚP thì giữ như ghi."""
+    from .staff import _school, canonical_class
+    return _school()[1].get(_fold(canonical_class(text)), text)
+
+
+def _grades(text: str) -> list[int | str] | None:
+    """"3, 4", "3-5" -> [3, 4, 5]; tên khối chữ giữ như ghi (vd "Lá, Chồi"); None nếu có khối 0 hoặc khoảng sai."""
+    from .staff import _fold, grade_key, parse_grade
+    known = {_fold(str(c.grade)): c.grade for c in config.CLASSES}  # cách viết tên khối của sheet LỚP
+    out: list[int | str] = []
+    for part in re.split(r"[,;]", text):
+        part = part.strip()
+        if not part:
+            continue
+        numbers = _numbers(part)
+        if numbers is None and re.search(r"\d\s*[-–]\s*\d", part):
+            return None
+        grades = numbers if numbers is not None else [known.get(_fold(part), parse_grade(part))]
+        if 0 in grades:
+            return None
+        out += grades
+    return sorted(set(out), key=grade_key)
+
+
 def _days(text: str) -> list[int] | None:
-    """"Thứ 2, Thứ 4", "T2-T4", "2, 3" -> [0, 2] / [0, 1, 2] / [0, 1]."""
+    """Tên các ngày học (khung giờ, tkb/khung_gio.py): "Thứ 2, Thứ 4", "T2-T4" -> [0, 2] / [0, 1, 2]. Khung giờ đặt tên
+    ngày kiểu "Thứ n" (như mặc định) thì còn nhận cả Thứ 2 … Thứ 7 chưa phải ngày học và cách ghi số "2, 3" như trước."""
+    from .khung_gio import day_list
+    days = day_list(text)
+    if days is not None:
+        return days
+    if not all(re.fullmatch(rf"Thứ {d + 2}", name) for d, name in enumerate(config.DAYS)):
+        return None
     folded = re.sub(r"\b(?:thu|t)\s*(?=\d)", "", _fold(text))
     days = _numbers(folded)
     if days is None or any(not 2 <= d <= 7 for d in days):
@@ -207,18 +240,19 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
         elif key == "role":  # "trừ Chủ Nhiệm": mọi GV trừ chức vụ đó
             out[key] = ", ".join(normalize(r) for r in bo_ghep.names(text))
         elif key == "grades":
-            grades = _numbers(text)
-            if not grades or 0 in grades:
-                error(f"cột Khối ghi số khối, vd '3, 4' hoặc '3-5', đang ghi {value!r}")
+            grades = _grades(text)
+            if not grades:
+                error(f"cột Khối ghi tên các khối, vd '3, 4', '3-5' hoặc 'Lá', đang ghi {value!r}")
                 ok = False
             else:
                 out[key] = tuple(grades)
         elif key == "classes":
-            out[key] = tuple(dict.fromkeys(bo_ghep.names(text)))
+            out[key] = tuple(dict.fromkeys(_class(c) for c in bo_ghep.names(text)))
         elif key == "days":
             days = _days(text)
             if not days:
-                error(f"cột Ngày ghi Thứ 2 … Thứ 7, vd 'Thứ 2, Thứ 4' hoặc 'T2-T4', đang ghi {value!r}")
+                error(f"cột Ngày ghi tên ngày học ({', '.join(config.DAYS)}), vd '{config.DAYS[0]}' hoặc "
+                      f"'{config.DAYS[0]}-{config.DAYS[-1]}', đang ghi {value!r}")
                 ok = False
             else:
                 out[key] = tuple(days)
@@ -230,13 +264,13 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
             else:
                 out[key] = tuple(periods)
         elif key == "sessions":
-            names = {_fold(s.name): s.name for s in (config.MORNING, config.AFTERNOON)}
-            parts = [_fold(p) for p in re.split(r"[,;]", text) if p.strip()]
-            if not parts or any(p.replace("buoi ", "") not in names for p in parts):
-                error(f"cột Buổi ghi {config.MORNING.name} hoặc {config.AFTERNOON.name}, đang ghi {value!r}")
+            from .khung_gio import session_name, session_names
+            parts = [session_name(p) for p in re.split(r"[,;]", text) if p.strip()]
+            if not parts or None in parts:
+                error(f"cột Buổi ghi tên buổi ({', '.join(session_names())}), đang ghi {value!r}")
                 ok = False
             else:
-                out[key] = tuple(sorted({names[p.replace('buoi ', '')] for p in parts}))
+                out[key] = tuple(sorted(set(parts)))
         elif key in ("tags", "exclude"):
             known = {subject_key(t): t for t in bo_ghep.tag_names()}
             tags = [known.get(subject_key(t)) for t in bo_ghep.names(text)]

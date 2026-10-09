@@ -13,7 +13,7 @@ from .program import read_program
 from .rules import applied, changed, read_rules
 from .rules import code as rules_code
 from .solver import ShortageError, SolveError, ortools_version, reuse, solve
-from .staff import InputError, grade_of, read_saved_timetable, read_staff
+from .staff import InputError, class_list, grade_of, read_saved_timetable, read_staff
 from .style import Style
 from .writer import (CHANGES_SHEET, campus_paths, change_rows, write_shortage, write_statistics,
                      write_teacher_timetable, write_timetable, write_updated_staff)
@@ -101,7 +101,7 @@ def _run(args, settings: config.Settings) -> int:
         staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
         know_staff(staff)  # câu đọc lại của luật ghi Mã GV thay cho họ tên
         n_subjects = len({s for req in curriculum.values() for s in req})
-        print(f"Đọc {len(staff)} nhân sự, {sum(1 for t in staff if t.class_name)} lớp; "
+        print(f"Đọc {len(staff)} nhân sự, {len(class_list(staff))} lớp; "
               f"chương trình học: {n_subjects} môn (sheet {config.PROGRAM_SHEET}).")
         solution = None
         previous = None  # TKB đã xếp không dùng lại được: xếp lại ít xáo trộn quanh nó
@@ -184,8 +184,12 @@ def _run(args, settings: config.Settings) -> int:
     if core:
         names = ", ".join(solution.problem.subject_label(s) for s in sorted(config.MORNING_SUBJECTS)
                           if any(les.subject == s for les in core))
-        afternoon = sum(1 for les in core if les.period not in config.MORNING.periods)
-        print(f"{names} ở buổi chiều: {afternoon}/{len(core)} tiết (mục tiêu mềm: dành buổi sáng cho các môn này)")
+        from .khung_gio import first_session_name, session_at, session_names
+        first, sessions = first_session_name(), session_names()
+        afternoon = sum(1 for les in core if session_at(les.day, les.period).name != first)
+        where = f"ở buổi {sessions[1].lower()}" if len(sessions) == 2 else f"ngoài buổi {first.lower()}"
+        print(f"{names} {where}: {afternoon}/{len(core)} tiết (mục tiêu mềm: dành buổi {first.lower()} cho các môn "
+              f"này)")
     if config.CUSTOM_RULES:  # luật riêng ưu tiên: số lần không theo
         from .luat_rieng import soft_report
         for line in soft_report(solution.problem, solution.lessons):

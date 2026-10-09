@@ -1,5 +1,6 @@
 """Luật riêng của trường (tkb/luat_rieng.py, sheet LUẬT RIÊNG): đọc, xếp đúng luật bắt buộc, ưu tiên luật mềm,
 kiểm tra độc lập, đếm trước khi xếp và chẩn đoán."""
+import sys
 from collections import Counter
 
 import openpyxl
@@ -16,6 +17,7 @@ from tkb.staff import InputError
 from tkb.template import write_staff_template
 
 from .conftest import CURRICULUM, small_staff, plain_rules
+from .test_reproducible import REFERENCE
 
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
 HEAD = [h for _, h in luat_rieng.COLUMNS]
@@ -59,8 +61,8 @@ def test_parse_each_kind():
     (dict(kind="Học trước", subject="Toán"), "phải ghi cột Môn thứ hai"),
     (dict(kind="Học 2 tiết liền", subject="Toán", periods="1"), "cột Tiết không dùng cho kiểu luật Học 2 tiết liền"),
     (dict(kind="Không xếp vào", subject="Toán"), "ít nhất một trong các cột Ngày, Tiết, Buổi"),
-    (dict(kind="Không xếp vào", subject="Toán", days="Thứ 8"), "cột Ngày ghi Thứ 2 … Thứ 7"),
-    (dict(kind="Không xếp vào", subject="Toán", sessions="tối"), "cột Buổi ghi Sáng hoặc Chiều"),
+    (dict(kind="Không xếp vào", subject="Toán", days="Thứ 8"), "cột Ngày ghi tên ngày học (Thứ 2, Thứ 3, Thứ 4,"),
+    (dict(kind="Không xếp vào", subject="Toán", sessions="tối"), "cột Buổi ghi tên buổi (Sáng, Chiều)"),
     (dict(kind="Học trước", subject="Toán", other="toán"), "Môn và Môn thứ hai phải khác nhau"),
     (dict(kind="Học 2 tiết liền", subject="Toán", level=5), "cột Mức ghi Thấp, Vừa, Cao, Rất cao"),
     (dict(kind="Số lớp học cùng lúc tối đa", subject="Tin học", number=0), "cột Số ghi một số nguyên dương"),
@@ -101,7 +103,10 @@ def test_read_sheet_and_rules_code(tmp_path):
 
 def test_no_custom_rules_change_nothing():
     plain, _ = _solve()
-    assert plain.fingerprint() == "51DE-A8CB-6CB7"  # mã tham chiếu của trường nhỏ (tests/test_reproducible.py)
+    expected = REFERENCE.get(sys.platform, {}).get(config.MODE_OVERTIME)
+    if expected is None:
+        pytest.skip(f"chưa có mã chuẩn cho {sys.platform}")
+    assert plain.fingerprint() == expected  # mã tham chiếu của trường nhỏ (tests/test_reproducible.py)
 
 
 def test_hard_rules_hold_and_are_checked():

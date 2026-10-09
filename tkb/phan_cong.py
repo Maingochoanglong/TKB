@@ -569,7 +569,8 @@ def tach_tiet_bu(problem: Problem, plan: PhanCong, staff: list[Teacher],
                  include_missing: bool) -> dict[str, list[list[tuple[int, str, int]]]]:
     """Chức vụ -> người tuyển mới (số nhỏ nhận nhiều tiết hơn), mỗi người là các (course, người bù, số tiết);
     người bù "" là tiết thiếu. Mỗi người tối đa định mức GV cùng chức vụ và một cặp tiết mỗi buổi. Tiết bù
-    của một người ở một lớp giao trọn cho một người mới."""
+    của một người ở một lớp giao trọn cho một người mới; một người mới không nhận tiết của cùng một course từ hai
+    người bù (Problem.covers: mỗi (course, người mới) đúng một người bù)."""
     units: dict[str, dict[tuple[str, str], list[tuple[int, str, int]]]] = {}
     for (cid, owner), n in sorted(plan.extra.items()):
         c = problem.courses[cid]
@@ -596,9 +597,11 @@ def tach_tiet_bu(problem: Problem, plan: PhanCong, staff: list[Teacher],
         count = max(1, -(-total // cap), -(-sum(it[1] for it in items) // max_pairs))
         while True:
             load, pairs, groups = [0] * count, [0] * count, [[] for _ in range(count)]
+            owner_of: list[dict[int, str]] = [{} for _ in range(count)]  # course -> người bù, của từng người mới
             ok = True
-            for n, pc, _, _, parts in items:
-                fits = [i for i in range(count) if load[i] + n <= cap and pairs[i] + pc <= max_pairs]
+            for n, pc, _, owner, parts in items:
+                fits = [i for i in range(count) if load[i] + n <= cap and pairs[i] + pc <= max_pairs
+                        and all(owner_of[i].get(cid, owner) == owner for cid, _, _ in parts)]
                 if not fits:
                     ok = False
                     break
@@ -606,6 +609,7 @@ def tach_tiet_bu(problem: Problem, plan: PhanCong, staff: list[Teacher],
                 load[i] += n
                 pairs[i] += pc
                 groups[i].extend(parts)
+                owner_of[i].update((cid, owner) for cid, _, _ in parts)
             if ok:
                 break
             count += 1
