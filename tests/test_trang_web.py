@@ -54,6 +54,12 @@ def _wait_mark(page, tab, text):
         .textContent?.startsWith("{text}")""", timeout=30000)
 
 
+def _wait_text(page, selector, text):
+    """Chờ phần tử có chữ `text` (vd bảng vẽ lại sau sự kiện close của hộp thoại, sự kiện này chạy sau Escape)."""
+    page.wait_for_function("([sel, text]) => (document.querySelector(sel)?.textContent || '').includes(text)",
+                           arg=[selector, text], timeout=10000)
+
+
 def test_sample_steps_undo_switch_and_search(page):
     page.wait_for_selector("#start:not([hidden])")
     page.click('[data-start="sample"]')
@@ -232,5 +238,5 @@ def test_extra_roles_picker(page):
     page.check('#extra-box input[data-r="Bộ Môn"]')
     assert page.evaluate(f"st.scenario.staff[{row}].extra_roles") == "Bộ Môn, Tiếng Anh"
     page.keyboard.press("Escape")
-    assert "Chức Vụ Thêm: Bộ Môn, Tiếng Anh" in page.text_content(f'#staff-table tr[data-row="{row + 2}"]')
+    _wait_text(page, f'#staff-table tr[data-row="{row + 2}"]', "Chức Vụ Thêm: Bộ Môn, Tiếng Anh")
     _wait_mark(page, "gv", "✓")
