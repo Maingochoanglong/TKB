@@ -5,7 +5,7 @@ from collections import Counter
 import openpyxl
 import pytest
 
-from tkb import config, kich_ban, luat_rieng
+from tkb import bo_mau, config, kich_ban, luat_rieng
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.config import CustomRule, Role
@@ -75,7 +75,7 @@ def test_role_with_many_subjects():
     for c in p.courses:
         if c.subject in ARTS.subjects and not c.homeroom:
             assert "gv năng khiếu 1" in c.teachers and "bộ môn 1" in c.teachers
-        if c.subject in (config.TIENG_ANH, config.TIN_HOC):
+        if c.subject in (bo_mau.TIENG_ANH, bo_mau.TIN_HOC):
             assert "gv năng khiếu 1" not in c.teachers
     # GVCN không nhận thêm môn của GV chuyên biệt.
     assert all(s not in ARTS.subjects for take in p.homeroom_take.values() for s in take)
@@ -110,7 +110,7 @@ def test_role_without_teacher_is_hired_for_forbidden_subjects():
     assert p.supplement_roles["gv ngoại ngữ tin học"] == ["gv ngoại ngữ tin học 1"]
     assert p.teachers["gv ngoại ngữ tin học 1"].code == "GV Ngoại ngữ Tin học 1"
     for c in p.courses:
-        if c.subject in (config.TIENG_ANH, config.TIN_HOC):
+        if c.subject in (bo_mau.TIENG_ANH, bo_mau.TIN_HOC):
             assert c.teachers == ["gv ngoại ngữ tin học 1"]
 
 
@@ -141,7 +141,7 @@ def test_checker_finds_a_subject_outside_the_role():
     with applied({"CUSTOM_ROLES": [ARTS]}):
         sol = solve(_arts_staff(), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS),
                     log=lambda *_: None)
-        les = next(les for les in sol.lessons if les.subject == config.TIENG_ANH)
+        les = next(les for les in sol.lessons if les.subject == bo_mau.TIENG_ANH)
         lessons = [l if l is not les else type(les)(**{**les.__dict__, "teacher": "gv năng khiếu 1"})
                    for l in sol.lessons]
         errors = check(sol.problem, lessons)

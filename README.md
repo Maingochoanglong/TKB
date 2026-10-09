@@ -35,8 +35,10 @@ Mở `giao_dien.py` rồi bấm **Run ▶** (hoặc chạy `python giao_dien.py`
 `http://127.0.0.1:8765/`. Trang này **chạy ngay trên máy**: không cần Internet, không có máy chủ ngoài, tên giáo viên không
 rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
 
-1. Lần đầu mở trang (hoặc **Tệp ▾ › Bắt đầu lại…**) là **trang bắt đầu** với ba cách: **Mở file Excel của trường**,
-   **Soạn mới trên trang** (luật và quy định mặc định, chưa có nhân sự), **Xem thử với trường mẫu** (trường mẫu tên giả
+1. Lần đầu mở trang (hoặc **Tệp ▾ › Bắt đầu lại…**) là **trang bắt đầu**: **Mở file Excel của trường**, **Soạn mới**
+   theo một **bộ luật mẫu** (`tkb/bo_mau.py`): **Tiểu học Việt Nam** (các môn, luật và quy định mặc định) hoặc **Trống**
+   (chưa có môn nào, không theo quy ước của nước nào: các luật có sẵn để Tạm tắt, bật luật cần dùng ở bước Luật), và
+   **Xem thử với trường mẫu** (trường mẫu tên giả
    29 lớp, 45 giáo viên của `tkb/truong_mau.py`: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì). Mọi việc với
    file nằm ở menu **Tệp ▾**: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (như
    `data/Input_Template_V8.xlsx`, điền trong Excel rồi mở lại), Bắt đầu lại…. Mở được file vào V8 bất kỳ, kể cả file
@@ -444,7 +446,8 @@ Chỉ đọc mẫu V8. File mẫu cũ (V5–V7: chức vụ ghi kèm số như `
 File vào mẫu trống có sẵn: **`data/Input_Template_V8.xlsx`**. Tạo lại (hoặc tạo ở chỗ khác):
 
 ```bash
-python -m tkb.template data/Mau_Input.xlsx
+python -m tkb.template data/Mau_Input.xlsx               # bộ luật mẫu Tiểu học Việt Nam
+python -m tkb.template data/Mau_Trong.xlsx --mau trong   # bộ Trống: chưa có môn, luật theo quy ước để Tạm tắt
 ```
 
 File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền mảnh, không cố định dòng/cột, không danh sách thả xuống, không ghi chú trong ô, không sheet ẩn. Gồm 7 sheet: `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (điền sẵn các môn có quy định mặc định và các cột quy định, số tiết để trống), `LỚP` (chỉ có dòng tiêu đề), `CHỨC VỤ` (chỉ có dòng tiêu đề), `QUY ĐỊNH` (điền sẵn giá trị mặc định), `LUẬT` (các luật có sẵn) và `HƯỚNG DẪN` (cách ghi từng cột, từng sheet, từng mẫu luật và phép đo). Cột Lớp, Lớp Đang Dạy định dạng chữ để Excel không đổi `1/1` thành ngày tháng.
@@ -453,7 +456,7 @@ File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền m�
 
 | Nằm trong file vào | Nằm trong code |
 |---|---|
-| Danh sách môn, tên môn, số tiết từng khối (`CHƯƠNG TRÌNH HỌC`) | Giá trị mặc định của các quy định (`tkb/config.py`), dùng khi file không ghi |
+| Danh sách môn, tên môn, số tiết từng khối (`CHƯƠNG TRÌNH HỌC`) | Giá trị mặc định của các quy định (`tkb/config.py`), dùng khi file không ghi; các giá trị gắn tên môn (môn GVCN nhận trọn, môn nặng, HĐTN…) là dữ liệu của bộ luật mẫu Tiểu học Việt Nam (`tkb/bo_mau.py`), code không chứa tên môn nào |
 | Giáo viên, chức vụ, lớp chủ nhiệm, số tiết, thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ (`NHÂN SỰ`) | Trọng số mục tiêu mềm (`config.Weights`) và tham số xếp giờ (`LNS_*`) |
 | Danh sách lớp (sheet `LỚP`, không có thì suy ra từ các dòng Chủ Nhiệm), tên khối, GV chuyên biệt (sheet `CHỨC VỤ`, hoặc chức vụ trùng tên môn) | Định mức người cần tuyển (Số tiết lớn nhất của GV cùng chức vụ), luật mỗi buổi một cơ sở, thai sản không bù |
 | Khung giờ, HĐTN, tiết của GVCN, môn GVCN nhận/cắt/nhận thêm, quyền dạy, ai được bù, luật bảo vệ học sinh, môn nặng, môn buổi sáng, tên viết tắt (cột quy định của `CHƯƠNG TRÌNH HỌC`, sheet `QUY ĐỊNH`); mọi luật xếp TKB, cả số và điểm (sheet `LUẬT`) | Chế độ, số tiết bù tối đa, thời gian (`main.py`) |
@@ -585,6 +588,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `giao_dien.py`, `tkb/giao_dien/` | Giao diện web chạy trên máy: máy chủ HTTP thư viện chuẩn (`server.py`), trang HTML/JS không cần Internet (`static/`), xếp TKB ở tiến trình con `python -m tkb` |
 | `tkb/kich_ban.py` | Kịch bản của giao diện: file vào V8 ↔ dữ liệu JSON, kiểm tra (đọc lại bằng các hàm đọc của chương trình) và dự toán |
 | `tkb/config.py` | Giá trị mặc định của các quy định (khi file vào không ghi), trọng số mục tiêu, tham số xếp giờ |
+| `tkb/bo_mau.py` | Các bộ luật mẫu: Tiểu học Việt Nam (giá trị mặc định: tên môn, môn GVCN nhận trọn, môn nặng, HĐTN…) và Trống; `rules.mau` đổi một bộ ra quy định |
 | `tkb/rules.py` | Đọc, kiểm tra, ghi các quy định (cột của CHƯƠNG TRÌNH HỌC, sheet LỚP, CHỨC VỤ, QUY ĐỊNH, LUẬT; Có/Không/số); dùng thay giá trị mặc định trong lúc chạy |
 | `tkb/staff.py` | Đọc và kiểm tra file nhân sự |
 | `tkb/template.py` | Tạo file vào mẫu V8 trống, đơn giản (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm quy định môn, LỚP, CHỨC VỤ, QUY ĐỊNH, LUẬT, HƯỚNG DẪN) |
