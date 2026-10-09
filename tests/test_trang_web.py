@@ -259,7 +259,7 @@ def test_tags_in_rule_dialog(page):
     field.fill("Tổ Một, Bán thời gian")
     field.press("Tab")
     page.keyboard.press("Escape")
-    assert "Nhãn: Tổ Một, Bán thời gian" in page.text_content('#staff-table tr[data-row="2"]')
+    _wait_text(page, '#staff-table tr[data-row="2"]', "Nhãn: Tổ Một, Bán thời gian")
     page.click('.tabs [data-tab="luat"]')
     page.click("#btn-add-rule")
     options = lambda sel: page.evaluate(  # noqa: E731
