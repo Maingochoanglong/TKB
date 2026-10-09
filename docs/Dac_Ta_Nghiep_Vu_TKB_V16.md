@@ -88,6 +88,7 @@
 | 70 | Lớp, khối tùy ý; lớp chưa có GVCN | Danh sách lớp chỉ lấy từ cột Lớp của các dòng Chủ Nhiệm (mỗi lớp phải có GVCN), tên lớp phải là `khối/số` hoặc khối rồi tên lớp, khối phải là số (cột `Khối k`) | Sheet `LỚP` không bắt buộc (mục 2.2): `Lớp | Khối | Cơ sở 2`, tên lớp, tên khối tùy ý (`Khối Lá`, `Lá 1`); có sheet thì lớp lấy ở đây, Chủ Nhiệm ghi một lớp của sheet, lớp chưa có Chủ Nhiệm vẫn xếp: mọi môn chia cho GV khác, tiết luôn do GVCN dạy và GVCN dạy trước không áp dụng cho lớp đó, môn chỉ GVCN dạy thì báo lỗi (mục 5). Cột `Khối <tên>` của sheet chương trình học, cột Khối của sheet `LUẬT`, cột Quản lý dạy khối nhận tên khối chữ. Giao diện có bước Lớp. Không có sheet (hoặc sheet trống): như cũ, cùng mã quy định, cùng mã kết quả |
 | 71 | Bộ luật mẫu | Giá trị mặc định gắn tên môn (môn GVCN nhận trọn, môn nặng, HĐTN, Toán mỗi ngày 1 tiết…) nằm trong code (`tkb/config.py`); soạn mới chỉ có cách khởi đầu của trường tiểu học Việt Nam | Các giá trị đó là dữ liệu của bộ luật mẫu **Tiểu học Việt Nam** (`tkb/bo_mau.py`; `config.py` lấy từ đây, nên file không ghi quy định chạy như trước). Thêm bộ mẫu **Trống**: không môn nào có quy định riêng, không HĐTN, không tiết luôn do GVCN dạy hay tiết hạn chế môn nặng, mọi ngày hai buổi; sheet `LUẬT` ghi mọi luật có sẵn, chỉ bật các luật theo dữ liệu trường ghi (buổi nghỉ, cơ sở) và các ưu tiên chung (tải ngày, rải đều, tiết trống, liên tiết cùng người dạy), các luật khác Tạm tắt. Chọn bộ mẫu ở trang bắt đầu của giao diện (Soạn mới) hoặc `python -m tkb.template <file> --mau trong`. Mã kết quả không đổi |
 | 72 | Một người nhiều chức vụ | Mỗi người đúng một chức vụ; GVCN chỉ dạy lớp mình (phần GVCN và tiết bù), nên GVCN dạy thêm Tiếng Anh ở lớp khác hay dạy như bộ môn ở lớp khác thì không ghi được | Cột **Chức Vụ Thêm** không bắt buộc của sheet NHÂN SỰ (mục 2.1.1): các chức vụ khác người đó cũng giữ (Bộ Môn hoặc chức vụ GV chuyên biệt); quyền dạy là hợp các chức vụ, ở mọi lớp, trong định mức (mục 4). GVCN có chức vụ thêm chỉ nhận trọn các môn ưu tiên của lớp mình (và môn cùng nhóm), không nhận thêm cho đủ định mức, phần còn lại dùng cho chức vụ thêm (mục 5.3); khi bù thì bù như bộ môn (mục 7.2). Chủ Nhiệm ghi `Bộ Môn` ở cột này là cách bỏ "GVCN chỉ dạy lớp mình" cho từng người. Luật của sheet `LUẬT` ghi chức vụ ở cột Giáo viên khớp cả người giữ chức vụ đó ở cột này. Giao diện: ô đánh dấu Chức Vụ Thêm trong trang chi tiết giáo viên. Cột trống: như cũ, cùng mã kết quả |
+| 73 | Nhãn giáo viên, nhãn lớp | Luật chỉ nhắm được chức vụ, một người, một lớp hay khối: muốn áp cho một nhóm người (vd người bán thời gian, tổ Toán) hay nhóm lớp (lớp song ngữ) phải ghi từng người, từng lớp | Cột **Nhãn** không bắt buộc của sheet NHÂN SỰ và sheet `LỚP` (mục 2.1.1, 2.2): các nhãn tự đặt, không tự có nghĩa gì. Cột Giáo viên của sheet `LUẬT` ghi một nhãn là mọi GV có nhãn đó, cột Lớp ghi một nhãn lớp là mọi lớp có nhãn đó (mục 6.1). Thai Sản, Hợp Đồng, Cơ sở 2 ghi Có cũng là nhãn cùng tên (người và lớp). Nhãn lớp vào mã quy định; không ghi nhãn: như cũ, cùng mã kết quả |
 
 ---
 
@@ -145,6 +146,7 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 | Lớp Đang Dạy | Không | Các lớp GV dạy trong TKB cũ, cách nhau bằng dấu phẩy/chấm phẩy (vd `3D17, 3D18`). Chỉ dùng cho GV không chủ nhiệm (mục 8.1) |
 | Buổi Nghỉ | Không | Buổi cố định (`Chiều T5`, `Sáng thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, dấu. Buổi vốn nghỉ (chiều Thứ 6) bỏ qua. Số buổi bất kỳ tính thêm ngoài buổi cố định; `n buổi` (không ghi sáng/chiều) là tổng số buổi trống tối thiểu |
 | Chức Vụ Thêm | Không | Các chức vụ khác người đó cũng giữ, cách nhau bằng dấu phẩy: `Bộ Môn` hoặc chức vụ GV chuyên biệt, không ghi số thứ tự (`Chủ Nhiệm`, `Quản Lý` chỉ là chức vụ chính; Quản Lý không có chức vụ thêm). Quyền dạy là hợp các chức vụ (mục 4); Mã GV theo cột Chức Vụ |
+| Nhãn | Không | Các nhãn tự đặt, cách nhau bằng dấu phẩy (vd `Bán thời gian`, `Tổ Toán`). Cột Giáo viên của sheet `LUẬT` ghi một nhãn là mọi GV có nhãn đó (mục 6.1). Thai Sản, Hợp Đồng, Cơ sở 2 ghi Có cũng là nhãn cùng tên; Chủ Nhiệm có lớp ở cơ sở 2 có nhãn Cơ sở 2 (`Teacher.tag_keys`) |
 | STT, cột khác | Không | Không dùng, ghi gì cũng được (ví dụ cột ghi chú) |
 
 - **Tự đánh số thứ tự (Mã GV):** mỗi chức vụ (trừ Chủ Nhiệm) được đánh số 1, 2, 3… theo thứ tự dòng trong file, ví dụ Bộ Môn thứ hai là `Bộ Môn 2`. Chủ Nhiệm được nhận diện theo Lớp (`Chủ Nhiệm 1/1`).
@@ -164,7 +166,7 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối bị hụt, ví dụ có 1/3, 1/5 mà không có 1/4.
 
 **File mẫu V8** (tạo bằng `python -m tkb.template`), style giống file của nhà trường (Times New Roman 14, tiêu đề in đậm không tô nền, viền mảnh, căn giữa, dòng cao 25):
-- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm`, mỗi cột có chú thích. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải bắt đầu bằng số khối. Ba cột Có/Không có danh sách `Có`. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
+- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn`, mỗi cột có chú thích. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải bắt đầu bằng số khối. Ba cột Có/Không có danh sách `Có`. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
 - Sheet CHƯƠNG TRÌNH HỌC: `Môn học | Khối 1 …`. File mẫu trống không có môn nào.
 
 #### 2.1.2. Sheet CHỨC VỤ (không bắt buộc)
@@ -177,12 +179,14 @@ Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối
 
 ### 2.2. Danh sách lớp
 
-- **Có sheet `LỚP`** (ít nhất một lớp): danh sách lớp lấy ở đây, mỗi dòng `Lớp | Khối | Cơ sở 2` (cột `Ghi chú` bỏ
-  qua). Tên lớp tùy ý, không trùng nhau (không phân biệt hoa thường; `1 / 1` viết thành `1/1`). Khối ghi đúng tên một cột
+- **Có sheet `LỚP`** (ít nhất một lớp): danh sách lớp lấy ở đây, mỗi dòng `Lớp | Khối | Cơ sở 2 | Nhãn` (cột `Ghi chú`
+  bỏ qua). Tên lớp tùy ý, không trùng nhau (không phân biệt hoa thường; `1 / 1` viết thành `1/1`). Khối ghi đúng tên một cột
   `Khối <tên>` của sheet chương trình học (không phân biệt hoa thường, dấu); để trống thì là các chữ số đầu tên lớp.
   Chủ Nhiệm ghi Lớp là một lớp của sheet (mỗi lớp nhiều nhất một Chủ Nhiệm); **lớp chưa có Chủ Nhiệm vẫn hợp lệ** (mục
   5). Cột Lớp Đang Dạy và cột Lớp của sheet `LUẬT` theo các tên lớp này. Lớp ở cơ sở 2: `Cơ sở 2 = Có` ở sheet `LỚP`
-  hoặc trên dòng Chủ Nhiệm.
+  hoặc trên dòng Chủ Nhiệm. **Nhãn**: các nhãn tự đặt cách nhau dấu phẩy, không trùng tên lớp nào (`staff.class_tags`);
+  cột Lớp của sheet `LUẬT` ghi một nhãn là mọi lớp có nhãn đó; lớp ghi `Cơ sở 2 = Có` có nhãn `Cơ sở 2`. Nhãn lớp vào
+  mã quy định (chỉ khi có ghi).
 - **Không có sheet** (hoặc sheet chỉ có dòng tiêu đề): lấy từ cột Lớp của các dòng Chủ Nhiệm, ghi `khối/số` (`1/1`)
   hoặc khối rồi tên lớp (`1D15`); khối là các chữ số đầu. Lớp ở cơ sở 2 là các lớp có `Cơ sở 2 = Có` trên dòng Chủ
   Nhiệm. Mã quy định không đổi so với trước.
@@ -235,7 +239,7 @@ Ví dụ (trường mẫu tên giả của test, `tkb/truong_mau.py`):
 | Lấy từ file vào | Nằm trong code |
 |---|---|
 | Danh sách môn, tên môn, số tiết từng khối | Giá trị mặc định của các quy định (`tkb/config.py`, mục 12.2) |
-| Giáo viên, chức vụ, lớp chủ nhiệm, định mức, thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ | Trọng số mục tiêu (mục 8), tham số xếp giờ (mục 9) |
+| Giáo viên, chức vụ, lớp chủ nhiệm, định mức, thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ, chức vụ thêm, nhãn | Trọng số mục tiêu (mục 8), tham số xếp giờ (mục 9) |
 | Danh sách lớp (từ các dòng Chủ Nhiệm); GV chuyên biệt: chức vụ trùng tên môn | Định mức người cần tuyển (Số tiết lớn nhất của GV cùng chức vụ), mỗi buổi một cơ sở, thai sản không bù |
 | Cột quy định của CHƯƠNG TRÌNH HỌC và sheet QUY ĐỊNH: khung giờ, HĐTN, tiết của GVCN, phân GVCN, quyền dạy, ai được bù, luật học sinh, môn nặng, môn buổi sáng, tên viết tắt (mục 2.5) | Chế độ, số tiết bù tối đa, thời gian (`main.py`, mục 12.1) |
 | Style các file ra: phông, cỡ chữ, viền, căn lề, chiều cao dòng | |
@@ -434,8 +438,10 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
 
 - **Phạm vi** (cột Với mỗi): các chiều Lớp, Giáo viên, Môn, Nhóm môn, Khối, Ngày, Buổi, Giờ học (một ô ngày × tiết),
   Cơ sở; luật áp dụng cho từng nhóm tiết cùng giá trị các chiều đó. Trống: cả trường cả tuần.
-- **Điều kiện**: Môn (danh sách; Gồm môn tăng cường = Có thì cả nhóm môn), Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo
-  viên (chức vụ của người dạy, hoặc một người: Mã GV như `Bộ Môn 3`, `Chủ Nhiệm 1/1`, hay họ tên; `bo_ghep.picks`).
+- **Điều kiện**: Môn (danh sách; Gồm môn tăng cường = Có thì cả nhóm môn), Nhãn, Khối, Lớp (tên lớp hoặc nhãn lớp của
+  sheet `LỚP`: mọi lớp có nhãn đó, `bo_ghep._classes`), Ngày, Tiết, Buổi, Giáo viên (chức vụ của người dạy, kể cả chức
+  vụ ở cột Chức Vụ Thêm; nhãn ở cột Nhãn của sheet NHÂN SỰ; hoặc một người: Mã GV như `Bộ Môn 3`, `Chủ Nhiệm 1/1`, hay
+  họ tên; `bo_ghep.picks`).
   Cột trống là mọi giá trị. **Nhãn** là tiêu đề các cột Có/Không của sheet CHƯƠNG TRÌNH
   HỌC (nhãn môn, vd Môn nặng) hoặc của bảng Ngày, Tiết (nhãn ô, vd Luôn do GVCN dạy).
 - **Áp dụng khi**: điều kiện trên số tiết/tuần của các môn của luật ở từng khối (`>= n`, `<= n`, `= n`, `<= số ngày`,

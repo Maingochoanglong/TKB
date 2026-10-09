@@ -646,7 +646,7 @@ function renderClasses() {
     <span class="muted">${hasClassList() ? `${count(g)} lớp` : ""}</span>
     <button type="button" class="icon" data-act="del-grade" data-i="${i}" title="Bỏ khối này">✕</button></span>`).join("")
     || `<p class="muted">Chưa có khối nào.</p>`;
-  const head = `<thead><tr><th>Dòng</th><th class="left">Lớp</th><th>Khối</th><th>Cơ sở 2</th>
+  const head = `<thead><tr><th>Dòng</th><th class="left">Lớp</th><th>Khối</th><th>Cơ sở 2</th><th class="left">Nhãn</th>
     <th class="left">Chủ Nhiệm</th><th></th></tr></thead>`;
   const body = sc.classes.map((c, i) => {
     const t = String(c.name || "").trim() ? homeroomOf(c.name) : null;
@@ -656,6 +656,7 @@ function renderClasses() {
       <td class="left">${input("text", c.name, { f: "class", i, k: "name" })}</td>
       <td>${input("grade", c.grade, { f: "class", i, k: "grade" })}</td>
       <td>${input("yes", c.campus2, { f: "class", i, k: "campus2" })}</td>
+      <td class="left">${input("text", c.tags, { f: "class", i, k: "tags" })}</td>
       <td class="left">${who}</td>
       <td><button type="button" class="icon" data-act="del-class" data-i="${i}" title="Xóa lớp">✕</button></td></tr>`;
   }).join("");
@@ -1011,6 +1012,19 @@ function staffIds() { // dòng nhân sự (đối tượng) -> {code: Mã GV (""
   return out;
 }
 const teacherCodes = () => [...staffIds().values()].map((v) => v.code).filter(Boolean);
+// Nhãn ghi được ở cột Giáo viên, Lớp của luật (như staff.Teacher.tag_keys, staff.class_tags): cột Nhãn của giáo viên,
+// của lớp (bước 3), và tên các cột Có/Không có người (lớp) ghi Có.
+const splitTags = (v) => String(v ?? "").split(/[,;]/).map((x) => x.trim()).filter(Boolean);
+function staffTags() {
+  const flags = S.staff.filter((c) => c.kind === "yes" && st.scenario.staff.some((t) => t[c.key])).map((c) => c.header);
+  const tags = [...st.scenario.staff.flatMap((t) => splitTags(t.tags)), ...flags];
+  return [...new Map(tags.map((x) => [key(x), x])).values()];
+}
+function classTags() {
+  const cls = (st.scenario.classes || []).filter(named);
+  const flag = cls.some((c) => c.campus2 === true) ? [S.custom.class_campus2] : [];
+  return [...new Map([...cls.flatMap((c) => splitTags(c.tags)), ...flag].map((x) => [key(x), x])).values()];
+}
 
 // Luật ghi một người (Mã GV hay họ tên) phải đi theo đúng người. Mã GV đánh số theo thứ tự dòng trong chức vụ, nên xóa,
 // dời, đổi chức vụ một dòng làm đổi mã của người khác. Mỗi lần sửa (changed), so mã và tên của từng dòng với lần trước
@@ -1074,11 +1088,12 @@ function renderComposer() {
     block("tags", "Giờ có nhãn", checks("tags", CP().tags.slot, row.tags),
       "Giờ học đánh dấu ở bước 1 (bảng Tiết trong ngày, Ngày học), vd Hạn chế môn nặng; nhiều nhãn: giờ có một trong các nhãn."),
   ].join("");
-  const who = [...S.roles, ...st.scenario.roles.map(named).filter(Boolean), ...teacherCodes()];
+  const who = [...S.roles, ...st.scenario.roles.map(named).filter(Boolean), ...staffTags(), ...teacherCodes()];
   $("#teacher-list").innerHTML = [...new Set(who)].map((r) => `<option value="${esc(r)}">`).join("");
   const role = field("role", m && m.key === "nguoi_day" ? "Do giáo viên" : "Giáo viên",
     text("role", 'list="teacher-list"'),
-    "Chức vụ (vd Bộ Môn, Tiếng Anh), hoặc một người: Mã GV (vd Bộ Môn 3, Chủ Nhiệm 1/1) hay họ tên; nhiều tên " +
+    "Chức vụ (vd Bộ Môn, Tiếng Anh), nhãn của giáo viên (cột Nhãn, vd Hợp Đồng), hoặc một người: Mã GV (vd Bộ Môn " +
+    "3, Chủ Nhiệm 1/1) hay họ tên; nhiều tên " +
     "cách nhau bằng dấu phẩy; \"trừ Chủ Nhiệm\": mọi giáo viên trừ chức vụ đó. Câu đọc lại ghi Mã GV.");
   const w = whenParts(row.when);
   const whenBuilder = uses.has("when") && !w.raw ? formBlock("Áp dụng khi", `<div class="when">
@@ -1114,7 +1129,8 @@ function renderComposer() {
       ${uses.has("group") ? formRow("Gồm môn tăng cường", `<input type="checkbox" data-f="rd" data-k="group" ${
         fold(row.group) === "co" || row.group === true ? "checked" : ""}>`, "Tính cả các môn tăng cường cùng nhóm.") : ""}
       ${block("grades", "Khối", checks("grades", st.scenario.grades.map(String), row.grades, (g) => `Khối ${g}`))}
-      ${field("classes", "Lớp", text("classes", 'list="class-list"'), "Vd 3/1, 3/2; để trống: mọi lớp.")}
+      ${field("classes", "Lớp", text("classes", 'list="rule-class-list"'),
+        "Vd 3/1, 3/2, hoặc một nhãn lớp (cột Nhãn ở bước 3: mọi lớp có nhãn đó); để trống: mọi lớp.")}
       ${roleMain ? role : ""}
       ${extra.trim() ? `<details class="more" ${extraUsed ? "open" : ""}><summary>Thêm điều kiện</summary>${extra}</details>` : ""}
       </fieldset>`;
@@ -1156,7 +1172,8 @@ function renderComposer() {
         "Chỉ để xếp các luật cho dễ đọc.")}
     </details></fieldset>`;
   $("#rule-body").innerHTML = html;
-  $("#class-list").innerHTML = schoolClasses().map((c) => `<option value="${esc(c)}">`).join("");
+  $("#rule-class-list").innerHTML = [...schoolClasses(), ...classTags()].map((c) => `<option value="${esc(c)}">`)
+    .join("");
   $("#derived-list").innerHTML = CP().derived.map((d) => `<option value="${esc(d)}">`).join("");
 }
 let previewTimer = null;

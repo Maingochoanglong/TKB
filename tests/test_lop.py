@@ -135,8 +135,9 @@ def test_scenario_keeps_classes_and_grade_names(tmp_path):
     path = _file(tmp_path, [("3/1", 3, False), ("", None, False), ("lá 1", "Lá", True)])
     sc, _ = kich_ban.from_excel(path)
     assert sc["grades"] == [3, "Lá"] and sc["subjects"][0]["lessons"] == {"3": 7, "Lá": 6}
-    assert sc["classes"] == [{"name": "3/1", "grade": 3, "campus2": False}, {"name": "", "grade": None, "campus2": False},
-                             {"name": "lá 1", "grade": "Lá", "campus2": True}]
+    assert sc["classes"] == [{"name": "3/1", "grade": 3, "campus2": False, "tags": ""},
+                             {"name": "", "grade": None, "campus2": False, "tags": ""},
+                             {"name": "lá 1", "grade": "Lá", "campus2": True, "tags": ""}]
     again = tmp_path / "lai.xlsx"
     kich_ban.to_excel(sc, again)
     assert kich_ban.from_excel(again)[0] == sc
