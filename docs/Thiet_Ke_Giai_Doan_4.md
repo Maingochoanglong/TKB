@@ -262,7 +262,8 @@ cũ.
 3. **Ghép lớp ở phòng:** cả nhóm chiếm một chỗ trong phòng (đề xuất), hay mỗi lớp một chỗ?
 4. **Dạy kèm:** ghi bằng môn riêng như "Trợ giảng Tiếng Anh" (đề xuất, không thêm cơ chế), hay một cột "Người dạy kèm" ở
    CHƯƠNG TRÌNH HỌC?
-5. **Ô ghép lớp trong TKB lớp:** ghi thêm "(ghép 3/2)" hay để như ô thường?
+5. **Ô ghép lớp trong TKB lớp:** ghi thêm "(ghép 3/2)" hay để như ô thường? (Không có đề xuất; bản 4B-2 ghi thêm
+   "(ghép 3/2)" để học sinh, giáo viên biết lớp học chung; muốn để như ô thường thì chỉ sửa `writer._class_cell`.)
 6. **TKB phòng:** file riêng `TKB_phong.xlsx` (đề xuất), hay thêm sheet vào file TKB giáo viên?
 
 ## 6. Kế hoạch PR

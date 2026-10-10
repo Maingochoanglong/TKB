@@ -22,6 +22,8 @@ class Course:
     fixed_slots: tuple[tuple[int, int], ...] = ()  # (ngày, tiết) bắt buộc
     allowed_days: tuple[int, ...] | None = None
     flex_hdtn: bool = False  # tiết HĐTN linh hoạt (ưu tiên cuối buổi)
+    # Ghép lớp (Problem.merge_groups): course của lớp chính mà course này theo (cùng giờ, cùng người dạy); None: không.
+    lead: int | None = None
 
 
 @dataclass
@@ -68,6 +70,30 @@ class Problem:
         req = self.curriculum[grade_of(class_name)]
         extra = self.link_extra
         return sum(n for s, n in req.items() if (class_name, s) not in extra)
+
+    def merge_groups(self) -> dict[int, list[int]]:
+        """Ghép lớp (luật bắt buộc Cùng giờ, so sánh Cùng một người; bo_ghep.merges): course của lớp chính -> các
+        course của nhóm (lớp chính trước). Các course của nhóm học cùng giờ, một người dạy; chỉ course của lớp chính
+        được phân công và chiếm lịch người dạy, các course theo dùng chung biến với nó (solver.build_timetable)."""
+        out: dict[int, list[int]] = {}
+        for c in self.courses:
+            if c.lead is not None:
+                out.setdefault(c.lead, [c.lead]).append(c.id)
+        return out
+
+    def taught(self, lessons: list) -> list:
+        """Các tiết tính giờ dạy của GV: tiết ghép lớp (nhiều lớp, một người, cùng giờ) là một giờ dạy, chỉ tính một
+        lần (tiết của lớp chính). Không có ghép lớp: mọi tiết."""
+        if not any(c.lead is not None for c in self.courses):
+            return list(lessons)
+        seen, out = set(), []
+        for les in lessons:
+            lead = self.courses[les.course_id].lead
+            key = (les.teacher, les.day, les.period, les.course_id if lead is None else lead)
+            if key not in seen:
+                seen.add(key)
+                out.append(les)
+        return out
 
     def overtime_mode(self) -> bool:
         return self.overtime_max > 0
@@ -313,6 +339,34 @@ def previous_cost(t: Teacher, course: Course, w: config.Weights) -> int:
     return 0 if (course.class_name, course.subject) in t.previous else w.keep_previous
 
 
+def _merge_courses(courses: list[Course], merged: list[tuple[tuple[str, str], ...]],
+                   subject_labels: dict[str, str]) -> None:
+    """Ghép lớp: các course của mỗi nhóm theo course của lớp chính (Course.lead); ai cũng chỉ được dạy cả nhóm nếu
+    được dạy môn đó ở mọi lớp của nhóm."""
+    by_item: dict[tuple[str, str], list[Course]] = {}
+    for c in courses:
+        if not c.homeroom:
+            by_item.setdefault((c.class_name, c.subject), []).append(c)
+    for group in merged:
+        name = ", ".join(cls for cls, _ in group)
+        what = " và ".join(dict.fromkeys(subject_labels.get(s, s) for _, s in group))
+        members = []
+        for item in group:
+            found = by_item.get(item, [])
+            if len(found) != 1 or found[0].fixed_slots:
+                raise InputError(f"Ghép lớp {what} lớp {name}: lớp {item[0]} có tiết cố định của môn này, không ghép "
+                                 f"lớp được")
+            members.append(found[0])
+        lead, *rest = sorted(members, key=lambda c: c.id)
+        common = [g for g in lead.teachers if all(g in c.teachers for c in rest)]
+        if not common:
+            raise InputError(f"Ghép lớp {what} lớp {name}: không GV nào được dạy môn này ở mọi lớp của nhóm")
+        for c in members:
+            c.teachers = list(common)
+        for c in rest:
+            c.lead = lead.id
+
+
 def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                   supplement_counts: dict[str, int] | None = None, overtime_max: int = 0) -> Problem:
     """Dựng bài toán.
@@ -353,9 +407,22 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     campus2 = frozenset(c for c, n in where.items() if _fold(n) == _fold(CAMPUS2))
     no_homeroom = frozenset(c for c in classes if c not in homeroom)
 
-    from .bo_ghep import links as together  # bo_ghep nhập muộn như ở dưới
+    from .bo_ghep import links as together, merges  # bo_ghep nhập muộn như ở dưới
     links = together(classes, curriculum)
     extra = {(cls, s) for cls, groups in links.items() for g in groups for s in g[1:]}
+    # Ghép lớp: mỗi nhóm (lớp, môn) một người dạy cho cả nhóm; GVCN không nhận các môn này trong phần của mình.
+    merged = merges(classes, curriculum, where)
+    in_merge = {item for g in merged for item in g}
+    follower = {item for g in merged for item in g[1:]}
+    for cls, s in sorted(in_merge & {(c, s) for c, groups in links.items() for g in groups for s in g}):
+        raise InputError(f"Lớp {cls}: môn {subject_labels.get(s, s)} vừa ghép lớp vừa học cùng giờ với môn khác của "
+                         f"lớp (luật Học cùng giờ): bỏ một trong hai luật")
+    for cls, s in sorted(in_merge):
+        if s in homeroom_only():
+            raise InputError(f"Lớp {cls}: môn {subject_labels.get(s, s)} chỉ GVCN được dạy (cột Chỉ GVCN dạy) nên "
+                             f"không ghép lớp được")
+        if s == config.HDTN and config.HDTN_FIXED_SLOTS and config.on("hdtn_co_dinh"):
+            raise InputError(f"Lớp {cls}: môn {subject_labels.get(s, s)} có tiết cố định nên không ghép lớp được")
 
     for g in sorted({grade_of(c) for c in classes}, key=grade_key):
         # Lớp ghi dạng khối/số thứ tự: báo số thứ tự bị bỏ trống.
@@ -400,7 +467,8 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                 pool.append((cls, grade, subject, n))
             continue
         cn = homeroom[cls]
-        take = split_homeroom(cls, req, cn.max_lessons, reserved_by_grade.get(grade, set()), specialist,
+        own = {s: n for s, n in req.items() if (cls, s) not in in_merge}  # môn ghép lớp: không vào phần GVCN
+        take = split_homeroom(cls, own, cn.max_lessons, reserved_by_grade.get(grade, set()), specialist,
                               fill=not cn.extra_roles)
         homeroom_take[cls] = take
         if sum(take.values()) < len(homeroom_slots):
@@ -431,12 +499,12 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
 
     # Nhu cầu tối đa theo chức vụ để dựng đủ GV bổ sung dự kiến.
     role_demand: dict[str, int] = {}
-    for _, _, subject, n in pool:
+    for cls, _, subject, n in pool:
         roles = roles_for_subject(subject, specialists)
         if not roles:
             raise InputError(f"Không có chức vụ nào được phép dạy môn {subject}")
-        for r in roles:
-            role_demand[r] = role_demand.get(r, 0) + n
+        for r in roles:  # lớp theo của nhóm ghép lớp: người dạy lớp chính dạy luôn, không cần thêm người
+            role_demand[r] = role_demand.get(r, 0) + (0 if (cls, subject) in follower else n)
 
     all_teachers = list(staff)
     supplement_roles: dict[str, list[str]] = {}
@@ -476,7 +544,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
             if (cls in campus2 or not m.campus2_only or not config.on("co_so_2")) and \
                     any(manager_allowed(rule, cls, grade, subject) for rule in config.MANAGER_RULES):
                 eligible.append(m.title)
-                manager_pool_lessons[m.title] += n
+                manager_pool_lessons[m.title] += 0 if (cls, subject) in follower else n
         if config.CUSTOM_RULES:  # luật bắt buộc "Người dạy" không xét ô (vd Chỉ giáo viên dạy): lọc khi phân công
             from .bo_ghep import refusing
             from .luat_rieng import label
@@ -501,6 +569,8 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                                       allowed_days=tuple(config.HDTN_FLEX_DAYS) if flex else None, flex_hdtn=True))
             continue
         courses.append(Course(len(courses), cls, grade, subject, n, eligible))
+
+    _merge_courses(courses, merged, subject_labels)
 
     manager_load: dict[str, int] = {}
     for m in managers:

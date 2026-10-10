@@ -102,15 +102,20 @@ MEASURES = (
     Measure("khoang_cach", "Khoảng cách", ("trong_tiet", "cuoi_buoi"), True, sequence=True, family="Bao nhiêu",
             note="Số tiết trống xen giữa các tiết trong buổi (0: không có tiết trống); hoặc số tiết từ tiết đó đến "
                  "cuối buổi (0: ở tiết cuối buổi)."),
-    Measure("cung_gio", "Cùng giờ", (), False, other=True, family="Đi cùng nhau",
-            note="Các tiết của Môn và của Môn thứ hai luôn học cùng giờ, cùng số tiết mỗi tuần: lớp chia nhóm (mỗi "
+    Measure("cung_gio", "Cùng giờ", ("moi_mon", "cung_nguoi"), False, other=True, default_op="moi_mon",
+            family="Đi cùng nhau",
+            note="Các tiết luôn học cùng giờ, cùng số tiết mỗi tuần; chỉ ghi Bắt buộc. Mỗi môn một người (để trống "
+                 "So sánh): mỗi lớp học Môn và Môn thứ hai cùng giờ, lớp tính một tiết ở giờ đó: lớp chia nhóm (mỗi "
                  "nhóm học một môn, mỗi môn một người dạy) hoặc giáo viên chính và trợ giảng (ghi trợ giảng thành một "
-                 "môn riêng, vd Trợ giảng Tiếng Anh). Với mỗi là Lớp, chỉ ghi Bắt buộc; lớp tính một tiết ở giờ đó."),
+                 "môn riêng, vd Trợ giảng Tiếng Anh); Với mỗi là Lớp. Cùng một người: ghép lớp, các lớp (của cả "
+                 "trường, hoặc mỗi khối, mỗi cơ sở ở cột Với mỗi) học Môn (và Môn thứ hai nếu ghi) cùng giờ, một người "
+                 "dạy, người đó tính một tiết ở giờ đó."),
 )
 MEASURE = {m.key: m for m in MEASURES}
 OPS = {"<=": "Tối đa", ">=": "Tối thiểu", "=": "Đúng", "trong": "Chỉ trong", "ngoai": "Không trong", "do": "Do",
        "cung_nguoi": "Cùng một người", "lien_cung_nguoi": "Liền nhau cùng người", "dau_tuan": "Tiết đầu tuần do",
-       "trong_tiet": "Tiết trống tối đa", "cuoi_buoi": "Cách cuối buổi tối đa", "truoc": "Trước", "sau": "Sau"}
+       "trong_tiet": "Tiết trống tối đa", "cuoi_buoi": "Cách cuối buổi tối đa", "truoc": "Trước", "sau": "Sau",
+       "moi_mon": "Mỗi môn một người"}
 # Ngưỡng theo dữ liệu, ghi ở cột Số thay cho một số (phép đo Số tiết).
 DERIVED = {"tai_ngay": "tải ngày", "tai_ngay_1": "tải ngày + 1", "tran_ngay": "số tiết/tuần chia số ngày"}
 NOT = "trừ "  # cột Giáo viên: "trừ Chủ Nhiệm" là mọi GV trừ chức vụ đó (hay trừ người đó)
@@ -199,7 +204,12 @@ class Luat:
     def teacher(self) -> bool:
         """Cần biết GV dạy từng tiết."""
         return ("gv" in self.scope or self.count_by == "gv" or self.roles is not None or bool(self.roles_not)
-                or self.measure == "nguoi_day")
+                or self.measure == "nguoi_day" or self.merge)
+
+    @property
+    def merge(self) -> bool:
+        """Ghép lớp: phép đo Cùng giờ, so sánh Cùng một người (kiểu luật Ghép lớp)."""
+        return self.measure == "cung_gio" and self.op == "cung_nguoi"
 
 
 def _subject(name: str) -> str:
@@ -265,6 +275,7 @@ PRESETS = {  # mẫu -> (phạm vi, phép đo, so sánh, đếm theo)
     "rai_ngay": (("lop",), "so_khac", ">=", "ngay"),
     "chi_gv": ((), "nguoi_day", "do", ""),
     "hoc_cung_gio": (("lop",), "cung_gio", "", ""),
+    "ghep_lop": ((), "cung_gio", "cung_nguoi", ""),
 }
 
 
@@ -415,6 +426,7 @@ class Atom:
     session: str = ""
     teacher: str | None = None
     cells: tuple = ()  # (lớp, ngày) liên quan, cho số hạng dẫn xuất
+    copy: bool = False  # tiết của lớp theo trong nhóm ghép lớp (Course.lead): cùng giờ dạy với tiết của lớp chính
 
     def where(self) -> list[tuple[str, int]]:
         if self.cls is not None:
@@ -453,14 +465,17 @@ class _Source:
                 if L.slots is not None and s not in L.slots:
                     continue
                 name = self.sess[s].name if s in self.sess else ""
+                copy = c.lead is not None
                 if not need_teacher:
-                    out.append(Atom(self.lit(c.id, None, s), c.class_name, c.grade, c.subject, s[0], s[1], name))
+                    out.append(Atom(self.lit(c.id, None, s), c.class_name, c.grade, c.subject, s[0], s[1], name,
+                                    copy=copy))
                     continue
                 for g in self.teachers_of(c.id):
                     t = self.relabel.get((c.id, g), g)
                     if not ok[t]:
                         continue
-                    out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, t))
+                    out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, t,
+                                    copy=copy))
         return out
 
 
@@ -499,7 +514,11 @@ def _eval_source(problem, lessons, dom=None) -> _Source:
 
 
 def _groups(L: Luat, atoms: list[Atom], problem, all_keys: bool) -> list[tuple[tuple, list[Atom]]]:
-    """Chia các tiết theo phạm vi. all_keys: có cả nhóm không có tiết nào (cho so sánh Tối thiểu, Đúng)."""
+    """Chia các tiết theo phạm vi. all_keys: có cả nhóm không có tiết nào (cho so sánh Tối thiểu, Đúng). Phạm vi theo
+    GV mà không theo lớp, khối: tiết ghép lớp (nhiều lớp, một người, cùng giờ) là một giờ dạy, chỉ tính tiết của lớp
+    chính."""
+    if "gv" in L.scope and not {"lop", "khoi"} & {*L.scope, L.count_by} and not L.merge:
+        atoms = [a for a in atoms if not a.copy]
     groups: dict[tuple, list[Atom]] = {}
     if all_keys:
         for key in _universe(L, problem):
@@ -828,7 +847,11 @@ def _di_kem(ctx, L, problem, src):
 
 
 def _cung_gio(ctx, L, problem, src):
-    """Mỗi lớp, mỗi giờ: có tiết Môn khi và chỉ khi có tiết của từng môn ở cột Môn thứ hai (hai chiều Tối đa 0)."""
+    """Mỗi lớp, mỗi giờ: có tiết Môn khi và chỉ khi có tiết của từng môn ở cột Môn thứ hai (hai chiều Tối đa 0).
+    Cùng một người: ghép lớp (`_ghep_lop`)."""
+    if L.merge:
+        _ghep_lop(ctx, L, problem, src)
+        return
     mine = dict(_groups(L, src.atoms(L), problem, False))
     for other in sorted(L.other or ()):
         theirs = dict(_groups(L, src.atoms(L, subjects=frozenset({other})), problem, False))
@@ -840,6 +863,27 @@ def _cung_gio(ctx, L, problem, src):
                     ctx.at_most(first.get(s, []), 0, neg=second.get(s, []),
                                 text=lambda v, key=key, s=s, name=name: f"{_where(L, key, problem)} {_day(s[0])} tiết "
                                                                          f"{s[1]}: không có {name} cùng giờ")
+
+
+def _ghep_lop(ctx, L, problem, src):
+    """Ghép lớp: trong mỗi nhóm của phạm vi, mỗi lớp có tiết (Môn hoặc Môn thứ hai) ở đúng các giờ, với đúng người
+    dạy, như lớp đầu của nhóm (hai chiều Tối đa 0 theo từng giờ × người dạy). Mô hình xếp giờ dùng chung biến cho
+    cả nhóm (solver.build_timetable) nên `build` không thêm gì; ở đây là phần kiểm tra độc lập."""
+    from .staff import class_sort_key
+    atoms = src.atoms(L) + (src.atoms(L, subjects=L.other - (L.subjects or frozenset())) if L.other else [])
+    for key, group in _groups(L, atoms, problem, False):
+        by_class: dict[str, dict] = defaultdict(lambda: defaultdict(list))  # lớp -> (giờ, GV) -> tiết
+        for a in group:
+            by_class[a.cls][(a.day, a.period), a.teacher].append(a)
+        classes = sorted(by_class, key=class_sort_key)
+        for cls in classes[1:]:
+            pairs = ((classes[0], cls), (cls, classes[0]))
+            for at in sorted(set(by_class[classes[0]]) | set(by_class[cls])):
+                for one, two in pairs:
+                    ctx.at_most(by_class[one].get(at, []), 0, neg=by_class[two].get(at, []),
+                                text=lambda v, one=one, two=two, at=at:
+                                f"ghép lớp: lớp {one} có tiết {_day(at[0][0])} tiết {at[0][1]} "
+                                f"({problem.teachers[at[1]].code} dạy) mà lớp {two} không học cùng giờ, cùng người")
 
 
 def _by_slot(atoms: list[Atom]) -> dict[tuple[int, int], list[Atom]]:
@@ -1003,7 +1047,8 @@ def _together(L: Luat, cls: str, curriculum) -> tuple[list[str], dict[str, int]]
     """Các môn luật Cùng giờ nối với nhau ở lớp `cls` (Môn trước, rồi Môn thứ hai) và số tiết/tuần của chúng; None nếu
     luật không xét lớp này."""
     grade = grade_of(cls)
-    if not (L.hard and L.measure == "cung_gio" and L.subjects and L.other) or not _class_ok(L, cls, grade, curriculum):
+    if not (L.hard and L.measure == "cung_gio" and not L.merge and L.subjects and L.other) or \
+            not _class_ok(L, cls, grade, curriculum):
         return None
     req = curriculum.get(grade, {})
     items = [*sorted(L.subjects), *sorted(L.other - L.subjects)]
@@ -1015,7 +1060,7 @@ def links(classes, curriculum) -> dict[str, tuple[tuple[str, ...], ...]]:
     xếp cùng giờ, môn đầu là môn chính (allocation.build_problem). Hai luật có chung môn ở một lớp thì gộp một nhóm.
     Lớp có môn khác số tiết (validate báo lỗi) hay không có tiết nào thì bỏ qua."""
     out: dict[str, tuple[tuple[str, ...], ...]] = {}
-    rules = [L for L in compiled() if L.measure == "cung_gio"]
+    rules = [L for L in compiled() if L.measure == "cung_gio" and not L.merge]
     if not rules:
         return out
     for cls in classes:
@@ -1033,6 +1078,56 @@ def links(classes, curriculum) -> dict[str, tuple[tuple[str, ...], ...]]:
         if groups:
             out[cls] = tuple(tuple(g) for g in groups)
     return out
+
+
+def _merge_items(L: Luat, classes, curriculum, campus: dict[str, str]) -> dict[tuple, list[tuple[str, str]]]:
+    """Luật ghép lớp: nhóm của phạm vi (cả trường, khối, cơ sở) -> các (lớp, môn) có tiết, theo thứ tự lớp."""
+    if not (L.hard and L.merge and L.subjects):
+        return {}
+    subjects = sorted(L.subjects | (L.other or frozenset()))
+    out: dict[tuple, list[tuple[str, str]]] = {}
+    for cls in classes:
+        grade = grade_of(cls)
+        if not _class_ok(L, cls, grade, curriculum):
+            continue
+        key = tuple({"khoi": grade, "co_so": _fold(campus.get(cls) or CAMPUS1)}.get(d) for d in L.scope)
+        for s in subjects:
+            if curriculum.get(grade, {}).get(s, 0) > 0:
+                out.setdefault(key, []).append((cls, s))
+    return out
+
+
+def _merge_problems(items: list[tuple[str, str]], curriculum, campus: dict[str, str], label) -> list[str]:
+    """Vì sao các (lớp, môn) không ghép thành một nhóm được (trống: ghép được)."""
+    out = []
+    classes = [cls for cls, _ in items]
+    twice = sorted({c for c in classes if classes.count(c) > 1})
+    if twice:
+        out.append(f"lớp {', '.join(twice)} có nhiều môn của nhóm (một người không dạy hai môn một lớp cùng giờ)")
+    if len(set(classes)) < 2:
+        out.append(f"chỉ có lớp {', '.join(dict.fromkeys(classes))}: ghép lớp cần ít nhất hai lớp")
+    counts = {(cls, s): curriculum[grade_of(cls)][s] for cls, s in items}
+    if len(set(counts.values())) > 1:
+        out.append("các lớp phải cùng số tiết/tuần (" + ", ".join(f"{cls} {label(s)} {n} tiết"
+                                                                  for (cls, s), n in counts.items()) + ")")
+    places = dict.fromkeys(campus.get(cls) or CAMPUS1 for cls in classes)
+    if len({_fold(p) for p in places}) > 1:
+        out.append(f"các lớp ở nhiều cơ sở ({', '.join(places)}): một người không dạy hai nơi cùng giờ")
+    return out
+
+
+def merges(classes, curriculum, campus: dict[str, str]) -> list[tuple[tuple[str, str], ...]]:
+    """Các nhóm ghép lớp (luật bắt buộc Cùng giờ, so sánh Cùng một người; kiểu luật Ghép lớp): mỗi nhóm là các (lớp,
+    môn) luôn học cùng giờ, một người dạy, theo thứ tự lớp (lớp đầu là lớp chính, allocation.build_problem). Hai luật
+    có chung (lớp, môn) thì gộp một nhóm. Nhóm không ghép được (`_merge_problems`: validate báo lỗi) thì bỏ qua."""
+    from .staff import class_sort_key
+    groups: list[list[tuple[str, str]]] = []
+    for L in compiled():
+        for items in _merge_items(L, classes, curriculum, campus).values():
+            joined = [g for g in groups if set(g) & set(items)]
+            merged = sorted({x for g in [*joined, items] for x in g}, key=lambda x: (class_sort_key(x[0]), x[1]))
+            groups = [g for g in groups if g not in joined] + [merged]
+    return [tuple(g) for g in groups if not _merge_problems(g, curriculum, campus, str)]
 
 
 def _who_rules(hard: bool) -> list[Luat]:
@@ -1069,8 +1164,8 @@ def build(m, problem, x: dict, z: dict, dom: dict, teachers_of: dict, w: config.
     # phải đúng cả khi tính các tiết đó cho người bù.
     covered = _cp_source(problem, x, z, dom, teachers_of, relabel=problem.covers) if problem.covers else None
     for i, L in enumerate(rules):
-        if forced(L) or (_ban(L) is not None and L.measure == "vi_tri"):
-            continue
+        if forced(L) or (_ban(L) is not None and L.measure == "vi_tri") or L.merge:
+            continue  # ghép lớp: các lớp của nhóm dùng chung biến (solver.build_timetable)
         ctx.use(L, i)
         LOWER[L.measure](ctx, L, problem, src)
         if covered is not None and L.hard and L.teacher() and L.measure != "nguoi_day":
@@ -1216,6 +1311,12 @@ def validate(problem, sheet: str, role_label) -> list[str]:
         if r.off:
             continue
         L = make(r)
+        where = {cls: problem.campus_name(cls) for cls in problem.classes}
+        for items in _merge_items(L, problem.classes, problem.curriculum, where).values():  # ghép lớp
+            for text in _merge_problems(items, problem.curriculum, where, lambda s: _label(problem, s)):
+                text = f"{sheet} dòng {r.row}: ghép lớp {_names(problem, L.subjects)}: {text}"
+                if text not in out:
+                    out.append(text)
         for cls in problem.classes:  # Cùng giờ: các môn cùng số tiết/tuần ở mỗi lớp (mỗi khối báo một lần)
             linked = _together(L, cls, problem.curriculum)
             if linked is None or len(set(linked[1].values())) == 1:

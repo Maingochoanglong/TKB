@@ -225,6 +225,15 @@ groups / co-teaching, per class the subject and the "Môn thứ hai" subjects al
 total (`Problem.class_load`); `chan_doan.same_teacher` refuses one teacher for two subjects of a group; cells with
 several lessons: `writer.cell_lessons`, "A / B" in TKB cells, saved grid pairs "subject\nMã GV" one after another,
 `staff.parse_saved_grid` places hold a tuple of row indices, `Previous.cells` keyed by (class, slot, subject)),
+`merges` (hard "Cùng giờ" + op "Cùng một người" = kind "Ghép lớp", `Luat.merge`: several classes, one subject (+ "Môn
+thứ hai"), one teacher, same slots; scope blank/Khối/Cơ sở → groups of (class, subject); `allocation._merge_courses` sets
+`Course.lead` on the follower courses (`Problem.merge_groups`), merged subjects stay out of the homeroom share, eligible =
+intersection; only lead courses are in the estimate/assignment/hires (`solver._hire_assignment` copies them to
+followers); `build_timetable`/`_Allocation` give followers the SAME x/z/a variables as the lead (domain = intersection)
+and skip them in teacher occupancy, so `bo_ghep.build` skips merge rules and `_ghep_lop` only checks; teaching hours
+everywhere via `Problem.taught(lessons)` (teacher load, overtime, stats, checker quota and double booking, gv-scoped
+composer rules drop `Atom.copy`); rooms: one place per group (`phong_hoc.fit`/`placed`); LNS opens merge mates
+together; TKB cell "Thể dục (ghép 3/2)", teacher cell "3/1, 3/2"; UI cells get `merged`, no manual swap),
 `day_cap` and `busy` (a teacher's busy slots: hard
 "Không xếp vào" with a teacher and no subject; both in `phan_cong.teacher_slots`), `allowed`/`refusing` (hard
 "Người dạy: Do" without slots filters eligible teachers in `allocation.build_problem`; one Mã GV + class = forced

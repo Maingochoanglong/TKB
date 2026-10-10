@@ -140,14 +140,27 @@ def cell_lessons(solution: Solution) -> dict[tuple[str, int, int], list]:
     return out
 
 
-def _class_cell(problem, items: list, names: dict[str, str], rooms: dict) -> str:
+def merged_with(problem) -> dict[int, list[str]]:
+    """Ghép lớp: course -> các lớp khác của nhóm (theo thứ tự lớp)."""
+    out: dict[int, list[str]] = {}
+    for members in problem.merge_groups().values():
+        for cid in members:
+            out[cid] = [problem.courses[k].class_name for k in members if k != cid]
+    return out
+
+
+def _class_cell(problem, items: list, names: dict[str, str], rooms: dict, mates: dict[int, list[str]]) -> str:
     """Ô TKB lớp: môn, xuống dòng tên giáo viên (with_codes: thêm dòng Mã GV), thêm dòng phòng nếu học ở phòng dùng
-    chung; các môn học cùng giờ ghi chung một ô, mỗi dòng nối bằng " / " (vd "Tin học / Tiếng Anh")."""
+    chung; các môn học cùng giờ ghi chung một ô, mỗi dòng nối bằng " / " (vd "Tin học / Tiếng Anh"); tiết ghép lớp
+    ghi thêm các lớp học chung sau tên môn (vd "Thể dục (ghép 3/2)")."""
     def joined(texts: list[str]) -> list[str]:
         parts = [t.split("\n") for t in texts]
         return [" / ".join(p[i] for p in parts if i < len(p)) for i in range(max(map(len, parts)))]
-    lines = [" / ".join(problem.subject_label(les.subject) for les in items), *joined([names[les.teacher]
-                                                                                      for les in items])]
+
+    def subject(les) -> str:
+        others = mates.get(les.course_id)
+        return problem.subject_label(les.subject) + (f" (ghép {', '.join(others)})" if others else "")
+    lines = [" / ".join(subject(les) for les in items), *joined([names[les.teacher] for les in items])]
     places = [r for les in items if (r := rooms.get((les.class_name, les.day, les.period, les.subject)))]
     return "\n".join(lines + ([" / ".join(places)] if places else []))
 
@@ -160,7 +173,8 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
     first_day_col = 4
     problem = solution.problem
     names = teacher_labels(problem.teachers, with_codes)
-    grid = {key: _class_cell(problem, items, names, rooms) for key, items in cell_lessons(solution).items()}
+    mates = merged_with(problem)
+    grid = {key: _class_cell(problem, items, names, rooms, mates) for key, items in cell_lessons(solution).items()}
     header = ["LỚP", "BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
     # Cột ngày: cùng độ rộng ở mọi sheet Khối, nới theo dòng dài nhất của cả trường (tối đa MAX_DAY_WIDTH).
     texts = {line for value in grid.values() for line in value.split("\n")}
@@ -249,11 +263,24 @@ def _print_setup(ws) -> None:
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
 
-def _teacher_cell(solution: Solution, les, room: str = "") -> str:
+def _teacher_cell(solution: Solution, items: list, room: str = "") -> str:
     """Ô TKB giáo viên: lớp (lớp không ở cơ sở đầu ghi thêm cơ sở: "(CS2)" với Cơ sở 2, tên cơ sở với cơ sở khác),
-    xuống dòng môn; tiết dạy bù ghi thêm " (bù)"; tiết học ở phòng dùng chung (sheet PHÒNG) thêm dòng tên phòng."""
-    return f"{_class_label(solution.problem, les.class_name)}\n{solution.problem.subject_label(les.subject)}" \
-           f"{' (bù)' if les.overtime else ''}" + (f"\n{room}" if room else "")
+    xuống dòng môn; tiết dạy bù ghi thêm " (bù)"; tiết học ở phòng dùng chung (sheet PHÒNG) thêm dòng tên phòng. Tiết
+    ghép lớp (các tiết cùng giờ của một người): các lớp nối bằng dấu phẩy, vd "3/1, 3/2"."""
+    problem = solution.problem
+    les = items[0]
+    classes = ", ".join(_class_label(problem, x.class_name) for x in sorted(items, key=lambda x: class_sort_key(
+        x.class_name)))
+    return f"{classes}\n{problem.subject_label(les.subject)}{' (bù)' if les.overtime else ''}" + \
+        (f"\n{room}" if room else "")
+
+
+def teacher_cells(solution: Solution) -> dict[tuple[str, int, int], list]:
+    """(GV, ngày, tiết) -> các tiết GV dạy ở giờ đó: một tiết, hoặc các lớp của một nhóm ghép lớp."""
+    out: dict[tuple[str, int, int], list] = defaultdict(list)
+    for les in solution.lessons:
+        out[les.teacher, les.day, les.period].append(les)
+    return out
 
 
 def _class_label(problem, cls: str) -> str:
@@ -270,9 +297,9 @@ def _teacher_blocks(ws, solution: Solution, style: Style, teachers: list[Teacher
     problem = solution.problem
     names = teacher_labels(problem.teachers)
     rooms = solution.rooms()
-    cells = {(les.teacher, les.day, les.period):
-             _teacher_cell(solution, les, rooms.get((les.class_name, les.day, les.period, les.subject), ""))
-             for les in solution.lessons}
+    cells = {key: _teacher_cell(solution, items, rooms.get((items[0].class_name, items[0].day, items[0].period,
+                                                              items[0].subject), ""))
+             for key, items in teacher_cells(solution).items()}
     load = solution.teacher_load()
     blocks = [(f"{names[t.title]} ({t.code}): {load[t.title]} tiết" if names[t.title] != t.code else
                f"{t.code}: {load[t.title]} tiết", {(d, p): text for (g, d, p), text in cells.items() if g == t.title})
@@ -328,7 +355,8 @@ def _teacher_summary(ws, solution: Solution, style: Style, teachers: list[Teache
     """Sheet TEACHER_SUMMARY_SHEET: mỗi giáo viên một dòng, mỗi cột một (ngày, tiết), ô ghi lớp dạy giờ đó."""
     problem = solution.problem
     names = teacher_labels(problem.teachers)
-    grid = {(les.teacher, les.day, les.period): les.class_name for les in solution.lessons}
+    grid = {key: ", ".join(sorted((x.class_name for x in items), key=class_sort_key))
+            for key, items in teacher_cells(solution).items()}
     columns = [(d, p) for d in sorted(config.DAY_SESSIONS) for s in config.DAY_SESSIONS[d] for p in s.periods]
     head = [style.staff_headers["name"], CODE_HEADER]
     for c, text in enumerate(head, start=1):
@@ -380,11 +408,16 @@ def write_room_timetable(solution: Solution, path: str | Path, style: Style | No
     at = placed(problem, solution.lessons)
     multi = len({_fold(r.campus or CAMPUS1) for r in problem.rooms}) > 1
     blocks = []
+    lead = {c.id: c.lead for c in problem.courses if c.lead is not None}
     for k, room in enumerate(problem.rooms):
-        here = [((les.day, les.period), les.class_name, les.subject) for les, r in zip(solution.lessons, at) if r == k]
+        here = [((les.day, les.period), les.class_name, les.subject, lead.get(les.course_id, les.course_id))
+                for les, r in zip(solution.lessons, at) if r == k]
+        lines: dict[tuple[tuple[int, int], int], list[str]] = defaultdict(list)  # ghép lớp: các lớp một dòng
+        for slot, cls, subject, group in sorted(here, key=lambda x: (x[0], class_sort_key(x[1]))):
+            lines.setdefault((slot, group), [subject]).append(_class_label(problem, cls))
         grid: dict[tuple[int, int], str] = {}
-        for slot, cls, subject in sorted(here, key=lambda x: (x[0], class_sort_key(x[1]))):
-            line = f"{_class_label(problem, cls)} {problem.subject_label(subject)}"
+        for (slot, _), (subject, *classes) in lines.items():
+            line = f"{', '.join(classes)} {problem.subject_label(subject)}"
             grid[slot] = f"{grid[slot]}\n{line}" if slot in grid else line
         name = f"{room.name} ({campus(problem, room)})" if multi else room.name
         blocks.append((f"{name}: {len(here)} tiết, {room.capacity} lớp cùng lúc", grid))
@@ -445,7 +478,7 @@ def subject_table(solution: Solution, style: Style) -> tuple[list[str], list[lis
     cột move_headers cho người dạy ở nhiều cơ sở (xem campus_moves).
     """
     problem = solution.problem
-    count = Counter((les.teacher, les.subject) for les in solution.lessons)
+    count = Counter((les.teacher, les.subject) for les in problem.taught(solution.lessons))  # giờ dạy
     order = {s: i for i, s in enumerate(problem.subject_order)}
     subjects = sorted({s for _, s in count}, key=lambda s: (order.get(s, len(order)), s))
     extra = overtime_cells(solution)
@@ -497,8 +530,9 @@ def row_marks(solution: Solution, spare: bool = False) -> dict[str, tuple[str, i
 
 
 def overtime_cells(solution: Solution) -> Counter:
-    """(GV, môn) -> số tiết dạy bù (vượt định mức) của GV đó trong môn đó (chế độ bù giờ)."""
-    return Counter((les.teacher, les.subject) for les in solution.lessons if les.overtime)
+    """(GV, môn) -> số tiết dạy bù (vượt định mức) của GV đó trong môn đó (chế độ bù giờ); tiết ghép lớp tính một
+    lần."""
+    return Counter((les.teacher, les.subject) for les in solution.problem.taught(solution.lessons) if les.overtime)
 
 
 def _mark_rows(ws, solution: Solution, header: list[str], top: int, style: Style) -> list[int]:
