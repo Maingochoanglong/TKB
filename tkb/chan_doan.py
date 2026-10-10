@@ -43,6 +43,22 @@ def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
     if config.CUSTOM_RULES:  # luật riêng: môn/chức vụ không có, luật vị trí, 2 tiết liền, số lớp cùng lúc
         from .luat_rieng import precheck as precheck_custom
         out += precheck_custom(problem)
+    if problem.room_fit and config.on("phong"):  # phòng học dùng chung: đủ chỗ cả tuần
+        from .phong_hoc import clusters
+        week = len(problem.slots)
+        for kinds, rooms in clusters(problem):
+            parts = [(cids, k) for k, cids in kinds.items()]
+            if len(parts) > 1:
+                parts.append(([cid for cids in kinds.values() for cid in cids], rooms))
+            for cids, where in parts:
+                need = sum(problem.courses[cid].lessons for cid in cids)
+                room = sum(problem.rooms[r].capacity for r in where)
+                if need > room * week:
+                    subjects = ", ".join(dict.fromkeys(problem.subject_label(problem.courses[cid].subject)
+                                                       for cid in cids))
+                    out.append(f"{subjects} cần {need} tiết/tuần ở phòng "
+                               f"{', '.join(problem.rooms[r].name for r in where)} (sheet {config.ROOMS_SHEET}) nhưng "
+                               f"các phòng đó chỉ chứa {room} lớp × {week} giờ học = {room * week} tiết")
     if not student_rules:
         return out
     sessions = [s for ss in config.DAY_SESSIONS.values() for s in ss]
@@ -122,6 +138,9 @@ def _rules(staff: list[Teacher], settings: config.Settings) -> list[_Rule]:
             out.append(_Rule(label(r), daily=canonical_subject(r.subject)))
         else:
             out.append(_Rule(label(r), off=native.key))
+    if config.ROOMS and config.on("phong"):  # sheet PHÒNG: sức chứa các phòng học dùng chung
+        out.append(_Rule(f"sheet {config.ROOMS_SHEET}: phòng học dùng chung (mỗi giờ không quá sức chứa)",
+                         off="phong"))
     return out
 
 

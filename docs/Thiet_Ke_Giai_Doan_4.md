@@ -254,6 +254,9 @@ cũ.
   - hai phần lõi (luật và khung giờ) đã không gắn với nước nào sau giai đoạn 1–3.
 
 ## 5. Cần anh/chị quyết
+
+**Đã duyệt ngày 10/10/2026: theo mọi đề xuất dưới đây.**
+
 1. **Thứ tự và phạm vi:** 4A → 4B-1 → 4B-2, hoãn 4C? (đề xuất: có)
 2. **Ghép lớp tính cho người dạy bao nhiêu tiết:** một tiết mỗi giờ (đề xuất), hay số lớp × tiết?
 3. **Ghép lớp ở phòng:** cả nhóm chiếm một chỗ trong phòng (đề xuất), hay mỗi lớp một chỗ?

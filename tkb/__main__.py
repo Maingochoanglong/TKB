@@ -16,7 +16,7 @@ from .solver import ShortageError, SolveError, ortools_version, reuse, solve
 from .staff import InputError, class_list, grade_of, read_saved_timetable, read_staff
 from .style import Style
 from .writer import (CHANGES_SHEET, campus_paths, change_rows, write_shortage, write_statistics,
-                     write_teacher_timetable, write_timetable, write_updated_staff)
+                     write_room_timetable, write_teacher_timetable, write_timetable, write_updated_staff)
 
 
 def use_utf8_output() -> None:
@@ -42,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
                                         "(mặc định <thư mục output>/TKB_chuc_vu.xlsx; hai cơ sở thì tách như -o)")
     ap.add_argument("--teachers-out", help="File TKB giáo viên: mỗi giáo viên một bảng, in mỗi người một trang "
                                            "(mặc định <thư mục output>/TKB_giao_vien.xlsx)")
+    ap.add_argument("--rooms-out", help="File TKB phòng, chỉ khi file vào có sheet PHÒNG: mỗi phòng học dùng chung "
+                                        "một bảng (mặc định <thư mục output>/TKB_phong.xlsx)")
     ap.add_argument("--time-limit", type=float, default=1200,
                     help="Lượng tính toán cho bước xếp giờ, xấp xỉ giây (mặc định 1200; 0 = không giới hạn: xếp "
                          "lại từng vùng đến khi hết cải thiện)")
@@ -96,6 +98,7 @@ def _run(args, settings: config.Settings) -> int:
     stats_out = Path(args.stats_out) if args.stats_out else output.parent / "Thong_Ke.xlsx"
     roles_out = Path(args.roles_out) if args.roles_out else output.parent / "TKB_chuc_vu.xlsx"
     teachers_out = Path(args.teachers_out) if args.teachers_out else output.parent / "TKB_giao_vien.xlsx"
+    rooms_out = Path(args.rooms_out) if args.rooms_out else output.parent / "TKB_phong.xlsx"
     try:
         curriculum = read_program(args.staff)
         staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
@@ -148,6 +151,9 @@ def _run(args, settings: config.Settings) -> int:
             timetables.append(path)
     write_teacher_timetable(solution, teachers_out, style)
     timetables.append(teachers_out)
+    if solution.problem.rooms:  # sheet PHÒNG: thêm TKB từng phòng học dùng chung
+        write_room_timetable(solution, rooms_out, style)
+        timetables.append(rooms_out)
     write_updated_staff(solution, args.staff, staff_out)
     changes = change_rows(solution, previous) if previous else None
     write_statistics(solution, stats_out, style, settings.student_rules, changes)
