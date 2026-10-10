@@ -33,7 +33,7 @@ def test_round_trip_keeps_the_file(tmp_path):
     assert len(scenario["staff"]) == 45 and scenario["grades"] == [1, 2, 3, 4, 5]
     assert scenario["staff"][0] == {"name": "Giáo viên CN 1", "role": "Chủ Nhiệm", "class": "1/1", "lessons": 19,
                                     "maternity": False, "contract": False, "campus2": False, "history": "", "off": "",
-                                    "extra_roles": "", "tags": ""}
+                                    "extra_roles": "", "tags": "", "overtime_order": None}
     # Chức vụ trùng tên môn nhân sự đang dùng thành các dòng của sheet CHỨC VỤ (để giao diện chọn từ danh sách).
     assert [(r["name"], r["subjects"]) for r in scenario["roles"]] == [
         ("Tiếng Anh", ["Tiếng Anh"]), ("Thể Dục", ["Thể dục"]), ("Âm Nhạc", ["Âm nhạc"]), ("Mỹ Thuật", ["Mỹ thuật"]),

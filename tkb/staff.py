@@ -50,6 +50,8 @@ class Teacher:
     # Cột Nhãn: nhãn tự đặt (vd "Bán thời gian", "Tổ Toán"), như ghi trong file; cột Giáo viên của sheet LUẬT ghi nhãn là
     # các GV có nhãn đó (bo_ghep.picks).
     tags: tuple[str, ...] = ()
+    # Cột Thứ Tự Bù: ai dạy bù trước (1 = trước nhất); None = theo chức vụ và cột Hợp Đồng (allocation.overtime_rank).
+    overtime_order: int | None = None
 
     @property
     def tag_keys(self) -> frozenset[str]:
@@ -386,9 +388,9 @@ def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
 
 def parse_saved_grid(grid: list[list]) -> SavedTimetable:
     """TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
-    Tiết | Thứ 2 …, tên lớp ở dòng đầu mỗi khối, mỗi ô "môn" xuống dòng "Mã GV", thêm config.SAVED_OVERTIME ở tiết
-    bù, config.SAVED_LOCKED ở ô khóa; mã kết quả và mã quy định ở các dòng trên bảng. Không có bảng: không có dòng
-    nào."""
+    Tiết | các ngày (tên như khung giờ, vd Thứ 2 hay Mon), tên lớp ở dòng đầu mỗi khối, mỗi ô "môn" xuống dòng "Mã
+    GV", thêm config.SAVED_OVERTIME ở tiết bù, config.SAVED_LOCKED ở ô khóa; mã kết quả và mã quy định ở các dòng trên
+    bảng. Không có bảng: không có dòng nào."""
     def cell(r: int, c: int):
         row = grid[r - 1] if 0 < r <= len(grid) else []
         return row[c - 1] if 0 < c <= len(row) else None
@@ -402,8 +404,9 @@ def parse_saved_grid(grid: list[list]) -> SavedTimetable:
             if normalize(value) in map(normalize, config.SAVED_CODES) and not _blank(cell(r, c + 1)):
                 codes[normalize(value)] = str(cell(r, c + 1)).strip()
         heads = {normalize(v): c for c, v in cells.items()}
-        if header is None and "lớp" in heads and "tiết" in heads:
-            header = r, heads["lớp"], heads["tiết"], {c: str(v) for c, v in cells.items() if _fold(v).startswith("thu")}
+        if header is None and "lớp" in heads and "tiết" in heads:  # mọi cột sau cột Tiết là một ngày
+            first = max(heads["lớp"], heads["tiết"])
+            header = r, heads["lớp"], heads["tiết"], {c: str(v) for c, v in cells.items() if c > first}
     result_code, rules_code = (codes.get(normalize(k)) for k in config.SAVED_CODES)
     if header is None:
         return SavedTimetable([], result_code, rules_code)
@@ -445,7 +448,8 @@ def _blank(value) -> bool:
 
 # Cột không bắt buộc: khóa -> tiêu đề trong file.
 OPTIONAL_COLUMNS = {"maternity": "Thai Sản", "contract": "Hợp Đồng", "campus2": "Cơ sở 2",
-                    "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ", "extra_roles": "Chức Vụ Thêm", "tags": "Nhãn"}
+                    "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ", "extra_roles": "Chức Vụ Thêm", "tags": "Nhãn",
+                    "overtime_order": "Thứ Tự Bù"}
 
 
 def _find_columns(ws) -> tuple[int, dict[str, int]]:
@@ -466,6 +470,20 @@ def _find_columns(ws) -> tuple[int, dict[str, int]]:
     raise InputError("Không tìm thấy dòng tiêu đề có đủ các cột 'Họ và Tên', 'Chức Vụ', 'Số Tiết/Tuần' (mẫu V8)")
 
 
+def parse_order(value) -> int | None:
+    """Cột Thứ Tự Bù: số nguyên dương (1 = dạy bù trước nhất); trống: None."""
+    if _blank(value):
+        return None
+    try:
+        number = float(str(value).strip())
+    except ValueError:
+        number = 0
+    if isinstance(value, bool) or number != int(number) or number < 1:
+        raise InputError(f"cột {OPTIONAL_COLUMNS['overtime_order']} ghi số nguyên dương (1 = dạy bù trước nhất): "
+                         f"{value!r}")
+    return int(number)
+
+
 def _to_lessons(value, title: str) -> int:
     if isinstance(value, bool) or value is None:
         raise InputError(f"Số tiết của '{title}' bị trống hoặc không hợp lệ")
@@ -481,7 +499,7 @@ def _to_lessons(value, title: str) -> int:
 def make_teacher(name, role: str, index: int | None, class_name: str | None, lessons,
                  row: int | None = None, label: str = "", **extra) -> Teacher:
     """`extra`: các trường không bắt buộc của Teacher (maternity, contract, campus2, history, off_sessions, off_any,
-    extra_roles, tags)."""
+    extra_roles, tags, overtime_order)."""
     title = canonical_title(role, index, class_name)
     return Teacher(
         name=str(name).strip() if name is not None else "",
@@ -580,7 +598,8 @@ def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
             off_sessions, off_any = parse_off(cell(r, "off"))
             extra = {key: parse_yes(cell(r, key), OPTIONAL_COLUMNS[key]) for key in ("maternity", "contract", "campus2")}
             extra.update(history=parse_classes(cell(r, "history")), off_sessions=off_sessions, off_any=off_any,
-                         extra_roles=parse_extra_roles(cell(r, "extra_roles"), role), tags=parse_tags(cell(r, "tags")))
+                         extra_roles=parse_extra_roles(cell(r, "extra_roles"), role), tags=parse_tags(cell(r, "tags")),
+                         overtime_order=parse_order(cell(r, "overtime_order")))
             rows.append([r, name, role, index, class_name, lessons, label, extra])
         except InputError as exc:
             errors.append(f"Dòng {r}: {exc}")
