@@ -100,6 +100,23 @@ CLASSES_SHEET = "LỚP"
 # Mặc định không có: danh sách lớp lấy từ các dòng Chủ Nhiệm, khối là các chữ số đầu tên lớp.
 CLASSES: tuple[SchoolClass, ...] = ()
 
+
+@dataclass(frozen=True)
+class Room:
+    """Một phòng học dùng chung của sheet PHÒNG (không bắt buộc, đọc ở tkb/rules.py; tkb/phong_hoc.py): tiết của
+    các môn ghi ở đây (của các khối ghi ở đây, ở cơ sở của phòng) phải học ở một phòng như vậy."""
+    name: str  # tên phòng như ghi trong file, vd "Phòng Tin 1", "Sân trường"
+    subjects: tuple[str, ...]  # các môn hoặc nhãn môn (tiêu đề cột Có/Không của CHƯƠNG TRÌNH HỌC), như ghi
+    campus: str = ""  # cột Cơ sở: tên cơ sở như cột Cơ sở của sheet LỚP; trống: Cơ sở 1
+    grades: tuple[int | str, ...] = ()  # cột Khối: các khối dùng phòng; trống: mọi khối
+    capacity: int = 1  # cột Sức chứa: số lớp học cùng lúc trong phòng
+    row: int = 0  # dòng trong sheet PHÒNG (để báo lỗi)
+
+
+ROOMS_SHEET = "PHÒNG"
+# Mặc định không có: tiết nào cũng học ở lớp, không có ràng buộc phòng.
+ROOMS: tuple[Room, ...] = ()
+
 # File vào gồm các sheet này (so khớp không phân biệt hoa thường); thiếu sheet nhân sự thì đọc sheet đầu.
 STAFF_SHEET = "NHÂN SỰ"
 PROGRAM_SHEET = "CHƯƠNG TRÌNH HỌC"

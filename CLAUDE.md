@@ -6,7 +6,8 @@ Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
 only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code; both split per campus — `*_diem_chinh`/`*_diem_phu`/`*_<campus slug>` —
 when the school has several campuses, `writer.campus_paths`), `TKB_giao_vien.xlsx` (`writer.write_teacher_timetable`: one
-block per teacher, a page break after each, plus sheet `Tổng hợp` one row per teacher), `Thong_Ke.xlsx` (sheet
+block per teacher, a page break after each, plus sheet `Tổng hợp` one row per teacher), `TKB_phong.xlsx` (only with sheet
+`PHÒNG`: `writer.write_room_timetable`, one block per shared room; TKB and teacher cells get a room line), `Thong_Ke.xlsx` (sheet
 `Chất lượng` = `writer.quality_rows`: violations/points per row of sheet LUẬT counted with `bo_ghep.violations`; sheet
 `Thống kê`, one table: lessons per subject
 per teacher + total, quota, overtime, spare, and with campus 2 who moves between campuses (`campus_moves`); spare rows blue; overtime rows yellow, their overtime subject cells orange, per-subject overtime in the text column `Môn Dạy Bù` (`Lesson.overtime`); in
@@ -31,11 +32,15 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   = classes at the campus named `Cơ sở 2`, used by maternity/`co_so_2`); column `Nhãn` of NHÂN SỰ (`Teacher.tags`;
   `Teacher.tag_keys` adds the Có columns' headers and a homeroom teacher's campus) and of LỚP (`SchoolClass.tags`,
   `staff.class_tags`; each class's campus name is a tag too) are free tags with no meaning of their own: LUẬT's Giáo viên column matches staff tags (`bo_ghep.picks`, `teacher_ok`), its Lớp column expands class tags
-  (`bo_ghep._classes` in `make`); class tags enter `rules.code()` only when written;
+  (`bo_ghep._classes` in `make`); class tags enter `rules.code()` only when written; optional sheet `PHÒNG` (`Phòng |
+  Cơ sở | Môn | Khối | Sức chứa`, `rules._Reader.rooms` → `config.ROOMS` of `config.Room`; `tkb/phong_hoc.py`: `fit` →
+  `Problem.room_fit` course → fitting rooms, `constrain` in `build_timetable` (per cluster: count ≤ capacity, or int `y`
+  vars when rooms are shared in part), `placed`/`assign` pick each lesson's room after solving with `MinCostFlow`, not in
+  the result code, `errors` for the checker; relaxed in diagnosis as `config.OFF` key `phong`; empty/no sheet = old codes);
   **every scheduling
   rule, built-in ones included, is a row of sheet `LUẬT`** (old files: sheet `LUẬT RIÊNG`; see Architecture).
   `python -m tkb.template` writes a plain template (black text, no fill/freeze/dropdowns/comments/hidden sheets) with
-  NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), LỚP, CHỨC VỤ, QUY ĐỊNH, LUẬT (the built-in rule rows), HƯỚNG DẪN. Grades
+  NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), LỚP, PHÒNG, CHỨC VỤ, QUY ĐỊNH, LUẬT (the built-in rule rows), HƯỚNG DẪN. Grades
   are free names (`Khối <tên>` columns, `staff.parse_grade`: all digits → int, else the text; sort with
   `staff.grade_key`, never `sorted()` alone). Class names are free with sheet `LỚP`, else `g/n` or grade + name
   (`1D15`): use `staff.grade_of` / `class_sort_key` / `class_list`, never split on "/". A class of sheet `LỚP` may have
@@ -108,7 +113,8 @@ Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 1
 JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself
 (subject detail groups `kich_ban.SUBJECT_GROUPS`, ungrouped columns go to "Khác"). Steps: Khung giờ → Môn học (list +
 detail dialog) → Lớp (grade names: rename updates lessons, classes, manager grade, LUẬT Khối; class table
-`scenario["classes"]` = sheet LỚP, "Lấy từ các Chủ Nhiệm") → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
+`scenario["classes"]` = sheet LỚP, "Lấy từ các Chủ Nhiệm"; rooms table `scenario["rooms"]` = sheet PHÒNG, its rows'
+`data-row` are `p<n>` via `rowKey`) → Chức vụ (built-in role cards edit the subject columns named in `kich_ban.ROLE_RULES`; custom roles =
 `scenario["roles"]`, imported files also list subject-named roles teachers use) → Giáo viên (role select; the detail
 dialog picks `Lớp Đang Dạy` from the homeroom classes and `Buổi Nghỉ` as day × session boxes plus "n buổi"
 counts, written as the same text `staff.parse_classes`/`parse_off` read) → Luật (all rules grouped, read-back
@@ -297,4 +303,6 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
 - `docs/Dac_Ta_Nghiep_Vu_TKB_V16.md`: full spec. §0 change history (add a row per rule change), §5 homeroom,
   §6 student rules, §7 shortage modes, §8 objectives and weights, §9 solve process and reproducibility,
   §11 outputs, §13 reference results.
+- `docs/Thiet_Ke_Giai_Doan_4.md`: approved design of phase 4 (4A shared rooms, 4B lessons at the same time: split
+  groups/co-teaching then merged classes, 4C languages postponed) and the school's decisions on it (§5 proposals).
 - `docs/Tham_Khao_TKB_Truong_Khac.md`: how other schools arrange subjects; §5 proposals (5.1 done, 5.2 dropped); §6 not adopted (incl. the homeroom-gap trial).

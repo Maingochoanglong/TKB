@@ -35,6 +35,7 @@ class SolveError(RuntimeError):
 # rỗng thì mô hình dựng ra y như cũ, không đổi mã kết quả.
 # "tang_cuong": tiết tăng cường sau tiết chính; "lien_nhau": các tiết cùng môn trong buổi liền nhau; "lien_tiet":
 # hai tiết liền cùng nhóm môn do một người dạy; "gvcn_truoc": tiết đầu tuần của GVCN; "co_so": mỗi buổi một cơ sở.
+# Sức chứa phòng (sheet PHÒNG, tkb/phong_hoc.py) nới bằng khóa "phong" của config.OFF.
 RELAXED: frozenset[str] = frozenset()
 
 
@@ -80,6 +81,12 @@ class Solution:
     def used_supplements(self) -> list[Teacher]:
         load = self.teacher_load()
         return [t for t in self.problem.teachers.values() if t.supplementary and load[t.title] > 0]
+
+    def rooms(self) -> dict[tuple[str, int, int, str], str]:
+        """(lớp, ngày, tiết, môn) -> tên phòng của tiết (sheet PHÒNG, tkb/phong_hoc.py); tiết học ở lớp không có."""
+        from .phong_hoc import assign
+        names = assign(self.problem, self.lessons)
+        return {(l.class_name, l.day, l.period, l.subject): n for l, n in zip(self.lessons, names) if n}
 
     def fingerprint(self) -> str:
         """Mã kết quả: băm toàn bộ TKB (lớp, ngày, tiết, môn, GV). Hai lần chạy cùng mã là cùng TKB."""
@@ -504,6 +511,9 @@ def build_timetable(problem: Problem, settings: config.Settings,
         for s in slots:
             vs = [x[c.id, s] for c in courses if (c.id, s) in x]
             m.Add(sum(vs) == 1) if full else m.Add(sum(vs) <= 1)
+    if problem.room_fit and on("phong"):  # phòng học dùng chung (sheet PHÒNG): mỗi giờ không quá sức chứa
+        from .phong_hoc import constrain
+        constrain(m, problem, x)
 
     # GV dạy course tại slot nào. Tiết của người mới mà là tiết bù của một người (problem.covers) chiếm lịch của cả
     # hai: chế độ tuyển người mới dạy, chế độ bù giờ người bù dạy đúng ô đó.
