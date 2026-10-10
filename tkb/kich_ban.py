@@ -637,6 +637,9 @@ def check(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: int = 
                 if quick:
                     return result()
                 plan = phan_cong(base, config.Weights())
+                if base.links:  # học cùng giờ: mỗi môn của nhóm một người dạy
+                    from .chan_doan import same_teacher
+                    errors += same_teacher(base, plan.lessons)
             except (InputError, SolveError) as exc:
                 errors += _lines(exc)
                 return result(luat_rieng.RULES_SHEET)
@@ -751,11 +754,14 @@ class Grid:
             if not saved.rows:
                 return {**out, "ok": False, "input_errors": [], "errors": []}
             lessons, errors = self._lessons(saved)
-            if self.problem.room_fit and lessons:  # tiết học ở phòng dùng chung: ô ghi tên phòng
-                at = {(normalize(les.class_name), les.day, les.period): names[r]
+            if self.problem.room_fit and lessons:  # tiết học ở phòng dùng chung: ô ghi tên phòng (từng môn của ô)
+                label = lambda les: normalize(self.problem.subject_label(les.subject))  # noqa: E731
+                at = {(normalize(les.class_name), les.day, les.period, label(les)): names[r]
                       for les, r in zip(lessons, placed(self.problem, lessons)) if r is not None}
                 for cell in out["cells"]:
-                    cell["room"] = at.get((normalize(cell["cls"]), cell["d"], cell["p"]), "")
+                    cell["rooms"] = [at.get((normalize(cell["cls"]), cell["d"], cell["p"], normalize(s)), "")
+                                     for s in cell["subjects"]]
+                    cell["room"] = " / ".join(r for r in cell["rooms"] if r)
             return {**out, "ok": not errors, "input_errors": [],
                     "errors": [_marked(text, self.problem, out["cells"]) for text in errors]}
 
@@ -779,18 +785,22 @@ class Grid:
             base = set(base)
             slots = sorted({(d, p) for d, sessions in config.DAY_SESSIONS.items() for s in sessions
                             for p in s.periods})
-            mine = {(les.day, les.period): i for i, les in enumerate(lessons) if les.class_name == cls}
+            # Ô -> các tiết của lớp ở ô đó (các môn học cùng giờ đi cùng nhau khi đổi ô).
+            mine: dict[tuple[int, int], list[int]] = {}
+            for i, les in enumerate(lessons):
+                if les.class_name == cls:
+                    mine.setdefault((les.day, les.period), []).append(i)
             out = []
-            here = mine.get((day, period))
-            same = (lambda i: i is not None and here is not None and
-                    (lessons[i].subject, lessons[i].teacher, lessons[i].overtime)
-                    == (lessons[here].subject, lessons[here].teacher, lessons[here].overtime))
+            here = mine.get((day, period), [])
+            what = lambda idx: sorted((lessons[i].subject, lessons[i].teacher, lessons[i].overtime)  # noqa: E731
+                                      for i in idx)
             for slot in slots:
-                if slot == (day, period) or (slot not in mine and here is None) or same(mine.get(slot)):
+                there = mine.get(slot, [])
+                if slot == (day, period) or (not there and not here) or (there and what(there) == what(here)):
                     continue  # đổi với chính nó, hai ô trống, hai tiết như nhau: không đổi gì
                 trial = list(lessons)
-                for i, to in ((mine.get((day, period)), slot), (mine.get(slot), (day, period))):
-                    if i is not None:
+                for idx, to in ((here, slot), (there, (day, period))):
+                    for i in idx:
                         trial[i] = replace(trial[i], day=to[0], period=to[1])
                 errors = set(check(self.problem, trial, self.student_rules))
                 out.append({"d": slot[0], "p": slot[1], "new": len(errors - base), "fixed": len(base - errors)})
@@ -820,10 +830,13 @@ def _choices(problem) -> dict[str, dict]:
 
 
 def _cells(saved, staff) -> list[dict]:
+    """Mọi ô của lưới TKB đã xếp cho trang: {cls, d, p, r, c, subject, code, name, codes, subjects, overtime,
+    locked}. Ô có các môn học cùng giờ (luật Học cùng giờ): subject, code, name nối bằng " / "; codes, subjects là Mã
+    GV, môn của từng tiết."""
     name_of = {normalize(t.code): t.name for t in staff}
     day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
     out = []
-    for cls, day, period, r, c, i in saved.places:
+    for cls, day, period, r, c, found in saved.places:
         d = day_of.get(normalize(day))
         try:
             p = int(period)
@@ -832,11 +845,15 @@ def _cells(saved, staff) -> list[dict]:
         if d is None:
             continue
         cell = {"cls": cls, "d": d, "p": p, "r": r, "c": c, "subject": None, "code": None, "name": None,
-                "overtime": False, "locked": False}
-        if i is not None:
-            _, _, _, subject, code, overtime, locked, _ = saved.rows[i]
-            cell.update(subject=subject, code=code, name=name_of.get(normalize(code)), overtime=overtime,
-                        locked=locked)
+                "codes": [], "subjects": [], "overtime": False, "locked": False}
+        items = [saved.rows[i] for i in found]
+        if items:
+            names = [name_of.get(normalize(code)) for *_, code, _, _, _ in items]
+            cell.update(subject=" / ".join(row[3] for row in items), code=" / ".join(row[4] for row in items),
+                        name=" / ".join(n or "" for n in names) if any(names) else None,
+                        codes=[row[4] for row in items], subjects=[row[3] for row in items],
+                        overtime=any(row[5] for row in items),
+                        locked=all(row[6] for row in items))
         out.append(cell)
     return out
 

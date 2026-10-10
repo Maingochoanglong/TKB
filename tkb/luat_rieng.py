@@ -88,6 +88,11 @@ KINDS = (
          "cùng nhóm), vd Tiếng Anh. Bắt buộc thì số tiết/tuần phải chẵn.", "Đi cùng nhau"),
     Kind("truoc", "Học trước", ("subject", "other"), ("subject", "other", "grades", "classes"),
          "Trong một buổi có cả hai môn thì Môn học trước Môn thứ hai, vd Tiếng Việt trước Toán.", "Đi cùng nhau"),
+    Kind("hoc_cung_gio", "Học cùng giờ", ("subject", "other"), ("subject", "other", "grades", "classes"),
+         "Mỗi lớp (của các khối, lớp ghi ở dòng này) học Môn và các môn ở cột Môn thứ hai cùng giờ, cùng số tiết "
+         "mỗi tuần, mỗi môn một người dạy, lớp tính một tiết ở giờ đó. Dùng cho lớp chia nhóm, vd nửa lớp học Tin học, "
+         "nửa lớp học Tiếng Anh; hoặc giáo viên dạy kèm: ghi môn riêng Trợ giảng Tiếng Anh (cùng số tiết, chức vụ Trợ "
+         "Giảng dạy) học cùng giờ với Tiếng Anh. Chỉ ghi Bắt buộc = Có.", "Đi cùng nhau"),
     Kind("chi_gv", "Chỉ giáo viên dạy", ("subject", "role"), (*_PLACE, "role"),
          "Các tiết của Môn (ở các khối, lớp, ngày, tiết ghi ở dòng này) chỉ do giáo viên ghi ở cột Giáo viên dạy: "
          "chức vụ, vd Tin học khối 3 chỉ GV Tin Học dạy; hoặc một người (Mã GV hay họ tên) để chọn ai dạy lớp nào, vd "
@@ -354,6 +359,8 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
         ok = False
     if ok and kind.key == "tu_ghep":
         ok = _check_composed(out, place, error)
+    if ok and (kind.key == "hoc_cung_gio" or out.get("measure") == "cung_gio"):
+        ok = _check_together(out, place, error)
     if ok and kind.key in ("nghi_gv", "co_so_2") and not out.get("hard"):
         error(f"kiểu luật {kind.label} chỉ ghi Bắt buộc = Có (muốn bỏ luật thì xóa dòng hoặc ghi Tạm tắt = Có)")
         ok = False
@@ -396,6 +403,29 @@ def _check_composed(out: dict, place: bool, error) -> bool:
         errors.append("phép đo Người dạy, so sánh Cùng một người phải ghi cột Với mỗi, vd Lớp, Môn")
     if m.sequence and not {"lop", "gv"} & set(scope):
         errors.append(f"phép đo {m.label} xét thứ tự các tiết trong buổi: cột Với mỗi phải có Lớp hoặc Giáo viên")
+    for text in errors:
+        error(text)
+    return not errors
+
+
+def _check_together(out: dict, place: bool, error) -> bool:
+    """Học cùng giờ (phép đo Cùng giờ): một môn ở cột Môn, các môn khác ở cột Môn thứ hai, mỗi lớp, mọi tiết của môn
+    (không giới hạn ngày, tiết, giáo viên), chỉ bắt buộc."""
+    errors = []
+    subjects = bo_ghep.names(out.get("subject", ""))
+    others = bo_ghep.names(out.get("other", ""))
+    if len(subjects) != 1 or out.get("tags") or out.get("group") or out.get("exclude"):
+        errors.append("học cùng giờ: cột Môn ghi đúng một môn (không ghi nhãn, không gồm môn tăng cường)")
+    if not others:
+        errors.append("học cùng giờ: phải ghi cột Môn thứ hai")
+    elif {subject_key(x) for x in others} & {subject_key(x) for x in subjects}:
+        errors.append("học cùng giờ: Môn và Môn thứ hai phải khác nhau")
+    if out.get("scope", ("lop",)) != ("lop",):
+        errors.append("phép đo Cùng giờ: cột Với mỗi ghi Lớp")
+    if place or out.get("role") or out.get("when"):
+        errors.append("học cùng giờ là mọi tiết của môn: để trống các cột Ngày, Tiết, Buổi, Giáo viên, Áp dụng khi")
+    if not out.get("hard"):
+        errors.append("học cùng giờ chỉ ghi Bắt buộc = Có (muốn bỏ luật thì xóa dòng hoặc ghi Tạm tắt = Có)")
     for text in errors:
         error(text)
     return not errors
@@ -533,6 +563,7 @@ def describe(rule: CustomRule) -> str:
         "gv_lop_ngay": lambda: f"{_who(rule)} dạy tối đa {rule.number} lớp mỗi ngày",
         "rai_ngay": lambda: f"{who} học ít nhất {rule.number} ngày mỗi tuần",
         "chi_gv": lambda: f"{who}{' ' + where if where else ''} chỉ do {_teachers(rule)} dạy",
+        "hoc_cung_gio": lambda: f"{who} học cùng giờ với {rule.other}, mỗi môn một người dạy",
         "nghi_gv": lambda: "Giáo viên không dạy vào buổi nghỉ ghi ở cột Buổi Nghỉ và nghỉ đủ số buổi ghi ở đó",
         "co_so_2": lambda: "Giáo viên không chủ nhiệm ghi Cơ sở 2 hoặc Thai Sản chỉ dạy các lớp ở cơ sở 2",
         "tu_ghep": lambda: composed(rule),
@@ -597,6 +628,7 @@ def composed(rule: CustomRule) -> str:
         "di_kem": lambda: f"có {some} thì cũng có {other}",
         "nguoi_day": teacher,
         "khoang_cach": gap,
+        "cung_gio": lambda: f"{each} học cùng giờ với các {other}, mỗi môn một người dạy",
     }[m.key]()
     when = f", khi {_when_say(rule.when)}" if rule.when else ""
     text = f"{', '.join(parts)}: {body}{when}" if parts else f"{body}{when}"

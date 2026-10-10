@@ -406,7 +406,7 @@ ghi như cũ; giao diện và sheet HƯỚNG DẪN chia theo bốn câu hỏi):
 |---|---|---|
 | **Ở đâu** | Không xếp vào, Chỉ xếp vào, Cố định vào | Vị trí |
 | **Bao nhiêu** | Giáo viên tối đa tiết mỗi ngày, Giáo viên tối đa lớp mỗi ngày, Số lớp học cùng lúc tối đa, Học ít nhất số ngày | Số tiết, Số khác nhau, Khoảng cách |
-| **Đi cùng nhau** | Học 2 tiết liền, Học trước | Liền nhau, Theo cặp 2 tiết, Thứ tự, Đi kèm |
+| **Đi cùng nhau** | Học 2 tiết liền, Học trước, Học cùng giờ | Liền nhau, Theo cặp 2 tiết, Thứ tự, Đi kèm, Cùng giờ |
 | **Ai dạy** | Chỉ giáo viên dạy, Buổi nghỉ của giáo viên, Giáo viên chỉ dạy cơ sở 2 | Người dạy |
 
 Cột: `Nhóm | Kiểu luật | Với mỗi | Môn | Gồm môn tăng cường | Nhãn | Trừ nhãn | Khối | Lớp | Ngày | Tiết | Buổi |
@@ -420,6 +420,7 @@ và Luật đọc là chỉ để đọc, chương trình ghi lại; thêm cột
 | Chỉ xếp vào | như trên | Thể dục chỉ học buổi chiều; Giáo viên `Bộ Môn 3` chỉ dạy buổi sáng |
 | Học 2 tiết liền | Môn, Khối, Lớp | Tiếng Anh khối 3–5 học thành cặp 2 tiết liền, cùng người dạy |
 | Học trước | Môn, Môn thứ hai, Khối, Lớp | Tiếng Việt học trước Toán khi cùng buổi |
+| Học cùng giờ | Môn, Môn thứ hai, Khối, Lớp (chỉ Bắt buộc) | **Chia nhóm**: Âm nhạc học cùng giờ với Mỹ thuật (nửa lớp mỗi môn); **dạy kèm**: Tiếng Anh học cùng giờ với Trợ giảng Tiếng Anh |
 | Giáo viên tối đa tiết mỗi ngày | Giáo viên (chức vụ hoặc một người; trống: mọi GV), Số | Mỗi GV Tiếng Anh dạy tối đa 5 tiết mỗi ngày |
 | Số lớp học cùng lúc tối đa | Môn, Khối, Số | Phòng Tin học: tối đa 1 lớp mỗi tiết |
 | Cố định vào | Môn, Khối, Lớp, Ngày / Tiết / Buổi | Thể dục lớp 1/1 cố định Thứ 3 tiết 3 |
@@ -429,8 +430,21 @@ và Luật đọc là chỉ để đọc, chương trình ghi lại; thêm cột
 | Buổi nghỉ của giáo viên | (chỉ Bắt buộc) | Theo cột Buổi Nghỉ của sheet NHÂN SỰ |
 | Giáo viên chỉ dạy cơ sở 2 | (chỉ Bắt buộc) | Theo cột Cơ sở 2, Thai Sản của sheet NHÂN SỰ |
 
+**Học cùng giờ** (lớp chia nhóm, giáo viên dạy kèm): mỗi lớp (của các khối, lớp ghi ở dòng) học Môn và các môn ở cột
+Môn thứ hai **luôn cùng giờ**, mỗi môn một người dạy, và lớp chỉ tính **một tiết** ở giờ đó (cộng số tiết các môn trong
+nhóm vượt số giờ học vẫn được).
+- Các môn trong nhóm phải **cùng số tiết/tuần** ở mỗi lớp; khác thì chương trình báo lỗi khi kiểm tra.
+- **Dạy kèm**: ghi trợ giảng thành một môn riêng ở sheet `CHƯƠNG TRÌNH HỌC`, vd `Trợ giảng Tiếng Anh` cùng số tiết với
+  `Tiếng Anh`, người trợ giảng có chức vụ trùng tên môn đó (hoặc chức vụ ở sheet `CHỨC VỤ`), rồi ghi luật Học cùng giờ
+  Tiếng Anh với Trợ giảng Tiếng Anh. Thống kê ghi đúng số tiết của trợ giảng.
+- Phân công mà giao hai môn của một nhóm ở một lớp cho cùng một người thì chương trình báo lỗi trước khi xếp (người đó
+  không dạy được hai nửa lớp cùng giờ); khi đó ghi luật `Chỉ giáo viên dạy` để mỗi môn một người.
+- Ô TKB ghi các môn chung một ô, mỗi dòng nối bằng ` / `, vd `Âm nhạc / Mỹ thuật` rồi `Lan / Hùng`; sheet `TKB đã xếp`
+  ghi các cặp `môn`, `Mã GV` nối tiếp trong ô. TKB giáo viên ghi môn của người đó như thường.
+- Luật đếm theo lớp (vd mỗi lớp mỗi ngày tối đa n tiết của mọi môn) đếm mỗi môn trong nhóm là một tiết riêng.
+
 **Tự ghép**: `Với mỗi` ghi các chiều `Lớp, Giáo viên, Môn, Nhóm môn, Khối, Ngày, Buổi, Giờ học, Cơ sở` (trống: cả
-trường cả tuần); các cột điều kiện chọn tiết nào được xét; `Phép đo` là một trong 9 phép đo:
+trường cả tuần); các cột điều kiện chọn tiết nào được xét; `Phép đo` là một trong 10 phép đo:
 
 | Phép đo | So sánh | Ví dụ |
 |---|---|---|
@@ -441,6 +455,7 @@ trường cả tuần); các cột điều kiện chọn tiết nào được x�
 | Theo cặp 2 tiết | — | Mỗi lớp: các tiết Tiếng Anh xếp thành cặp 2 tiết liền trong buổi |
 | Thứ tự | Trước / Sau + `Môn thứ hai` (trống: các môn khác cùng nhóm) | Mỗi lớp, mỗi nhóm môn, mỗi ngày: các tiết môn có nhãn Môn tăng cường đứng sau các tiết môn khác cùng nhóm |
 | Đi kèm | — + `Môn thứ hai` | Mỗi lớp, mỗi ngày: có tiết Toán tăng cường thì cũng có tiết Toán |
+| Cùng giờ | — + `Môn thứ hai` (Với mỗi Lớp, chỉ Bắt buộc) | Mỗi lớp: các tiết Tin học học cùng giờ với các tiết Tiếng Anh |
 | Người dạy | Do (+ Giáo viên) / Cùng một người / Liền nhau cùng người / Tiết đầu tuần do | Các tiết ở giờ có nhãn Luôn do GVCN dạy do GV chủ nhiệm dạy |
 | Khoảng cách | Tiết trống tối đa / Cách cuối buổi tối đa + Số | Mỗi giáo viên, mỗi buổi: các tiết không có tiết trống xen giữa |
 
@@ -647,7 +662,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/lns.py` | Xếp giờ: CP-SAT khởi đầu rồi các vòng QA → xếp lại từng vùng |
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |
 | `tkb/luat_rieng.py` | Dòng luật (sheet LUẬT, LUẬT RIÊNG cũ): đọc/ghi các ô, các mẫu luật, câu đọc lại |
-| `tkb/bo_ghep.py` | Bộ ghép luật: phạm vi, điều kiện, 9 phép đo; mỗi phép đo viết một lần cho mô hình CP-SAT, kiểm tra độc lập, QA của LNS, đếm trước, phân công |
+| `tkb/bo_ghep.py` | Bộ ghép luật: phạm vi, điều kiện, 10 phép đo; mỗi phép đo viết một lần cho mô hình CP-SAT, kiểm tra độc lập, QA của LNS, đếm trước, phân công |
 | `tkb/luat_co_san.py` | Luật có sẵn là các dòng mặc định của sheet LUẬT; dòng ở dạng gốc xếp như trước (số, điểm lấy từ dòng), luật không còn dòng thì tắt |
 | `tkb/chan_doan.py` | Quy định mâu thuẫn: đếm trước khi xếp; khi không xếp được thì thử nới từng nhóm luật để chỉ ra luật nào gây ra |
 | `tkb/writer.py` | Xuất Excel |

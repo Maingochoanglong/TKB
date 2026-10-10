@@ -306,3 +306,35 @@ def test_rooms_step(page, tmp_path):
     _wait_mark(page, "lop", "✓")
     page.click('[data-act="add-room"]')
     assert page.evaluate("st.scenario.rooms.length") == 2
+
+
+def test_split_group_cells(page, tmp_path):
+    """Học cùng giờ trên trang: ô hai môn hiện "Âm nhạc / Mỹ thuật"; theo giáo viên Mỹ thuật chỉ thấy Mỹ thuật; khóa ô
+    thì cả hai cặp "môn, Mã GV" có dấu khóa; kiểu luật Học cùng giờ có trong hộp thoại luật."""
+    from tkb import bo_mau
+    from tkb.__main__ import main
+
+    from .test_cung_gio import ART, _file
+    source = _file(tmp_path, [ART], name="nhom", assistant=False)
+    assert main([str(source), "-o", str(tmp_path / "ra" / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
+    page.wait_for_selector("#start:not([hidden])")
+    page.set_input_files("#file-open", str(tmp_path / "ra" / "nhom_cap_nhat.xlsx"))
+    page.wait_for_selector("#import-dialog[open]")
+    page.click("#import-apply")
+    page.click('.tabs [data-tab="tkb"]')
+    page.wait_for_selector("#tkb-grid table.tkb")
+    _wait_mark(page, "tkb", "✓")
+    shared = page.locator("#tkb-grid td.cell", has_text=f"{bo_mau.AM_NHAC} / {bo_mau.MY_THUAT}")
+    assert shared.count() == 2  # xem theo khối 3: hai lớp, mỗi lớp một ô Âm nhạc / Mỹ thuật
+    cell = shared.first.get_attribute("data-cell")
+    page.click(f'#tkb-grid [data-cell="{cell}"]')
+    page.wait_for_function("!document.querySelector('#tkb-pick').textContent.includes('Đang tìm')", timeout=30000)
+    page.click('#tkb-pick [data-tkb="lock"]')
+    text = page.evaluate(f"savedGet(tkb.byKey.get({cell!r}))")
+    assert text.count("(khóa)") == 2, text
+    page.select_option("#tkb-view", "t:Mỹ Thuật 1")
+    texts = page.locator("#tkb-grid td.cell small").all_text_contents()
+    assert texts and set(texts) == {bo_mau.MY_THUAT}
+    page.click('.tabs [data-tab="luat"]')
+    page.click("#btn-add-rule")
+    assert "Học cùng giờ" in page.text_content("#rule-dialog")
