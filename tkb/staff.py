@@ -388,9 +388,9 @@ def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
 
 def parse_saved_grid(grid: list[list]) -> SavedTimetable:
     """TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
-    Tiết | Thứ 2 …, tên lớp ở dòng đầu mỗi khối, mỗi ô "môn" xuống dòng "Mã GV", thêm config.SAVED_OVERTIME ở tiết
-    bù, config.SAVED_LOCKED ở ô khóa; mã kết quả và mã quy định ở các dòng trên bảng. Không có bảng: không có dòng
-    nào."""
+    Tiết | các ngày (tên như khung giờ, vd Thứ 2 hay Mon), tên lớp ở dòng đầu mỗi khối, mỗi ô "môn" xuống dòng "Mã
+    GV", thêm config.SAVED_OVERTIME ở tiết bù, config.SAVED_LOCKED ở ô khóa; mã kết quả và mã quy định ở các dòng trên
+    bảng. Không có bảng: không có dòng nào."""
     def cell(r: int, c: int):
         row = grid[r - 1] if 0 < r <= len(grid) else []
         return row[c - 1] if 0 < c <= len(row) else None
@@ -404,8 +404,9 @@ def parse_saved_grid(grid: list[list]) -> SavedTimetable:
             if normalize(value) in map(normalize, config.SAVED_CODES) and not _blank(cell(r, c + 1)):
                 codes[normalize(value)] = str(cell(r, c + 1)).strip()
         heads = {normalize(v): c for c, v in cells.items()}
-        if header is None and "lớp" in heads and "tiết" in heads:
-            header = r, heads["lớp"], heads["tiết"], {c: str(v) for c, v in cells.items() if _fold(v).startswith("thu")}
+        if header is None and "lớp" in heads and "tiết" in heads:  # mọi cột sau cột Tiết là một ngày
+            first = max(heads["lớp"], heads["tiết"])
+            header = r, heads["lớp"], heads["tiết"], {c: str(v) for c, v in cells.items() if c > first}
     result_code, rules_code = (codes.get(normalize(k)) for k in config.SAVED_CODES)
     if header is None:
         return SavedTimetable([], result_code, rules_code)
