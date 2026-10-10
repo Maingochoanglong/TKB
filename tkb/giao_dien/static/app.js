@@ -1711,10 +1711,12 @@ function tkbCellHtml(c) {
   if (tkbChanged.has(k)) cls.push("changed");
   const who = c.name && !hireName(c.name) ? c.name : c.code || "";
   const title = c.subject ? [c.subject, c.code, c.name && !hireName(c.name) ? c.name : null, c.room || null,
-    c.overtime ? "tiết dạy bù" : null, c.locked ? "ô khóa" : null].filter(Boolean).join(" · ") : "Ô trống";
+    c.merged ? `ghép lớp với ${c.merged.join(", ")}` : null, c.overtime ? "tiết dạy bù" : null,
+    c.locked ? "ô khóa" : null].filter(Boolean).join(" · ") : "Ô trống";
   return `<td class="${cls.join(" ")}" data-cell="${esc(k)}" title="${esc(title)}">${c.overtime ? `<span class="ot">bù</span>` : ""}${
     c.locked ? `<span class="lock" aria-label="ô khóa">🔒</span>` : ""}${c.subject
-    ? `<b>${esc(c.subject)}</b><small>${esc(who)}</small>${c.room ? `<small class="room">${esc(c.room)}</small>` : ""}`
+    ? `<b>${esc(c.subject)}</b><small>${esc(who)}</small>${c.merged ? `<small class="room">ghép ${esc(c.merged.join(", "))}</small>` : ""}${
+      c.room ? `<small class="room">${esc(c.room)}</small>` : ""}`
     : "<small>trống</small>"}</td>`;
 }
 
@@ -1742,10 +1744,13 @@ function renderTkbGrid() {
       const list = at.get(`${d}|${p}`) || [];
       if (!list.length) return `<td class="cell empty off"></td>`;
       const ks = list.map((c) => cellKey(c.cls, c.d, c.p));
-      const bad = ks.some((k) => tkb.bad.has(k)) || (room === null && list.length > 1); // phòng chứa được nhiều lớp
+      // Một người hai lớp cùng giờ là sai, trừ các lớp của một nhóm ghép lớp; phòng chứa được nhiều lớp.
+      const merged = list.every((c) => list.every((o) => o === c || (c.merged || []).includes(o.cls)));
+      const bad = ks.some((k) => tkb.bad.has(k)) || (room === null && list.length > 1 && !merged);
       return `<td class="cell${bad ? " bad" : ""}${ks.some((k) => tkbChanged.has(k)) ? " changed" : ""}" data-cell="${esc(ks[0])}"
         title="${esc(list.map((c) => `${c.cls} · ${subjectOf(c)}`).join("\n"))}">${list.some((c) => c.locked) ? `<span class="lock">🔒</span>` : ""}${
-        list.map((c) => `<b>${esc(c.cls)}</b><small>${esc(subjectOf(c))}</small>`).join("")}</td>`;
+        (merged && list.length > 1 ? `<b>${esc(list.map((c) => c.cls).join(", "))}</b><small>${esc(subjectOf(list[0]))}</small>`
+          : list.map((c) => `<b>${esc(c.cls)}</b><small>${esc(subjectOf(c))}</small>`).join(""))}</td>`;
     }).join("")}</tr>`).join("");
   } else {
     const classes = tkbView.startsWith("k:") ? tkb.classes.filter((c) => String(gradeOf(c)) === tkbView.slice(2))
@@ -1775,6 +1780,11 @@ function renderPick() {
   box.innerHTML = html;
 }
 function pickHint() {
+  const c = tkbSel && tkbCell(tkbSel);
+  if (c?.merged) {
+    return `Ô ghép lớp (học chung với ${esc(c.merged.join(", "))}): không đổi tay được vì các lớp của nhóm phải cùng giờ.
+      Khóa các ô muốn giữ rồi bấm <b>Xếp lại phần còn lại</b>.`;
+  }
   if (!tkbSwaps) return "Đang tìm các ô đổi được…";
   const ok = [...tkbSwaps.values()].filter((t) => !t.new).length;
   return ok ? `Bấm một ô cùng lớp để đổi chỗ: <b>${ok}</b> ô viền xanh đổi được không sai luật bắt buộc.`
@@ -1788,13 +1798,15 @@ function forcedRule(cls, subject) {
   return st.scenario.rules.findIndex((r) => key(r.kind) === key(CHI_GV()) && key(r.subject) === key(subject)
     && classKey(r.classes) === classKey(cls) && !r.off);
 }
+// Ô ghép lớp: người dạy đổi cho cả nhóm, luật ghi mọi lớp của nhóm.
+const groupOf = (c) => [c.cls, ...(c.merged || [])].join(", ");
 function teacherPicker(c) {
   const ch = c.subject && tkb.choices[`${c.cls}|${c.subject}`];
   if (!ch) return "";
   const now = [...new Set(tkb.cells.filter((x) => x.cls === c.cls && x.subject === c.subject).map((x) => x.code))];
   const name = (code) => tkb.teachers.find((t) => key(t.code) === key(code))?.name;
   const label = (code) => { const n = name(code); return n && !hireName(n) ? `${code} · ${n}` : code; };
-  return `<label class="inline-pick" title="Ghi luật Chỉ giáo viên dạy cho môn này của lớp ở bước Luật">Người dạy ${esc(c.subject)} lớp ${esc(c.cls)}:
+  return `<label class="inline-pick" title="Ghi luật Chỉ giáo viên dạy cho môn này của lớp ở bước Luật">Người dạy ${esc(c.subject)} lớp ${esc(groupOf(c))}:
     <select data-tkb="teacher">${now.length > 1 ? `<option value="" selected>(${now.length} người)</option>` : ""}
     ${ch.codes.map((code) => `<option value="${esc(code)}" ${now.length === 1 && key(now[0]) === key(code) ? "selected" : ""}>${esc(label(code))}</option>`).join("")}
     </select></label>`;
@@ -1802,13 +1814,13 @@ function teacherPicker(c) {
 function setTeacher(c, code) {
   const ch = tkb.choices[`${c.cls}|${c.subject}`];
   const rules = st.scenario.rules;
-  const i = forcedRule(c.cls, ch.subject);
+  const i = forcedRule(groupOf(c), ch.subject);
   if (i >= 0) rules[i].role = code;
-  else rules.push({ ...newRule(CHI_GV()), subject: ch.subject, classes: c.cls, role: code, hard: true });
+  else rules.push({ ...newRule(CHI_GV()), subject: ch.subject, classes: groupOf(c), role: code, hard: true });
   said = null;
   changed();
   refreshTkb();
-  done(`Đã ghi luật: ${esc(c.subject)} lớp ${esc(c.cls)} chỉ do <b>${esc(code)}</b> dạy (bước Luật). TKB đang có chưa theo
+  done(`Đã ghi luật: ${esc(c.subject)} lớp ${esc(groupOf(c))} chỉ do <b>${esc(code)}</b> dạy (bước Luật). TKB đang có chưa theo
     luật này: bấm <b>Xếp lại phần còn lại</b> để đổi người dạy, giữ TKB cũ nhiều nhất có thể.`);
 }
 
@@ -1822,6 +1834,11 @@ async function pickCell(k) {
   const a = tkbSel && tkbCell(tkbSel);
   if (a && k === tkbSel) { tkbSel = null; tkbSwaps = null; renderTkb(); return; }
   const same = a && a.subject === c.subject && key(a.code) === key(c.code) && a.overtime === c.overtime;
+  if (a && a.cls === c.cls && !same && (a.merged || c.merged)) {
+    notify(`Ô ghép lớp (học chung với ${esc((a.merged || c.merged).join(", "))}) không đổi tay được: các lớp của nhóm
+      phải cùng giờ. Khóa các ô muốn giữ rồi bấm <b>Xếp lại phần còn lại</b>.`, "error");
+    return;
+  }
   if (a && a.cls === c.cls && !same) { await swapCells(a, c); return; }
   tkbSel = k;
   tkbSwaps = null;

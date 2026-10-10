@@ -406,7 +406,7 @@ ghi như cũ; giao diện và sheet HƯỚNG DẪN chia theo bốn câu hỏi):
 |---|---|---|
 | **Ở đâu** | Không xếp vào, Chỉ xếp vào, Cố định vào | Vị trí |
 | **Bao nhiêu** | Giáo viên tối đa tiết mỗi ngày, Giáo viên tối đa lớp mỗi ngày, Số lớp học cùng lúc tối đa, Học ít nhất số ngày | Số tiết, Số khác nhau, Khoảng cách |
-| **Đi cùng nhau** | Học 2 tiết liền, Học trước, Học cùng giờ | Liền nhau, Theo cặp 2 tiết, Thứ tự, Đi kèm, Cùng giờ |
+| **Đi cùng nhau** | Học 2 tiết liền, Học trước, Học cùng giờ, Ghép lớp | Liền nhau, Theo cặp 2 tiết, Thứ tự, Đi kèm, Cùng giờ |
 | **Ai dạy** | Chỉ giáo viên dạy, Buổi nghỉ của giáo viên, Giáo viên chỉ dạy cơ sở 2 | Người dạy |
 
 Cột: `Nhóm | Kiểu luật | Với mỗi | Môn | Gồm môn tăng cường | Nhãn | Trừ nhãn | Khối | Lớp | Ngày | Tiết | Buổi |
@@ -421,6 +421,7 @@ và Luật đọc là chỉ để đọc, chương trình ghi lại; thêm cột
 | Học 2 tiết liền | Môn, Khối, Lớp | Tiếng Anh khối 3–5 học thành cặp 2 tiết liền, cùng người dạy |
 | Học trước | Môn, Môn thứ hai, Khối, Lớp | Tiếng Việt học trước Toán khi cùng buổi |
 | Học cùng giờ | Môn, Môn thứ hai, Khối, Lớp (chỉ Bắt buộc) | **Chia nhóm**: Âm nhạc học cùng giờ với Mỹ thuật (nửa lớp mỗi môn); **dạy kèm**: Tiếng Anh học cùng giờ với Trợ giảng Tiếng Anh |
+| Ghép lớp | Môn, Môn thứ hai, Khối, Lớp (chỉ Bắt buộc) | Thể dục lớp 3/1, 3/2 học chung: cùng giờ, một người dạy, tính một tiết |
 | Giáo viên tối đa tiết mỗi ngày | Giáo viên (chức vụ hoặc một người; trống: mọi GV), Số | Mỗi GV Tiếng Anh dạy tối đa 5 tiết mỗi ngày |
 | Số lớp học cùng lúc tối đa | Môn, Khối, Số | Phòng Tin học: tối đa 1 lớp mỗi tiết |
 | Cố định vào | Môn, Khối, Lớp, Ngày / Tiết / Buổi | Thể dục lớp 1/1 cố định Thứ 3 tiết 3 |
@@ -443,6 +444,21 @@ nhóm vượt số giờ học vẫn được).
   ghi các cặp `môn`, `Mã GV` nối tiếp trong ô. TKB giáo viên ghi môn của người đó như thường.
 - Luật đếm theo lớp (vd mỗi lớp mỗi ngày tối đa n tiết của mọi môn) đếm mỗi môn trong nhóm là một tiết riêng.
 
+**Ghép lớp**: các lớp ghi ở cột Lớp (hoặc mọi lớp của các khối ở cột Khối) học chung Môn **cùng giờ, một người dạy**;
+người đó tính **một tiết** cho cả nhóm ở giờ đó (định mức, tiết bù, thống kê đều đếm giờ dạy).
+- Các lớp phải **cùng số tiết/tuần** của môn, ở **cùng một cơ sở**, mỗi lớp một môn của nhóm, ít nhất hai lớp; sai thì
+  chương trình báo lỗi khi kiểm tra. Môn chỉ GVCN dạy, môn có tiết cố định (HĐTN) không ghép được.
+- GVCN không nhận môn ghép lớp trong phần của mình; người dạy cả nhóm phải được dạy môn đó ở **mọi lớp** của nhóm
+  (luật `Chỉ giáo viên dạy` ghi mọi lớp của nhóm để chọn người).
+- Ghi `Môn thứ hai` thì lớp có môn đó học chung với các lớp có Môn (mỗi lớp một môn), vd lớp ghép hai khối học Tự nhiên
+  xã hội cùng Khoa học. Muốn mỗi khối một nhóm riêng: `Tự ghép`, `Với mỗi` Khối, Phép đo `Cùng giờ`, So sánh `Cùng một
+  người`.
+- Sheet `PHÒNG`: cả nhóm học ở một phòng, chiếm **một chỗ**; phòng phải hợp với mọi lớp của nhóm.
+- Ô TKB lớp ghi thêm các lớp học chung, vd `Thể dục (ghép 3/2)`; TKB giáo viên ghi `3/1, 3/2`. Trên trang (bước Thời
+  khóa biểu) ô ghép lớp không đổi tay được: khóa các ô muốn giữ rồi bấm **Xếp lại phần còn lại**.
+- Luật đếm theo giáo viên (vd mỗi GV mỗi ngày tối đa n tiết) tính giờ ghép lớp một lần; luật đếm theo lớp tính ở từng
+  lớp.
+
 **Tự ghép**: `Với mỗi` ghi các chiều `Lớp, Giáo viên, Môn, Nhóm môn, Khối, Ngày, Buổi, Giờ học, Cơ sở` (trống: cả
 trường cả tuần); các cột điều kiện chọn tiết nào được xét; `Phép đo` là một trong 10 phép đo:
 
@@ -455,7 +471,7 @@ trường cả tuần); các cột điều kiện chọn tiết nào được x�
 | Theo cặp 2 tiết | — | Mỗi lớp: các tiết Tiếng Anh xếp thành cặp 2 tiết liền trong buổi |
 | Thứ tự | Trước / Sau + `Môn thứ hai` (trống: các môn khác cùng nhóm) | Mỗi lớp, mỗi nhóm môn, mỗi ngày: các tiết môn có nhãn Môn tăng cường đứng sau các tiết môn khác cùng nhóm |
 | Đi kèm | — + `Môn thứ hai` | Mỗi lớp, mỗi ngày: có tiết Toán tăng cường thì cũng có tiết Toán |
-| Cùng giờ | — + `Môn thứ hai` (Với mỗi Lớp, chỉ Bắt buộc) | Mỗi lớp: các tiết Tin học học cùng giờ với các tiết Tiếng Anh |
+| Cùng giờ | Mỗi môn một người (trống) + `Môn thứ hai` (Với mỗi Lớp) / Cùng một người (ghép lớp; Với mỗi trống, Khối hoặc Cơ sở); chỉ Bắt buộc | Mỗi lớp: các tiết Tin học học cùng giờ với các tiết Tiếng Anh; mỗi khối: các lớp học chung Thể dục |
 | Người dạy | Do (+ Giáo viên) / Cùng một người / Liền nhau cùng người / Tiết đầu tuần do | Các tiết ở giờ có nhãn Luôn do GVCN dạy do GV chủ nhiệm dạy |
 | Khoảng cách | Tiết trống tối đa / Cách cuối buổi tối đa + Số | Mỗi giáo viên, mỗi buổi: các tiết không có tiết trống xen giữa |
 

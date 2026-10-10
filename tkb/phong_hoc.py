@@ -59,6 +59,24 @@ def fit(courses, campus_of: dict[str, str], subject_labels: dict[str, str]) -> d
                    if c.subject in subjects and (not grades or _fold(str(c.grade)) in grades) and campus == here)
         if rs:
             out[c.id] = rs
+    # Ghép lớp (Course.lead): cả nhóm học ở một phòng, chiếm một chỗ; phòng phải hợp với mọi lớp của nhóm. Chỉ course
+    # của lớp chính có ở đây, tiết của lớp theo ở cùng phòng với lớp chính (`placed`).
+    groups: dict[int, list] = defaultdict(list)
+    for c in courses:
+        if c.lead is not None:
+            groups[c.lead].append(c)
+    for lead, rest in sorted(groups.items()):
+        if lead not in out and not any(c.id in out for c in rest):
+            continue
+        common = tuple(r for r in out.get(lead, ()) if all(r in out.get(c.id, ()) for c in rest))
+        if not common:
+            first = next(c for c in courses if c.id == lead)
+            raise InputError(f"Sheet PHÒNG: ghép lớp {subject_labels.get(first.subject, first.subject)} lớp "
+                             f"{', '.join([first.class_name, *(c.class_name for c in rest)])}: không phòng nào hợp "
+                             f"với mọi lớp của nhóm (cột Môn, Khối, Cơ sở)")
+        out[lead] = common
+        for c in rest:
+            out.pop(c.id, None)
     return out
 
 
@@ -177,6 +195,13 @@ def placed(problem, lessons) -> list[int | None]:
                 if r is not None:
                     out[i] = r
                     used[lessons[i].class_name, lessons[i].subject][r] += 1
+    lead = {c.id: c.lead for c in problem.courses if c.lead is not None and c.lead in problem.room_fit}
+    if lead:  # ghép lớp: lớp theo học cùng phòng với lớp chính, cùng giờ, cùng người dạy
+        at = {(les.course_id, les.day, les.period, les.teacher): i for i, les in enumerate(lessons)}
+        for i, les in enumerate(lessons):
+            j = at.get((lead.get(les.course_id), les.day, les.period, les.teacher))
+            if j is not None:
+                out[i] = out[j]
     return out
 
 

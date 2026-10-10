@@ -338,3 +338,37 @@ def test_split_group_cells(page, tmp_path):
     page.click('.tabs [data-tab="luat"]')
     page.click("#btn-add-rule")
     assert "Học cùng giờ" in page.text_content("#rule-dialog")
+
+
+def test_merged_cells(page, tmp_path):
+    """Ghép lớp trên trang: ô ghi "ghép 3/2"; theo giáo viên Thể dục một ô ghi "3/1, 3/2", không tô đỏ trùng giờ; chọn
+    ô ghép thì báo không đổi tay được, bấm ô khác cùng lớp không đổi."""
+    from tkb.__main__ import main
+
+    from .test_ghep_lop import MERGE, TD, _file
+    source = _file(tmp_path, [MERGE], name="ghep")
+    assert main([str(source), "-o", str(tmp_path / "ra" / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
+    page.wait_for_selector("#start:not([hidden])")
+    page.set_input_files("#file-open", str(tmp_path / "ra" / "ghep_cap_nhat.xlsx"))
+    page.wait_for_selector("#import-dialog[open]")
+    page.click("#import-apply")
+    page.click('.tabs [data-tab="tkb"]')
+    page.wait_for_selector("#tkb-grid table.tkb")
+    _wait_mark(page, "tkb", "✓")
+    merged = page.locator("#tkb-grid td.cell", has_text="ghép 3/2")
+    assert merged.count() == 2
+    cell = merged.first.get_attribute("data-cell")
+    before = page.evaluate("JSON.stringify(st.scenario.saved)")
+    page.click(f'#tkb-grid [data-cell="{cell}"]')
+    assert "không đổi tay được" in page.text_content("#tkb-pick")
+    # Bấm một ô khác của lớp đó (không ghép): không đổi gì.
+    other = page.evaluate("(cls) => [...document.querySelectorAll('#tkb-grid td.cell')].map((e) => e.dataset.cell)"
+                          ".find((k) => k.startsWith(cls + '|') && !tkb.byKey.get(k).merged"
+                          " && tkb.byKey.get(k).subject)", cell.split("|")[0])
+    page.click(f'#tkb-grid [data-cell="{other}"]')
+    assert page.evaluate("JSON.stringify(st.scenario.saved)") == before
+    page.select_option("#tkb-view", "t:Thể Dục 1")
+    cells = page.locator("#tkb-grid td.cell:not(.empty)")
+    assert cells.count() == 2 and page.locator("#tkb-grid td.cell.bad").count() == 0
+    assert set(cells.locator("b").all_text_contents()) == {"3/1, 3/2"}
+    assert set(cells.locator("small").all_text_contents()) == {TD}
