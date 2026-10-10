@@ -215,11 +215,17 @@ keeps the native encoding (params into `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `P
 `luat_co_san.title`, filled with the row's number/subject), any other row as a plain composed sentence (no `>=`/`<=`,
 one colon, "giờ học" not "ô"). Every preset (`Kind.family`) and measure (`Measure.family`) belongs to one of the four
 `bo_ghep.FAMILIES` (Ở đâu, Bao nhiêu, Đi cùng nhau, Ai dạy): the UI's single "Loại luật" select and the guide are grouped
-by them; the Excel columns are unchanged. Each of the 9 measures is ONE
+by them; the Excel columns are unchanged. Each of the 10 measures is ONE
 function against a context: `_Cp` lowers it into CP-SAT (`build`, end of `build_timetable`), `_Eval` counts violations
 (`violations` → `check`, `qa`, `soft_report`), both over the same atoms (`_Source`: course × allowed slot [× teacher]).
 Shortcuts read the same `Luat`: `banned` (domain cut in `solver.allowed_slots`), `forced_pairs` (in
-`allocation.paired_groups(req, grade)` — always pass the grade), `day_cap` and `busy` (a teacher's busy slots: hard
+`allocation.paired_groups(req, grade)` — always pass the grade), `links` (hard "Cùng giờ" = kind "Học cùng giờ": split
+groups / co-teaching, per class the subject and the "Môn thứ hai" subjects always share slots → `Problem.links`;
+`link_extra` subjects don't count in "one lesson per class per slot" (`build_timetable`, `checker`) nor in the grade
+total (`Problem.class_load`); `chan_doan.same_teacher` refuses one teacher for two subjects of a group; cells with
+several lessons: `writer.cell_lessons`, "A / B" in TKB cells, saved grid pairs "subject\nMã GV" one after another,
+`staff.parse_saved_grid` places hold a tuple of row indices, `Previous.cells` keyed by (class, slot, subject)),
+`day_cap` and `busy` (a teacher's busy slots: hard
 "Không xếp vào" with a teacher and no subject; both in `phan_cong.teacher_slots`), `allowed`/`refusing` (hard
 "Người dạy: Do" without slots filters eligible teachers in `allocation.build_problem`; one Mã GV + class = forced
 assignment), `assign_cost` (soft one:

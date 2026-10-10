@@ -127,20 +127,43 @@ def _merge(ws, style: Style, r1: int, c1: int, r2: int, c2: int, value) -> None:
         ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
 
 
+def cell_lessons(solution: Solution) -> dict[tuple[str, int, int], list]:
+    """(lớp, ngày, tiết) -> các tiết ở ô đó: một tiết, hoặc các môn học cùng giờ (luật Học cùng giờ, môn chính
+    trước)."""
+    problem = solution.problem
+    rank = {(cls, s): i for cls, groups in problem.links.items() for g in groups for i, s in enumerate(g)}
+    order = {s: i for i, s in enumerate(problem.subject_order)}
+    out: dict[tuple[str, int, int], list] = defaultdict(list)
+    for les in sorted(solution.lessons, key=lambda l: (rank.get((l.class_name, l.subject), 0),
+                                                       order.get(l.subject, len(order)), l.subject)):
+        out[les.class_name, les.day, les.period].append(les)
+    return out
+
+
+def _class_cell(problem, items: list, names: dict[str, str], rooms: dict) -> str:
+    """Ô TKB lớp: môn, xuống dòng tên giáo viên (with_codes: thêm dòng Mã GV), thêm dòng phòng nếu học ở phòng dùng
+    chung; các môn học cùng giờ ghi chung một ô, mỗi dòng nối bằng " / " (vd "Tin học / Tiếng Anh")."""
+    def joined(texts: list[str]) -> list[str]:
+        parts = [t.split("\n") for t in texts]
+        return [" / ".join(p[i] for p in parts if i < len(p)) for i in range(max(map(len, parts)))]
+    lines = [" / ".join(problem.subject_label(les.subject) for les in items), *joined([names[les.teacher]
+                                                                                      for les in items])]
+    places = [r for les in items if (r := rooms.get((les.class_name, les.day, les.period, les.subject)))]
+    return "\n".join(lines + ([" / ".join(places)] if places else []))
+
+
 def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False,
                   classes: list[str] | None = None) -> None:
-    grid = {(l.class_name, l.day, l.period): l for l in solution.lessons}
     rooms = solution.rooms()  # tiết học ở phòng dùng chung (sheet PHÒNG): ô ghi thêm dòng tên phòng
     days = sorted(config.DAY_SESSIONS)
     rows = session_rows()
     first_day_col = 4
     problem = solution.problem
     names = teacher_labels(problem.teachers, with_codes)
+    grid = {key: _class_cell(problem, items, names, rooms) for key, items in cell_lessons(solution).items()}
     header = ["LỚP", "BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
     # Cột ngày: cùng độ rộng ở mọi sheet Khối, nới theo dòng dài nhất của cả trường (tối đa MAX_DAY_WIDTH).
-    texts = {line for les in solution.lessons
-             for t in (problem.subject_label(les.subject), names[les.teacher]) for line in t.split("\n")}
-    texts |= set(rooms.values())
+    texts = {line for value in grid.values() for line in value.split("\n")}
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
     title = {c: c for c in problem.classes}  # cột LỚP chỉ ghi tên lớp (cơ sở 2 đã tách file riêng)
     chosen = problem.classes if classes is None else classes
@@ -173,10 +196,7 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
                     value = None
                     if (period := row.period(d)) is None:
                         value = config.OFF_LABEL
-                    elif (les := grid.get((cls, d, period))) is not None:
-                        value = f"{problem.subject_label(les.subject)}\n{names[les.teacher]}"
-                        if room := rooms.get((cls, d, period, les.subject)):
-                            value += f"\n{room}"
+                    elif (value := grid.get((cls, d, period))) is not None:
                         lines = max(lines, style.lines(value, day_width))
                     style.body_cell(ws, r, first_day_col + i, value)
                 ws.row_dimensions[r].height = max(style.row_height, style.line_height * lines)
@@ -579,18 +599,21 @@ def change_rows(solution: Solution, rows: list[tuple]) -> list[list]:
     dòng Lớp | Thứ | Tiết | Trước | Sau ("môn\nMã GV", ô trống là không có tiết), theo thứ tự lớp, thứ, tiết."""
     problem = solution.problem
     day_of = {normalize(d): i for i, d in enumerate(config.DAYS)}
-    before: dict[tuple, tuple[str, str]] = {}
+    before: dict[tuple, list[tuple[str, str]]] = defaultdict(list)  # ô -> các (môn, Mã GV) (học cùng giờ: nhiều)
     for cls, day, period, subject, code, *_ in rows:
         if normalize(day) in day_of and str(period).strip().isdigit():
-            before[normalize(cls), day_of[normalize(day)], int(period)] = (str(subject), str(code))
-    after = {(normalize(les.class_name), les.day, les.period):
-             (problem.subject_label(les.subject), problem.teachers[les.teacher].code) for les in solution.lessons}
+            before[normalize(cls), day_of[normalize(day)], int(period)].append((str(subject), str(code)))
+    after: dict[tuple, list[tuple[str, str]]] = defaultdict(list)
+    for (cls, d, p), items in cell_lessons(solution).items():
+        after[normalize(cls), d, p] = [(problem.subject_label(les.subject), problem.teachers[les.teacher].code)
+                                       for les in items]
     name = {normalize(c): c for c in problem.classes}
-    text = lambda v: f"{v[0]}\n{v[1]}" if v else None  # noqa: E731
+    text = lambda v: "\n".join(f"{s}\n{c}" for s, c in v) if v else None  # noqa: E731
+    canon = lambda items: sorted(tuple(map(normalize, x)) for x in items)  # noqa: E731
     out = []
     for key in sorted(set(before) | set(after), key=lambda k: (class_sort_key(name.get(k[0], k[0])), k[1], k[2])):
         old, new = before.get(key), after.get(key)
-        if old is None or new is None or tuple(map(normalize, old)) != tuple(map(normalize, new)):
+        if not old or not new or canon(old) != canon(new):
             out.append([name.get(key[0], key[0]), config.DAYS[key[1]], key[2], text(old), text(new)])
     return out
 
@@ -753,24 +776,25 @@ def _write_saved(wb, solution: Solution, style: Style) -> None:
     top = 3
     for c, text in enumerate(header, start=1):
         style.header_cell(ws, top, c, text)
-    grid = {(l.class_name, l.day, l.period): l for l in solution.lessons}
+    grid = cell_lessons(solution)
     r = top
     for cls in sorted(problem.classes, key=class_sort_key):
         for i, p in enumerate(periods):
             r += 1
             style.body_cell(ws, r, 1, cls if i == 0 else None)
             style.body_cell(ws, r, 2, p)
+            lines = 2  # môn + Mã GV; ô có các môn học cùng giờ: hai dòng mỗi môn
             for j, d in enumerate(days, start=3):
-                les = grid.get((cls, d, p))
+                items = grid.get((cls, d, p))
+                lines = max(lines, 2 * len(items or ()))
                 value = config.OFF_LABEL if p not in day_periods[d] else None
-                if les is not None:
-                    code = problem.teachers[les.teacher].code
-                    value = f"{problem.subject_label(les.subject)}\n{code}" + \
-                        (f" {config.SAVED_OVERTIME}" if les.overtime else "") + \
-                        (f" {config.SAVED_LOCKED}" if les.locked else "")
+                if items:  # các môn học cùng giờ: các cặp "môn", "Mã GV" nối tiếp (staff.parse_saved_grid)
+                    value = "\n".join(f"{problem.subject_label(les.subject)}\n{problem.teachers[les.teacher].code}" +
+                                      (f" {config.SAVED_OVERTIME}" if les.overtime else "") +
+                                      (f" {config.SAVED_LOCKED}" if les.locked else "") for les in items)
                 cell = style.body_cell(ws, r, j, value)
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-            ws.row_dimensions[r].height = style.line_height * 2 + 4
+            ws.row_dimensions[r].height = style.line_height * lines + 4
     for c, width in enumerate((10, 6, *[24] * len(days)), start=1):
         ws.column_dimensions[get_column_letter(c)].width = width
 

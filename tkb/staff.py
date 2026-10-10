@@ -372,8 +372,9 @@ class SavedTimetable:
     rows: list[tuple]  # (lớp, thứ, tiết, môn, Mã GV, tiết bù?, ô khóa?, vị trí trong sheet) như chữ trong file
     result_code: str | None  # mã kết quả lúc xếp
     rules_code: str | None  # mã các quy định lúc xếp (rules.code)
-    # Mọi ô của lưới, cả ô trống (trừ ô "Nghỉ"): (lớp, thứ, tiết, dòng, cột, chỉ số trong rows hoặc None nếu ô
-    # trống), dòng và cột đếm từ 1 như Excel; giao diện đổi chữ của ô theo vị trí này.
+    # Mọi ô của lưới, cả ô trống (trừ ô "Nghỉ"): (lớp, thứ, tiết, dòng, cột, các chỉ số trong rows: trống nếu ô
+    # trống, hai chỉ số nếu ô có hai môn học cùng giờ), dòng và cột đếm từ 1 như Excel; giao diện đổi chữ của ô theo
+    # vị trí này.
     places: list[tuple] = field(default_factory=list)
 
 
@@ -389,8 +390,8 @@ def read_saved_timetable(path: str | Path) -> SavedTimetable | None:
 def parse_saved_grid(grid: list[list]) -> SavedTimetable:
     """TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
     Tiết | các ngày (tên như khung giờ, vd Thứ 2 hay Mon), tên lớp ở dòng đầu mỗi khối, mỗi ô "môn" xuống dòng "Mã
-    GV", thêm config.SAVED_OVERTIME ở tiết bù, config.SAVED_LOCKED ở ô khóa; mã kết quả và mã quy định ở các dòng trên
-    bảng. Không có bảng: không có dòng nào."""
+    GV" (ô có các môn học cùng giờ: các cặp "môn", "Mã GV" nối tiếp), thêm config.SAVED_OVERTIME ở tiết bù,
+    config.SAVED_LOCKED ở ô khóa; mã kết quả và mã quy định ở các dòng trên bảng. Không có bảng: không có dòng nào."""
     def cell(r: int, c: int):
         row = grid[r - 1] if 0 < r <= len(grid) else []
         return row[c - 1] if 0 < c <= len(row) else None
@@ -422,23 +423,27 @@ def parse_saved_grid(grid: list[list]) -> SavedTimetable:
                 continue
             place = (cls, day, period, r, c)
             if _blank(value):
-                places.append((*place, None))
+                places.append((*place, ()))
                 continue
             lines = [line.strip() for line in str(value).splitlines() if line.strip()]
-            flags = {}
-            for flag in (config.SAVED_LOCKED, config.SAVED_OVERTIME):  # "Bộ Môn 2 (bù) (khóa)": cắt từ cuối
-                for i, line in enumerate(lines):
-                    if _fold(line).endswith(_fold(flag)):
-                        lines[i] = line[:-len(flag)].strip()
-                        flags[flag] = True
-            lines = [line for line in lines if line]
-            if not lines:
-                places.append((*place, None))
-                continue
-            code = lines[-1] if len(lines) > 1 else ""
-            places.append((*place, len(rows)))
-            rows.append((cls, day, period, lines[0], code, flags.get(config.SAVED_OVERTIME, False),
-                         flags.get(config.SAVED_LOCKED, False), f"dòng {r}, {clean_name(day)}"))
+            # Một môn: "môn", "Mã GV"; các môn học cùng giờ: các cặp "môn", "Mã GV" nối tiếp.
+            pairs = [lines[i:i + 2] for i in range(0, len(lines), 2)] if len(lines) > 2 else [lines]
+            found = []
+            for pair in pairs:
+                flags = {}
+                for flag in (config.SAVED_LOCKED, config.SAVED_OVERTIME):  # "Bộ Môn 2 (bù) (khóa)": cắt từ cuối
+                    for i, line in enumerate(pair):
+                        if _fold(line).endswith(_fold(flag)):
+                            pair[i] = line[:-len(flag)].strip()
+                            flags[flag] = True
+                pair = [line for line in pair if line]
+                if not pair:
+                    continue
+                found.append(len(rows))
+                rows.append((cls, day, period, pair[0], pair[-1] if len(pair) > 1 else "",
+                             flags.get(config.SAVED_OVERTIME, False), flags.get(config.SAVED_LOCKED, False),
+                             f"dòng {r}, {clean_name(day)}"))
+            places.append((*place, tuple(found)))
     return SavedTimetable(rows, result_code, rules_code, places)
 
 
