@@ -134,12 +134,12 @@ Bản thử nghiệm sửa (1), (3) và (4) trong `bo_ghep` (khoảng 60 dòng).
 | | `ghep` (thử nghiệm) | tối ưu | 0 | 800 | 1 713 | 2 684 | 2 |
 | Trường mẫu | `goc` | có TKB | 0 | 25 140 | 15 128 | 19 697 | 306 |
 | | `ghep` (thử nghiệm, chưa có ý 3) | có TKB | 0 | 25 040 | 17 578 | 29 242 | 491 |
-| | `ghep` (thử nghiệm) | {{MAU2}} |
+| | `ghep` (thử nghiệm) | có TKB | 0 | 24 940 | 17 578 | 29 242 | 514 |
 | File của trường | `goc` | có TKB | 0 | 34 780 | 15 399 | 28 796 | 467 |
 | | `ghep` (thử nghiệm) | có TKB | 0 | 52 980 | 17 962 | 30 082 | 499 |
 
 - **Trường nhỏ:** hai cách cùng tối ưu, cùng điểm.
-- **Trường mẫu:** điểm ngang nhau, mô hình lớn hơn khoảng 1,5 lần, chạy lâu hơn.
+- **Trường mẫu:** điểm ngang nhau (bộ ghép ít hơn 200 điểm). Mô hình lớn hơn khoảng 1,5 lần số ràng buộc. Cả hai dừng vì vòng sau cùng không còn cải thiện, nhưng bộ ghép mất 514 giây so với 306: mỗi vòng LNS chậm hơn.
 - **File của trường:** cả 18 200 điểm chênh nằm ở **một** luật, "hạn chế đổi cơ sở trong ngày": `goc` 0 lần, `ghep` 2 lần
   × 10 000 điểm. Mọi luật ưu tiên khác thì bộ ghép tốt hơn một chút.
   - Hai cách mã hóa luật này cùng nghĩa: mỗi (GV, ngày) dạy ở k cơ sở bị phạt k − 1 lần.
