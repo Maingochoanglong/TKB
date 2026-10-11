@@ -178,6 +178,24 @@ Mỗi dòng chỉ chuyển một luật sang bộ ghép, so với `goc`. Bảng 
 - **"Các tiết liền nhau"** cần cách hạ đặc biệt như mã riêng (mục 4.2).
 - **Bộ ghép đã gọn hơn mã riêng** ở các luật cơ sở, tiết trống và GVCN trước.
 
+**Bản thử nghiệm 2** thêm hai đường tắt của mục 4.3, khoảng 40 dòng:
+- `bo_ghep.fixed_slots`: `build_problem` tách course HĐTN cố định;
+- `bo_ghep.homeroom_slots`: `allowed_slots` cắt ô của course không do GVCN dạy.
+
+Khi đó mô hình bộ ghép (chuyển tất cả) đã ngang mã riêng:
+
+| | Biến | Ràng buộc |
+|---|---|---|
+| Trường nhỏ | 1 438 (`goc` 1 551) | 2 019 (`goc` 1 966) |
+| Trường mẫu | −343 | +948 (+5 %) |
+| File của trường | −226 | −7 394 (−26 %) |
+
+Trường nhỏ vẫn tối ưu, cùng 800 điểm. Số xếp thật của bản này ở mục 3.5.
+
+### 3.5 Bản thử nghiệm 2: xếp thật
+
+{{BANG_THU_NGHIEM_2}}
+
 ## 4. Thiết kế
 
 ### 4.1 Luật có sẵn chỉ là dòng mẫu
