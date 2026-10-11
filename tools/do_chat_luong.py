@@ -12,6 +12,7 @@ file vào (luật gốc), nên điểm trừ so được với nhau. In thêm k�
 Không in họ tên, không ghi file ra: dùng được với file thật của trường.
   python tools/do_chat_luong.py data/INPUT_V8.xlsx --mode bu_gio --max-overtime 3 --time-limit 300 goc ghep
   python tools/do_chat_luong.py <file> --tung-luat     # mỗi luật có sẵn một biến thể ghep:<khóa>
+  python tools/do_chat_luong.py <file> --seed 0,1,2    # mỗi biến thể với 3 hạt giống CP-SAT, in điểm trung bình
 """
 from __future__ import annotations
 

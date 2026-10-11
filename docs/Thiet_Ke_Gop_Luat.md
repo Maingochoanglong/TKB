@@ -64,7 +64,8 @@ Mỗi cách xếp (biến thể) là một lần `solver.solve` trên cùng file
 - **Chấm điểm:** mọi TKB chấm cùng một cách, theo luật của file vào: bộ kiểm tra độc lập (số lỗi luật bắt buộc) và
   sheet Chất lượng (điểm trừ luật ưu tiên). In thêm số biến, số ràng buộc của mô hình và thời gian.
 - **Riêng tư:** không in họ tên, không ghi file ra, nên dùng được với file thật của trường.
-- **`--tung-luat`:** thêm một biến thể cho mỗi luật. Ba luật HĐTN cố định / HĐTN theo ngày đi cùng nhau (mục 3.2).
+- **`--tung-luat`:** thêm một biến thể cho mỗi luật. Hai luật HĐTN cố định / HĐTN theo ngày đi cùng nhau (mục 3.2).
+- **`--seed 0,1,2`:** chạy mỗi biến thể với từng hạt giống CP-SAT, in thêm điểm trung bình, thấp nhất, cao nhất. Cần cho trường lớn, nơi một luật điểm cao (đổi cơ sở: 10 000 điểm mỗi lần) quyết định cả điểm.
 
 ## 3. Số liệu
 
@@ -150,9 +151,32 @@ Bản thử nghiệm sửa (1), (3) và (4) trong `bo_ghep` (khoảng 60 dòng).
 
 {{BANG_HAT_GIONG}}
 
-### 3.4 Từng luật (trường mẫu, 120 đơn vị thời gian, bản thử nghiệm)
+### 3.4 Cỡ mô hình theo từng luật (bản thử nghiệm)
 
-{{BANG_TUNG_LUAT}}
+Mỗi dòng chỉ chuyển một luật sang bộ ghép, so với `goc`. Bảng chỉ dựng mô hình, không xếp.
+
+| Luật chuyển sang bộ ghép | Trường mẫu: biến | ràng buộc | File của trường: biến | ràng buộc |
+|---|---|---|---|---|
+| Tất cả (`ghep`) | +2 450 | +9 545 | +2 563 | +1 286 |
+| Tiết luôn do GVCN (`tiet_gvcn`) | +1 028 | +3 189 | +1 028 | +4 609 |
+| HĐTN cố định + theo ngày | +1 166 | +2 123 | +1 162 | +2 478 |
+| Các tiết liền nhau (`lien_nhau`) | 0 | +1 686 | 0 | +1 686 |
+| Tải ngày, tải ngày + 1 (mỗi luật) ¹ | +240 | +240 | +240 | +240 |
+| Tối đa tiết mỗi ngày | 0 | +145 | 0 | +145 |
+| GVCN trước | 0 | −598 | 0 | −598 |
+| Tiết trống của GV | −342 | −342 | −342 | −342 |
+| Mỗi buổi một cơ sở | 0 | 0 | +117 | −4 017 |
+| Hạn chế đổi cơ sở | 0 | 0 | 0 | −4 238 |
+| Mọi luật còn lại | 0 | 0 | 0 | 0 |
+
+¹ Chỉ khi chuyển riêng một trong hai luật: phần mã riêng còn lại vẫn dựng biến cho cả hai mức.
+
+- **Hai luật làm mô hình lớn nhất cần đường tắt (mục 4.3):**
+  - "tiết luôn do GVCN": mã riêng cắt ô khỏi miền của course không do GVCN dạy; bộ ghép giữ biến rồi cấm bằng ràng
+    buộc;
+  - HĐTN: mã riêng tách sẵn course cố định.
+- **"Các tiết liền nhau"** cần cách hạ đặc biệt như mã riêng (mục 4.2).
+- **Bộ ghép đã gọn hơn mã riêng** ở các luật cơ sở, tiết trống và GVCN trước.
 
 ## 4. Thiết kế
 
@@ -176,11 +200,9 @@ Bản thử nghiệm sửa (1), (3) và (4) trong `bo_ghep` (khoảng 60 dòng).
   hiện nay), `violations` và `qa`.
 - **Nhóm không thể vi phạm.** Phép đo Số khác nhau bỏ nhóm có không quá n giá trị, ví dụ trường một cơ sở.
 - **`_Cp.any`** dùng `AddMaxEquality` (một ràng buộc).
-- **Hạ đặc biệt** cho các dạng mà mã riêng có cách mã hóa tốt hơn, chỉ khi số đo cho thấy cần (mục 3.4). Ví dụ:
-  - "tiết trống của GV" dùng bool chiếm chỗ `v == sum(...)` vì GV không trùng giờ;
-  - "các tiết liền nhau" dùng mẫu "môn – môn khác – môn".
-
-  Hạ đặc biệt nằm trong hàm của phép đo, nên luật tự ghép cùng dạng cũng được lợi.
+- **Hạ đặc biệt** cho các dạng mà mã riêng có cách mã hóa gọn hơn, chỉ khi số đo cho thấy cần (mục 3.4). Hiện
+  chỉ có "các tiết liền nhau" (+1 686 ràng buộc): làm như mã riêng, cấm mẫu "môn – môn khác – môn" trong buổi. Hạ đặc
+  biệt nằm trong hàm của phép đo, nên luật tự ghép cùng dạng cũng được lợi.
 
 ### 4.3 Đường tắt đọc câu bộ ghép
 
