@@ -132,18 +132,31 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--time-limit", type=float, default=120)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--no-student-rules", action="store_true")
+    ap.add_argument("--seed", default="0", help="Hạt giống của CP-SAT, vd 0,1,2: mỗi biến thể chạy với từng hạt giống")
     args = ap.parse_args(argv)
-    settings = config.Settings(student_rules=not args.no_student_rules, mode=args.mode,
-                               overtime_max=args.max_overtime, time_limit=args.time_limit or None,
-                               workers=args.workers)
+    seeds = [int(x) for x in args.seed.split(",")]
     results = []
     with applied(read_rules(args.file)):
         variants = list(args.variants) + ([f"ghep:{','.join(TOGETHER.get(k, (k,)))}" for k in replaceable()]
                                           if args.tung_luat else [])
         for variant in variants:
-            print(f"Đang xếp: {variant}…", file=sys.stderr)
-            results.append(measure(args.file, variant, settings))
+            for seed in seeds:
+                settings = config.Settings(student_rules=not args.no_student_rules, mode=args.mode,
+                                           overtime_max=args.max_overtime, time_limit=args.time_limit or None,
+                                           workers=args.workers, seed=seed)
+                print(f"Đang xếp: {variant} (hạt giống {seed})…", file=sys.stderr)
+                result = measure(args.file, variant, settings)
+                if len(seeds) > 1:
+                    result["variant"] = f"{variant} #{seed}"
+                results.append(result)
     report(results)
+    if len(seeds) > 1:
+        print()
+        for variant in variants:
+            points = [r["soft"] for r in results if r["variant"].rsplit(" #", 1)[0] == variant and "soft" in r]
+            if points:
+                print(f"{variant}: điểm trừ trung bình {round(sum(points) / len(points))}, thấp nhất {min(points)}, "
+                      f"cao nhất {max(points)} ({len(points)}/{len(seeds)} lần xếp được)")
     return 0
 
 
