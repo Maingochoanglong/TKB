@@ -17,7 +17,14 @@ có benchmark chất lượng"). Số liệu đo ở mục 3 lấy bằng công 
     - luật theo giáo viên của bộ ghép chưa tính tiết bù cho người dạy bù như bản gốc (mục 3.2).
   - Mỗi thay đổi luật hiện phải viết hai, ba lần: solver, checker, `lns.qa`, chẩn đoán.
   - Câu dòng mẫu và cách xếp thật có thể khác nhau mà không ai thấy.
-- **Đo được (mục 3):** {{TOM_TAT_SO_LIEU}}
+- **Đo được (mục 3):** bộ ghép (sau 4 sửa nhỏ và 2 đường tắt đã thử) xếp đúng mọi luật bắt buộc. Điểm trừ:
+  - trường nhỏ bằng nhau (cùng tối ưu);
+  - trường mẫu ngang nhau;
+  - file của trường ngang hoặc tốt hơn ở mọi luật trừ "hạn chế đổi cơ sở". Luật này bộ ghép để lại nhiều lần đổi hơn
+    (mục 3.5), phải sửa trước khi chuyển.
+
+  Mô hình cùng cỡ. Bộ ghép như hiện nay (chưa sửa) thì kém: điểm trừ cao hơn 16 %, số ràng buộc gấp 4 lần, và không
+  xếp được file của trường.
 - **Mã kết quả:** đổi với mọi file, một lần, ở PR chuyển mô hình (mục 6, PR D).
 - **Đề xuất:** 5 PR theo thứ tự mục 6. PR A–C không đổi mã kết quả của file không có luật tự ghép.
 - **Cần anh/chị quyết:** mục 5.
@@ -49,7 +56,8 @@ Thêm vào đó:
   - tải ngày tối đa (`day_cap`), giờ bận (`busy`), học cùng giờ (`links`), ghép lớp (`merges`).
 - Test `test_generic_lowering_replaces_the_native_one` đã cho thấy 6 luật bắt buộc xếp bằng bộ ghép vẫn đúng mọi luật
   gốc.
-- Mỗi dòng mặc định đã có câu bộ ghép; sheet Chất lượng đếm vi phạm của mọi dòng bằng bộ ghép. Nhưng nghĩa của câu chưa khớp hẳn mã riêng ở vài chỗ (mục 3.2).
+- Mỗi dòng mặc định đã có câu bộ ghép; sheet Chất lượng đếm vi phạm của mọi dòng bằng bộ ghép. Nhưng nghĩa của câu
+  chưa khớp hẳn mã riêng ở vài chỗ (mục 3.2).
 
 ## 2. Công cụ đo `tools/do_chat_luong.py`
 
@@ -64,8 +72,9 @@ Mỗi cách xếp (biến thể) là một lần `solver.solve` trên cùng file
 - **Chấm điểm:** mọi TKB chấm cùng một cách, theo luật của file vào: bộ kiểm tra độc lập (số lỗi luật bắt buộc) và
   sheet Chất lượng (điểm trừ luật ưu tiên). In thêm số biến, số ràng buộc của mô hình và thời gian.
 - **Riêng tư:** không in họ tên, không ghi file ra, nên dùng được với file thật của trường.
-- **`--tung-luat`:** thêm một biến thể cho mỗi luật. Hai luật HĐTN cố định / HĐTN theo ngày đi cùng nhau (mục 3.2).
-- **`--seed 0,1,2`:** chạy mỗi biến thể với từng hạt giống CP-SAT, in thêm điểm trung bình, thấp nhất, cao nhất. Cần cho trường lớn, nơi một luật điểm cao (đổi cơ sở: 10 000 điểm mỗi lần) quyết định cả điểm.
+- **`--tung-luat`:** thêm một biến thể cho mỗi luật. Ba luật HĐTN đi cùng nhau (mục 3.2).
+- **`--seed 0,1,2`:** chạy mỗi biến thể với từng hạt giống CP-SAT, in thêm điểm trung bình, thấp nhất, cao nhất.
+  Cần cho trường lớn, nơi một luật điểm cao (đổi cơ sở: 10 000 điểm mỗi lần) quyết định cả điểm.
 
 ## 3. Số liệu
 
@@ -121,13 +130,14 @@ Trường mẫu: toàn bộ 4 000 điểm chênh nằm ở hai luật tải ngà
      xếp được.
    - Sửa: `forced_pairs` nhận cả dạng có Nhóm môn và tính cột Áp dụng khi theo nhóm (mục 4.3).
 4. **Ràng buộc thừa và cách hạ kém gọn.**
-   - "Mỗi buổi một cơ sở" và "hạn chế đổi cơ sở" thêm khoảng 2 500 ràng buộc ở trường chỉ có một cơ sở. Mã hóa riêng
-     bỏ qua trường hợp này.
+   - "Mỗi buổi một cơ sở" và "hạn chế đổi cơ sở" thêm khoảng 2 500 ràng buộc ở trường nhỏ, dù trường chỉ có một cơ
+     sở. Mã hóa riêng bỏ qua trường hợp này.
    - Phép "có tiết" (`_Cp.any`) dùng k + 1 ràng buộc, trong khi một `AddMaxEquality` là đủ.
 
-### 3.3 Bản thử nghiệm: sửa ba chỗ trên
+### 3.3 Bản thử nghiệm: sửa ý 1, 3, 4
 
-Bản thử nghiệm sửa (1), (3) và (4) trong `bo_ghep` (khoảng 60 dòng). Mục (2) chưa sửa: các biến thể đo ba luật HĐTN cùng nhau.
+Bản thử nghiệm sửa ý 1, 3 và 4 trong `bo_ghep` (khoảng 60 dòng). Ý 2 chưa sửa: các biến thể đo ba luật HĐTN cùng
+nhau.
 
 | Trường, chế độ | Cách xếp | Kết quả | Lỗi luật bắt buộc | Điểm trừ | Biến | Ràng buộc | Giây |
 |---|---|---|---|---|---|---|---|
@@ -140,9 +150,10 @@ Bản thử nghiệm sửa (1), (3) và (4) trong `bo_ghep` (khoảng 60 dòng).
 | | `ghep` (thử nghiệm) | có TKB | 0 | 52 980 | 17 962 | 30 082 | 499 |
 
 - **Trường nhỏ:** hai cách cùng tối ưu, cùng điểm.
-- **Trường mẫu:** điểm ngang nhau (bộ ghép ít hơn 200 điểm). Mô hình lớn hơn khoảng 1,5 lần số ràng buộc. Cả hai dừng vì vòng sau cùng không còn cải thiện, nhưng bộ ghép mất 514 giây so với 306: mỗi vòng LNS chậm hơn.
-- **File của trường:** cả 18 200 điểm chênh nằm ở **một** luật, "hạn chế đổi cơ sở trong ngày": `goc` 0 lần, `ghep` 2 lần
-  × 10 000 điểm. Mọi luật ưu tiên khác thì bộ ghép tốt hơn một chút.
+- **Trường mẫu:** điểm ngang nhau (bộ ghép ít hơn 200 điểm). Mô hình lớn hơn khoảng 1,5 lần số ràng buộc. Cả hai
+  dừng vì vòng sau cùng không còn cải thiện, nhưng bộ ghép mất 514 giây so với 306 (nguyên nhân ở mục 3.5).
+- **File của trường:** cả 18 200 điểm chênh nằm ở **một** luật, "hạn chế đổi cơ sở trong ngày": `goc` 0 lần, `ghep`
+  2 lần × 10 000 điểm. Mọi luật ưu tiên khác thì bộ ghép tốt hơn một chút.
   - Hai cách mã hóa luật này cùng nghĩa: mỗi (GV, ngày) dạy ở k cơ sở bị phạt k − 1 lần.
   - Một lần đổi cơ sở nặng bằng khoảng 100 tiết vượt tải ngày, nên điểm cả TKB phụ thuộc chuyện LNS có gỡ được lần đổi
     đó hay không.
@@ -208,7 +219,29 @@ Trường nhỏ vẫn tối ưu, cùng 800 điểm. Số xếp thật của bả
 
 ### 3.5 Bản thử nghiệm 2: xếp thật
 
-{{BANG_THU_NGHIEM_2}}
+Bản thử nghiệm 2 = bản thử nghiệm + hai đường tắt (mục 3.4).
+
+| Trường | Cách xếp | Điểm trừ (hạt giống 0 / 1 / 2) | Trung bình | Đổi cơ sở | Trừ điểm đổi cơ sở | Giây |
+|---|---|---|---|---|---|---|
+| Trường mẫu | `goc` | 25 140 | | | | 306 |
+| | thử nghiệm 2 | 25 160 | | | | 480 |
+| File của trường | `goc` | 34 780 / 43 860 / 35 080 | 37 907 | 0 / 1 / 0 | 34 573 | 460–557 |
+| | thử nghiệm 2 | 33 520 / 64 230 / 53 920 | 50 557 | 0 / 3 / 2 | 33 890 | 505–546 |
+
+- **Luật bắt buộc:** mọi lần xếp đều 0 lỗi.
+- **Mọi luật ưu tiên trừ đổi cơ sở:** bộ ghép ngang hoặc tốt hơn một chút (file của trường −2 %, trường mẫu +0,1 %).
+- **Đổi cơ sở là chỗ yếu duy nhất còn lại.** Hai bản thử nghiệm để lại 9 lần đổi cơ sở trong 6 lần xếp, mã riêng 1 lần
+  trong 3. Hai cách mã hóa cùng nghĩa (mục 3.3), nên nguyên nhân có thể nằm ở:
+  - cách CP-SAT tìm nghiệm đầu với hai dạng ràng buộc;
+  - vùng LNS: chưa có vùng nào mở mọi lớp của một GV trong một ngày.
+
+  Phải tìm ra và sửa trước PR D (mục 5.2).
+- **Thời gian trường mẫu (480 so với 306 giây):**
+  - **Phân công:** 25,6 giây so với 0,6. Tầng phân công hỏi bộ ghép 32 548 lần, mỗi lần `compiled()` dịch lại mọi dòng
+    luật (716 100 lần `make`). Bản thử nghiệm 2 lưu bản dịch, chỉ dịch lại khi config đổi: còn 1,0 giây. Lỗi hiệu năng
+    này có sẵn với mọi file có luật tự ghép hôm nay.
+  - **LNS:** bộ ghép chạy thêm một vòng trước khi dừng (vòng sau cùng không còn cải thiện).
+- **File của trường:** cả hai dùng hết thời gian, thời gian như nhau.
 
 ## 4. Thiết kế
 
@@ -232,6 +265,8 @@ Trường nhỏ vẫn tối ưu, cùng 800 điểm. Số xếp thật của bả
   hiện nay), `violations` và `qa`.
 - **Nhóm không thể vi phạm.** Phép đo Số khác nhau bỏ nhóm có không quá n giá trị, ví dụ trường một cơ sở.
 - **`_Cp.any`** dùng `AddMaxEquality` (một ràng buộc).
+- **Lưu bản dịch luật.** `compiled()` chỉ dịch lại khi một giá trị config mà `make` đọc đã đổi (`rules.applied` luôn
+  thay đối tượng). Thiếu cái này, phân công trường mẫu mất 25 giây thay vì 1 (mục 3.5).
 - **Hạ đặc biệt** cho các dạng mà mã riêng có cách mã hóa gọn hơn, chỉ khi số đo cho thấy cần (mục 3.4). Hiện
   chỉ có "các tiết liền nhau" (+1 686 ràng buộc): làm như mã riêng, cấm mẫu "môn – môn khác – môn" trong buổi. Hạ đặc
   biệt nằm trong hàm của phép đo, nên luật tự ghép cùng dạng cũng được lợi.
@@ -242,7 +277,7 @@ Các việc ngoài mô hình hiện đọc `config` sẽ đọc dòng luật qua
 
 | Việc | Hiện nay | Sau gộp |
 |---|---|---|
-| Course HĐTN cố định (`build_problem`) | `HDTN_FIXED_SLOTS` khi `on("hdtn_co_dinh")` | `bo_ghep.fixed(subject)`: luật bắt buộc Số tiết "Đúng n" theo (lớp, ô) ở ô có nhãn → các ô cố định của môn |
+| Course HĐTN cố định (`build_problem`) | `HDTN_FIXED_SLOTS` khi `on("hdtn_co_dinh")` | `bo_ghep.fixed_slots(subject)`: luật bắt buộc Số tiết "Đúng n" theo (lớp, ô) ở ô có nhãn → các ô cố định của môn |
 | Ngày HĐTN linh hoạt | `HDTN_FLEX_DAYS` | `banned` (đã có): luật Vị trí bắt buộc không xét GV |
 | Tiết luôn do GVCN (`allowed_slots`, `homeroom_slots`, `staff`) | `HOMEROOM_PERIODS` khi `on("tiet_gvcn")` | `bo_ghep.homeroom_slots()`: luật Người dạy "Do" Chủ Nhiệm bắt buộc có ô, không môn |
 | Môn chỉ GVCN dạy (`homeroom_only`) | `HOMEROOM_ONLY_SUBJECTS` khi `on("chi_gvcn")` | `allowed` (đã có) + môn có nhãn Chỉ GVCN dạy của dòng |
@@ -275,12 +310,15 @@ Các việc ngoài mô hình hiện đọc `config` sẽ đọc dòng luật qua
 
 ## 5. Cần anh/chị quyết
 
-1. **Đồng ý đổi mã kết quả một lần** (PR D) để mỗi luật chỉ còn một cách cài? {{DE_XUAT_1}}
+1. **Đồng ý đổi mã kết quả một lần** (PR D) để mỗi luật chỉ còn một cách cài? Đề xuất: đồng ý, với điều kiện PR D
+   đạt ngưỡng ở ý 2.
 2. **Ngưỡng chất lượng cho PR D.** Đề xuất: trên trường nhỏ (hai chế độ), trường mẫu và file của trường, theo hằng số
    của `main.py`:
    - 0 lỗi luật bắt buộc;
    - điểm trừ không cao hơn cách hiện nay;
    - thời gian không quá +20 %.
+
+   Đo bằng công cụ, ba hạt giống trên file của trường, so trung bình (mục 3.3: một lần chạy không đủ).
 
    Luật nào không đạt thì thêm cách hạ đặc biệt (mục 4.2) rồi đo lại, không giữ mã riêng.
 3. **Tiết bù ở chế độ tuyển thêm** vẫn tính vào lịch người bù cho mọi luật theo GV, như nay. Nhờ vậy hai chế độ cùng
@@ -291,10 +329,10 @@ Các việc ngoài mô hình hiện đọc `config` sẽ đọc dòng luật qua
 
 | PR | Nội dung | Mã kết quả |
 |---|---|---|
-| **A. Bộ ghép đúng nghĩa, gọn** | Mục 4.2: tiết bù cho luật theo GV, nhóm không thể vi phạm, `any` một ràng buộc; test | Giữ, trừ file có luật tự ghép theo GV có tiết bù, hoặc có luật Số khác nhau / Khoảng cách |
-| **B. Đường tắt đọc câu bộ ghép** | Mục 4.3: `fixed`, `homeroom_slots`, `forced_pairs` mở rộng, `precheck` mở rộng; dòng có sẵn vẫn xếp bằng mã riêng | Giữ |
+| **A. Bộ ghép đúng nghĩa, gọn** | Mục 4.2: tiết bù cho luật theo GV, nhóm không thể vi phạm, `any` một ràng buộc, lưu bản dịch luật; test | Giữ, trừ file có luật tự ghép theo GV có tiết bù, hoặc có luật Số khác nhau / Khoảng cách |
+| **B. Đường tắt đọc câu bộ ghép** | Mục 4.3: `fixed_slots`, `homeroom_slots`, `forced_pairs` mở rộng, `precheck` mở rộng; dòng có sẵn vẫn xếp bằng mã riêng | Giữ |
 | **C. Bộ kiểm tra theo bộ ghép** | Mục 4.4; test đối chiếu với hàm cũ | Giữ |
-| **D. Chuyển mô hình** | `luat_co_san.apply` đưa mọi dòng vào `CUSTOM_RULES`; tắt mọi khối mã riêng; `lns.qa`; chẩn đoán; `--no-student-rules`; đo đủ ngưỡng mục 5.2 | **Đổi** |
+| **D. Chuyển mô hình** | Tìm và sửa chỗ yếu "đổi cơ sở" (mục 3.5); `luat_co_san.apply` đưa mọi dòng vào `CUSTOM_RULES`; tắt mọi khối mã riêng; `lns.qa`; chẩn đoán; `--no-student-rules`; đo đủ ngưỡng mục 5.2 (ba hạt giống) | **Đổi** |
 | **E. Dọn code** | Xóa khối mã riêng, `config.OFF`/`WEIGHTS`/tham số luật; tài liệu (README, đặc tả, CLAUDE.md), CODE_MAP, file mẫu | Giữ (như D) |
 
 Công cụ đo đi cùng PR này. Mỗi PR B–E chạy lại công cụ trên ba trường và ghi số vào mô tả PR.

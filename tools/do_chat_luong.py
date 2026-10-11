@@ -36,9 +36,10 @@ from tkb.staff import InputError, read_staff  # noqa: E402
 from tkb.writer import quality_rows  # noqa: E402
 
 NATIVE_ONLY = ("buoi_nghi", "co_so_2")  # chỉ có dạng gốc (cột của sheet NHÂN SỰ), không có câu bộ ghép
-# Luật gốc phải thay cùng nhau: tắt riêng HĐTN cố định thì course HĐTN gộp một, cả tuần chỉ ở ngày HĐTN còn lại
-# (allocation.build_problem), trái với dòng "đúng 1 tiết ở giờ cố định" của bộ ghép.
-TOGETHER = {"hdtn_co_dinh": ("hdtn_co_dinh", "hdtn_ngay")}
+# Luật gốc phải thay cùng nhau: tắt riêng HĐTN cố định thì course HĐTN gộp một (allocation.build_problem), cả tuần
+# chỉ ở ngày HĐTN còn lại (trái với dòng "đúng 1 tiết ở giờ cố định" của bộ ghép), và mục tiêu gốc HĐTN cuối buổi
+# phạt cả tiết cố định.
+TOGETHER = {"hdtn_co_dinh": ("hdtn_co_dinh", "hdtn_ngay", "hdtn_cuoi_buoi")}
 
 
 def replaceable() -> list[str]:
