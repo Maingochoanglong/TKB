@@ -74,7 +74,22 @@ Chất lượng.
 
 ### 3.1 Bộ ghép như hiện nay
 
-{{BANG_HIEN_NAY}}
+| Trường, chế độ | Cách xếp | Kết quả | Lỗi luật bắt buộc | Điểm trừ | Biến | Ràng buộc | Giây |
+|---|---|---|---|---|---|---|---|
+| Trường nhỏ, tuyển thêm | `goc` | tối ưu | 0 | 200 | 1 551 | 1 966 | 2 |
+| | `ghep` | tối ưu | 0 | 0 ¹ | 1 897 | 6 566 | 1 |
+| Trường nhỏ, bù giờ | `goc` | tối ưu | 0 | 800 | 1 551 | 1 966 | 2 |
+| | `ghep` | tối ưu | 0 | 1 100 | 1 888 | 6 557 | 1 |
+| Trường mẫu | `goc` | có TKB | 0 | 25 140 | 15 128 | 19 697 | 306 |
+| | `ghep` | có TKB | 0 | 29 140 | 18 655 | 77 300 | 503 ² |
+| File của trường | `goc` | có TKB | 0 | 34 780 | 15 399 | 28 796 | 461 |
+| | `ghep` | **không xếp được** ³ | | | 18 947 | 78 182 | |
+
+¹ Không phải TKB tốt hơn: bộ ghép không tính tiết bù vào lịch người bù (mục 3.2, ý 1).
+² Hết thời gian; `goc` dừng sớm vì vòng sau cùng không còn cải thiện đáng kể.
+³ "Các luật bắt buộc sau không cùng thỏa được" (mục 3.2, ý 3).
+
+Trường mẫu: toàn bộ 4 000 điểm chênh nằm ở hai luật tải ngày (tiết bù, ý 1). Mô hình bộ ghép có số ràng buộc gấp 4 lần.
 
 ### 3.2 Bốn chỗ bộ ghép khác mã hóa riêng
 
