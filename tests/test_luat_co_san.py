@@ -131,6 +131,21 @@ def test_rule_switched_off_is_kept_but_not_used(tmp_path, plain):
         assert luat_rieng.describe(kept[1]).rsplit(" (", 1)[0] in marks
 
 
+def test_soft_rule_off_drops_its_points(tmp_path):
+    """Xóa hay tạm tắt dòng một luật ưu tiên có sẵn thì điểm của nó ra khỏi mục tiêu xếp giờ (solver và lns đọc điểm
+    qua config.rule_weights), không chỉ đánh dấu tắt; các luật ưu tiên khác giữ điểm."""
+    def change(ws, head):
+        ws.delete_rows(_row_of(ws, head, "Giáo viên, trừ GV chủ nhiệm, không có tiết trống"))
+        ws.cell(_row_of(ws, head, "Tránh xếp môn có nhãn Môn nặng"), head.index("Tạm tắt") + 1, "Có")
+
+    rules = _edit(tmp_path, change)
+    assert rules["OFF"] == frozenset({"tiet_trong", "mon_nang"})
+    assert rules["WEIGHTS"] == {"teacher_gap": 0, "heavy_late": 0}
+    with applied(rules):
+        w = config.rule_weights(config.Weights())
+        assert w.teacher_gap == w.heavy_late == 0 and w.morning_core == config.Weights().morning_core > 0
+
+
 def test_built_in_rules_read_as_plain_sentences():
     """Mỗi luật có sẵn có tên viết tay; tên theo số của dòng; câu không có ký hiệu hay chữ kỹ thuật."""
     rows = luat_co_san.default_rows()
