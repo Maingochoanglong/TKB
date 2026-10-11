@@ -149,7 +149,21 @@ Bản thử nghiệm sửa (1), (3) và (4) trong `bo_ghep` (khoảng 60 dòng).
   - Chính `goc` trên Windows (CI của PR #34) cũng kết thúc với 2 lần đổi cơ sở.
   - Một lần chạy mỗi cách vì vậy chưa đủ để kết luận. Bảng dưới chạy thêm hạt giống CP-SAT (`--seed`).
 
-{{BANG_HAT_GIONG}}
+File của trường, ba hạt giống (hạt giống 0 là bảng trên):
+
+| Cách xếp | Hạt giống 0 | Hạt giống 1 | Hạt giống 2 | Trung bình | Số lần đổi cơ sở |
+|---|---|---|---|---|---|
+| `goc` | 34 780 | 43 860 | 35 080 | 37 907 | 0 / 1 / 0 |
+| `ghep` (thử nghiệm) | 52 980 | 56 350 | 34 320 | 47 883 | 2 / 2 / 0 |
+| — trừ điểm đổi cơ sở: `goc` | 34 780 | 33 860 | 35 080 | 34 573 | |
+| — trừ điểm đổi cơ sở: `ghep` | 32 980 | 36 350 | 34 320 | 34 550 | |
+
+- **Mọi luật ưu tiên khác:** hai cách ngang nhau.
+- **Đổi cơ sở:** bộ ghép còn để lại lần đổi cơ sở thường hơn: 4 lần trong 3 lần xếp, so với 1. Ba hạt giống chưa đủ để
+  chắc, nhưng đây là điểm phải theo dõi ở PR D.
+- **Hướng sửa** nếu số đo vẫn vậy: hạ luật "hạn chế đổi cơ sở" như mã riêng.
+  - Mã riêng dùng một biến "buổi này ở cơ sở sau" cho mỗi (GV, buổi), chung với luật cứng "mỗi buổi một cơ sở".
+  - Bộ ghép dựng biến riêng cho từng luật.
 
 ### 3.4 Cỡ mô hình theo từng luật (bản thử nghiệm)
 
