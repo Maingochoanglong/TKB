@@ -728,6 +728,15 @@ Hằng số: `ROOT`, `OUT`, `SOURCES`, `TESTS`, `LONG_FUNCTION`, `HEADER`
 - `render(lines, only)`
 - `main(argv)`
 
+## tools/do_chat_luong.py — Đo chất lượng TKB khi luật có sẵn xếp bằng mã hóa riêng (luật gốc) và khi xếp bằng bộ ghép luật, để chuẩn bị gộp
+Hằng số: `ROOT`, `NATIVE_ONLY`, `TOGETHER`
+- `replaceable()` — Các luật có sẵn đang bật có câu bộ ghép (thay được bằng bộ ghép).
+- `overrides(variant)` — Giá trị config của một biến thể (gọi trong rules.applied của file vào).
+- `model_size(staff, curriculum, settings)` — (số biến, số ràng buộc) của mô hình xếp giờ với phân công cố định (như lần xếp thật).
+- `measure(path, variant, settings)` — Một lần xếp: {variant, status, seconds, vars, cons, errors, soft, rows: {câu: (lần, điểm)}, history}.
+- `report(results)`
+- `main(argv)`
+
 ## tools/dong_goi.py — Đóng gói giao diện xếp TKB thành bản chạy không cần cài Python (PyInstaller, bản thư mục), rồi nén zip.
 Hằng số: `ROOT`, `NAME`, `README`
 - `build()` — Dựng dist/TKB bằng PyInstaller; trả về thư mục gói.
