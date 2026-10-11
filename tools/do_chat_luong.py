@@ -107,9 +107,7 @@ def report(results: list[dict]) -> None:
         print(f"| {r['variant']} | {r['status']} | {r.get('errors', '')} | {r.get('soft', '')} | {r.get('vars', '')} | "
               f"{r.get('cons', '')} | {r.get('seconds', '')} |")
     solved = [r for r in results if "rows" in r]
-    if len(solved) < 2:
-        return
-    names = list(solved[0]["rows"])
+    names = list(solved[0]["rows"]) if solved else []
     diff = [n for n in names if len({r["rows"].get(n) for r in solved}) > 1]
     if diff:
         print()
