@@ -172,9 +172,12 @@ File của trường, ba hạt giống (hạt giống 0 là bảng trên):
 - **Mọi luật ưu tiên khác:** hai cách ngang nhau.
 - **Đổi cơ sở:** bộ ghép còn để lại lần đổi cơ sở thường hơn: 4 lần trong 3 lần xếp, so với 1. Ba hạt giống chưa đủ để
   chắc, nhưng đây là điểm phải theo dõi ở PR D.
-- **Hướng sửa** nếu số đo vẫn vậy: hạ luật "hạn chế đổi cơ sở" như mã riêng.
-  - Mã riêng dùng một biến "buổi này ở cơ sở sau" cho mỗi (GV, buổi), chung với luật cứng "mỗi buổi một cơ sở".
-  - Bộ ghép dựng biến riêng cho từng luật.
+- **Hướng sửa** nếu số đo vẫn vậy:
+  - hạ luật "hạn chế đổi cơ sở" giống hệt mã riêng: mỗi (GV, ngày, cơ sở) một biến chỉ có chiều "có tiết thì bật",
+    hai cơ sở thì một biến "cả hai";
+  - thêm vùng LNS mở mọi lớp của GV trong ngày bị đổi cơ sở.
+
+  Đo lại với ba hạt giống sau mỗi cách.
 
 ### 3.4 Cỡ mô hình theo từng luật (bản thử nghiệm)
 
