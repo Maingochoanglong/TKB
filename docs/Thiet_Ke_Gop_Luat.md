@@ -128,7 +128,27 @@ Trường mẫu: toàn bộ 4 000 điểm chênh nằm ở hai luật tải ngà
 
 Bản thử nghiệm sửa (1), (3) và (4) trong `bo_ghep` (khoảng 60 dòng). Mục (2) chưa sửa: các biến thể đo ba luật HĐTN cùng nhau.
 
-{{BANG_THU_NGHIEM}}
+| Trường, chế độ | Cách xếp | Kết quả | Lỗi luật bắt buộc | Điểm trừ | Biến | Ràng buộc | Giây |
+|---|---|---|---|---|---|---|---|
+| Trường nhỏ, bù giờ | `goc` | tối ưu | 0 | 800 | 1 551 | 1 966 | 3 |
+| | `ghep` (thử nghiệm) | tối ưu | 0 | 800 | 1 713 | 2 684 | 2 |
+| Trường mẫu | `goc` | có TKB | 0 | 25 140 | 15 128 | 19 697 | 306 |
+| | `ghep` (thử nghiệm, chưa có ý 3) | có TKB | 0 | 25 040 | 17 578 | 29 242 | 491 |
+| | `ghep` (thử nghiệm) | {{MAU2}} |
+| File của trường | `goc` | có TKB | 0 | 34 780 | 15 399 | 28 796 | 467 |
+| | `ghep` (thử nghiệm) | có TKB | 0 | 52 980 | 17 962 | 30 082 | 499 |
+
+- **Trường nhỏ:** hai cách cùng tối ưu, cùng điểm.
+- **Trường mẫu:** điểm ngang nhau, mô hình lớn hơn khoảng 1,5 lần, chạy lâu hơn.
+- **File của trường:** cả 18 200 điểm chênh nằm ở **một** luật, "hạn chế đổi cơ sở trong ngày": `goc` 0 lần, `ghep` 2 lần
+  × 10 000 điểm. Mọi luật ưu tiên khác thì bộ ghép tốt hơn một chút.
+  - Hai cách mã hóa luật này cùng nghĩa: mỗi (GV, ngày) dạy ở k cơ sở bị phạt k − 1 lần.
+  - Một lần đổi cơ sở nặng bằng khoảng 100 tiết vượt tải ngày, nên điểm cả TKB phụ thuộc chuyện LNS có gỡ được lần đổi
+    đó hay không.
+  - Chính `goc` trên Windows (CI của PR #34) cũng kết thúc với 2 lần đổi cơ sở.
+  - Một lần chạy mỗi cách vì vậy chưa đủ để kết luận. Bảng dưới chạy thêm hạt giống CP-SAT (`--seed`).
+
+{{BANG_HAT_GIONG}}
 
 ### 3.4 Từng luật (trường mẫu, 120 đơn vị thời gian, bản thử nghiệm)
 
