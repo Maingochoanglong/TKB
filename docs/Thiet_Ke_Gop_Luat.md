@@ -32,7 +32,7 @@ có benchmark chất lượng"). Số liệu đo ở mục 3 lấy bằng công 
 | HĐTN và GVCN | `hdtn_co_dinh`, `hdtn_ngay`, `hdtn_cuoi_buoi`, `tiet_gvcn`, `chi_gvcn` | `allowed_slots`, mục tiêu `hdtn_flex_distance` | `build_problem` tách course HĐTN cố định/linh hoạt; GVCN giữ tiết 1 (`homeroom_slots`); `homeroom_only` (phần chủ nhiệm, quyền dạy); `staff` không cho GVCN nghỉ buổi có tiết 1 | khối HĐTN, "Quyền dạy" | khoảng cách HĐTN |
 | Người dạy | `lien_tiet`, `gvcn_truoc` | "Liên tiết", "GVCN trước" | — | `_check_teacher_order` | — |
 | Lịch giáo viên | `co_so`, `doi_co_so` (`buoi_nghi`, `co_so_2` chỉ có dạng gốc) | `_teacher_sessions`, `_campus_day_switch` | `phan_cong.teacher_slots` | `_check_teacher_sessions` | đổi cơ sở |
-| Ưu tiên khi xếp giờ | `mon_nang`, `buoi_sang`, `tai_ngay`, `tai_ngay_1`, `rai_deu`, `rai_deu_sang`, `tiet_trong` | các khối mục tiêu cuối `build_timetable` | — | (quality sheet đã dùng bộ ghép) | môn nặng, buổi sáng, rải đều, tải ngày, tiết trống |
+| Ưu tiên khi xếp giờ | `mon_nang`, `buoi_sang`, `tai_ngay`, `tai_ngay_1`, `rai_deu`, `rai_deu_sang`, `tiet_trong` | các khối mục tiêu cuối `build_timetable` | — | — (sheet Chất lượng đã đếm bằng bộ ghép) | môn nặng, buổi sáng, rải đều, tải ngày, tiết trống |
 
 Thêm vào đó:
 - `config.OFF` và `config.WEIGHTS` cho biết luật nào tắt và đổi điểm.
@@ -49,7 +49,7 @@ Thêm vào đó:
   - tải ngày tối đa (`day_cap`), giờ bận (`busy`), học cùng giờ (`links`), ghép lớp (`merges`).
 - Test `test_generic_lowering_replaces_the_native_one` đã cho thấy 6 luật bắt buộc xếp bằng bộ ghép vẫn đúng mọi luật
   gốc.
-- Mỗi dòng mặc định đã có câu bộ ghép đúng nghĩa. Sheet Chất lượng đếm vi phạm của mọi dòng bằng bộ ghép.
+- Mỗi dòng mặc định đã có câu bộ ghép; sheet Chất lượng đếm vi phạm của mọi dòng bằng bộ ghép. Nhưng nghĩa của câu chưa khớp hẳn mã riêng ở vài chỗ (mục 3.2).
 
 ## 2. Công cụ đo `tools/do_chat_luong.py`
 
@@ -76,7 +76,7 @@ Chất lượng.
 
 {{BANG_HIEN_NAY}}
 
-### 3.2 Ba chỗ bộ ghép khác mã hóa riêng
+### 3.2 Bốn chỗ bộ ghép khác mã hóa riêng
 
 1. **Tiết bù trong lịch của người dạy bù.**
    - Mã hóa riêng tính tiết bù (`problem.covers`: tiết người mới dạy thay phần bù của một người) vào lịch của **cả
@@ -94,14 +94,24 @@ Chất lượng.
    - mục tiêu gốc "HĐTN cuối buổi" phạt cả tiết cố định.
 
    Ba luật này phải chuyển cùng lúc. Đường tắt "tiết cố định" (mục 4.3) giữ nguyên cách dựng course.
-3. **Ràng buộc thừa và cách hạ kém gọn.**
+3. **Ghép cặp 2 tiết chưa qua tầng phân công.**
+   - File của trường xếp bằng bộ ghép thì không có TKB ("các luật bắt buộc không cùng thỏa được"), dù phân công
+     vẫn được.
+   - Nguyên nhân: dòng mẫu "Môn có từ n tiết/tuần … học thành cặp 2 tiết liền" có phạm vi (lớp, nhóm môn, buổi),
+     cột Áp dụng khi và nhãn trừ. Đường tắt `forced_pairs` chỉ nhận dạng (lớp, buổi) có cột Môn, nên không nhận ra
+     dòng này.
+   - Hệ quả: `allocation.paired_groups` không biết nhóm nào phải học theo cặp. Phân công (`phan_cong`) có thể chia
+     lẻ số tiết của nhóm cho GVCN và người dạy bù. Cặp 2 tiết liền phải cùng người dạy (luật liên tiết), nên không
+     xếp được.
+   - Sửa: `forced_pairs` nhận cả dạng có Nhóm môn và tính cột Áp dụng khi theo nhóm (mục 4.3).
+4. **Ràng buộc thừa và cách hạ kém gọn.**
    - "Mỗi buổi một cơ sở" và "hạn chế đổi cơ sở" thêm khoảng 2 500 ràng buộc ở trường chỉ có một cơ sở. Mã hóa riêng
      bỏ qua trường hợp này.
    - Phép "có tiết" (`_Cp.any`) dùng k + 1 ràng buộc, trong khi một `AddMaxEquality` là đủ.
 
 ### 3.3 Bản thử nghiệm: sửa ba chỗ trên
 
-Bản thử nghiệm sửa (1) và (3) trong `bo_ghep`. Mục (2) chưa sửa: các biến thể đo ba luật HĐTN cùng nhau.
+Bản thử nghiệm sửa (1), (3) và (4) trong `bo_ghep` (khoảng 60 dòng). Mục (2) chưa sửa: các biến thể đo ba luật HĐTN cùng nhau.
 
 {{BANG_THU_NGHIEM}}
 
@@ -147,7 +157,7 @@ Các việc ngoài mô hình hiện đọc `config` sẽ đọc dòng luật qua
 | Ngày HĐTN linh hoạt | `HDTN_FLEX_DAYS` | `banned` (đã có): luật Vị trí bắt buộc không xét GV |
 | Tiết luôn do GVCN (`allowed_slots`, `homeroom_slots`, `staff`) | `HOMEROOM_PERIODS` khi `on("tiet_gvcn")` | `bo_ghep.homeroom_slots()`: luật Người dạy "Do" Chủ Nhiệm bắt buộc có ô, không môn |
 | Môn chỉ GVCN dạy (`homeroom_only`) | `HOMEROOM_ONLY_SUBJECTS` khi `on("chi_gvcn")` | `allowed` (đã có) + môn có nhãn Chỉ GVCN dạy của dòng |
-| Nhóm ghép cặp (`paired_groups`) | `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `forced_pairs` mở rộng: phạm vi có Nhóm môn, cột Áp dụng khi, nhãn trừ |
+| Nhóm ghép cặp (`paired_groups`, phân công giữ số tiết chẵn) | `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `forced_pairs` mở rộng: phạm vi có Nhóm môn, cột Áp dụng khi, nhãn trừ (thiếu thì file của trường không xếp được, mục 3.2) |
 | Phép đếm trước khi xếp (`precheck`) | `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, nhóm ghép cặp | `bo_ghep.precheck` mở rộng: Số tiết "Tối đa n" theo (lớp, đơn vị thời gian) → sức chứa cả tuần; ghép cặp cần buổi ≥ 2 tiết |
 
 ### 4.4 Bộ kiểm tra
