@@ -295,6 +295,12 @@ Các việc ngoài mô hình hiện đọc `config` sẽ đọc dòng luật qua
 - Các hàm kiểm tra cũ (`_check_student_rules`, `_check_teacher_order`, khối HĐTN, phần cơ sở) chuyển sang `tests/`.
   Ở đó chúng làm **phép thử độc lập**: test đổi chỗ ngẫu nhiên đối chiếu bộ ghép với chúng, như
   `test_cross_check_with_the_checker`. Bộ ghép có lỗi đếm thì test bắt được, mà chương trình không phải sửa hai nơi.
+- **Tốc độ.** Bộ ghép đếm trên một TKB bằng cách duyệt mọi tiết có thể (course × ô trong miền), nên kiểm các dòng
+  bắt buộc của trường mẫu mất 0,57 giây, so với 0,02 giây của cả bộ kiểm tra cũ; giao diện bước 8 kiểm khoảng 34 lần
+  mỗi lần chọn ô. Tiết không xếp có giá trị 0, không đổi tổng nào, nên chỉ cần duyệt các tiết đã xếp
+  (`bo_ghep._placed_only`), trừ hai dạng mà nhóm sinh ra từ tiết có thể có (Tối thiểu theo GV, môn, nhóm môn, cơ sở;
+  "đầu tuần" có chiều thời gian hay giới hạn ô). Cùng kết quả (test so hai cách), còn 0,046 giây; mọi dòng luật cả
+  ưu tiên 0,07 giây (trước 1,2), cũng nhanh hơn cho `lns.qa` ở PR D.
 
 ### 4.5 LNS, chẩn đoán, luật bảo vệ học sinh
 

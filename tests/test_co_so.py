@@ -84,7 +84,9 @@ def test_checker_and_campus_rule_with_three_campuses(tmp_path):
             periods.add(les.period)
         moved = [dataclasses.replace(l, teacher="thể dục 1") if l in picked else l for l in sol.lessons]
         errors = check(sol.problem, moved)
-    assert any("thể dục 1 dạy 3 cơ sở (cơ sở 1, Điểm Hòa Bình, Điểm Tân Phú) trong buổi" in e for e in errors), errors
+        code = sol.problem.teachers["thể dục 1"].code
+    assert any(f"{code} Thứ 2 buổi {session.lower()}: 3 cơ sở khác nhau (cơ sở 1, Điểm Hòa Bình, Điểm Tân Phú, "
+               f"tối đa 1)" in e for e in errors), errors
 
 
 def test_old_campus_column_and_errors(tmp_path):

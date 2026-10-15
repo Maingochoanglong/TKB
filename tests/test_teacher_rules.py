@@ -162,7 +162,9 @@ def test_checker_flags_campus_and_leave_violations(campus_solution):
             and SESSION[l.period] == SESSION[at2.period] and l.teacher != "thể dục 1" and l.period != at2.period]
     other = same[0]
     moved = [dataclasses.replace(l, teacher="thể dục 1") if l is other else l for l in sol.lessons]
-    assert any("thể dục 1 dạy cả hai cơ sở" in e for e in check(sol.problem, moved))
+    code = sol.problem.teachers["thể dục 1"].code
+    assert any(f"{code} {config.DAYS[at2.day]} buổi {SESSION[at2.period].lower()}: 2 cơ sở khác nhau (cơ sở 1, cơ sở 2"
+               in e for e in check(sol.problem, moved))
 
 
 def test_overtime_lessons_keep_the_leave_of_the_teacher():

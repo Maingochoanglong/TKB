@@ -685,11 +685,6 @@ def build(m, problem, x: dict, z: dict, dom: dict, teachers_of: dict, w: config.
     return bo_ghep.build(m, problem, x, z, dom, teachers_of, w)
 
 
-def check(problem, lessons) -> list[str]:
-    """Kiểm tra độc lập các luật riêng bắt buộc (checker.check)."""
-    return [f"{label(L.rule)}: {text}" for L, _, _, text in bo_ghep.violations(problem, lessons, hard=True)]
-
-
 def qa(problem, lessons, w: config.Weights):
     """Chi phí của các luật riêng ưu tiên theo (lớp, ngày), như mục tiêu trong `build` (lns._Search.qa)."""
     return bo_ghep.qa(problem, lessons, w)

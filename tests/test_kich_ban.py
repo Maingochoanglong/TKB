@@ -375,5 +375,12 @@ def test_error_marks_follow_the_message():
     assert mark("Lớp 3/2 Thứ 2 tiết 3–4: hai tiết liền")["cells"] == [["3/2", 0, 3], ["3/2", 0, 4]]
     assert mark("Lớp 3/1 Thứ 4 buổi Sáng: môn Toán không học liền (tiết 1, 3)")["cells"] == [["3/1", 2, 1]]
     assert mark("Lớp 3/1 Thứ 5: 2 tiết Toán (tối đa 1 mỗi ngày)")["cells"] == [["3/1", 3, 1], ["3/1", 3, 2]]
+    # Câu của bộ ghép (checker): bỏ tên luật ở đầu (có chữ "tiết", tên môn), chỉ đọc chỗ sai.
+    daily, pairs = (next(r for r in luat_co_san.default_rows() if luat_co_san.native_of(r).key == key)
+                    for key in ("toi_da_ngay", "ghep_cap"))
+    found = mark(f"{luat_rieng.label(daily)}: lớp 3/1 Thứ 5: 2 tiết Toán (tối đa 1)")
+    assert found["cells"] == [["3/1", 3, 1], ["3/1", 3, 2]] and found["cls"] == "3/1"
+    assert mark(f"{luat_rieng.label(pairs)}: lớp 3/2 nhóm Tiếng Việt Thứ 3 buổi sáng: 3 tiết (phải 0 hoặc 2)")[
+        "cells"] == [["3/2", 1, 3], ["3/2", 1, 4]]
     assert mark("Lớp 3/1: môn Toán có 5 tiết, cần 6") == {"text": "Lớp 3/1: môn Toán có 5 tiết, cần 6", "cells": [],
                                                            "cls": "3/1", "teacher": None}

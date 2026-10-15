@@ -432,3 +432,38 @@ def test_rules_are_compiled_once_per_config():
         with applied({"HEAVY_SUBJECTS": [bo_mau.TOAN]}):  # nhãn môn đổi thì dịch lại
             assert bo_ghep.compiled() is not first
         assert len(bo_ghep.compiled()) == 1
+
+
+def test_fast_evaluation_matches_the_full_one(plain, monkeypatch):
+    """Chấm một TKB chỉ duyệt các tiết đã xếp (`_placed_only`) cho đúng kết quả, thứ tự, câu báo như duyệt mọi tiết có
+    thể (course × ô trong miền), với mọi phép đo; có cả hai chỗ phải duyệt đủ (Tối thiểu theo GV, môn; GVCN trước theo
+    ngày) và tiết bù tính cho cả hai người (covers)."""
+    import random
+    from dataclasses import replace
+
+    from tkb import luat_co_san
+    rows = [r for r in luat_co_san.default_rows() if r.kind == "tu_ghep"]
+    first = next(r for r in rows if luat_co_san.native_of(r).key == "gvcn_truoc")
+    rows += [CustomRule("tu_ghep", scope=("gv", "ngay"), measure="so_tiet", op=">=", number=3),
+             CustomRule("tu_ghep", scope=("lop", "mon"), measure="so_khac", op="=", number=3, count_by="ngay"),
+             replace(first, scope=("lop", "nhom_mon", "ngay")),
+             _parse(kind="Học cùng giờ", subject=bo_mau.AM_NHAC, other=bo_mau.MY_THUAT, hard="Có")[0],
+             _parse(kind="Ghép lớp", subject="Thể dục", classes="3/1, 3/2", hard="Có")[0]]
+    assert sum(not bo_ghep._placed_only(bo_ghep.make(r)) for r in rows) == 3
+    assert {bo_ghep.make(r).measure for r in rows} == set(bo_ghep.LOWER)
+    rnd = random.Random(1)
+    problem = plain.problem
+    for k in range(40):
+        les = list(plain.lessons)
+        cls = rnd.choice(problem.classes)
+        i, j = rnd.sample([q for q, l in enumerate(les) if l.class_name == cls], 2)
+        les[i], les[j] = (replace(les[i], day=les[j].day, period=les[j].period),
+                          replace(les[j], day=les[i].day, period=les[i].period))
+        q = rnd.randrange(len(les))
+        les[q] = replace(les[q], teacher=rnd.choice(sorted(problem.teachers)))
+        fast = bo_ghep.violations(problem, les, rules=rows, skip_forced=False, covers=k % 2 == 0)
+        with monkeypatch.context() as m:
+            m.setattr(bo_ghep, "_placed_only", lambda L: False)
+            full = bo_ghep.violations(problem, les, rules=rows, skip_forced=False, covers=k % 2 == 0)
+        assert [(L.rule, n, c, t) for L, n, c, t in fast] == [(L.rule, n, c, t) for L, n, c, t in full]
+        assert fast

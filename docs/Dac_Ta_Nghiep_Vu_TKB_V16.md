@@ -97,6 +97,7 @@
 | 79 | Tắt luật ưu tiên có sẵn | Xóa dòng hoặc ghi Tạm tắt ở một luật ưu tiên có sẵn (vd "Hạn chế tiết trống") chỉ đánh dấu luật tắt; điểm của luật vẫn nằm trong mục tiêu xếp giờ nên luật vẫn có tác dụng (lỗi) | Luật ưu tiên có sẵn bị tắt có điểm 0 (`luat_co_san.apply`: `WEIGHTS`), solver và LNS bỏ hẳn mục tiêu của nó. File có đủ dòng mặc định: cùng mã quy định, cùng mã kết quả |
 | 80 | Bộ ghép: tiết bù, tốc độ, cỡ mô hình | Luật ưu tiên theo GV của bộ ghép (tải ngày, tiết trống, đổi cơ sở…) không tính tiết bù (tiết người mới dạy thay phần bù của một người) vào lịch người bù như mã riêng, nên ở chế độ bù giờ TKB xong vượt tải ngày hơn. `bo_ghep.compiled()` dịch lại mọi dòng ở mỗi lần gọi: phân công trường mẫu mất 25 giây. Luật Số khác nhau "tối đa n" dựng ràng buộc cho cả nhóm không thể vượt (vd trường một cơ sở) | Luật ưu tiên đếm theo GV tính tiết bù cho cả người mới và người bù một lần (như `occ_terms` của solver), trong mô hình và trong `lns.qa`; luật bắt buộc vẫn kiểm cả hai cách tính; sheet Chất lượng vẫn đếm theo người thật sự dạy. Luật đã dịch được lưu đến khi config đổi (phân công trường mẫu còn 1 giây). Nhóm không thể vượt không thêm gì; phép "có tiết" dùng một ràng buộc. File không có luật tự ghép: cùng mã kết quả (`docs/Thiet_Ke_Gop_Luat.md`, PR A) |
 | 81 | Đường tắt đọc câu bộ ghép | Course HĐTN cố định, giờ luôn do GVCN dạy, môn chỉ GVCN dạy, nhóm phải ghép cặp ở tầng phân công và phép đếm trước khi xếp chỉ đọc luật có sẵn ở dạng gốc. Ghi chính các luật đó bằng câu bộ ghép (luật gốc tắt) thì course HĐTN không tách sẵn, giờ của GVCN không cắt khỏi miền của course khác (mô hình lớn hơn), phân công không biết nhóm nào phải ghép cặp (file của trường không xếp được), phép đếm không báo sớm. Kiểm tra Buổi Nghỉ của GVCN vẫn chặn buổi có tiết 1 khi luật "tiết GVCN" đã tắt | `bo_ghep.fixed_slots`, `homeroom_slots`, `homeroom_subjects`, `paired_by_group` nhận câu bộ ghép cùng nghĩa, qua `allocation.hdtn_fixed_slots`, `homeroom_periods_slots`, `homeroom_only`, `paired_groups(assignment=True)` (phân công); `solver.allowed_slots` cắt giờ luôn do GVCN khỏi course không có GVCN của lớp trong số người dạy. `bo_ghep.precheck` đếm thêm: Số tiết Tối đa (Đúng) n theo lớp và ngày (buổi) quá n × số ngày (buổi); Theo cặp lẻ tiết hay cần nhiều ngày (buổi) có từ 2 tiết hơn khung giờ. Buổi Nghỉ của GVCN theo luật đang bật, dạng gốc hay câu bộ ghép. Dòng có sẵn vẫn xếp bằng mã riêng: cùng mã kết quả (`docs/Thiet_Ke_Gop_Luat.md`, PR B) |
+| 82 | Bộ kiểm tra theo bộ ghép | `checker` kiểm các luật có sẵn bằng mã viết tay riêng (`_check_student_rules`, `_check_teacher_order`, khối HĐTN, tiết GVCN, cơ sở), song song với phép đo của bộ ghép: mỗi luật hai cách đếm phải giữ khớp. Bộ ghép đếm trên TKB duyệt mọi tiết có thể (course × ô trong miền) nên chậm (trường mẫu 0,57 giây mỗi lần kiểm) | `checker` giữ phần cấu trúc, mọi dòng bắt buộc của sheet LUẬT kiểm bằng bộ ghép (`luat_co_san.hard_rows`); câu báo lỗi ghi tên dòng luật rồi chỗ sai. Bộ kiểm tra cũ thành phép thử độc lập trong `tests/kiem_tra_cu.py` (test đổi chỗ ngẫu nhiên: mỗi luật có sẵn, hai cách cùng thấy hay cùng không thấy lỗi). Đếm trên TKB chỉ duyệt tiết đã xếp, trừ hai dạng nhóm sinh ra từ tiết có thể có (`bo_ghep._placed_only`): cùng kết quả, trường mẫu 0,046 giây. Luật Người dạy "Do" chỉ Chủ Nhiệm bỏ qua lớp không có GVCN (như luật có sẵn). Câu Số khác nhau ghi các giá trị (vd tên cơ sở), câu Số tiết ghi tên môn. Cùng mã kết quả (`docs/Thiet_Ke_Gop_Luat.md`, PR C) |
 
 ---
 
@@ -504,7 +505,8 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
 
 - Mỗi phép đo viết một lần trên một "ngữ cảnh": cùng hàm dựng ràng buộc CP-SAT (`bo_ghep.build`, cuối
   `solver.build_timetable`) và đếm số lần không theo trên một TKB (`bo_ghep.violations`). Luật cứng được kiểm lại độc lập
-  (`checker` gọi `luat_rieng.check`); luật mềm được LNS tính vào QA từng lớp-ngày và in số lần không theo sau khi xếp.
+  (`checker` kiểm mọi dòng bắt buộc bằng bộ ghép, mục 10); luật mềm được LNS tính vào QA từng lớp-ngày và in số lần
+  không theo sau khi xếp. Khi đếm trên một TKB chỉ duyệt các tiết đã xếp (`_placed_only`, cùng kết quả).
 - Câu đọc lại, thông báo lỗi và file ra ghi **Mã GV**, không ghi họ tên (`config.PEOPLE`, đặt sau khi đọc nhân sự bằng
   `bo_ghep.know_staff`). Mã GV đánh số theo thứ tự dòng: thêm, xóa dòng nhân sự thì đổi. Giao diện giữ luật theo đúng
   người (so Mã GV, họ tên của từng dòng trước và sau mỗi lần sửa rồi đổi cột Giáo viên theo; người bị xóa thì ghi họ
@@ -724,15 +726,12 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
 1. Mỗi lớp, mỗi slot có đúng 1 tiết. Mỗi lớp đủ số tiết từng môn.
 2. Không giáo viên nào dạy 2 lớp cùng lúc.
 3. Không ai vượt định mức, cộng mức bù được phép. Quản lý dạy đúng số tiết.
-4. Quyền dạy đúng mục 4.
-5. Tiết 1 buổi sáng do đúng GVCN của lớp dạy.
-6. GVCN dạy đủ phần được phân. Phần dạy thêm chỉ là tiết bù hợp lệ: đúng lớp mình, không phải môn chuyên biệt (trừ Âm nhạc, Mỹ thuật), không quá mức bù.
-7. GVCN được ưu tiên bù lớp mình: bộ môn không dạy bù ở lớp mà GVCN còn được bù và dạy được môn đó.
-8. HĐTN đúng 2 slot cố định; tiết thứ ba nằm trong Thứ 3–Thứ 5.
-9. Hai tiết liền nhau cùng nhóm môn do 1 người dạy; nhóm môn ưu tiên: người khác không dạy trước tiết GVCN đầu tuần (mục 5.7).
-10. Nếu bật luật học sinh: mỗi nhóm môn tối đa 2 tiết mỗi buổi; Toán tối đa 1 tiết mỗi ngày; nhóm ghép cặp mỗi buổi 0 hoặc 2 tiết liền; môn có từ 2 tiết trong buổi học liền nhau; tiết tăng cường đứng sau mọi tiết chính cùng nhóm trong ngày và ngày đó có tiết chính.
-11. Mục 4.1: mỗi GV mỗi buổi chỉ một cơ sở; GV thai sản hoặc chỉ-cơ-sở-2 không dạy lớp cơ sở 1 (và thai sản không bù, qua mục 3); buổi nghỉ cố định không có tiết; đủ số buổi trống đã xin.
-12. Mục 6.2: mỗi giờ học chọn được phòng hợp cho mọi tiết cần phòng (giải lại bài toán luồng, không dùng biến của mô hình); không được thì báo giờ, các tiết và các phòng hợp.
+4. Quyền dạy theo chức vụ đúng mục 4.
+5. GVCN dạy đủ phần được phân. Phần dạy thêm chỉ là tiết bù hợp lệ: đúng lớp mình, không phải môn chuyên biệt (trừ Âm nhạc, Mỹ thuật), không quá mức bù.
+6. GVCN được ưu tiên bù lớp mình: bộ môn không dạy bù ở lớp mà GVCN còn được bù và dạy được môn đó.
+7. Hai luật chỉ có dạng gốc (mục 4.1): GV thai sản hoặc chỉ-cơ-sở-2 không dạy lớp cơ sở 1 (và thai sản không bù, qua mục 3); buổi nghỉ cố định không có tiết; đủ số buổi trống đã xin.
+8. **Mọi dòng bắt buộc của sheet `LUẬT`** (luật có sẵn ở dạng gốc và luật tự ghép; mục 6.1) kiểm bằng bộ ghép (`bo_ghep.violations`), cùng phép đo với mô hình: tiết 1 do GVCN, môn chỉ GVCN dạy, HĐTN cố định và theo ngày, liên tiết, GVCN trước, mỗi buổi một cơ sở, và khi bật luật học sinh: nhóm môn tối đa 2 tiết mỗi buổi, Toán tối đa 1 tiết mỗi ngày, ghép cặp, các tiết liền nhau, tiết tăng cường. Lỗi ghi tên dòng luật rồi chỗ sai, vd `LUẬT dòng 4: Mỗi ngày, một lớp học tối đa 1 tiết Toán, … (bắt buộc): lớp 3/1 Thứ 5: 2 tiết Toán (tối đa 1)`. Phép thử độc lập thứ hai: `tests/kiem_tra_cu.py` giữ bộ kiểm tra viết tay cũ của các luật có sẵn, test đổi chỗ ngẫu nhiên đối chiếu hai cách.
+9. Mục 6.2: mỗi giờ học chọn được phòng hợp cho mọi tiết cần phòng (giải lại bài toán luồng, không dùng biến của mô hình); không được thì báo giờ, các tiết và các phòng hợp.
 
 Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn hình.
 

@@ -59,7 +59,7 @@ def test_checker_detects_violations(small_solution):
     # Tiết 1 giao cho GV khác GVCN.
     j = next(k for k, l in enumerate(lessons) if l.class_name == "3/1" and l.day == 1 and l.period == 1)
     moved = lessons[:j] + [dataclasses.replace(lessons[j], teacher="bộ môn 1")] + lessons[j + 1:]
-    assert any("tiết của GVCN" in e for e in check(sol.problem, moved))
+    assert any("lớp học với GV chủ nhiệm" in e and "bộ môn 1" not in e for e in check(sol.problem, moved))
 
 
 def test_homeroom_teaches_first_period(small_solution):
@@ -99,7 +99,7 @@ def test_checker_flags_extra_lesson_before_main(small_solution):
     main = next(l for l in lessons if l.class_name == e.class_name and l.day == e.day and l.subject == bo_mau.TOAN)
     swapped = [dataclasses.replace(l, period=main.period) if l is e
                else dataclasses.replace(l, period=e.period) if l is main else l for l in lessons]
-    assert any("phải sau các tiết Toán" in err for err in check(sol.problem, swapped))
+    assert any("tiết môn tăng cường đứng sau các tiết môn chính" in err for err in check(sol.problem, swapped))
 
 
 def test_slot_capacity_limits_assignment():
@@ -254,8 +254,9 @@ def test_checker_detects_split_subject(small_solution):
     lessons[moved] = dataclasses.replace(a, period=b.period)
     lessons[k] = dataclasses.replace(b, period=a.period)
     errors = check(small_solution.problem, lessons)
-    assert any(f"môn {subject} không học liền (tiết {periods[0]}, {periods[1]})" in e for e in errors)
-    assert not any("không học liền" in e for e in check(small_solution.problem, lessons, student_rules=False))
+    assert any(f"lớp {a.class_name} {subject} " in e and f"tiết {periods[0]} và tiết {periods[1]} không liền" in e
+               for e in errors)
+    assert not any("không liền" in e for e in check(small_solution.problem, lessons, student_rules=False))
 
 
 def test_checker_requires_homeroom_to_cover_own_class_first():
@@ -285,7 +286,7 @@ def test_checker_flags_new_teacher_rules(overtime_solution):
     bad = list(lessons)
     bad[i] = dataclasses.replace(bad[i], teacher="tiếng anh 1")
     errors = check(sol.problem, bad)
-    assert any("do 2 người dạy" in e for e in errors)
+    assert any("khác người dạy" in e for e in errors)
     # Toán 2 tiết trong một ngày.
     t = [i for i, l in enumerate(lessons) if l.class_name == "3/1" and l.subject == bo_mau.TOAN]
     other = next(i for i, l in enumerate(lessons) if l.class_name == "3/1" and l.day == lessons[t[0]].day
@@ -293,8 +294,8 @@ def test_checker_flags_new_teacher_rules(overtime_solution):
     bad = list(lessons)
     bad[t[1]], bad[other] = (dataclasses.replace(bad[t[1]], day=bad[other].day, period=bad[other].period),
                              dataclasses.replace(bad[other], day=bad[t[1]].day, period=bad[t[1]].period))
-    assert any("tiết Toán (tối đa 1 mỗi ngày)" in e for e in check(sol.problem, bad))
-    assert not any("mỗi ngày" in e for e in check(sol.problem, bad, student_rules=False))
+    assert any("tối đa 1 tiết Toán" in e and ": 2 tiết Toán (tối đa 1)" in e for e in check(sol.problem, bad))
+    assert not any("tối đa 1 tiết Toán" in e for e in check(sol.problem, bad, student_rules=False))
 
 
 def test_checker_flags_other_teacher_before_homeroom(small_solution):
@@ -307,7 +308,7 @@ def test_checker_flags_other_teacher_before_homeroom(small_solution):
     bad = list(lessons)
     bad[i] = dataclasses.replace(bad[i], teacher="bộ môn 1")
     if (lessons[i].day, lessons[i].period) == first:
-        assert any("trước tiết đầu tuần của GVCN" in e for e in check(sol.problem, bad))
+        assert any("trước tiết đầu tuần của" in e for e in check(sol.problem, bad))
 
 
 def test_vietnamese_is_paired_in_grade_one():
