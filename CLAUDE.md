@@ -218,6 +218,10 @@ one colon, "giờ học" not "ô"). Every preset (`Kind.family`) and measure (`M
 by them; the Excel columns are unchanged. Each of the 10 measures is ONE
 function against a context: `_Cp` lowers it into CP-SAT (`build`, end of `build_timetable`), `_Eval` counts violations
 (`violations` → `check`, `qa`, `soft_report`), both over the same atoms (`_Source`: course × allowed slot [× teacher]).
+Covered lessons (`Problem.covers`: a hire's lesson that is someone's overtime): hard teacher rules are lowered twice
+(as the hire's, as the coverer's); soft per-teacher rules (`_per_teacher`) count them for both people once, like the
+solver's `occ_terms`, in `build` and `qa` (`violations(covers=True)`), not in the quality sheet. `compiled()` caches the
+compiled rules until a `config` value object changes (the assignment layer asks tens of thousands of times).
 Shortcuts read the same `Luat`: `banned` (domain cut in `solver.allowed_slots`), `forced_pairs` (in
 `allocation.paired_groups(req, grade)` — always pass the grade), `links` (hard "Cùng giờ" = kind "Học cùng giờ": split
 groups / co-teaching, per class the subject and the "Môn thứ hai" subjects always share slots → `Problem.links`;

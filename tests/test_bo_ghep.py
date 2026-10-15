@@ -378,3 +378,57 @@ def test_teacher_names_are_checked():
         with pytest.raises(InputError, match="Lớp 3/1: không GV nào được dạy Tin học theo LUẬT RIÊNG dòng 9: Tin học "
                                              "lớp 3/1 chỉ do Tiếng Anh 2 dạy"):
             build_problem(staff, CURRICULUM, {}, overtime_max=4)
+
+
+def _points(sol, rows) -> int:
+    w = config.Weights()
+    return sum(bo_ghep.weight(L, w) * n for L, n, _, _ in bo_ghep.violations(sol.problem, sol.lessons, rules=rows))
+
+
+def test_soft_teacher_rules_count_covered_lessons(plain):
+    """Chế độ bù giờ: tiết bù là tiết của người mới trong mô hình, của người bù khi xong. Luật ưu tiên theo GV xếp bằng
+    bộ ghép tính tiết đó cho cả người bù, như lịch GV của mã riêng, nên TKB tối ưu cùng điểm với luật gốc (trước đây bộ
+    ghép bỏ qua tiết bù: mô hình 0 điểm mà TKB xong vượt tải ngày hơn)."""
+    from dataclasses import replace
+    from tkb import luat_co_san
+    keys = ("tai_ngay", "tai_ngay_1")
+    rows = [replace(r, row=i + 2) for i, r in enumerate(luat_co_san.default_rows())
+            if luat_co_san.native_of(r).key in keys]
+    off = {"OFF": frozenset(keys), "WEIGHTS": {luat_co_san.BY_KEY[k].weight: 0 for k in keys}}
+    with applied({**off, "CUSTOM_RULES": rows}):
+        sol = solve(small_staff(general=False), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS),
+                    log=lambda *_: None)
+    assert sol.status == plain.status == "OPTIMAL"
+    assert _points(sol, rows) == _points(plain, rows) > 0
+
+
+def _model_size(**values) -> tuple[int, int]:
+    from tkb.solver import _assignment, build_timetable
+    settings = config.Settings(mode=config.MODE_OVERTIME, **SETTINGS)
+    with applied(values):
+        _, _, work, fixed, _, _ = _assignment(small_staff(general=False), CURRICULUM, settings, lambda *_: None)
+        proto = build_timetable(work, settings, fixed).model.proto
+    return len(proto.variables), len(proto.constraints)
+
+
+def test_groups_that_cannot_break_the_rule_add_nothing():
+    """Số khác nhau "tối đa n": nhóm không thể có quá n giá trị (trường nhỏ chỉ có một cơ sở) không thêm biến, ràng
+    buộc nào, cả luật bắt buộc lẫn ưu tiên."""
+    rules = [CustomRule("tu_ghep", scope=("gv", "buoi"), measure="so_khac", op="<=", number=1, count_by="co_so",
+                        hard=True),
+             CustomRule("tu_ghep", scope=("gv", "ngay"), measure="so_khac", op="<=", number=1, count_by="co_so",
+                        points=10_000)]
+    assert _model_size(CUSTOM_RULES=rules) == _model_size()
+
+
+def test_rules_are_compiled_once_per_config():
+    """Tầng phân công hỏi bộ ghép hàng chục nghìn lần: luật chỉ dịch lại khi config đổi (rules.applied thay đối tượng)."""
+    rule = CustomRule("tu_ghep", scope=("lop", "ngay"), measure="so_tiet", op="<=", number=2, hard=True)
+    with applied({"CUSTOM_RULES": [rule]}):
+        first = bo_ghep.compiled()
+        assert bo_ghep.compiled() is first and len(first) == 1
+        with applied({"CUSTOM_RULES": [rule, rule]}):
+            assert len(bo_ghep.compiled()) == 2
+        with applied({"HEAVY_SUBJECTS": [bo_mau.TOAN]}):  # nhãn môn đổi thì dịch lại
+            assert bo_ghep.compiled() is not first
+        assert len(bo_ghep.compiled()) == 1
