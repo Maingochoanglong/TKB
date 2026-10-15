@@ -42,19 +42,27 @@ NATIVE_ONLY = ("buoi_nghi", "co_so_2")  # chỉ có dạng gốc (cột của sh
 TOGETHER = {"hdtn_co_dinh": ("hdtn_co_dinh", "hdtn_ngay", "hdtn_cuoi_buoi")}
 
 
-def replaceable() -> list[str]:
-    """Các luật có sẵn đang bật có câu bộ ghép (thay được bằng bộ ghép)."""
-    return [n.key for n in luat_co_san.NATIVES if n.key not in NATIVE_ONLY and config.on(n.key)]
+def replaceable(student_rules: bool = True) -> list[str]:
+    """Các luật có sẵn đang bật có câu bộ ghép (thay được bằng bộ ghép). student_rules False (--no-student-rules): bỏ
+    các luật bảo vệ học sinh, vì mã riêng bỏ qua chúng còn bộ ghép không có cờ đó (hai bên sẽ xếp hai bài khác nhau)."""
+    return [n.key for n in luat_co_san.NATIVES if n.key not in NATIVE_ONLY and config.on(n.key)
+            and (student_rules or not n.student)]
 
 
-def overrides(variant: str) -> dict:
+def overrides(variant: str, student_rules: bool = True) -> dict:
     """Giá trị config của một biến thể (gọi trong rules.applied của file vào)."""
     if variant == "goc":
         return {}
-    keys = replaceable() if variant == "ghep" else variant.split(":", 1)[1].split(",")
+    keys = replaceable(student_rules) if variant == "ghep" else variant.split(":", 1)[1].split(",")
     unknown = [k for k in keys if k not in luat_co_san.BY_KEY or k in NATIVE_ONLY]
     if unknown:
-        raise SystemExit(f"Khóa luật không thay được: {', '.join(unknown)} (các khóa: {', '.join(replaceable())})")
+        raise SystemExit(f"Khóa luật không thay được: {', '.join(unknown)} "
+                         f"(các khóa: {', '.join(replaceable(student_rules))})")
+    keys = list(dict.fromkeys(k for key in keys for k in TOGETHER.get(key, (key,))))  # luật phải thay cùng nhau
+    student = [k for k in keys if not student_rules and luat_co_san.BY_KEY[k].student]
+    if student:
+        raise SystemExit(f"--no-student-rules tắt luật bảo vệ học sinh {', '.join(student)}: "
+                         f"không đo được bằng bộ ghép")
     rows = [r for r in luat_co_san.rows() if not r.off and (n := luat_co_san.native_of(r)) is not None
             and n.key in keys]
     zero = {n.weight: 0 for n in luat_co_san.NATIVES if n.key in keys and n.weight}  # như luat_co_san.apply
@@ -76,7 +84,7 @@ def measure(path: str, variant: str, settings: config.Settings) -> dict:
     staff = read_staff(path, subjects=[s for req in curriculum.values() for s in req])
     know_staff(staff)
     try:
-        with applied(overrides(variant)):
+        with applied(overrides(variant, settings.student_rules)):
             out["vars"], out["cons"] = model_size(staff, curriculum, settings)
             start = time.time()
             sol = solve(staff, curriculum, settings, log=lambda *_: None)
@@ -139,7 +147,8 @@ def main(argv: list[str] | None = None) -> int:
     seeds = [int(x) for x in args.seed.split(",")]
     results = []
     with applied(read_rules(args.file)):
-        variants = list(args.variants) + ([f"ghep:{','.join(TOGETHER.get(k, (k,)))}" for k in replaceable()]
+        own = replaceable(not args.no_student_rules)
+        variants = list(args.variants) + ([f"ghep:{','.join(TOGETHER.get(k, (k,)))}" for k in own]
                                           if args.tung_luat else [])
         for variant in variants:
             for seed in seeds:
