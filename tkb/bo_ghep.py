@@ -1034,6 +1034,61 @@ def forced_pairs(grade: int, totals: dict[str, int]) -> set[str]:
     return out
 
 
+def fixed_slots(subject: str) -> tuple[tuple[int, int], ...]:
+    """Ô cố định của môn: luật bắt buộc Số tiết "Đúng 1" theo (lớp, ô), chỉ ở các ô ghi ở dòng, chỉ môn này (dòng
+    mẫu "Ở mỗi giờ có nhãn Tiết HĐTN cố định, mỗi lớp học đúng 1 tiết HĐTN"). allocation dựng course cố định như luật
+    gốc."""
+    out: set = set()
+    for L in compiled():
+        if (L.hard and L.measure == "so_tiet" and L.op == "=" and L.number == 1 and L.scope == ("lop", "o")
+                and L.subjects == frozenset({subject}) and L.slots is not None and L.grades is None
+                and L.classes is None and L.roles is None and not L.roles_not and not L.when and not L.skip):
+            out |= L.slots
+    return tuple(sorted(out))
+
+
+def _homeroom_only(L: Luat) -> bool:
+    """Luật bắt buộc Người dạy "Do" chỉ Chủ Nhiệm, mọi lớp, mọi khối."""
+    return (L.hard and L.measure == "nguoi_day" and L.op == "do" and L.who == frozenset({config.ROLE_HOMEROOM})
+            and L.grades is None and L.classes is None and L.roles is None and not L.roles_not and not L.when)
+
+
+def homeroom_slots() -> frozenset[tuple[int, int]]:
+    """Ô mà lớp chỉ học với GVCN: luật Người dạy "Do" Chủ Nhiệm chỉ ghi ô, không ghi môn (dòng mẫu "Ở giờ có nhãn
+    Luôn do GVCN dạy, lớp học với GV chủ nhiệm"). solver.allowed_slots cắt các ô này khỏi course không do GVCN dạy."""
+    return frozenset(s for L in compiled() if _homeroom_only(L) and L.subjects is None and not L.skip
+                     and L.slots is not None for s in L.slots)
+
+
+def homeroom_subjects() -> set[str]:
+    """Môn chỉ GVCN dạy: luật Người dạy "Do" Chủ Nhiệm ghi môn, không ghi ô (dòng mẫu "Môn có nhãn Chỉ GVCN dạy thì chỉ
+    GV chủ nhiệm dạy"); allocation.homeroom_only."""
+    return {s for L in compiled() if _homeroom_only(L) and L.subjects is not None and L.slots is None
+            for s in L.subjects - L.skip}
+
+
+def paired_by_group(grade: int, req: dict[str, int]) -> set[str]:
+    """Nhóm môn của khối phải học thành cặp 2 tiết liền theo luật bắt buộc Theo cặp có phạm vi Nhóm môn (dòng mẫu
+    "ghép cặp", cột Áp dụng khi tính theo nhóm). Mô hình tự hạ luật này; phân công cần biết để mỗi người dạy số tiết
+    chẵn của nhóm (allocation.paired_groups(assignment=True)). Bỏ nhóm có môn bị trừ hay ngoài cột Môn."""
+    from .allocation import subject_group
+    groups: dict[str, list[str]] = defaultdict(list)
+    for s, n in sorted(req.items()):
+        if n > 0:
+            groups[subject_group(s)].append(s)
+    out = set()
+    for L in compiled():
+        if not (L.hard and L.measure == "cap" and set(L.scope) == {"lop", "nhom_mon", "buoi"} and L.classes is None
+                and L.slots is None and L.roles is None and not L.roles_not) \
+                or (L.grades is not None and grade not in L.grades):
+            continue
+        for group, subjects in groups.items():
+            if all((L.subjects is None or s in L.subjects) and s not in L.skip for s in subjects) \
+                    and _when_ok(L, {grade: req}, grade, subjects[0]):
+                out.add(group)
+    return out
+
+
 def day_cap(teacher) -> int | None:
     """Số tiết tối đa mỗi ngày của GV theo luật bắt buộc "mỗi GV mỗi ngày tối đa n tiết" (mọi môn, mọi ô); dùng
     trong phan_cong.teacher_slots. None: không giới hạn."""
@@ -1269,6 +1324,51 @@ def precheck(problem, label, skip: set[int] = frozenset()) -> list[str]:
                            f"{L.number} lớp × {free} tiết = {L.number * free}")
         if L.measure in ("so_tiet", "so_khac") and L.op in (">=", "=") and L.number > 0:
             out += _precheck_at_least(L, problem, label)
+        if _per_unit(L):
+            out += _precheck_per_unit(L, problem, label)
+    return out
+
+
+def _per_unit(L: Luat) -> bool:
+    """Luật bắt buộc theo lớp và ngày (buổi), không lọc ô hay GV: Số tiết Tối đa, Đúng n; Theo cặp."""
+    scope = set(L.scope)
+    return ("lop" in scope and bool(scope & {"ngay", "buoi"}) and scope <= {"lop", "mon", "nhom_mon", "ngay", "buoi"}
+            and L.slots is None and L.roles is None and not L.roles_not
+            and (L.measure == "so_tiet" and L.op in ("<=", "=") or L.measure == "cap"))
+
+
+def _precheck_per_unit(L: Luat, problem, label) -> list[str]:
+    """Số tiết Tối đa (Đúng) n mỗi lớp mỗi ngày (buổi): số tiết/tuần của lớp quá n × số ngày (buổi). Theo cặp: số
+    tiết lẻ, hay số cặp quá số ngày (buổi) có từ 2 tiết, vì mỗi ngày (buổi) chỉ có 0 hoặc 2 tiết. Như phép đếm của
+    luật có sẵn "tối đa 2 tiết mỗi nhóm môn mỗi buổi", "ghép cặp" (chan_doan.precheck) khi chúng xếp bằng bộ ghép."""
+    from .allocation import subject_group
+    from .staff import class_sort_key
+    unit = "buoi" if "buoi" in L.scope else "ngay"
+    sizes = ([len(s.periods) for ss in config.DAY_SESSIONS.values() for s in ss] if unit == "buoi" else
+             [sum(len(s.periods) for s in ss) for ss in config.DAY_SESSIONS.values()])
+    name = "buổi" if unit == "buoi" else "ngày"
+    part = (lambda s: s) if "mon" in L.scope else subject_group if "nhom_mon" in L.scope else (lambda s: "")
+    totals: Counter = Counter()
+    subjects: dict = defaultdict(set)
+    for c in problem.courses:
+        if c.lessons and _lesson_ok(L, c.class_name, c.grade, c.subject, problem.curriculum):
+            totals[c.class_name, part(c.subject)] += c.lessons
+            subjects[c.class_name, part(c.subject)].add(c.subject)
+    out, seen = [], set()
+    for (cls, key), n in sorted(totals.items(), key=lambda kv: (class_sort_key(kv[0][0]), kv[0][1])):
+        names = _names(problem, subjects[cls, key]) if L.subjects is not None or key else ""
+        what = f"{n} tiết {names}/tuần" if names else f"{n} tiết/tuần"
+        if L.measure == "so_tiet":
+            most = L.number * len(sizes)
+            text = n > most and f"{what} nhưng tối đa {L.number} × {len(sizes)} {name} = {most} tiết"
+        else:
+            pairs = sum(1 for k in sizes if k >= 2)
+            text = (n % 2 and L.subjects is None and f"{what} (lẻ) nên không chia hết thành cặp 2 tiết"
+                    or n // 2 > pairs and f"{what}, cần {n // 2} {name} có từ 2 tiết nhưng khung giờ chỉ có {pairs} "
+                                          f"{name} như vậy")
+        if text and (grade_of(cls), key) not in seen and len(out) < 10:
+            seen.add((grade_of(cls), key))
+            out.append(f"{label(L.rule)}: lớp {cls} có {text}")
     return out
 
 

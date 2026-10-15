@@ -148,8 +148,14 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
             continue
         result.append(s)
     if config.CUSTOM_RULES:  # luật riêng bắt buộc về vị trí (tkb/bo_ghep.py)
+        from .bo_ghep import homeroom_slots
         from .luat_rieng import banned
         bad = banned(course.subject, course.grade, course.class_name, problem.curriculum)
+        # Giờ luôn do GVCN dạy ghi bằng câu bộ ghép: cắt khỏi course không ai trong số người dạy là GVCN của lớp.
+        if not course.homeroom and course.class_name not in problem.no_homeroom and not any(
+                problem.teachers[g].role == config.ROLE_HOMEROOM and problem.teachers[g].class_name == course.class_name
+                for g in course.teachers):
+            bad = bad | homeroom_slots()
         result = [s for s in result if s not in bad]
     if len(result) < course.lessons:
         raise SolveError(f"Lớp {course.class_name}: môn {course.subject} cần {course.lessons} tiết "

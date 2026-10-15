@@ -521,8 +521,13 @@ def make_teacher(name, role: str, index: int | None, class_name: str | None, les
 
 def _check_extras(teachers: list[Teacher]) -> list[str]:
     """Lỗi của các cột không bắt buộc cần cả danh sách mới kiểm được (lớp trong Lớp Đang Dạy, thai sản, buổi nghỉ)."""
+    from .allocation import homeroom_periods_slots
     errors: list[str] = []
     classes = set(class_list(teachers))
+    homeroom = set(homeroom_periods_slots([(d, p) for d, ss in config.DAY_SESSIONS.items() for s in ss
+                                           for p in s.periods]))
+    hours = (f"tiết {', '.join(map(str, sorted(config.HOMEROOM_PERIODS)))}" if config.on("tiet_gvcn")
+             else "các giờ")
     for t in teachers:
         unknown = sorted(t.history - classes, key=class_sort_key)
         if unknown:
@@ -532,16 +537,16 @@ def _check_extras(teachers: list[Teacher]) -> list[str]:
             errors.append(f"Dòng {t.row}: GVCN thai sản chỉ dạy ở cơ sở 2 nhưng lớp {t.class_name} không đánh dấu "
                           f"Cơ sở 2")
         if t.class_name:
-            # Buổi có tiết luôn do GVCN dạy (HOMEROOM_PERIODS) thì GVCN không nghỉ được.
-            held = lambda d, name: any(s.name == name and set(s.periods) & config.HOMEROOM_PERIODS  # noqa: E731
+            # Buổi có tiết luôn do GVCN dạy (luật có sẵn "tiết GVCN" hay câu bộ ghép cùng nghĩa): GVCN không nghỉ được.
+            held = lambda d, name: any(s.name == name and any((d, p) in homeroom for p in s.periods)  # noqa: E731
                                        for s in config.DAY_SESSIONS.get(d, ()))
             fixed = sorted((d, name) for d, name in t.off_sessions if held(d, name))
             named = [name for name, _ in t.off_any if name and config.DAY_SESSIONS
                      and all(held(d, name) for d in config.DAY_SESSIONS)]
             if fixed or named:
                 what = sorted({name for _, name in fixed} | set(named))
-                errors.append(f"Dòng {t.row}: GVCN không nghỉ buổi {', '.join(n.lower() for n in what)} được vì tiết "
-                              f"{', '.join(map(str, sorted(config.HOMEROOM_PERIODS)))} luôn do GVCN dạy"
+                errors.append(f"Dòng {t.row}: GVCN không nghỉ buổi {', '.join(n.lower() for n in what)} được vì "
+                              f"{hours} luôn do GVCN dạy"
                               + (f" ({', '.join(config.DAYS[d] for d, _ in fixed)})" if fixed else ""))
     return errors
 

@@ -186,7 +186,7 @@ def _homeroom_extra(problem: Problem, g: str, x: int, rem: dict[int, int],
     (`spec_cap`): phần còn lại là của GV chuyên biệt và bộ môn, dự toán đã chia cho khớp giữa các lớp."""
     t = problem.teachers[g]
     grade = grade_of(t.class_name)
-    pairs = paired_groups(problem.curriculum[grade], grade)
+    pairs = paired_groups(problem.curriculum[grade], grade, assignment=True)
     spec = problem.specialist_subjects()
     rem = {c.id: min(rem.get(c.id, 0), spec_cap.get((c.id, g), 0)) if c.subject in spec else rem.get(c.id, 0)
            for c in problem.courses if c.class_name == t.class_name}
@@ -292,7 +292,7 @@ class _Local:
         for g in self.movable:
             self.role_members.setdefault(teachers[g].role, []).append(g)
         self.spec = problem.specialist_subjects()
-        self.pairs = {g: paired_groups(req, g) for g, req in problem.curriculum.items()}
+        self.pairs = {g: paired_groups(req, g, assignment=True) for g, req in problem.curriculum.items()}
         self.share: dict[int, dict[str, int]] = {}
         self.fixed: dict[Key, int] = {}
         self.load = Counter()
@@ -555,7 +555,7 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
                 c = problem.courses[cid]
                 per[c.class_name, subject_group(c.subject)] += n
         for (cls, grp), n in sorted(per.items()):
-            if n % 2 and grp in paired_groups(problem.curriculum[grade_of(cls)], grade_of(cls)):
+            if n % 2 and grp in paired_groups(problem.curriculum[grade_of(cls)], grade_of(cls), assignment=True):
                 odd.append((cls, grp, g))
     return PhanCong(lessons=lessons, extra=extra, overtime=overtime, overtime_cap=cap, missing=missing,
                     odd_pairs=odd)
@@ -601,7 +601,7 @@ def tach_tiet_bu(problem: Problem, plan: PhanCong, staff: list[Teacher],
             for cid, _, n in parts:
                 per[subject_group(problem.courses[cid].subject)] += n
             pairs = sum(n // 2 for grp, n in per.items()
-                        if grp in paired_groups(problem.curriculum[grade_of(cls)], grade_of(cls)))
+                        if grp in paired_groups(problem.curriculum[grade_of(cls)], grade_of(cls), assignment=True))
             items.append((sum(n for _, _, n in parts), pairs, cls, owner, parts))
         items.sort(key=lambda it: (-it[1], class_sort_key(it[2]), it[3]))
         total = sum(it[0] for it in items)
