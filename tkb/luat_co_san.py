@@ -2,12 +2,11 @@
 
 Mọi luật nằm trong file Excel: file mẫu ghi sẵn mỗi luật có sẵn thành một dòng (`default_rows`); nhà trường sửa số,
 điểm, đổi Bắt buộc/Ưu tiên, xóa dòng (hoặc ghi Tạm tắt = Có) để tắt luật, thêm dòng để có luật mới. Khi đọc
-(`apply`, chỉ các dòng không tạm tắt):
-- dòng đúng **dạng gốc** của một luật có sẵn (`NATIVES`, chỉ khác số hay điểm) thì luật đó xếp bằng mã hóa riêng như
-  trước, số và điểm lấy từ dòng (config.SESSION_GROUP_LIMIT, DAILY_LIMITS, PAIR_MIN_LESSONS, WEIGHTS): các dòng mặc
-  định cho đúng mô hình cũ, nên mã kết quả không đổi;
-- luật có sẵn không còn dòng nào ở dạng gốc thì tắt (config.OFF, xem config.on);
-- các dòng còn lại (luật riêng, hoặc luật có sẵn đã sửa khác dạng gốc) xếp bằng bộ ghép (config.CUSTOM_RULES).
+(`apply`, chỉ các dòng không tạm tắt) mọi dòng xếp bằng bộ ghép (config.CUSTOM_RULES), cả dòng ở **dạng gốc** của một
+luật có sẵn (`NATIVES`, chỉ khác số hay điểm): mỗi luật chỉ còn một cách cài (docs/Thiet_Ke_Gop_Luat.md). Mã hóa riêng
+cũ của các luật có sẵn tắt hết (config.OFF, điểm 0 trong config.WEIGHTS), trừ hai luật chỉ có dạng gốc vì đọc cột
+của sheet NHÂN SỰ (`NATIVE_ONLY`: Buổi nghỉ, Cơ sở 2), bật khi có dòng. Dạng gốc còn dùng để đọc tên dễ đọc của dòng
+(`title`) và nhận ra luật bảo vệ học sinh (`student`, tắt bằng --no-student-rules).
 
 File không có sheet LUẬT (file cũ) dùng các dòng mặc định, lấy số từ các cột quy định cũ (Số tiết tối đa một nhóm môn
 mỗi buổi, Ghép cặp khi nhóm môn có từ, Tối đa tiết mỗi ngày), cộng các dòng của sheet LUẬT RIÊNG.
@@ -159,20 +158,35 @@ def default_rows() -> list[CustomRule]:
 
 
 def rows() -> list[CustomRule]:
-    """Các dòng luật đang dùng: sheet LUẬT của file vào; không có sheet thì các dòng mặc định và luật riêng."""
+    """Các dòng luật đang dùng: sheet LUẬT của file vào; không có sheet thì các dòng mặc định (trừ dòng đã có trong
+    config.CUSTOM_RULES) và luật riêng, theo thứ tự các luật có sẵn rồi luật riêng."""
     if config.RULES is not None:
         return list(config.RULES)
-    return [*default_rows(), *(replace(r, group_label=r.group_label or CUSTOM_GROUP) for r in config.CUSTOM_RULES)]
+    have = {replace(r, row=0, group_label="") for r in config.CUSTOM_RULES}
+    out = [r for r in default_rows() if replace(r, group_label="") not in have]
+    out += [replace(r, group_label=r.group_label or CUSTOM_GROUP) for r in config.CUSTOM_RULES]
+    order = {n.key: i for i, n in enumerate(NATIVES)}
+    return sorted(out, key=lambda r: order[n.key] if (n := native_of(r)) is not None else len(NATIVES))
+
+
+def student(r: CustomRule) -> bool:
+    """Dòng ở dạng gốc của một luật bảo vệ học sinh (tắt cả nhóm bằng --no-student-rules, main.py LUAT_HOC_SINH)."""
+    return (n := native_of(r)) is not None and n.student
+
+
+def without_student(rules: list[CustomRule]) -> list[CustomRule]:
+    """Các dòng trừ dòng luật bảo vệ học sinh (Settings.student_rules False: solver.solve, chan_doan.precheck)."""
+    return [r for r in rules if not student(r)]
 
 
 def hard_rows(student_rules: bool = True) -> list[CustomRule]:
     """Các dòng bắt buộc đang có hiệu lực, cho bộ kiểm tra (checker.check kiểm bằng bộ ghép): dòng ở dạng gốc của luật
-    có sẵn đang bật (trừ NATIVE_ONLY; trừ luật bảo vệ học sinh khi student_rules False, như mô hình), rồi các dòng
-    xếp bằng bộ ghép (config.CUSTOM_RULES)."""
+    có sẵn còn xếp bằng mã riêng (trừ NATIVE_ONLY), rồi các dòng xếp bằng bộ ghép (config.CUSTOM_RULES); trừ luật bảo
+    vệ học sinh khi student_rules False, như mô hình."""
     custom = [r for r in config.CUSTOM_RULES if r.hard]
     natives = [r for r in rows() if r.hard and not r.off and r not in custom and (n := native_of(r)) is not None
-               and n.key not in NATIVE_ONLY and config.on(n.key) and (student_rules or not n.student)]
-    return natives + custom
+               and n.key not in NATIVE_ONLY and config.on(n.key)]
+    return [r for r in natives + custom if student_rules or not student(r)]
 
 
 def title(r: CustomRule) -> str | None:
@@ -223,42 +237,29 @@ def native_of(r: CustomRule) -> Native | None:
 
 
 def apply(all_rows: list[CustomRule]) -> dict:
-    """Các dòng luật -> giá trị config: tham số và điểm của luật có sẵn ở dạng gốc, các luật có sẵn bị tắt (OFF), các
-    dòng xếp bằng bộ ghép (CUSTOM_RULES). Gọi trong rules.applied của các quy định khác (dạng gốc đọc config)."""
+    """Các dòng luật -> giá trị config: mọi dòng xếp bằng bộ ghép (CUSTOM_RULES), trừ dòng của luật chỉ có dạng gốc
+    (NATIVE_ONLY, bật khi có dòng); mã riêng của các luật có sẵn khác tắt (OFF, điểm 0 trong WEIGHTS). Tham số của
+    dòng ở dạng gốc (SESSION_GROUP_LIMIT, PAIR_MIN_LESSONS, DAILY_LIMITS) vẫn đọc ra (mã riêng tắt nên không dùng):
+    để báo cột quy định cũ khác dòng luật (rules._rules_rows). Gọi trong rules.applied của các quy định khác."""
     from .program import canonical_subject
-    left = list(all_rows)
-    off: set[str] = set()
-    weights: dict[str, int] = {}
     values: dict = {"DAILY_LIMITS": {}}
-    default_w = _w()
-    for native in NATIVES:
+    native_only, custom = set(), []
+    for r in all_rows:
+        native = native_of(r)
+        if native is not None and native.key in NATIVE_ONLY:
+            native_only.add(native.key)
+            continue
+        custom.append(r)
+        if native is None:
+            continue
         if native.key == "toi_da_ngay":
-            found = [r for r in left if fits(native, r)]
-            values["DAILY_LIMITS"] = {canonical_subject(_names(r.subject)[0]): r.number for r in found}
-            left = [r for r in left if r not in found]
-            continue
-        found = []
-        for pattern in native.rows():
-            hit = next((r for r in left if r not in found and r.hard == pattern.hard
-                        and _shape(r, native.free) == _shape(pattern, native.free) and fits(native, r)), None)
-            if hit is not None:
-                found.append(hit)
-        if len(found) < len(native.rows()):  # thiếu một dòng của luật: tắt, dòng còn lại xếp bằng bộ ghép
-            off.add(native.key)
-            if native.weight:  # luật ưu tiên tắt: bỏ điểm của nó khỏi mục tiêu xếp giờ (solver, lns)
-                weights[native.weight] = 0
-            continue
-        left = [r for r in left if r not in found]
-        r = found[0]
-        if native.key == "nhom_buoi":
-            values["SESSION_GROUP_LIMIT"] = r.number
+            values["DAILY_LIMITS"][canonical_subject(_names(r.subject)[0])] = r.number
+        elif native.key == "nhom_buoi":
+            values.setdefault("SESSION_GROUP_LIMIT", r.number)
         elif native.key == "ghep_cap":
-            values["PAIR_MIN_LESSONS"] = r.when[0][1]
-        if native.weight:
-            points = r.points if r.points is not None else default_w.custom_levels[r.level - 1]
-            if points != getattr(default_w, native.weight):
-                weights[native.weight] = points
-    return {**values, "OFF": frozenset(off), "WEIGHTS": weights, "CUSTOM_RULES": left}
+            values.setdefault("PAIR_MIN_LESSONS", r.when[0][1])
+    return {**values, "OFF": frozenset(n.key for n in NATIVES if n.key not in native_only),
+            "WEIGHTS": {n.weight: 0 for n in NATIVES if n.weight}, "CUSTOM_RULES": custom}
 
 
 def notes() -> list[tuple[str, str]]:

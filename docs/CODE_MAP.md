@@ -173,6 +173,8 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `precheck(problem, label, skip)` — Mâu thuẫn chắc chắn của luật bắt buộc, tìm bằng phép đếm; label(luật) là tên luật khi báo; bỏ qua các luật ở
 - `_per_unit(L)` — Luật bắt buộc theo lớp và ngày (buổi), không lọc ô hay GV: Số tiết Tối đa, Đúng n; Theo cặp.
 - `_precheck_per_unit(L, problem, label)` — Số tiết Tối đa (Đúng) n mỗi lớp mỗi ngày (buổi): số tiết/tuần của lớp quá n × số ngày (buổi). Theo cặp: số
+- `_units(L)` — Số buổi (phạm vi có Buổi) hay số ngày của khung giờ: đơn vị thời gian của luật `_per_unit`.
+- `_precheck_pair_caps(problem, label, skip)` — Luật Theo cặp bắt buộc (mỗi buổi 0 hoặc 2 tiết) gặp luật Số tiết Tối đa (Đúng) n < 2 theo lớp và buổi (ngày)
 - `_precheck_at_least(L, problem, label)` — So sánh Tối thiểu, Đúng: nhóm không đủ tiết có thể có (vd ô cố định mà môn không được xếp vào ô đó), hoặc
 - `validate(problem, sheet, role_label)` — Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp (hay nhãn lớp) không có; tên ở cột Giáo viên không
 
@@ -298,14 +300,16 @@ Hằng số: `GROUPS`, `CUSTOM_GROUP`, `STRUCTURE`, `NATIVES`, `BY_KEY`, `NATIVE
 - `_w()`
 - `_daily(subject, n)`
 - `default_rows()` — Các dòng mặc định của sheet LUẬT: mỗi luật có sẵn ở dạng gốc, số và điểm theo config hiện tại.
-- `rows()` — Các dòng luật đang dùng: sheet LUẬT của file vào; không có sheet thì các dòng mặc định và luật riêng.
+- `rows()` — Các dòng luật đang dùng: sheet LUẬT của file vào; không có sheet thì các dòng mặc định (trừ dòng đã có trong
+- `student(r)` — Dòng ở dạng gốc của một luật bảo vệ học sinh (tắt cả nhóm bằng --no-student-rules, main.py LUAT_HOC_SINH).
+- `without_student(rules)` — Các dòng trừ dòng luật bảo vệ học sinh (Settings.student_rules False: solver.solve, chan_doan.precheck).
 - `hard_rows(student_rules)` — Các dòng bắt buộc đang có hiệu lực, cho bộ kiểm tra (checker.check kiểm bằng bộ ghép): dòng ở dạng gốc của luật
 - `title(r)` — Tên dễ đọc của dòng ở dạng gốc một luật có sẵn, vd "Mỗi ngày, một lớp học tối đa 1 tiết Toán (…)"; None: dòng
 - `_names(text)`
 - `_shape(r, free)` — Dòng bỏ đi các phần không làm đổi dạng: số dòng, nhóm, mức và điểm, các cột tham số.
 - `fits(native, r)` — Dòng r là dạng gốc của luật có sẵn (chỉ khác số, điểm).
 - `native_of(r)` — Luật có sẵn mà dòng r là dạng gốc (None: dòng xếp bằng bộ ghép).
-- `apply(all_rows)` — Các dòng luật -> giá trị config: tham số và điểm của luật có sẵn ở dạng gốc, các luật có sẵn bị tắt (OFF), các
+- `apply(all_rows)` — Các dòng luật -> giá trị config: mọi dòng xếp bằng bộ ghép (CUSTOM_RULES), trừ dòng của luật chỉ có dạng gốc
 - `notes()` — Dòng của sheet HƯỚNG DẪN về phần không phải luật.
 
 ## tkb/luat_rieng.py — Luật riêng của trường: sheet LUẬT RIÊNG, mỗi dòng một luật, theo một mẫu có sẵn (KINDS) hoặc tự ghép.
@@ -776,7 +780,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
 - `tests/test_lop.py`: test_grade_names_and_order, test_class_sheet_is_read, test_class_sheet_errors, test_homeroom_only_subject_needs_a_homeroom_teacher, test_empty_or_same_class_sheet_keeps_the_timetable, test_class_without_homeroom_end_to_end, test_scenario_keeps_classes_and_grade_names
-- `tests/test_luat_co_san.py`: test_default_rows_change_nothing, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_rule_switched_off_is_kept_but_not_used, test_soft_rule_off_drops_its_points, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_composer_matches_the_old_checker, test_generic_lowering_replaces_the_native_one, test_shortcuts_read_composer_rows, test_composer_precheck_counts_like_the_native_one, test_homeroom_leave_follows_the_rule_row
+- `tests/test_luat_co_san.py`: test_default_rows_are_the_defaults, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_rule_switched_off_is_kept_but_not_used, test_soft_rule_off_drops_its_points, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_composer_matches_the_old_checker, test_generic_lowering_replaces_the_native_one, test_shortcuts_read_composer_rows, test_composer_precheck_counts_like_the_native_one, test_homeroom_leave_follows_the_rule_row
 - `tests/test_luat_rieng.py`: test_parse_each_kind, test_parse_errors, test_read_sheet_and_rules_code, test_no_custom_rules_change_nothing, test_hard_rules_hold_and_are_checked, test_soft_rules_are_preferred, test_teacher_day_cap_limits_the_assignment, test_precheck_and_validate, test_diagnosis_names_the_custom_rule
 - `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited, test_reloading_updated_file_keeps_timetable, test_reloading_falls_back_when_saved_timetable_breaks_rules, test_reloading_keeps_locked_cells_and_changes_little, test_reloading_overtime_result_rewrites_the_same_files
 - `tests/test_nhan.py`: test_parse_tags_and_tag_keys, test_rules_by_staff_and_class_tags, test_tag_errors, test_class_tags_in_rules_code

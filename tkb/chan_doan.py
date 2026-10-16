@@ -41,8 +41,10 @@ def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
     """Các mâu thuẫn chắc chắn giữa chương trình học và luật bảo vệ học sinh, tìm bằng phép đếm (mỗi khối một lần)."""
     out = []
     if config.CUSTOM_RULES:  # luật riêng: môn/chức vụ không có, luật vị trí, 2 tiết liền, số lớp cùng lúc
+        from .luat_co_san import without_student
         from .luat_rieng import precheck as precheck_custom
-        out += precheck_custom(problem)
+        with applied({} if student_rules else {"CUSTOM_RULES": without_student(config.CUSTOM_RULES)}):
+            out += precheck_custom(problem)
     if problem.room_fit and config.on("phong"):  # phòng học dùng chung: đủ chỗ cả tuần
         from .phong_hoc import clusters
         week = len(problem.slots)

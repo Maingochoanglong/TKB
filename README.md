@@ -77,13 +77,13 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      đúng chữ như ghi tay, vd `3/1, 3/2`, `Chiều T5, 2 buổi chiều` và `Bộ Môn, Tiếng Anh`.
    - **Luật** (bộ ghép luật, sheet LUẬT): mọi luật, kể cả các luật có sẵn, xếp theo nhóm, mỗi luật một câu dễ đọc
      (luật có sẵn có tên riêng, vd "Mỗi buổi, một lớp học tối đa 2 tiết của một môn…") và nhãn **Bắt buộc** hoặc
-     **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mặc định** chương trình xếp như trước. **Sửa** mở hộp thoại
+     **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mặc định** là luật có sẵn chưa sửa dạng (đọc bằng tên riêng). **Sửa** mở hộp thoại
      theo thứ tự câu luật: **Loại luật** (một ô chọn chia theo bốn câu hỏi **Ở đâu**, **Bao nhiêu**, **Đi cùng nhau**,
      **Ai dạy**, gồm các mẫu và "Tự ghép · <phép đo>") · **Với mỗi** · **Các tiết nào** (Môn, Khối, Lớp; các ô ít dùng
      nằm trong **Thêm điều kiện**, nhãn môn và nhãn giờ học tách riêng) · **Vào giờ nào** (họ Ở đâu) · **Thì** (Áp dụng
      khi chọn bằng ô: từ … tiết/tuần trở lên, không quá …/số ngày học, chẵn/lẻ) · **Mức** (Bắt buộc/Ưu tiên và mức;
      Điểm, Nhóm trong **Nâng cao**). Hộp thoại hiện ngay **luật đọc là** (cùng câu chương trình in ra), lỗi nếu ghép
-     sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (mã kết quả sẽ khác), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
+     sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (đọc bằng câu ghép, tắt luật bảo vệ học sinh không tắt nó), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
      đa 3 lớp khác nhau (bắt buộc)". Ô **Dùng** ở mỗi luật: bỏ dấu là **tạm tắt** (luật mờ đi, ghi `Có` ở cột Tạm tắt,
      chương trình bỏ qua; đánh dấu lại là dùng lại); **✕** xóa luật; chọn loại luật rồi **+ Thêm luật**.
      Menu **Tệp luật ▾**: **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (file chỉ có sheet
@@ -679,7 +679,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |
 | `tkb/luat_rieng.py` | Dòng luật (sheet LUẬT, LUẬT RIÊNG cũ): đọc/ghi các ô, các mẫu luật, câu đọc lại |
 | `tkb/bo_ghep.py` | Bộ ghép luật: phạm vi, điều kiện, 10 phép đo; mỗi phép đo viết một lần cho mô hình CP-SAT, kiểm tra độc lập, QA của LNS, đếm trước, phân công |
-| `tkb/luat_co_san.py` | Luật có sẵn là các dòng mặc định của sheet LUẬT; dòng ở dạng gốc xếp như trước (số, điểm lấy từ dòng), luật không còn dòng thì tắt |
+| `tkb/luat_co_san.py` | Luật có sẵn là các dòng mặc định của sheet LUẬT, xếp bằng bộ ghép như mọi dòng (Buổi nghỉ, Cơ sở 2: chỉ có dạng gốc); dạng gốc để đọc tên riêng, nhận ra luật bảo vệ học sinh; xóa dòng là tắt luật |
 | `tkb/chan_doan.py` | Quy định mâu thuẫn: đếm trước khi xếp; khi không xếp được thì thử nới từng nhóm luật để chỉ ra luật nào gây ra |
 | `tkb/writer.py` | Xuất Excel |
 | `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |

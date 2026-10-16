@@ -1368,7 +1368,7 @@ def precheck(problem, label, skip: set[int] = frozenset()) -> list[str]:
             out += _precheck_at_least(L, problem, label)
         if _per_unit(L):
             out += _precheck_per_unit(L, problem, label)
-    return out
+    return out + _precheck_pair_caps(problem, label, skip)
 
 
 def _per_unit(L: Luat) -> bool:
@@ -1414,6 +1414,48 @@ def _precheck_per_unit(L: Luat, problem, label) -> list[str]:
     return out
 
 
+def _units(L: Luat) -> int:
+    """Số buổi (phạm vi có Buổi) hay số ngày của khung giờ: đơn vị thời gian của luật `_per_unit`."""
+    if "buoi" in L.scope:
+        return sum(len(ss) for ss in config.DAY_SESSIONS.values())
+    return len(config.DAY_SESSIONS)
+
+
+def _precheck_pair_caps(problem, label, skip) -> list[str]:
+    """Luật Theo cặp bắt buộc (mỗi buổi 0 hoặc 2 tiết) gặp luật Số tiết Tối đa (Đúng) n < 2 theo lớp và buổi (ngày)
+    xét đủ các tiết của cặp trong cùng một nhóm: một buổi có cặp đã quá n, mâu thuẫn chắc chắn (vd luật có sẵn "ghép
+    cặp" với "tối đa 1 tiết mỗi buổi" hay "tối đa 1 tiết Tiếng Anh mỗi ngày"). Bỏ qua khi luật Tối đa đã quá sức chứa
+    cả tuần (`_precheck_per_unit` đã báo)."""
+    from .allocation import subject_group
+    from .staff import class_sort_key
+    rules = [L for L in compiled() if L.hard and L.rule.row not in skip and _per_unit(L)]
+    pairs = [L for L in rules if L.measure == "cap"]
+    caps = [L for L in rules if L.measure == "so_tiet" and L.number < 2 and not L.derived]
+    if not pairs or not caps:
+        return []
+    part = lambda L, s: s if "mon" in L.scope else subject_group(s) if "nhom_mon" in L.scope else ""  # noqa: E731
+    out, seen = [], set()
+    for P in pairs:
+        for cls in sorted(problem.classes, key=class_sort_key):
+            g = grade_of(cls)
+            keys: dict = defaultdict(dict)
+            for s, n in problem.curriculum[g].items():
+                if n > 0 and _lesson_ok(P, cls, g, s, problem.curriculum):
+                    keys[part(P, s)][s] = n
+            for key, subjects in keys.items():
+                total = sum(subjects.values())
+                for Q in caps:
+                    if (g, key, P.rule.row, Q.rule.row) in seen or total > Q.number * _units(Q) \
+                            or len({part(Q, s) for s in subjects}) > 1 \
+                            or not all(_lesson_ok(Q, cls, g, s, problem.curriculum) for s in subjects):
+                        continue
+                    seen.add((g, key, P.rule.row, Q.rule.row))
+                    name = " + ".join(_label(problem, s) for s in subjects)
+                    out.append(f"Khối {g}: {name} có {total} tiết/tuần nên phải học thành cặp 2 tiết liền (luật "
+                               f"'{label(P.rule)}') nhưng luật '{label(Q.rule)}'")
+    return out
+
+
 def _precheck_at_least(L: Luat, problem, label) -> list[str]:
     """So sánh Tối thiểu, Đúng: nhóm không đủ tiết có thể có (vd ô cố định mà môn không được xếp vào ô đó), hoặc
     luật cần nhiều tiết hơn chương trình học của lớp."""
@@ -1448,7 +1490,10 @@ def validate(problem, sheet: str, role_label) -> list[str]:
     """Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp (hay nhãn lớp) không có; tên ở cột Giáo viên không
     phải chức vụ, nhãn, Mã GV hay họ tên của ai, hoặc là họ tên của nhiều người."""
     subjects = {s for req in problem.curriculum.values() for s, n in req.items() if n > 0}
-    roles = {r for t in problem.teachers.values() for r in (t.role, *t.extra_roles, *t.tag_keys)}
+    # Chức vụ có sẵn (Chủ Nhiệm, Bộ Môn, Quản Lý) luôn ghi được, kể cả khi trường không ai giữ: luật không áp cho ai
+    # (vd luật có sẵn "trừ GV chủ nhiệm" ở trường không có GVCN).
+    roles = {r for t in problem.teachers.values() for r in (t.role, *t.extra_roles, *t.tag_keys)} | set(
+        config.ROLE_LABELS)
     found = Counter(k for t in problem.teachers.values() for k in person_keys(t))
     out = []
     for r in config.CUSTOM_RULES:

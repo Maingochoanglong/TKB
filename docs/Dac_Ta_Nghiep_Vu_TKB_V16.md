@@ -447,7 +447,7 @@ Mỗi GV tiếng anh dạy 23 tiết; ngoài tiết 1, Thứ 6 tiết 4 và ti�
 
 ### 6.1. Mọi luật ở sheet `LUẬT`: bộ ghép luật
 
-Mọi luật xếp TKB nằm ở sheet `LUẬT` của file vào, mỗi dòng là một câu của **bộ ghép luật** (`tkb/bo_ghep.py`). File mẫu ghi sẵn các luật có sẵn (mục 4–8) thành dòng (`tkb/luat_co_san.py`): dòng đúng dạng gốc (chỉ khác số, điểm) xếp bằng mã hóa như trước, số và điểm lấy từ dòng; luật có sẵn không còn dòng thì tắt; các dòng khác (luật thêm vào, luật có sẵn sửa khác dạng gốc) xếp bằng bộ ghép. File không có sheet `LUẬT` (bản trước): dùng các dòng mặc định (số lấy từ các cột cũ) và các dòng của sheet `LUẬT RIÊNG`. Phần không phải luật (cấu trúc TKB, định mức, quyền dạy theo chức vụ, chia phần GVCN, tuyển người, LNS) ở chương trình.
+Mọi luật xếp TKB nằm ở sheet `LUẬT` của file vào, mỗi dòng là một câu của **bộ ghép luật** (`tkb/bo_ghep.py`). File mẫu ghi sẵn các luật có sẵn (mục 4–8) thành dòng (`tkb/luat_co_san.py`). **Mọi dòng xếp bằng bộ ghép**, luật có sẵn cũng như luật thêm vào: mỗi luật chỉ một cách cài, số và điểm lấy từ dòng, xóa dòng là tắt luật (`docs/Thiet_Ke_Gop_Luat.md`). Riêng Buổi nghỉ và Giáo viên chỉ dạy cơ sở 2 đọc cột của sheet NHÂN SỰ nên chỉ có dạng gốc, xếp bằng mã riêng, bật khi có dòng. Dòng đúng **dạng gốc** của một luật có sẵn (chỉ khác số, điểm) đọc bằng tên riêng và được nhận ra là luật bảo vệ học sinh (tắt bằng `LUAT_HOC_SINH = False`). File không có sheet `LUẬT` (bản trước): dùng các dòng mặc định (số lấy từ các cột cũ) và các dòng của sheet `LUẬT RIÊNG`. Phần không phải luật (cấu trúc TKB, định mức, quyền dạy theo chức vụ, chia phần GVCN, tuyển người, LNS) ở chương trình.
 
 > **Với mỗi** [phạm vi] · **các tiết** [điều kiện] · **thì** [phép đo] [so sánh] [số] · **khi** [áp dụng khi] · [mức]
 

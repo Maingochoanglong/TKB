@@ -139,7 +139,7 @@ def test_quality_sheet(tmp_path):
     from tkb.config import CustomRule
     from tkb.rules import applied
     soft = CustomRule("khong_xep", "Toán", periods=(1, 2, 3, 4), level=3, row=40)  # cố ý khó theo
-    with applied({"CUSTOM_RULES": [soft]}):
+    with applied({"CUSTOM_RULES": [*config.CUSTOM_RULES, soft]}):  # sau các luật có sẵn
         sol = _solve_small(general=True)
         rows = writer.quality_rows(sol)
         assert len(rows) == len(luat_co_san.rows()) + 1 and rows[-1][0] == "Tổng"

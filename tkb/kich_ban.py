@@ -546,7 +546,7 @@ def _lines(exc: Exception, sheet: str = "") -> list[str]:
 
 def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool = True) -> dict:
     """Câu đọc lại của từng luật (rows; mặc định các luật của kịch bản), theo quy định của kịch bản: {rules: [{text,
-    errors, native, level}]}; native là khóa luật có sẵn nếu dòng ở dạng gốc (chương trình xếp bằng mã hóa riêng),
+    errors, native, level}]}; native là khóa luật có sẵn nếu dòng ở dạng gốc (đọc bằng tên riêng của luật đó),
     level là mức ưu tiên bằng chữ (dòng ghi Điểm: mức gần nhất). Lỗi các sheet khác không chặn (nút Kiểm tra báo)."""
     from .config import Role
     rows = scenario.get("rules") or [] if rows is None else rows
