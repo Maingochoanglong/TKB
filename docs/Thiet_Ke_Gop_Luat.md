@@ -246,6 +246,57 @@ Bản thử nghiệm 2 = bản thử nghiệm + hai đường tắt (mục 3.4).
   - **LNS:** bộ ghép chạy thêm một vòng trước khi dừng (vòng sau cùng không còn cải thiện).
 - **File của trường:** cả hai dùng hết thời gian, thời gian như nhau.
 
+### 3.6 Đo PR D (chuyển mô hình)
+
+Theo hằng số `main.py` (bù giờ, bù tối đa +3, 1200, 8 luồng), máy Linux 4 lõi. Trường nhỏ chứng minh được tối ưu nên một
+lần đo là đủ. Trường mẫu đo 3 hạt giống, file của trường 10 hạt giống (0–9), vì 5 hạt giống vẫn chưa đủ (xem dưới).
+Mọi lần xếp đều 0 lỗi luật bắt buộc.
+
+| Trường | Cách cũ (mã riêng) | PR D | PR D + điểm nóng hai ngày (giữ) |
+|---|---|---|---|
+| Trường nhỏ, bù giờ | 800, tối ưu | 800, tối ưu | 800, tối ưu |
+| Trường nhỏ, tuyển thêm | mục tiêu 400, tối ưu; sheet Chất lượng 200 | mục tiêu 400, tối ưu; sheet 300 | như PR D |
+| Trường mẫu, trung bình 3 lần | 24 980 | 24 740 | 24 893 |
+| File của trường, trung bình 10 lần | 38 541 | 47 671 | 40 805 |
+| — trong đó số lần đổi cơ sở (số lần xếp có) | 4 (4/10) | 13 (8/10) | 6 (5/10) |
+| — trung bình không tính đổi cơ sở | 34 541 | 34 671 (+0,4 %) | 34 805 (+0,8 %) |
+| File của trường, giây (hạt giống 0, chạy riêng) | 507, 430 | — | 470 |
+
+- **Trường nhỏ, tuyển thêm:** hai cách cùng tối ưu, cùng chi phí mục tiêu. Hai nghiệm tối ưu khác nhau ở chỗ tiết bù
+  tính vào lịch người mới hay người bù, nên sheet Chất lượng (chỉ đếm cho người thật sự dạy) ghi khác nhau.
+- **Điểm của từng lần xếp, file của trường** (hạt giống 0–9):
+  - cách cũ: 34 780, 43 860, 35 080, 34 260, 35 770, 44 800, 44 220, 33 940, 43 680, 35 020;
+  - PR D: 36 420, 43 500, 35 420, 54 620, 54 800, 41 970, 58 180, 53 940, 34 280, 63 580;
+  - PR D + điểm nóng hai ngày: 34 300, 35 200, 44 520, 46 960, 44 060, 34 860, 36 540, 43 420, 34 110, 54 080.
+- **Bộ ghép xếp ngang mã riêng.** Bỏ luật "hạn chế đổi cơ sở" ra thì ba cách chỉ lệch dưới 1 %. Mỗi lần đổi cơ sở trừ
+  10 000 điểm, nên trung bình gần như chỉ đếm số lần đổi cơ sở.
+- **Đổi cơ sở là do cách tìm, không do mô hình.** Đã thử và loại trừ:
+  - Mã hóa "có tiết ở cơ sở" một chiều như mã riêng: vẫn 5/5 lần có đổi cơ sở.
+  - Tách biến: chạy code cũ, chỉ chuyển một nhóm luật sang bộ ghép (hai luật cơ sở; các luật còn lại; ba luật ưu tiên
+    theo GV; bảo vệ học sinh; HĐTN và GVCN; ưu tiên của lớp), hạt giống 3 và 4. Gần như nhóm nào cũng làm khoảng nửa
+    số lần xếp có đổi cơ sở. Cách cũ với hạt giống 5–9 cũng 3/5. Con số 1/5 lúc đầu (hạt giống 0–4) là may.
+  - Phân công (bước 1) giống hệt nhau.
+- **Vì sao vòng xếp lại không gỡ được.** Ví dụ thật (chỉ ghi Mã GV):
+  - Tiếng Anh 4 dạy 5 tiết ở cơ sở 2 và 18 tiết ở cơ sở chính. Mỗi ngày dạy được 6 tiết (tiết 1 là của GVCN), Thứ 6
+    được 3. Muốn không đổi cơ sở thì phải dạy kín 6 tiết ở ba ngày, nên phải sắp lại cả tuần cùng lúc. Bước nhỏ nào
+    cũng chưa giảm điểm nên bị bỏ.
+  - Mỹ Thuật 1 phải đổi 2 tiết Thứ 5 (cơ sở 2) với 2 tiết Thứ 6 của lớp khác. Vùng "điểm nóng" mở hai ngày nhưng chỉ mở
+    các lớp người đó dạy ở ngày bị lỗi.
+  - Cách cũ gỡ được khi một vùng tình cờ chứa đủ các lớp đó (vd vùng "khối 1").
+- **Các vùng xếp lại đã thử:**
+  - **Điểm nóng hai ngày (giữ):** vùng điểm nóng mở các lớp mà GV dùng chung dạy ở *cả hai* ngày được xếp lại, nên
+    tiết của một GV đổi được giữa hai ngày. Số lần đổi cơ sở từ 13 còn 6.
+  - **Vùng GV** (mọi lớp của 2 GV bị trừ điểm nhiều nhất, cả tuần): kém hơn. Vùng quá lớn (Tiếng Anh 4 dạy 12/29 lớp),
+    ăn hết thời gian.
+  - **Vùng lỗi nhiều lớp** (các lớp của một lần không theo, cả tuần): không giảm số lần đổi cơ sở. Gộp với điểm nóng hai
+    ngày cũng không hơn riêng điểm nóng hai ngày.
+- **So với ngưỡng mục 5.2:**
+  - Đạt: 0 lỗi luật bắt buộc; thời gian như cũ; trường nhỏ bằng; trường mẫu tốt hơn.
+  - Chưa đạt "không cao hơn" trên file của trường: trung bình 10 lần cao hơn 5,9 % (40 805 so với 38 541), tức 2 lần
+    đổi cơ sở hơn trong 10 lần. Mức chênh này nhỏ hơn độ dao động giữa các hạt giống: sai số chuẩn của hiệu khoảng
+    3 000 điểm.
+  - Với đúng hằng số `main.py` (hạt giống 0) thì tốt hơn: 34 300 so với 34 780, đều không đổi cơ sở.
+
 ## 4. Thiết kế
 
 ### 4.1 Luật có sẵn chỉ là dòng mẫu

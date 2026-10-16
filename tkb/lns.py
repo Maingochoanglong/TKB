@@ -167,8 +167,10 @@ class _Search:
         hot = sorted(cost.items(), key=lambda kv: (-round(kv[1]), _class_key(kv[0][0]), kv[0][1]))
         for (c, d), _ in hot[:config.LNS_HOTSPOTS]:
             shared = {l.teacher for l in lessons if l.class_name == c and l.day == d and l.teacher not in homeroom}
-            group = {c} | {l.class_name for l in lessons if l.day == d and l.teacher in shared}
             other = min((x for x in days if x != d), key=lambda x: (round(cost[c, x]), x))
+            # Mở các lớp GV dùng chung dạy ở cả hai ngày được xếp lại: tiết của một GV đổi được giữa hai ngày (vd
+            # chuyển hết tiết ở một cơ sở sang ngày khác để không phải đổi cơ sở trong ngày).
+            group = {c} | {l.class_name for l in lessons if l.day in (d, other) and l.teacher in shared}
             out.append(("điểm nóng", f"lớp {c} {khung_gio.day_name(d).lower()}", self.free(group, [d, other]), limits["điểm nóng"]))
         teacher_classes = defaultdict(set)
         for cid, cand in tm.teachers_of.items():
