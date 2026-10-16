@@ -296,6 +296,7 @@ Mọi lần xếp đều 0 lỗi luật bắt buộc.
     đổi cơ sở hơn trong 10 lần. Mức chênh này nhỏ hơn độ dao động giữa các hạt giống: sai số chuẩn của hiệu khoảng
     3 000 điểm.
   - Với đúng hằng số `main.py` (hạt giống 0) thì tốt hơn: 34 300 so với 34 780, đều không đổi cơ sở.
+- **Quyết định:** anh/chị chấp nhận kết quả này (ngày 16/10) và cho làm tiếp PR E. Chỗ yếu "đổi cơ sở trong ngày" của vòng xếp lại để lại cho một bước riêng (vd phân công tính đến cơ sở).
 
 ## 4. Thiết kế
 
