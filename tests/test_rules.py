@@ -6,7 +6,7 @@ import openpyxl
 import pytest
 
 import main
-from tkb import bo_mau, config
+from tkb import bo_mau, config, luat_co_san
 from tkb.rules import ATTRS, DEFAULTS, LABELS, applied, changed, code, read_rules
 from tkb.staff import InputError
 from tkb.template import write_staff_template
@@ -122,7 +122,7 @@ def test_subject_columns(tmp_path):
                                        "Thể dục"}
     assert rules["HOMEROOM_PRIORITY"] == [bo_mau.TOAN, config.HDTN, bo_mau.KH, bo_mau.LSDL, bo_mau.DD]
     assert rules["MANAGER_RULES"] == [config.ManagerRule(bo_mau.DD, 5), config.ManagerRule(bo_mau.KNS, 4)]  # thứ tự dòng
-    assert rules["DAILY_LIMITS"] == {bo_mau.TOAN: 1}  # nay là dòng luật của sheet LUẬT
+    assert luat_co_san.numbers(rules["CUSTOM_RULES"])["DAILY_LIMITS"] == {bo_mau.TOAN: 1}  # dòng luật của sheet LUẬT
     assert rules["DISPLAY_NAMES"]["Thể dục"] == "TD"
     assert changed(rules) == ["Tên trong TKB", "GVCN nhận trọn", "Quản lý dạy khối", "Môn nặng"]
     assert len(warnings) == 1 and "'Môn khó' không phải quy định nào" in warnings[0]
