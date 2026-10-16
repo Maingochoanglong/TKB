@@ -20,8 +20,6 @@ class Course:
     teachers: list[str]  # chức vụ các GV được phép dạy; 1 phần tử = đã cố định
     homeroom: bool = False  # phần do GVCN dạy
     fixed_slots: tuple[tuple[int, int], ...] = ()  # (ngày, tiết) bắt buộc
-    allowed_days: tuple[int, ...] | None = None
-    flex_hdtn: bool = False  # tiết HĐTN linh hoạt (ưu tiên cuối buổi)
     # Ghép lớp (Problem.merge_groups): course của lớp chính mà course này theo (cùng giờ, cùng người dạy); None: không.
     lead: int | None = None
 
@@ -137,15 +135,14 @@ def subject_group(subject: str) -> str:
 
 
 def paired_groups(grade_req: dict[str, int], grade: int | None = None, assignment: bool = False) -> set[str]:
-    """Các nhóm môn của một khối phải xếp thành cặp 2 tiết liền nhau (config.PAIR_MIN_LESSONS, và luật riêng "Học 2
-    tiết liền" bắt buộc của khối `grade`). assignment: thêm các nhóm của luật Theo cặp theo Nhóm môn mà mô hình tự hạ
-    (bo_ghep.paired_by_group), để phân công giữ số tiết chẵn cho mỗi người."""
+    """Các nhóm môn của khối `grade` phải xếp thành cặp 2 tiết liền nhau theo luật Theo cặp bắt buộc của cả lớp
+    (bo_ghep.forced_pairs: solver.build_timetable xếp, bộ ghép không hạ). assignment: thêm các nhóm của luật Theo cặp
+    theo Nhóm môn mà mô hình tự hạ (bo_ghep.paired_by_group, dòng mặc định "ghép cặp"), để phân công giữ số tiết chẵn
+    cho mỗi người."""
     totals: dict[str, int] = {}
     for s, n in grade_req.items():
         totals[subject_group(s)] = totals.get(subject_group(s), 0) + n
-    out = {g for g, n in totals.items()
-           if n >= config.PAIR_MIN_LESSONS and n % 2 == 0 and g not in config.PAIR_EXCLUDED} if config.on("ghep_cap") \
-        else set()
+    out: set[str] = set()
     if grade is not None and config.CUSTOM_RULES:
         from .luat_rieng import forced_pairs
         out |= forced_pairs(grade, totals)
@@ -156,34 +153,30 @@ def paired_groups(grade_req: dict[str, int], grade: int | None = None, assignmen
 
 
 def homeroom_only() -> set[str]:
-    """Các môn chỉ GVCN dạy (cột Chỉ GVCN dạy), khi luật "Chỉ GVCN dạy" có trong sheet LUẬT, ở dạng gốc hay câu bộ
-    ghép (bo_ghep.homeroom_subjects)."""
-    out = set(config.HOMEROOM_ONLY_SUBJECTS) if config.on("chi_gvcn") else set()
-    if config.CUSTOM_RULES:
-        from .bo_ghep import homeroom_subjects
-        out |= homeroom_subjects()
-    return out
+    """Các môn chỉ GVCN dạy: luật Người dạy "Do" Chủ Nhiệm bắt buộc ghi môn (dòng mặc định "Môn có nhãn Chỉ GVCN dạy
+    thì chỉ GV chủ nhiệm dạy", bo_ghep.homeroom_subjects)."""
+    if not config.CUSTOM_RULES:
+        return set()
+    from .bo_ghep import homeroom_subjects
+    return homeroom_subjects()
 
 
 def hdtn_fixed_slots() -> tuple[tuple[int, int], ...]:
-    """Ô HĐTN cố định: luật có sẵn "HĐTN cố định" (config.HDTN_FIXED_SLOTS) hay câu bộ ghép cùng nghĩa
-    (bo_ghep.fixed_slots)."""
-    if config.on("hdtn_co_dinh"):
-        return tuple(config.HDTN_FIXED_SLOTS)
-    if config.CUSTOM_RULES and config.HDTN:
-        from .bo_ghep import fixed_slots
-        return fixed_slots(config.HDTN)
-    return ()
+    """Ô HĐTN cố định: luật Số tiết "Đúng 1" theo (lớp, ô) của môn HĐTN (dòng mặc định "Ở mỗi giờ có nhãn Tiết HĐTN cố
+    định, mỗi lớp học đúng 1 tiết HĐTN", bo_ghep.fixed_slots)."""
+    if not (config.CUSTOM_RULES and config.HDTN):
+        return ()
+    from .bo_ghep import fixed_slots
+    return fixed_slots(config.HDTN)
 
 
 def homeroom_periods_slots(slots) -> list[tuple[int, int]]:
-    """Các ô lớp chỉ học với GVCN: luật có sẵn "tiết GVCN" (config.HOMEROOM_PERIODS) và câu bộ ghép cùng nghĩa
-    (bo_ghep.homeroom_slots)."""
-    out = {s for s in slots if s[1] in config.HOMEROOM_PERIODS} if config.on("tiet_gvcn") else set()
-    if config.CUSTOM_RULES:
-        from .bo_ghep import homeroom_slots
-        out |= homeroom_slots() & set(slots)
-    return sorted(out)
+    """Các ô lớp chỉ học với GVCN: luật Người dạy "Do" Chủ Nhiệm bắt buộc ghi ô (dòng mặc định "Ở giờ có nhãn Luôn do
+    GVCN dạy, lớp học với GV chủ nhiệm", bo_ghep.homeroom_slots)."""
+    if not config.CUSTOM_RULES:
+        return []
+    from .bo_ghep import homeroom_slots
+    return sorted(homeroom_slots() & set(slots))
 
 
 def sessions_per_week() -> int:
@@ -502,22 +495,16 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                               fill=not cn.extra_roles)
         homeroom_take[cls] = take
         if sum(take.values()) < len(homeroom_slots):
-            where = (f"tiết {', '.join(map(str, sorted(config.HOMEROOM_PERIODS)))} mỗi ngày" if config.on("tiet_gvcn")
-                     else f"các giờ luôn do GVCN dạy theo sheet {config.RULES_SHEET_ROWS}")
             raise InputError(f"Lớp {cls}: GVCN chỉ dạy {sum(take.values())} tiết, không đủ "
-                             f"{len(homeroom_slots)} tiết bắt buộc của GVCN ({where})")
+                             f"{len(homeroom_slots)} tiết bắt buộc của GVCN (các giờ luôn do GVCN dạy theo sheet "
+                             f"{config.RULES_SHEET_ROWS})")
         for subject, n in take.items():
             if subject == config.HDTN:
                 n_fixed = min(n, len(fixed_hdtn))
                 courses.append(Course(len(courses), cls, grade, subject, n_fixed, [cn.title],
                                       homeroom=True, fixed_slots=fixed_hdtn[:n_fixed]))
                 if n > n_fixed:
-                    flex = config.on("hdtn_ngay")
-                    if flex and not config.HDTN_FLEX_DAYS:
-                        raise InputError("Chưa cấu hình ngày cho tiết HĐTN linh hoạt")
-                    courses.append(Course(len(courses), cls, grade, subject, n - n_fixed, [cn.title],
-                                          homeroom=True, allowed_days=tuple(config.HDTN_FLEX_DAYS) if flex else None,
-                                          flex_hdtn=True))
+                    courses.append(Course(len(courses), cls, grade, subject, n - n_fixed, [cn.title], homeroom=True))
             else:
                 courses.append(Course(len(courses), cls, grade, subject, n, [cn.title], homeroom=True))
         for subject, n in req.items():
@@ -595,9 +582,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                 courses.append(Course(len(courses), cls, grade, subject, n_fixed, eligible,
                                       fixed_slots=fixed_hdtn[:n_fixed]))
             if n > n_fixed:
-                flex = config.on("hdtn_ngay")
-                courses.append(Course(len(courses), cls, grade, subject, n - n_fixed, eligible,
-                                      allowed_days=tuple(config.HDTN_FLEX_DAYS) if flex else None, flex_hdtn=True))
+                courses.append(Course(len(courses), cls, grade, subject, n - n_fixed, eligible))
             continue
         courses.append(Course(len(courses), cls, grade, subject, n, eligible))
 

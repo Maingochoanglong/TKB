@@ -130,18 +130,20 @@ def visible(cols) -> tuple:
 
 
 FRAME_ATTRS = ("DAYS", "MORNING", "AFTERNOON", "DAY_SESSIONS")
-ATTRS = (*FRAME_ATTRS, "SESSION_GROUP_LIMIT", "PAIR_MIN_LESSONS", "OVERTIME_ROLES", "HDTN_FIXED_SLOTS",
-         "HDTN_FLEX_DAYS", "HOMEROOM_PERIODS", "HEAVY_LATE_PERIODS", "DISPLAY_NAMES", "HDTN", "HOMEROOM_PRIORITY",
-         "HOMEROOM_CUT_ORDER", "HOMEROOM_FILL_ORDER", "HOMEROOM_ONLY_SUBJECTS", "GENERAL_FORBIDDEN_SUBJECTS",
-         "MANAGER_RULES", "HOMEROOM_OVERTIME_SPECIALIST", "SUBJECT_GROUPS", "DAILY_LIMITS", "PAIR_EXCLUDED",
-         "HEAVY_SUBJECTS", "MORNING_SUBJECTS", "CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS", "CLASSES", "ROOMS")
+# Các quy định (giá trị config) của file vào; mã quy định (`code`) tính trên chúng. Số của luật nằm ở dòng luật
+# (CUSTOM_RULES); các cột cũ LEGACY chỉ dùng để dựng dòng mặc định của file cũ nên không có ở đây.
+ATTRS = (*FRAME_ATTRS, "OVERTIME_ROLES", "HDTN_FIXED_SLOTS", "HDTN_FLEX_DAYS", "HOMEROOM_PERIODS",
+         "HEAVY_LATE_PERIODS", "DISPLAY_NAMES", "HDTN", "HOMEROOM_PRIORITY", "HOMEROOM_CUT_ORDER", "HOMEROOM_FILL_ORDER",
+         "HOMEROOM_ONLY_SUBJECTS", "GENERAL_FORBIDDEN_SUBJECTS", "MANAGER_RULES", "HOMEROOM_OVERTIME_SPECIALIST",
+         "SUBJECT_GROUPS", "PAIR_EXCLUDED", "HEAVY_SUBJECTS", "MORNING_SUBJECTS", "CUSTOM_RULES", "CUSTOM_ROLES", "OFF",
+         "CLASSES", "ROOMS")
 # Không ghi gì thì không tính vào mã quy định (mã cũ giữ nguyên).
-OPTIONAL_ATTRS = ("CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS", "CLASSES", "ROOMS")
+OPTIONAL_ATTRS = ("CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "CLASSES", "ROOMS")
 # Tên quy định khi in "khác mặc định".
 LABELS = {**{c.key: c.header for c in (*GENERAL, *DAY_COLS, *PERIOD_COLS, *SUBJECT_COLS)},
           **{a: "Khung giờ" for a in FRAME_ATTRS}, "OVERTIME_ROLES": "Được dạy bù",
-          "SUBJECT_GROUPS": "Nhóm môn, Môn tăng cường", "CUSTOM_RULES": "Luật riêng", "CUSTOM_ROLES": "Chức vụ",
-          "OFF": "Luật có sẵn bị bỏ", "WEIGHTS": "Điểm của luật ưu tiên", "CLASSES": "Lớp", "ROOMS": "Phòng"}
+          "SUBJECT_GROUPS": "Nhóm môn, Môn tăng cường", "CUSTOM_RULES": "Luật (sheet LUẬT)", "CUSTOM_ROLES": "Chức vụ",
+          "OFF": "Luật có sẵn bị bỏ", "CLASSES": "Lớp", "ROOMS": "Phòng"}
 DEFAULTS = {attr: copy.deepcopy(getattr(config, attr)) for attr in ATTRS}  # giá trị mặc định trong tkb/config.py
 # Tên môn trong tkb/config.py (và chữ viết tắt mặc định), để khớp tên môn ghi trong sheet CHƯƠNG TRÌNH HỌC.
 _KNOWN = {**{subject_key(label): s for s, label in config.DISPLAY_NAMES.items()},
@@ -901,8 +903,8 @@ def mau(key: str | None = None) -> dict[str, object]:
 
 
 def _rules_rows(values: dict, warn) -> dict:
-    """Các dòng luật (sheet LUẬT; không có thì dòng mặc định theo các cột cũ, cộng sheet LUẬT RIÊNG) -> tham số luật
-    có sẵn, luật bị tắt, luật xếp bằng bộ ghép (luat_co_san.apply)."""
+    """Các dòng luật (sheet LUẬT; không có thì dòng mặc định theo các cột cũ, cộng sheet LUẬT RIÊNG) -> các dòng xếp
+    bằng bộ ghép, luật chỉ có dạng gốc bị tắt (luat_co_san.apply)."""
     from . import luat_co_san
     custom = values.pop("CUSTOM_RULES", [])
     with applied(values):
@@ -915,8 +917,9 @@ def _rules_rows(values: dict, warn) -> dict:
             rows = [*luat_co_san.default_rows(), *custom]
             legacy = {}
         out = {**values, **luat_co_san.apply([r for r in rows if not r.off])}  # dòng Tạm tắt: như không có
+        numbers = luat_co_san.numbers([r for r in rows if not r.off])
     for attr, value in legacy.items():
-        if attr in out and _canonical(attr, out[attr]) != _canonical(attr, value):
+        if attr in numbers and _canonical(attr, numbers[attr]) != _canonical(attr, value):
             warn(f"Cột {LABELS[attr]} không còn dùng khi có sheet {luat_rieng.RULES_SHEET}: số của luật ghi ở "
                  f"dòng luật (sheet {luat_rieng.RULES_SHEET})")
     if custom and "RULES" in values:
@@ -953,8 +956,6 @@ def _canonical(attr: str, value):
         return sorted(value.items())
     if attr == "CUSTOM_RULES":  # số dòng, cột Nhóm không phải là luật: dời dòng không đổi mã
         return [replace(r, row=0, group_label="") for r in value]
-    if attr == "WEIGHTS":
-        return sorted(value.items())
     if attr == "CLASSES":  # số dòng, thứ tự dòng không phải là quy định
         def campus(name: str):  # Cơ sở 1, Cơ sở 2 như cột Có/Không của bản trước (cùng mã)
             key = _fold(name or CAMPUS1)

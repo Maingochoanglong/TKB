@@ -135,7 +135,8 @@ def _campus_day_switches(sol) -> list[tuple[str, int]]:
 
 
 def test_whole_day_at_one_campus_is_preferred(campus_solution):
-    """Mục tiêu mềm campus_day_switch: không phạt thì GV tiếng anh có ngày sáng một cơ sở, chiều cơ sở kia."""
+    """Dòng luật ưu tiên "Hạn chế đổi cơ sở trong ngày": xóa dòng thì GV tiếng anh có ngày sáng một cơ sở, chiều cơ sở
+    kia."""
     from tkb import luat_co_san
     from tkb.rules import applied
     assert _campus_day_switches(campus_solution) == []

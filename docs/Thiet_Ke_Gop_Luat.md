@@ -75,6 +75,8 @@ Mỗi cách xếp (biến thể) là một lần `solver.solve` trên cùng file
 - **`--tung-luat`:** thêm một biến thể cho mỗi luật. Ba luật HĐTN đi cùng nhau (mục 3.2).
 - **`--seed 0,1,2`:** chạy mỗi biến thể với từng hạt giống CP-SAT, in thêm điểm trung bình, thấp nhất, cao nhất.
   Cần cho trường lớn, nơi một luật điểm cao (đổi cơ sở: 10 000 điểm mỗi lần) quyết định cả điểm.
+- **Từ PR E** không còn mã riêng để bật lại: công cụ bỏ các biến thể, chỉ còn đo một file với từng hạt giống. So hai
+  phiên bản chương trình: chạy công cụ ở hai commit, cùng file, cùng hằng số, cùng hạt giống.
 
 ## 3. Số liệu
 
@@ -297,6 +299,22 @@ Mọi lần xếp đều 0 lỗi luật bắt buộc.
     3 000 điểm.
   - Với đúng hằng số `main.py` (hạt giống 0) thì tốt hơn: 34 300 so với 34 780, đều không đổi cơ sở.
 - **Quyết định:** anh/chị chấp nhận kết quả này (ngày 16/10) và cho làm tiếp PR E. Chỗ yếu "đổi cơ sở trong ngày" của vòng xếp lại để lại cho một bước riêng (vd phân công tính đến cơ sở).
+
+### 3.7 PR E (dọn code)
+
+- **Xóa:** khối mã riêng của solver (luật bảo vệ học sinh, liên tiết, GVCN trước, mỗi buổi một cơ sở, đổi cơ sở
+  trong ngày, các mục tiêu mềm), phần mã riêng của `lns.qa`, của phân công (HĐTN theo ngày, các đường tắt) và của
+  chẩn đoán (phép đếm, nhóm luật, `solver.RELAXED`); `config.WEIGHTS`, `config.rule_weights`, 9 trọng số của
+  `config.Weights` (điểm mặc định ghi ở `luat_co_san.NATIVES`).
+- **Khác thiết kế mục 4.1:** `config.OFF` còn, chỉ cho hai luật chỉ có dạng gốc (Buổi nghỉ, Cơ sở 2: tắt khi không có
+  dòng) và sức chứa phòng khi chẩn đoán. `SESSION_GROUP_LIMIT`, `PAIR_MIN_LESSONS`, `DAILY_LIMITS` còn trong `config`
+  làm số của dòng mặc định và để đọc cột cũ của file cũ, nhưng không vào mã quy định.
+- **`lns.qa`:** mã cũ cộng 0 điểm vào mọi (lớp, ngày) có tiết, nên trường ít lỗi vẫn có đủ 5 điểm nóng (lớp-ngày 0
+  điểm theo thứ tự lớp, ngày). Giữ đúng điều đó: mọi (lớp, ngày) có tiết có mặt với 0 điểm.
+- **Sửa thêm:** luật Theo cặp của cả lớp do trường ghi (`bo_ghep.forced`) không còn bị bỏ khi tắt luật bảo vệ học
+  sinh (mô hình và bộ kiểm tra); phép đếm cũ báo tên luật sai đã xóa (`bo_ghep.precheck` đếm đủ).
+- **Đo:** mô hình CP-SAT (băm toàn bộ mô hình, số biến, số ràng buộc) và mã kết quả trùng PR D trên trường nhỏ (hai
+  chế độ), trường mẫu (bù giờ, 60), trường ba cơ sở của test và file của trường (bù giờ, 60). Mã kết quả không đổi.
 
 ## 4. Thiết kế
 

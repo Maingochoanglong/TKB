@@ -600,7 +600,7 @@ def quality_rows(solution: Solution, student_rules: bool = True) -> list[list]:
         count[id(L.rule)] += n
         if text and len(examples[id(L.rule)]) < QUALITY_EXAMPLES:
             examples[id(L.rule)].append(text)
-    w = config.rule_weights(config.Weights())
+    w = config.Weights()
     out = []
     for r in rules:
         say = luat_rieng.describe(r)

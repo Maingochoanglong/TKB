@@ -191,33 +191,30 @@ HOMEROOM_OVERTIME_SPECIALIST: set[str] = _MAU["HOMEROOM_OVERTIME_SPECIALIST"]
 OVERTIME_MAX = 2  # số tiết bù tối đa mỗi người mỗi tuần (mức được duyệt)
 
 # --------------------------------------------------------------------------
-# Luật bảo vệ học sinh
+# Nhãn của môn và giờ học mà các dòng luật mặc định dùng (tkb/luat_co_san.py; luật nằm ở dòng của sheet LUẬT)
 # --------------------------------------------------------------------------
-# Môn nặng: hạn chế xếp vào các tiết này (mục tiêu mềm, trọng số Weights.heavy_late).
+# Nhãn Môn nặng, Hạn chế môn nặng (dòng "Tránh xếp môn có nhãn Môn nặng vào giờ có nhãn Hạn chế môn nặng").
 HEAVY_SUBJECTS: set[str] = _MAU["HEAVY_SUBJECTS"]
 HEAVY_LATE_PERIODS: set[int] = _MAU["HEAVY_LATE_PERIODS"]
-# Buổi sáng dành cho môn chính (mục tiêu mềm, như TKB các trường khác: docs/Tham_Khao_TKB_Truong_Khac.md):
-# mỗi tiết của các môn này xếp vào buổi chiều bị phạt (Weights.morning_core).
+# Nhãn Ưu tiên buổi sáng: buổi sáng dành cho môn chính, như TKB các trường khác (docs/Tham_Khao_TKB_Truong_Khac.md).
 MORNING_SUBJECTS: set[str] = _MAU["MORNING_SUBJECTS"]
-# Nhóm môn: môn tăng cường (khóa) tính chung với môn chính (giá trị) cho các luật liên tiết, số tiết mỗi buổi
-# và ghép cặp. Luật cứng đi kèm (luật bảo vệ học sinh): tiết tăng cường là tiết luyện bài vừa học nên trong một
-# ngày phải có tiết chính cùng nhóm đứng trước nó và không có tiết chính nào đứng sau nó (không cần liền, không
-# cần cùng người dạy, không cần buổi chiều).
+# Nhóm môn: môn tăng cường (khóa) tính chung với môn chính (giá trị) ở các dòng luật có phạm vi Nhóm môn (số tiết
+# mỗi buổi, liên tiết, ghép cặp). Dòng mặc định đi kèm: tiết tăng cường là tiết luyện bài vừa học nên trong một ngày
+# phải có tiết chính cùng nhóm đứng trước nó và không có tiết chính nào đứng sau nó.
 SUBJECT_GROUPS: dict[str, str] = _MAU["SUBJECT_GROUPS"]
-# Mỗi nhóm môn tối đa ngần ấy tiết mỗi buổi. Luật cứng đi kèm: môn nào có từ 2 tiết trong một buổi thì
-# các tiết đó phải liền nhau, vd sáng "TV, Toán, TV, Anh" là sai, phải là "Toán, TV, TV, Anh".
+# Số của ba dòng mặc định "tối đa n tiết một nhóm môn mỗi buổi", "tối đa n tiết môn X mỗi ngày (khi số tiết/tuần
+# không quá số ngày học)", "ghép cặp khi nhóm môn có từ n tiết/tuần, chẵn" (luat_co_san.default_rows). File có sheet
+# LUẬT ghi số ở dòng luật; file cũ không có sheet LUẬT ghi ở các cột cũ (rules.LEGACY) và dòng mặc định lấy số đó.
 SESSION_GROUP_LIMIT = 2
-# Môn -> số tiết tối đa mỗi ngày, chỉ áp dụng khi số tiết/tuần không quá số ngày học.
 DAILY_LIMITS: dict[str, int] = _MAU["DAILY_LIMITS"]
-# Nhóm môn có từ ngần ấy tiết/tuần và tổng số tiết chẵn thì xếp thành các cặp 2 tiết liền nhau, cùng người
-# dạy (mỗi buổi 0 hoặc 2 tiết của nhóm), vd TV + TV tăng cường khối 1–3. Trừ các nhóm trong PAIR_EXCLUDED.
 PAIR_MIN_LESSONS = 6
+# Nhãn Không ghép cặp: nhóm môn có môn này không học thành cặp (dòng "ghép cặp" trừ nhãn này).
 PAIR_EXCLUDED: set[str] = _MAU["PAIR_EXCLUDED"]
 
 
 # --------------------------------------------------------------------------
-# Luật riêng của trường (sheet LUẬT RIÊNG, tkb/luat_rieng.py): mỗi dòng một luật, theo một mẫu có sẵn hoặc tự ghép
-# bằng bộ ghép luật (tkb/bo_ghep.py), bắt buộc hoặc ưu tiên (mức 1–3). Mặc định không có luật riêng nào.
+# Một dòng luật (sheet LUẬT; file cũ: LUẬT RIÊNG; đọc, ghi ở tkb/luat_rieng.py): theo một kiểu luật có sẵn hoặc tự
+# ghép bằng bộ ghép luật (tkb/bo_ghep.py), bắt buộc hoặc ưu tiên (Điểm, hoặc Mức 1–4).
 # --------------------------------------------------------------------------
 @dataclass(frozen=True)
 class CustomRule:
@@ -259,24 +256,20 @@ CUSTOM_RULES: list[CustomRule] = []  # các dòng của sheet LUẬT xếp bằn
 # rules.applied trả lại giá trị cũ khi ra khỏi khối.
 PEOPLE: dict[str, str] = {}
 
-# Sheet LUẬT (tkb/luat_co_san.py): mọi luật là một dòng câu ghép, kể cả luật có sẵn. Dòng của luật có sẵn đúng dạng
-# gốc thì xếp bằng mã hóa riêng như trước (mã kết quả không đổi), số và điểm lấy từ dòng; luật có sẵn không còn
-# dòng nào ở dạng gốc thì tắt (OFF).
+# Sheet LUẬT (tkb/luat_co_san.py): mọi luật là một dòng câu ghép, kể cả luật có sẵn, và xếp bằng bộ ghép
+# (CUSTOM_RULES); số và điểm nằm ở dòng. Riêng hai luật chỉ có dạng gốc (luat_co_san.NATIVE_ONLY: Buổi nghỉ, Giáo
+# viên chỉ dạy cơ sở 2) đọc cột của sheet NHÂN SỰ: không có dòng thì tắt (OFF).
 RULES_SHEET_ROWS = "LUẬT"
 RULES: list[CustomRule] | None = None  # mọi dòng của sheet LUẬT; None: file không có sheet, dùng các dòng mặc định
-OFF: frozenset[str] = frozenset()  # các luật có sẵn bị tắt (khóa trong luat_co_san.NATIVES)
-WEIGHTS: dict[str, int] = {}  # điểm của luật có sẵn ưu tiên khác mặc định (tên trường của Weights -> điểm)
+# Các luật chỉ có dạng gốc bị tắt (khóa trong luat_co_san.NATIVE_ONLY); khi chẩn đoán có thêm "phong" (bỏ sức chứa
+# phòng học dùng chung, tkb/chan_doan.py).
+OFF: frozenset[str] = frozenset()
 
 
 def on(key: str) -> bool:
-    """Luật có sẵn `key` đang bật (có dòng ở dạng gốc trong sheet LUẬT, hoặc file không có sheet LUẬT)."""
+    """Luật chỉ có dạng gốc `key` đang bật (có dòng trong sheet LUẬT, hoặc file không có sheet LUẬT); "phong": sức
+    chứa phòng học dùng chung (chỉ tắt khi chẩn đoán)."""
     return key not in OFF
-
-
-def rule_weights(w: "Weights") -> "Weights":
-    """Trọng số xếp giờ theo điểm ghi ở các dòng luật có sẵn ưu tiên (giữ nguyên nếu không đổi)."""
-    from dataclasses import replace
-    return replace(w, **WEIGHTS) if WEIGHTS else w
 
 
 def rule_subjects() -> list[str]:
@@ -297,17 +290,6 @@ class Weights:
     supplement_teacher: int = 100_000  # mỗi GV bổ sung được dùng
     course_split: int = 5_000  # mỗi GV thêm vào cùng một lớp-môn (chia môn cho 2 GV)
     specialist_supplement: int = 1_000  # GV bổ sung là chuyên biệt (ưu tiên tuyển bộ môn đa năng)
-    day_over_preferred: int = 100  # mỗi tiết vượt tải ngày mong muốn
-    day_over_buffer: int = 300  # mỗi tiết vượt tải ngày mong muốn + 1
-    hdtn_flex_distance: int = 200  # mỗi tiết cách cuối buổi của HĐTN flex
-    heavy_late: int = 1_200  # mỗi tiết môn nặng ở tiết 7 (400 thì file của trường còn 8 tiết trên Windows; 1200: 6;
-                             # 3000 cũng 6 mà TV/Toán buổi chiều tăng)
-    morning_core: int = 300  # mỗi tiết TV, Toán (MORNING_SUBJECTS) xếp vào buổi chiều
-    core_spread: int = 120  # như subject_spread nhưng cho MORNING_SUBJECTS
-    subject_spread: int = 40  # mỗi tiết vượt mức rải đều môn/ngày
-    teacher_gap: int = 10  # mỗi tiết trống giữa buổi của GV
-    campus_day_switch: int = 10_000  # mỗi (GV, ngày) sáng dạy cơ sở này, chiều cơ sở kia (luật cứng mỗi buổi
-                                     # một cơ sở vẫn giữ; cứng cả ngày thì file của trường không ra TKB)
     general_on_specialist: int = 1_000  # mỗi tiết bộ môn dạy thay môn chuyên biệt (chỉ khi GV chuyên biệt đã
                                        # hết định mức; lớn hơn điểm gom lớp để không bị đổi chỉ vì gom lớp)
     load_balance: int = 50  # mỗi tiết dư lớn nhất giữa các GV cùng chức vụ
@@ -337,9 +319,9 @@ class Weights:
     group_grade: int = 20  # mỗi khối một GV không chủ nhiệm dạy
     group_class: int = 5  # mỗi lớp một GV không chủ nhiệm dạy
     odd_pair_share: int = 100_000  # mỗi phần lẻ của một người trong nhóm môn ghép cặp
-    # Luật ưu tiên của sheet LUẬT theo cột Mức Thấp, Vừa, Cao, Rất cao (1–4): mỗi lần không theo luật bị trừ ngần
-    # ấy điểm (Cao nặng hơn một tiết môn nặng ở tiết 7, Thấp cỡ một tiết TV/Toán buổi chiều, Rất cao cỡ một lần GV
-    # dạy hai cơ sở trong một ngày).
+    # Luật ưu tiên của sheet LUẬT không ghi Điểm, theo cột Mức Thấp, Vừa, Cao, Rất cao (1–4): mỗi lần không theo luật
+    # bị trừ ngần ấy điểm (điểm các dòng mặc định: luat_co_san.NATIVES; Cao nặng hơn một tiết môn nặng ở tiết 7, Thấp
+    # cỡ một tiết TV/Toán buổi chiều, Rất cao cỡ một lần GV dạy hai cơ sở trong một ngày).
     custom_levels: tuple[int, int, int, int] = (100, 400, 1_500, 5_000)
 
 

@@ -1,7 +1,7 @@
 """Chẩn đoán quy định mâu thuẫn (tkb/chan_doan.py): đếm trước khi xếp, và khi không xếp được thì chỉ ra luật nào."""
 import pytest
 
-from tkb import bo_mau, config, luat_co_san, solver
+from tkb import bo_mau, config, luat_co_san
 from tkb.allocation import build_problem
 from tkb.chan_doan import diagnose, precheck
 from tkb.rules import applied
@@ -10,7 +10,6 @@ from tkb.solver import ConflictError, solve
 from .conftest import CURRICULUM, small_staff
 
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
-OFF = config.OFF  # mặc định: mã riêng của mọi luật có sẵn tắt (xếp bằng bộ ghép)
 GROUP_LIMIT = ("'Luật có sẵn: Mỗi buổi, một lớp học tối đa {} tiết của một môn, tính chung môn chính với môn tăng "
                "cường cùng nhóm (bắt buộc)'")
 PAIRS = ("'Luật có sẵn: Môn có từ {} tiết/tuần trở lên và số tiết chẵn, tính chung môn tăng cường cùng nhóm, học "
@@ -64,7 +63,7 @@ def test_solve_stops_before_solving_on_a_counted_conflict():
 def test_diagnosis_names_the_rules_in_conflict():
     """HĐTN: chỉ còn tiết cố định Thứ 6 tiết 4 và 2 tiết còn lại cũng chỉ được xếp Thứ 6 (chỉ có buổi sáng) mà mỗi
     buổi một nhóm môn tối đa 2 tiết: phép đếm không thấy, bộ giải thấy, chẩn đoán chỉ ra đúng 2 luật."""
-    log = []
+    log, before = [], (config.OFF, config.CUSTOM_RULES)
     with applied({"HDTN_FIXED_SLOTS": [(4, 4)], "HDTN_FLEX_DAYS": [4]}), pytest.raises(ConflictError) as err:
         solve(small_staff(), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS), log=log.append)
     limit = GROUP_LIMIT.format(2)[1:-1]
@@ -74,20 +73,9 @@ def test_diagnosis_names_the_rules_in_conflict():
         "Các luật bắt buộc sau không cùng thỏa được, nên không có TKB nào:", f"  - {limit}", f"  - {flex}",
         f"Nới hoặc bỏ một trong các luật trên. Chỉ cần nới riêng một luật này là xếp được: {limit}; {flex}."]
     assert any(line.startswith("Chẩn đoán:") for line in log)
-    assert solver.RELAXED == frozenset() and config.OFF == OFF  # chẩn đoán xong trả lại như cũ
+    assert (config.OFF, config.CUSTOM_RULES) == before  # chẩn đoán xong trả lại như cũ
 
 
 def test_diagnosis_of_a_solvable_school_blames_the_time():
     found = diagnose(small_staff(), CURRICULUM, config.Settings(**SETTINGS), log=lambda *_: None, seconds=5)
     assert not found.conflict and "Tăng thời gian xếp giờ" in found.lines[0]
-
-
-def test_relaxing_rules_changes_nothing_by_default(monkeypatch):
-    """Cờ nới luật chỉ dùng khi chẩn đoán: mặc định rỗng, và mô hình dựng ra có đúng các ràng buộc như khi nới rỗng."""
-    assert solver.RELAXED == frozenset()
-    settings = config.Settings(**SETTINGS)
-    with applied({"OFF": frozenset(), "WEIGHTS": {}, "CUSTOM_RULES": []}):  # mã riêng cũ (còn đến PR E)
-        problem = build_problem(small_staff(), CURRICULUM, {}, overtime_max=0)
-        full = len(solver.build_timetable(problem, settings).model.proto.constraints)
-        monkeypatch.setattr(solver, "RELAXED", frozenset({"lien_nhau", "lien_tiet", "gvcn_truoc", "tang_cuong"}))
-        assert len(solver.build_timetable(problem, settings).model.proto.constraints) < full

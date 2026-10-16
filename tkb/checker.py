@@ -135,13 +135,13 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
                           f"GVCN dạy {les.subject} lớp {les.class_name}")
 
     errors.extend(_check_teacher_sessions(problem, lessons))
-    # Mọi dòng bắt buộc của sheet LUẬT (luật có sẵn ở dạng gốc và luật tự ghép) bằng bộ ghép. Luật theo cặp của cả
-    # lớp chỉ xếp cùng luật bảo vệ học sinh (allocation.paired_groups) nên tắt theo các luật đó.
+    # Mọi dòng bắt buộc của sheet LUẬT (luật có sẵn và luật tự ghép) bằng bộ ghép, kể cả luật Theo cặp của cả lớp mà
+    # mô hình xếp riêng (bo_ghep.forced).
     from .bo_ghep import violations
     from .luat_co_san import hard_rows
     from .luat_rieng import label
     errors.extend(f"{label(L.rule)}: {text}" for L, _, _, text in
-                  violations(problem, lessons, rules=hard_rows(student_rules), skip_forced=not student_rules))
+                  violations(problem, lessons, rules=hard_rows(student_rules), skip_forced=False))
     if problem.room_fit and config.on("phong"):  # phòng học dùng chung (sheet PHÒNG): xếp được phòng mỗi giờ
         from .phong_hoc import errors as room_errors
         errors.extend(room_errors(problem, lessons))

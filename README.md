@@ -531,8 +531,8 @@ File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền m�
 | Nằm trong file vào | Nằm trong code |
 |---|---|
 | Danh sách môn, tên môn, số tiết từng khối (`CHƯƠNG TRÌNH HỌC`) | Giá trị mặc định của các quy định (`tkb/config.py`), dùng khi file không ghi; các giá trị gắn tên môn (môn GVCN nhận trọn, môn nặng, HĐTN…) là dữ liệu của bộ luật mẫu Tiểu học Việt Nam (`tkb/bo_mau.py`), code không chứa tên môn nào |
-| Giáo viên, chức vụ, lớp chủ nhiệm, số tiết, thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ (`NHÂN SỰ`) | Trọng số mục tiêu mềm (`config.Weights`) và tham số xếp giờ (`LNS_*`) |
-| Danh sách lớp (sheet `LỚP`, không có thì suy ra từ các dòng Chủ Nhiệm), tên khối, GV chuyên biệt (sheet `CHỨC VỤ`, hoặc chức vụ trùng tên môn) | Định mức người cần tuyển (Số tiết lớn nhất của GV cùng chức vụ), luật mỗi buổi một cơ sở, thai sản không bù |
+| Giáo viên, chức vụ, lớp chủ nhiệm, số tiết, thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ (`NHÂN SỰ`) | Trọng số của phân công, điểm của các mức Thấp…Rất cao cho luật ưu tiên không ghi Điểm (`config.Weights`; điểm của từng luật nằm ở dòng luật) và tham số xếp giờ (`LNS_*`) |
+| Danh sách lớp (sheet `LỚP`, không có thì suy ra từ các dòng Chủ Nhiệm), tên khối, GV chuyên biệt (sheet `CHỨC VỤ`, hoặc chức vụ trùng tên môn) | Định mức người cần tuyển (Số tiết lớn nhất của GV cùng chức vụ), thai sản không bù |
 | Khung giờ, HĐTN, tiết của GVCN, môn GVCN nhận/cắt/nhận thêm, quyền dạy, ai được bù, luật bảo vệ học sinh, môn nặng, môn buổi sáng, tên viết tắt (cột quy định của `CHƯƠNG TRÌNH HỌC`, sheet `QUY ĐỊNH`); mọi luật xếp TKB, cả số và điểm (sheet `LUẬT`) | Chế độ, số tiết bù tối đa, thời gian (`main.py`) |
 | Style của các file ra (phông, cỡ chữ, viền, chiều cao dòng) | |
 
@@ -629,14 +629,14 @@ Dưới đây là các quy tắc với giá trị mặc định. Phần lớn s�
 - **Buổi sáng dành cho Tiếng Việt và Toán**, như TKB của các trường khác (xem [`docs/Tham_Khao_TKB_Truong_Khac.md`](docs/Tham_Khao_TKB_Truong_Khac.md)):
   - mỗi tiết TV, Toán xếp vào buổi chiều bị phạt;
   - tiết tăng cường không có mục tiêu riêng: luật cứng "sau tiết chính" (xem trên) đã đặt nó sau TV, Toán;
-  - đổi ở `MORNING_SUBJECTS`, trọng số `morning_core` (300), `core_spread`.
+  - đổi ở `MORNING_SUBJECTS` (nhãn Ưu tiên buổi sáng), điểm ở dòng luật "Môn có nhãn Ưu tiên buổi sáng xếp vào buổi sáng" (300) và "Môn ưu tiên buổi sáng rải đều trong tuần" (120) của sheet `LUẬT`.
 
   Khối có nhiều tiết TV (vd khối 1: 14 tiết, mỗi buổi tối đa 2) vẫn phải có vài tiết TV buổi chiều. Mỗi lần chạy in ra số tiết TV, Toán còn ở buổi chiều.
-- Hạn chế môn nặng ở tiết 7 (Toán, Tiếng Việt, tiết tăng cường, Tiếng Anh, Khoa học, Tin học; đổi ở `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, trọng số `heavy_late` (1200)). Mỗi GV Tiếng Anh dạy 23 tiết trong 26 ô được dạy (4 ô là tiết 7), nên mỗi người còn ít nhất 1 tiết Tiếng Anh ở tiết 7.
+- Hạn chế môn nặng ở tiết 7 (Toán, Tiếng Việt, tiết tăng cường, Tiếng Anh, Khoa học, Tin học; đổi ở `HEAVY_SUBJECTS`, `HEAVY_LATE_PERIODS`, điểm 1200 ở dòng luật "Tránh xếp môn có nhãn Môn nặng…"). Mỗi GV Tiếng Anh dạy 23 tiết trong 26 ô được dạy (4 ô là tiết 7), nên mỗi người còn ít nhất 1 tiết Tiếng Anh ở tiết 7.
 - Cân bằng số tiết mỗi ngày của giáo viên.
 - Ít tiết trống giữa buổi.
-- **Cả ngày ở một cơ sở:** mỗi lần một giáo viên dạy sáng ở cơ sở này, chiều ở cơ sở kia bị phạt `campus_day_switch` (10000, gấp hơn 30 lần một tiết TV/Toán buổi chiều). Không để luật cứng vì với file của trường, luật cứng cả ngày không ra được TKB trong 1200. Màn hình in số lần còn phải đổi.
-- Rải đều các môn trong tuần (`subject_spread` 40, TV/Toán `core_spread` 120). Khối 1 có 7 cặp TV trong 5 ngày nên luôn có 2 ngày học 4 tiết TV.
+- **Cả ngày ở một cơ sở:** mỗi lần một giáo viên dạy sáng ở cơ sở này, chiều ở cơ sở kia bị phạt 10000 điểm (dòng luật "Hạn chế để một giáo viên đổi cơ sở trong cùng một ngày", gấp hơn 30 lần một tiết TV/Toán buổi chiều). Không để luật cứng vì với file của trường, luật cứng cả ngày không ra được TKB trong 1200. Màn hình in số lần còn phải đổi.
+- Rải đều các môn trong tuần (40 điểm mỗi tiết vượt, TV/Toán 120). Khối 1 có 7 cặp TV trong 5 ngày nên luôn có 2 ngày học 4 tiết TV.
 - Phân công: hạn chế chia một lớp-môn cho hai giáo viên; **giữ phân công của TKB cũ** (cột `Lớp Đang Dạy`: mỗi tiết dạy khác khối cũ phạt `keep_grade` 60, đúng khối nhưng khác lớp cũ phạt `keep_class` 10); gom lớp của một giáo viên vào ít khối; cân bằng tải. Giữ phân công cũ đứng sau số tiết thiếu, số tiết bù và "không chia lớp-môn", nhưng trước gom lớp và cân bằng tải. Màn hình in số tiết đúng khối cũ, đúng lớp cũ.
 
 ## Cách giải
