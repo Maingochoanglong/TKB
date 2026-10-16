@@ -331,8 +331,13 @@ def test_timetable_view_marks_errors_and_tries_swaps(small_updated):
     assert all(c["name"] in names and c["code"] for c in taught)
     cell = {(c["cls"], c["d"], c["p"]): c for c in view["cells"]}
 
-    a = cell["3/1", 0, 2]
-    tried = grid.swaps(scenario["saved"], "3/1", 0, 2)
+    # Một ô có cả cách đổi được lẫn cách đổi làm sai luật (tùy TKB của từng hệ điều hành; thử ô Thứ 2 tiết 2 trước).
+    spots = sorted({(c["d"], c["p"]) for c in taught if c["cls"] == "3/1"}, key=lambda s: (s != (0, 2), s))
+    for d0, p0 in spots:
+        tried = grid.swaps(scenario["saved"], "3/1", d0, p0)
+        if any(t["new"] == 0 for t in tried) and any(t["new"] > 0 for t in tried):
+            break
+    a = cell["3/1", d0, p0]
     assert tried and all(t["fixed"] == 0 for t in tried)
     others = {(t["d"], t["p"]): cell["3/1", t["d"], t["p"]] for t in tried}
     assert all((o["subject"], o["code"]) != (a["subject"], a["code"]) for o in others.values())  # không thử đổi vô ích
@@ -344,8 +349,9 @@ def test_timetable_view_marks_errors_and_tries_swaps(small_updated):
     assert not after["ok"] and len(after["errors"]) >= bad["new"]
     marked = {tuple(m) for e in after["errors"] for m in e["cells"]}
     assert marked and marked <= {(c["cls"], c["d"], c["p"]) for c in after["cells"] if c["subject"]}
-    assert ("3/1", 0, 2) in marked or ("3/1", b["d"], b["p"]) in marked
-    assert all(c["locked"] for c in after["cells"] if (c["d"], c["p"]) in {(0, 2), (b["d"], b["p"])} and c["cls"] == "3/1")
+    assert ("3/1", d0, p0) in marked or ("3/1", b["d"], b["p"]) in marked
+    assert all(c["locked"] for c in after["cells"]
+               if (c["d"], c["p"]) in {(d0, p0), (b["d"], b["p"])} and c["cls"] == "3/1")
     titles = [t.title for t in grid.problem.teachers.values()]
     assert not any(title in e["text"] for e in after["errors"] for title in titles)  # Mã GV, không phải chức vụ chuẩn hóa
     # Đổi người dạy (bước 7): người được dạy từng môn không có phần GVCN, kể cả khi đã có luật Chỉ giáo viên dạy.
