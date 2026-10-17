@@ -1414,6 +1414,25 @@ def _precheck_per_unit(L: Luat, problem, label) -> list[str]:
     return out
 
 
+def day_caps(problem) -> list[tuple[list[int], dict[int, int]]]:
+    """Luật bắt buộc Số tiết Tối đa (Đúng) n theo lớp và ngày hay buổi, không lọc ô, GV (`_per_unit`): [(các course của
+    một lớp cùng môn / nhóm môn / mọi môn của dòng, ngày -> số tiết tối đa của cả nhóm)]; theo buổi: n × số buổi của
+    ngày. Cho bài toán lập lịch cơ sở (tkb/lich_co_so.py), chỉ đếm số tiết mỗi ngày."""
+    from .allocation import subject_group
+    out = []
+    for L in compiled():
+        if not (L.hard and L.measure == "so_tiet" and _per_unit(L)):
+            continue
+        part = (lambda s: s) if "mon" in L.scope else subject_group if "nhom_mon" in L.scope else (lambda s: "")
+        groups: dict = defaultdict(list)
+        for c in problem.courses:
+            if c.lead is None and c.lessons and _lesson_ok(L, c.class_name, c.grade, c.subject, problem.curriculum):
+                groups[c.class_name, part(c.subject)].append(c.id)
+        caps = {d: L.number * (len(ss) if "buoi" in L.scope else 1) for d, ss in config.DAY_SESSIONS.items()}
+        out += [(cids, caps) for _, cids in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1]))]
+    return out
+
+
 def _units(L: Luat) -> int:
     """Số buổi (phạm vi có Buổi) hay số ngày của khung giờ: đơn vị thời gian của luật `_per_unit`."""
     if "buoi" in L.scope:
