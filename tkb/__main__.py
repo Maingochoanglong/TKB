@@ -208,15 +208,22 @@ def print_teacher_rules(solution) -> None:
     có dùng các cột đó)."""
     problem, lessons = solution.problem, solution.lessons
     teachers = problem.teachers
-    if problem.campus2:
-        both = {les.teacher for les in lessons if les.class_name in problem.campus2} & \
-               {les.teacher for les in lessons if les.class_name not in problem.campus2}
-        days = {}  # (GV, ngày) -> các cơ sở
+    if problem.campuses:
+        places, days = {}, {}  # GV -> các cơ sở; (GV, ngày) -> các cơ sở
         for les in lessons:
-            days.setdefault((les.teacher, les.day), set()).add(les.class_name in problem.campus2)
+            at = problem.campus[les.class_name]
+            places.setdefault(les.teacher, set()).add(at)
+            days.setdefault((les.teacher, les.day), set()).add(at)
+        both = [g for g, cs in places.items() if len(cs) > 1]
         switch = [g for (g, _), cs in days.items() if len(cs) > 1]
-        print(f"Cơ sở 2: {len(problem.campus2)} lớp; {len(both)} GV dạy ở cả hai cơ sở, mỗi buổi chỉ ở một cơ sở; "
-              f"sáng một cơ sở, chiều cơ sở kia: {len(switch)} lần ({len(set(switch))} GV)")
+        size = Counter(problem.campus[c] for c in problem.classes)
+        if len(problem.campuses) == 2:
+            head = f"{problem.campuses[1]}: {size[1]} lớp; {len(both)} GV dạy ở cả hai cơ sở"
+        else:
+            head = ", ".join(f"{n}: {size[at]} lớp" for at, n in enumerate(problem.campuses)) + \
+                f"; {len(both)} GV dạy ở nhiều cơ sở"
+        print(f"{head}, mỗi buổi chỉ ở một cơ sở; sáng một cơ sở, chiều cơ sở kia: {len(switch)} lần "
+              f"({len(set(switch))} GV)")
     maternity = [t for t in teachers.values() if t.maternity]
     if maternity:
         load = solution.teacher_load()

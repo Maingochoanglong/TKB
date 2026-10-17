@@ -113,7 +113,7 @@ NATIVES = (
     Native("doi_co_so", "Lịch giáo viên", lambda: [_r(
         scope=("gv", "ngay"), measure="so_khac", op="<=", number=1, count_by="co_so",
         points=_w().campus_day_switch)], free=("points",), weight="campus_day_switch",
-        titles=("Hạn chế để một giáo viên dạy ở cả hai cơ sở trong cùng một ngày",)),
+        titles=("Hạn chế để một giáo viên đổi cơ sở trong cùng một ngày (dạy ở hai cơ sở trở lên)",)),
     Native("co_so_2", "Lịch giáo viên", lambda: [CustomRule("co_so_2", hard=True)],
         titles=("Giáo viên không chủ nhiệm ghi Cơ sở 2 hoặc Thai Sản chỉ dạy các lớp ở cơ sở 2",)),
     Native("mon_nang", "Ưu tiên khi xếp giờ", lambda: [_r(

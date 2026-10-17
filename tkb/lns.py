@@ -121,8 +121,9 @@ class _Search:
             t = problem.teachers[g]
             over = len(items) - day_targets(t.max_lessons, problem.slots)[d]
             pen = w.day_over_preferred * max(0, over) + w.day_over_buffer * max(0, over - 1)
-            if len({l.class_name in problem.campus2 for l in items}) > 1:
-                pen += w.campus_day_switch
+            places = len({problem.campus.get(l.class_name, 0) for l in items})
+            if places > 1:  # như solver._campus_day_switch: mỗi lần đổi cơ sở trong ngày
+                pen += w.campus_day_switch * (places - 1)
             if not t.class_name:
                 for name in khung_gio.session_names():
                     ps = [l.period for l in items if sess[l.day, l.period].name == name]

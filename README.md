@@ -62,7 +62,7 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      bấm **Sửa** để mở trang chi tiết của môn, các quy định chia nhóm (hiển thị, GVCN, ai được dạy, luật bảo vệ học sinh,
      ưu tiên khi xếp), mỗi ô có giải thích. **Bảng đầy đủ** hiện mọi cột cùng lúc như sheet Excel.
    - **Lớp** (sheet `LỚP`, không bắt buộc): tên các khối (tùy ý, vd `Lá`; đổi tên thì số tiết của môn, lớp, luật đổi
-     theo) và danh sách lớp: tên lớp tùy ý, khối, Cơ sở 2, Nhãn, cột Chủ Nhiệm cho thấy lớp nào chưa có GVCN. **Lấy từ các Chủ
+     theo) và danh sách lớp: tên lớp tùy ý, khối, Cơ sở (tên, gợi ý các tên đã ghi), Nhãn, cột Chủ Nhiệm cho thấy lớp nào chưa có GVCN. **Lấy từ các Chủ
      Nhiệm** chép các lớp đang có. Để trống thì lớp là cột Lớp của các Chủ Nhiệm như trước.
    - **Chức vụ**: ba chức vụ có sẵn và các chức vụ GV chuyên biệt của trường. Chủ Nhiệm: đánh dấu môn nhận trọn, môn chỉ
      GVCN dạy; Bộ Môn: đánh dấu môn được dạy; Quản Lý: chọn khối cạnh môn được dạy (đây là các cột quy định của môn).
@@ -151,7 +151,7 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
    - **Không giới hạn thời gian** (`THOI_GIAN_TOI_DA` để trống hoặc `0`): bước dự toán và phân công xong ngay; bước xếp giờ xếp lại từng vùng đến khi một vòng không còn cải thiện rồi tự dừng, vẫn tái lập được. Với file của trường bản trước (chưa có hai cơ sở), mặc định 1200 đã ra đúng TKB của chế độ không giới hạn, trên cả Linux và Windows; chế độ không giới hạn có thể lâu hơn (Windows giả lập khoảng 16 phút) vì chạy thêm các vòng cho tới khi biết chắc không còn cải thiện. Bấm **Ctrl+C** để dừng sớm: chương trình dừng sau vùng đang xếp (vài giây), vẫn kiểm tra luật và ghi đủ các file ra; dừng bằng tay thì mỗi lần có thể ra TKB khác nhau.
    - Trên Windows, viết đường dẫn dạng `r"C:\Users\ten\TKB\input.xlsx"` hoặc `"C:/Users/ten/TKB/input.xlsx"`.
 2. Bấm **Run ▶** (VS Code, PyCharm...) hoặc chạy `python main.py`.
-3. Kết quả nằm trong `THU_MUC_OUT`: `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `TKB_giao_vien.xlsx`, `Thong_Ke.xlsx` và `<tên file vào>_cap_nhat.xlsx`. Trường có lớp ở cơ sở 2 thì mỗi file TKB tách làm hai: `TKB_diem_chinh.xlsx` / `TKB_diem_phu.xlsx` và `TKB_chuc_vu_diem_chinh.xlsx` / `TKB_chuc_vu_diem_phu.xlsx`. Khi ghi ra thư mục dự án, các file này đã được `.gitignore` bỏ qua để không lỡ đưa tên giáo viên lên git. Chế độ bù giờ mà thiếu tiết thì chỉ có `Thong_Ke.xlsx` (bảng tiết thiếu) và `main.py` trả về mã 3.
+3. Kết quả nằm trong `THU_MUC_OUT`: `TKB.xlsx`, `TKB_chuc_vu.xlsx`, `TKB_giao_vien.xlsx`, `Thong_Ke.xlsx` và `<tên file vào>_cap_nhat.xlsx`. Trường có nhiều cơ sở thì mỗi file TKB tách theo cơ sở: `TKB_diem_chinh.xlsx` (Cơ sở 1) / `TKB_diem_phu.xlsx` (Cơ sở 2) / `TKB_<tên cơ sở không dấu>.xlsx` (cơ sở tên khác), `TKB_chuc_vu` cũng vậy. Khi ghi ra thư mục dự án, các file này đã được `.gitignore` bỏ qua để không lỡ đưa tên giáo viên lên git. Chế độ bù giờ mà thiếu tiết thì chỉ có `Thong_Ke.xlsx` (bảng tiết thiếu) và `main.py` trả về mã 3.
 
 ### Cách 2 — dòng lệnh
 
@@ -331,13 +331,14 @@ dòng luật dùng (vd luật "Tránh xếp môn có nhãn Môn nặng vào gi�
 | Luôn do GVCN dạy | Có: tiết 1 | Luật cứng: tiết này ở mọi ngày do GVCN của lớp dạy. |
 | Hạn chế môn nặng | Có: tiết 7 | Mục tiêu mềm: mỗi tiết môn nặng ở tiết này bị trừ điểm. |
 
-**Sheet `LỚP`** (không bắt buộc): danh sách lớp, **mỗi dòng một lớp**: `Lớp | Khối | Cơ sở 2 | Nhãn` (thêm cột `Ghi chú`
-tùy ý), vd `Lá 1 | Lá | Có | Song ngữ`.
+**Sheet `LỚP`** (không bắt buộc): danh sách lớp, **mỗi dòng một lớp**: `Lớp | Khối | Cơ sở | Nhãn` (thêm cột `Ghi chú`
+tùy ý), vd `Lá 1 | Lá | Điểm Tân Phú | Song ngữ`.
 - **Lớp**: tên tùy ý, không trùng nhau (không phân biệt hoa thường). **Khối**: tên khối như ở các cột `Khối <tên>` của
-  sheet `CHƯƠNG TRÌNH HỌC`; để trống thì là các chữ số đầu tên lớp (`3/1` là khối 3). **Cơ sở 2**: `Có` nếu lớp học ở cơ
-  sở 2 (hoặc đánh dấu ở dòng Chủ Nhiệm như trước). **Nhãn**: các nhãn tự đặt, cách nhau bằng dấu phẩy, không trùng tên
-  lớp; cột Lớp của sheet `LUẬT` ghi một nhãn là mọi lớp có nhãn đó (lớp ghi Cơ sở 2 = `Có` có nhãn `Cơ sở 2`), vd luật
-  `Không xếp vào`, Môn `Tiếng Anh`, Lớp `Song ngữ`, Ngày `Thứ 6`.
+  sheet `CHƯƠNG TRÌNH HỌC`; để trống thì là các chữ số đầu tên lớp (`3/1` là khối 3). **Cơ sở**: tên cơ sở (điểm trường)
+  lớp học, tùy ý, **bao nhiêu cơ sở cũng được**; để trống là `Cơ sở 1` (lớp ở cơ sở 2 còn đánh dấu được ở cột Cơ sở 2
+  của dòng Chủ Nhiệm như trước; file của bản trước có cột `Cơ sở 2` Có/Không vẫn đọc được). **Nhãn**: các nhãn tự đặt,
+  cách nhau bằng dấu phẩy. Nhãn và tên cơ sở không trùng tên lớp; cột Lớp của sheet `LUẬT` ghi một nhãn hay một tên cơ
+  sở là mọi lớp có nhãn đó, ở cơ sở đó, vd luật `Không xếp vào`, Môn `Tiếng Anh`, Lớp `Song ngữ`, Ngày `Thứ 6`.
 - Có sheet này thì Chủ Nhiệm ghi Lớp là một lớp của sheet, cột Lớp Đang Dạy và cột Lớp của sheet `LUẬT` cũng theo tên
   này. **Lớp chưa có Chủ Nhiệm** vẫn được xếp: mọi môn của lớp chia cho giáo viên khác; tiết **Luôn do GVCN dạy**, luật
   "GVCN dạy tiết đầu tuần" không áp dụng cho lớp đó; tiết HĐTN vẫn cố định như các lớp khác; môn **Chỉ GVCN dạy** thì
@@ -480,18 +481,18 @@ File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền m�
 ## Đầu ra
 
 1. **`TKB.xlsx`**: **chỉ có thời khóa biểu**, mỗi khối một sheet **Khối 1…5** (tên khối như ở sheet `CHƯƠNG TRÌNH HỌC`).
-   - **Trường có hai cơ sở** (cột `Cơ sở 2`): tách thành **`TKB_diem_chinh.xlsx`** (các lớp cơ sở 1, điểm chính) và **`TKB_diem_phu.xlsx`** (các lớp cơ sở 2, điểm phụ); `TKB_chuc_vu.xlsx` cũng tách như vậy. Cột ngày ở hai file cùng độ rộng.
+   - **Trường có nhiều cơ sở** (cột Cơ sở của sheet `LỚP`, cột `Cơ sở 2`): mỗi cơ sở một file, **`TKB_diem_chinh.xlsx`** (Cơ sở 1, điểm chính), **`TKB_diem_phu.xlsx`** (Cơ sở 2, điểm phụ), cơ sở tên khác `TKB_<tên cơ sở không dấu>.xlsx`; `TKB_chuc_vu.xlsx` cũng tách như vậy. Cột ngày ở các file cùng độ rộng.
    - Mẫu: `data/Output_Template_TKB_V8.xlsx` (TKB của trường mẫu tên giả). Mỗi lớp là một bảng có các cột `LỚP | BUỔI | TIẾT | THỨ 2 … THỨ 6`.
    - Cột LỚP gộp 7 hàng; cột BUỔI gộp thành SÁNG (tiết 1–4) và CHIỀU (tiết 5–7); cột TIẾT ghi số tiết trong ngày. Cột LỚP chỉ ghi tên lớp, ví dụ `3D23` (lớp cơ sở 2 nằm ở file điểm phụ).
    - Mỗi ô ghi môn và **tên giáo viên** trên 2 dòng, ví dụ `HĐTN` rồi xuống dòng `Nguyễn Văn A`. Tên để trống hoặc người cần tuyển thì ghi Mã GV (`Bộ Môn 6`); hai người trùng tên thì kèm Mã GV. Chiều Thứ 6 ghi `Nghỉ`.
    - Các cột ngày ở mọi sheet cùng độ rộng, nới theo dòng dài nhất của cả trường (tối đa 30); tên dài hơn thì xuống dòng và hàng tự cao thêm. Khi in: khổ ngang, co vừa chiều rộng 1 trang.
    - **`TKB_chuc_vu.xlsx`**: cùng TKB, mỗi ô thêm dòng thứ 3 là chức vụ (Mã GV), ví dụ `Tiếng Việt` / tên / `Bộ Môn 4`, để theo dõi ai dạy tiết nào.
 2. **`TKB_giao_vien.xlsx`**: **TKB của từng giáo viên**, mẫu: `data/Output_Template_TKB_Giao_Vien_V8.xlsx`.
-   - Sheet **`Giáo viên`**: mỗi giáo viên (có tiết dạy, theo thứ tự file nhân sự) một bảng `BUỔI | TIẾT | THỨ 2 … THỨ 6`, dòng tựa ghi tên, Mã GV và số tiết, ví dụ `Nguyễn Văn A (Bộ Môn 2): 23 tiết`. Mỗi ô ghi **lớp** rồi xuống dòng **môn**, ví dụ `3/1` / `Tiếng Anh`; tiết dạy bù thêm `(bù)`, lớp ở cơ sở 2 thêm `(CS2)`. Ngắt trang sau mỗi bảng: **in ra mỗi người một trang** (khổ ngang).
+   - Sheet **`Giáo viên`**: mỗi giáo viên (có tiết dạy, theo thứ tự file nhân sự) một bảng `BUỔI | TIẾT | THỨ 2 … THỨ 6`, dòng tựa ghi tên, Mã GV và số tiết, ví dụ `Nguyễn Văn A (Bộ Môn 2): 23 tiết`. Mỗi ô ghi **lớp** rồi xuống dòng **môn**, ví dụ `3/1` / `Tiếng Anh`; tiết dạy bù thêm `(bù)`, lớp ở cơ sở 2 thêm `(CS2)`, lớp ở cơ sở tên khác (không phải cơ sở đầu) thêm tên cơ sở. Ngắt trang sau mỗi bảng: **in ra mỗi người một trang** (khổ ngang).
    - Sheet **`Tổng hợp`**: mỗi giáo viên một dòng, mỗi cột một tiết của tuần (`THỨ 2` tiết 1 … ), ô ghi lớp dạy giờ đó: nhìn một bảng thấy cả trường ai dạy lúc nào.
 3. **`Thong_Ke.xlsx`**: sheet `Thống kê` và sheet `Chất lượng`, mẫu: `data/Output_Template_Thong_Ke_V8.xlsx`.
    - Mỗi giáo viên một dòng, theo thứ tự file nhân sự, rồi đến người cần tuyển (tên `tuyển thêm`).
-   - Cột: **Họ và Tên | Chức Vụ** (Mã GV, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 2`) **| số tiết từng môn người đó dạy | Tổng Tiết | Số Tiết/Tuần** (định mức) **| Số Tiết Bù | Số Tiết Dư**. Tiết bù: dạy vượt định mức (chế độ bù giờ); tiết dư: định mức − Tổng Tiết khi dạy ít hơn định mức. Trường có lớp ở cơ sở 2 thì thêm 2 cột cho người **di chuyển giữa hai cơ sở**: **Buổi Ở Cơ Sở 2** (vd `Sáng T3, Chiều T5`) và **Đổi Cơ Sở Trong Ngày** (vd `T5: sáng cơ sở 1, chiều cơ sở 2`); dòng Tổng ghi số người, số lần, dưới bảng có chú thích. Chỉ có cột cho các môn có người dạy, theo thứ tự trong chương trình học; ô trống là không dạy môn đó. Cuối bảng có dòng **Tổng**.
+   - Cột: **Họ và Tên | Chức Vụ** (Mã GV, ví dụ `Chủ Nhiệm 1/1`, `Bộ Môn 2`) **| số tiết từng môn người đó dạy | Tổng Tiết | Số Tiết/Tuần** (định mức) **| Số Tiết Bù | Số Tiết Dư**. Tiết bù: dạy vượt định mức (chế độ bù giờ); tiết dư: định mức − Tổng Tiết khi dạy ít hơn định mức. Trường có nhiều cơ sở thì thêm 2 cột cho người **di chuyển giữa các cơ sở**: **Buổi Ở Cơ Sở 2** (vd `Sáng T3, Chiều T5`; cơ sở tên khác hay hơn hai cơ sở: **Buổi Ở Cơ Sở Khác**, vd `Sáng T3 (Điểm Tân Phú)`) và **Đổi Cơ Sở Trong Ngày** (vd `T5: sáng cơ sở 1, chiều cơ sở 2`); dòng Tổng ghi số người, số lần, dưới bảng có chú thích. Chỉ có cột cho các môn có người dạy, theo thứ tự trong chương trình học; ô trống là không dạy môn đó. Cuối bảng có dòng **Tổng**.
    - **Tô màu cả dòng** để biết ai bù, ai thêm: chế độ bù giờ tô **vàng** dòng người dạy bù (vượt định mức); chế độ tuyển thêm tô **xanh lá** dòng người cần tuyển; người còn dư tiết tô **xanh dương**. Trong dòng người dạy bù, **ô môn có tiết bù tô cam**; số tiết bù từng môn ghi bằng chữ ở cột **Môn Dạy Bù**, ví dụ `TV tăng cường 2, TNXH 1`. Dưới bảng có chú thích màu kèm số người, số tiết, ví dụ `Dạy bù (vượt định mức): 28 người, 56 tiết`, `Môn có tiết dạy bù: 40 ô, 56 tiết (số tiết từng môn ở cột Môn Dạy Bù)`, `Cần tuyển thêm: 3 người, 56 tiết`, `Dạy ít hơn định mức (còn dư tiết): 4 người, 17 tiết`.
    - Chế độ, dự toán, mã kết quả, kết quả kiểm tra luật, người cần tuyển, dạy bù và số liệu cơ sở, thai sản, buổi nghỉ, giữ phân công cũ chỉ in ra màn hình.
    - Sheet **`Chất lượng`**: TKB đã xếp tốt tới đâu, theo **từng dòng luật** của sheet LUẬT: **Nhóm | Luật** (câu đọc lại) **| Mức | Số Lần Không Theo | Điểm Trừ | Ví Dụ** (3 chỗ không theo đầu tiên, vd `lớp 1/5 có Tiếng Anh Thứ 3 tiết 7`), cuối bảng dòng Tổng. Luật bắt buộc luôn 0 (bộ kiểm tra độc lập đã đạt); luật ưu tiên cho biết còn bao nhiêu chỗ chưa theo được và mất bao nhiêu điểm, để so hai lần xếp hay xem sửa luật có tác dụng không. Đếm bằng chính bộ ghép luật (cùng cách đếm khi xếp). Hai luật chỉ có dạng gốc (buổi nghỉ, chỉ dạy cơ sở 2) ghi "kiểm bằng bộ kiểm tra độc lập".
@@ -522,11 +523,12 @@ Dưới đây là các quy tắc với giá trị mặc định. Phần lớn s�
 - **Thiếu định mức:** nhận thêm theo thứ tự TV tăng cường → Toán tăng cường → TNXH → Kỹ năng sống → Công nghệ. Không bao giờ nhận môn của giáo viên chuyên biệt.
 - **GVCN trước:** môn ưu tiên mà có người khác cùng dạy (bộ môn, người mới) thì tiết đầu tuần là của GVCN, tiết của người khác không đứng trước tiết GVCN đầu tiên.
 
-**Hai cơ sở, thai sản, buổi nghỉ** (theo các cột không bắt buộc của file vào; luật cứng, bộ kiểm tra kiểm lại)
-- **Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở.** Ví dụ sáng Thứ 2 có tiết ở cơ sở 2 thì cả buổi sáng đó người ấy chỉ dạy các lớp cơ sở 2. Giữa buổi sáng và buổi chiều thì đổi cơ sở được, nhưng bị hạn chế bằng mục tiêu mềm (xem dưới). Áp dụng cho mọi người, kể cả người cần tuyển (để hai chế độ vẫn chung một TKB).
+**Nhiều cơ sở, thai sản, buổi nghỉ** (theo các cột không bắt buộc của file vào; luật cứng, bộ kiểm tra kiểm lại)
+- **Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở**, dù trường có bao nhiêu cơ sở (cột Cơ sở của sheet `LỚP`, cột Cơ sở 2 của dòng Chủ Nhiệm). Ví dụ sáng Thứ 2 có tiết ở cơ sở 2 thì cả buổi sáng đó người ấy chỉ dạy các lớp cơ sở 2. Giữa buổi sáng và buổi chiều thì đổi cơ sở được, nhưng bị hạn chế bằng mục tiêu mềm (mỗi lần đổi cơ sở trong ngày bị trừ điểm; xem dưới). Áp dụng cho mọi người, kể cả người cần tuyển (để hai chế độ vẫn chung một TKB).
+- Muốn một người chỉ dạy ở một cơ sở: ghi nhãn cho người đó (cột Nhãn, vd `Tổ Hòa Bình`) và luật `Chỉ giáo viên dạy`, Lớp là các cơ sở khác, Giáo viên `trừ Tổ Hòa Bình`.
 - **Thai sản:** không dạy bù; chỉ dạy các lớp ở cơ sở 2.
 - **Buổi nghỉ:** không có tiết nào trong buổi nghỉ cố định; đủ số buổi trống đã xin.
-- Lớp ở cơ sở 2 nằm ở file TKB điểm phụ (`..._diem_phu.xlsx`); cột LỚP chỉ ghi tên lớp.
+- Mỗi cơ sở một file TKB: `..._diem_chinh.xlsx` (Cơ sở 1), `..._diem_phu.xlsx` (Cơ sở 2), cơ sở tên khác `..._<tên cơ sở không dấu>.xlsx` (vd `TKB_diem_tan_phu.xlsx`); cột LỚP chỉ ghi tên lớp.
 
 **Các chức vụ khác**
 - **Giáo viên chuyên biệt** (chức vụ của sheet `CHỨC VỤ`, ví dụ `GV Nghệ thuật`: chỉ dạy các môn ghi ở đó; hoặc chức vụ trùng tên một môn, ví dụ Tiếng Anh, Tin Học, Thể Dục: chỉ dạy đúng môn đó). Môn bộ môn không được dạy (Tiếng Anh, Tin học) mà trường chưa có ai thì chương trình tự thêm chức vụ để tuyển: chức vụ đầu tiên của sheet `CHỨC VỤ` dạy môn đó, không có thì chức vụ trùng tên môn (ví dụ `Tin Học 1`).

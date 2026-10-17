@@ -20,7 +20,7 @@ from dataclasses import dataclass, field, replace
 from . import config
 from .allocation import Problem, paired_groups, subject_group
 from .rules import applied
-from .staff import Teacher, grade_key, grade_of
+from .staff import CAMPUS1, Teacher, _fold, campus_of, grade_key, grade_of
 
 SECONDS = 30  # thời lượng mỗi lần thử khi chẩn đoán (đơn vị như THOI_GIAN_TOI_DA)
 
@@ -95,7 +95,8 @@ def _matters(key: str, staff: list[Teacher]) -> bool:
             "hdtn_co_dinh": bool(config.HDTN and config.HDTN_FIXED_SLOTS),
             "hdtn_ngay": bool(config.HDTN) and set(config.HDTN_FLEX_DAYS) != set(config.DAY_SESSIONS),
             "buoi_nghi": any(t.off_sessions or t.off_any for t in staff),
-            "co_so": any(t.campus2 for t in staff if t.class_name),
+            "co_so": len({_fold(campus_of(t.class_name, t.campus2)) for t in staff if t.class_name}
+                         | {_fold(c.campus or CAMPUS1) for c in config.CLASSES}) > 1,  # có từ hai cơ sở
             "co_so_2": any(t.campus2_only for t in staff)}.get(key, True)
 
 

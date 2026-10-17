@@ -53,12 +53,13 @@ class Teacher:
 
     @property
     def tag_keys(self) -> frozenset[str]:
-        """Các nhãn của GV (chuẩn hóa) để khớp cột Giáo viên của sheet LUẬT: cột Nhãn, và tên các cột Có/Không ghi Có
-        (Thai Sản, Hợp Đồng, Cơ sở 2; GVCN có lớp ở cơ sở 2 cũng có nhãn Cơ sở 2)."""
+        """Các nhãn của GV (chuẩn hóa) để khớp cột Giáo viên của sheet LUẬT: cột Nhãn, tên các cột Có/Không ghi Có
+        (Thai Sản, Hợp Đồng, Cơ sở 2) và, với GVCN, tên cơ sở của lớp mình (campus_of, vd Cơ sở 2)."""
         flags = [k for k in ("maternity", "contract", "campus2") if getattr(self, k)]
-        if self.class_name and "campus2" not in flags and class_campus2(self.class_name):
-            flags.append("campus2")
-        return frozenset({normalize(t) for t in self.tags} | {normalize(OPTIONAL_COLUMNS[k]) for k in flags})
+        tags = {normalize(t) for t in self.tags} | {normalize(OPTIONAL_COLUMNS[k]) for k in flags}
+        if self.class_name:
+            tags.add(normalize(campus_of(self.class_name, self.campus2)))
+        return frozenset(tags)
 
     @property
     def grade(self) -> int | str | None:
@@ -229,13 +230,13 @@ _tags_cache: tuple = (None, {})
 
 
 def class_tags() -> dict[str, tuple[str, ...]]:
-    """Nhãn lớp của sheet LỚP: {nhãn viết thường bỏ dấu: các lớp có nhãn đó}. Lớp ghi Có ở cột Cơ sở 2 có nhãn Cơ sở 2.
-    File không có sheet LỚP: không có nhãn lớp."""
+    """Nhãn lớp của sheet LỚP: {nhãn viết thường bỏ dấu: các lớp có nhãn đó}. Tên cơ sở của lớp (cột Cơ sở; trống là
+    Cơ sở 1) cũng là nhãn. File không có sheet LỚP: không có nhãn lớp."""
     global _tags_cache
     if _tags_cache[0] is not config.CLASSES:
         out: dict[str, list[str]] = {}
         for c in config.CLASSES:
-            for tag in (*c.tags, *((OPTIONAL_COLUMNS["campus2"],) if c.campus2 else ())):
+            for tag in (*c.tags, c.campus or CAMPUS1):  # tên cơ sở của lớp cũng là nhãn lớp
                 out.setdefault(_fold(tag), []).append(c.name)
         _tags_cache = (config.CLASSES, {k: tuple(dict.fromkeys(v)) for k, v in out.items()})
     return _tags_cache[1]
@@ -252,10 +253,20 @@ def parse_tags(value) -> tuple[str, ...]:
     return tuple(tags.values())
 
 
-def class_campus2(class_name: str) -> bool:
-    """Lớp ghi Có ở cột Cơ sở 2 của sheet LỚP (lớp ở cơ sở 2 còn có thể đánh dấu ở dòng Chủ Nhiệm)."""
+# Tên cơ sở mặc định: lớp không ghi cơ sở ở Cơ sở 1; ghi Có ở cột Cơ sở 2 (sheet LỚP hay dòng Chủ Nhiệm) là Cơ sở 2.
+CAMPUS1, CAMPUS2 = "Cơ sở 1", "Cơ sở 2"
+
+
+def campus_of(class_name: str, campus2: bool = False) -> str:
+    """Cơ sở của lớp: cột Cơ sở của sheet LỚP; không ghi thì Cơ sở 2 nếu dòng Chủ Nhiệm của lớp ghi Có ở cột Cơ sở 2
+    (`campus2`), còn lại Cơ sở 1."""
     known = _school()[0].get(class_name)
-    return known is not None and known.campus2
+    return known.campus if known is not None and known.campus else CAMPUS2 if campus2 else CAMPUS1
+
+
+def class_campus2(class_name: str) -> bool:
+    """Lớp ở cơ sở tên Cơ sở 2 theo sheet LỚP (lớp ở cơ sở 2 còn có thể đánh dấu ở dòng Chủ Nhiệm)."""
+    return _fold(campus_of(class_name)) == _fold(CAMPUS2)
 
 
 def class_sort_key(class_name: str) -> tuple:

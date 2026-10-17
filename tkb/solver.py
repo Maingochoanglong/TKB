@@ -388,10 +388,10 @@ def timetable(problem: Problem, settings: config.Settings,
 
 
 def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, occ_campus: dict) -> None:
-    """Luật cứng theo buổi của từng GV: buổi nghỉ (cột Buổi Nghỉ) và mỗi buổi chỉ dạy ở một cơ sở (cột Cơ sở 2).
+    """Luật cứng theo buổi của từng GV: buổi nghỉ (cột Buổi Nghỉ) và mỗi buổi chỉ dạy ở một cơ sở.
 
-    occ_terms[(GV, slot)]: các literal "GV dạy ở slot"; occ_campus[(GV, slot, lớp ở cơ sở 2?)]: như trên, tách
-    theo cơ sở của lớp."""
+    occ_terms[(GV, slot)]: các literal "GV dạy ở slot"; occ_campus[(GV, slot, chỉ số cơ sở của lớp)]: như trên,
+    tách theo cơ sở của lớp (Problem.campus)."""
     sess = session_of()
     sessions = [(d, s) for d, ss in config.DAY_SESSIONS.items() for s in ss]
     by_teacher: dict[str, dict[tuple[int, str], list]] = {}  # GV -> buổi -> literal
@@ -415,38 +415,58 @@ def _teacher_sessions(m: cp_model.CpModel, problem: Problem, occ_terms: dict, oc
                 pool = [off[k] for k in free if name is None or k[1] == name]
                 need = sum(k for _, k in t.off_any) if name is None else n
                 m.Add(sum(pool) >= need)
-    # Mỗi buổi GV chỉ dạy ở một cơ sở: o2 = 1 là buổi đó ở cơ sở 2.
+    # Mỗi buổi GV chỉ dạy ở một cơ sở.
     for g in sorted(by_teacher) if on("co_so") else ():
         for d, session in sessions:
-            lits = {at2: [v for p in session.periods for v in occ_campus.get((g, (d, p), at2), [])]
-                    for at2 in (False, True)}
-            if lits[False] and lits[True]:
+            lits = {at: [v for p in session.periods for v in occ_campus.get((g, (d, p), at), [])]
+                    for at in range(max(len(problem.campuses), 1))}
+            used = [at for at, vs in lits.items() if vs]
+            if len(used) == 2:  # hai cơ sở: o2 = 1 là buổi đó ở cơ sở sau
                 o2 = m.NewBoolVar(f"cs2_{g}_{d}_{session.name}")
-                for v in lits[True]:
+                for v in lits[used[1]]:
                     m.AddImplication(v, o2)
-                for v in lits[False]:
+                for v in lits[used[0]]:
                     m.AddImplication(v, o2.Not())
+            elif len(used) > 2:  # nhiều cơ sở: mỗi cơ sở một biến "buổi đó ở cơ sở này", nhiều nhất một biến đúng
+                here = {at: m.NewBoolVar(f"cs{at + 1}_{g}_{d}_{session.name}") for at in used}
+                for at in used:
+                    for v in lits[at]:
+                        m.AddImplication(v, here[at])
+                m.AddAtMostOne(list(here.values()))
 
 
 def _campus_day_switch(m: cp_model.CpModel, occ_campus: dict, weight: int) -> list:
-    """Mục tiêu mềm: phạt `weight` mỗi (GV, ngày) dạy ở cả hai cơ sở (sáng một nơi, chiều nơi kia)."""
+    """Mục tiêu mềm: phạt `weight` mỗi lần đổi cơ sở trong ngày của một GV (sáng một nơi, chiều nơi kia): mỗi (GV,
+    ngày) dạy ở k cơ sở bị phạt (k - 1) lần."""
     if not weight:  # luật ưu tiên bị bỏ (sheet LUẬT)
         return []
-    by_day: dict[tuple[str, int, bool], list] = {}  # (GV, ngày, lớp ở cơ sở 2?) -> literal
-    for (g, s, at2), lits in sorted(occ_campus.items()):
-        by_day.setdefault((g, s[0], at2), []).extend(lits)
+    by_day: dict[tuple[str, int, int], list] = {}  # (GV, ngày, chỉ số cơ sở) -> literal
+    for (g, s, at), lits in sorted(occ_campus.items()):
+        by_day.setdefault((g, s[0], at), []).extend(lits)
+    places: dict[tuple[str, int], list[int]] = {}  # (GV, ngày) -> các cơ sở có tiết
+    for g, d, at in by_day:
+        places.setdefault((g, d), []).append(at)
     terms = []
-    for g, d in sorted({(g, d) for g, d, _ in by_day}):
-        one, two = by_day.get((g, d, False)), by_day.get((g, d, True))
-        if not one or not two:
+    for g, d in sorted(places):
+        used = sorted(places[g, d])
+        if len(used) < 2:
             continue
-        u1, u2, both = (m.NewBoolVar(f"{k}_{g}_{d}") for k in ("cs1", "cs2", "hai_cs"))
-        for v in one:
-            m.AddImplication(v, u1)
-        for v in two:
-            m.AddImplication(v, u2)
-        m.Add(both >= u1 + u2 - 1)
-        terms.append(weight * both)
+        if len(used) == 2:  # hai cơ sở: biến "cả hai"
+            u1, u2, both = (m.NewBoolVar(f"{k}_{g}_{d}") for k in ("cs1", "cs2", "hai_cs"))
+            for v in by_day[g, d, used[0]]:
+                m.AddImplication(v, u1)
+            for v in by_day[g, d, used[1]]:
+                m.AddImplication(v, u2)
+            m.Add(both >= u1 + u2 - 1)
+            terms.append(weight * both)
+            continue
+        here = [m.NewBoolVar(f"cs{at + 1}_{g}_{d}") for at in used]
+        for u, at in zip(here, used):
+            for v in by_day[g, d, at]:
+                m.AddImplication(v, u)
+        switches = m.NewIntVar(0, len(used) - 1, f"doi_cs_{g}_{d}")
+        m.Add(switches >= sum(here) - 1)
+        terms.append(weight * switches)
     return terms
 
 
@@ -488,21 +508,21 @@ def build_timetable(problem: Problem, settings: config.Settings,
     # GV dạy course tại slot nào. Tiết của người mới mà là tiết bù của một người (problem.covers) chiếm lịch của cả
     # hai: chế độ tuyển người mới dạy, chế độ bù giờ người bù dạy đúng ô đó.
     occ_terms: dict[tuple[str, tuple[int, int]], list] = {}
-    occ_campus: dict[tuple[str, tuple[int, int], bool], list] = {}  # (GV, slot, lớp ở cơ sở 2?) -> literal
+    occ_campus: dict[tuple[str, tuple[int, int], int], list] = {}  # (GV, slot, chỉ số cơ sở của lớp) -> literal
 
-    def occupy(cid: int, g: str, s: tuple[int, int], v, at2: bool) -> None:
+    def occupy(cid: int, g: str, s: tuple[int, int], v, at: int) -> None:
         for who in (g, problem.covers.get((cid, g))):
             if who:
                 occ_terms.setdefault((who, s), []).append(v)
-                occ_campus.setdefault((who, s, at2), []).append(v)
+                occ_campus.setdefault((who, s, at), []).append(v)
 
     z: dict[tuple[int, str, tuple[int, int]], cp_model.IntVar] = {}
     for c in problem.courses:
         cand = alloc.teachers_of[c.id]
-        at2 = c.class_name in problem.campus2
+        at = problem.campus.get(c.class_name, 0)
         if len(cand) == 1:
             for s in dom[c.id]:
-                occupy(c.id, cand[0], s, x[c.id, s], at2)
+                occupy(c.id, cand[0], s, x[c.id, s], at)
             continue
         for s in dom[c.id]:
             zs = []
@@ -510,7 +530,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 v = m.NewBoolVar(f"z_{c.id}_{g}_{s[0]}_{s[1]}")
                 z[c.id, g, s] = v
                 zs.append(v)
-                occupy(c.id, g, s, v, at2)
+                occupy(c.id, g, s, v, at)
             m.Add(sum(zs) == x[c.id, s])
         for g in cand:
             m.Add(sum(z[c.id, g, s] for s in dom[c.id]) == alloc.a[c.id, g])

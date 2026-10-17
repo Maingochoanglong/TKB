@@ -4,7 +4,8 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from . import config
-from .allocation import Problem, all_slots, homeroom_only, manager_allowed, may_teach, paired_groups, subject_group
+from .allocation import (Problem, all_slots, campus_label, homeroom_only, manager_allowed, may_teach, paired_groups,
+                         subject_group)
 from .solver import Lesson
 from .staff import grade_of
 
@@ -186,25 +187,26 @@ def _check_teacher_sessions(problem: Problem, lessons: list[Lesson]) -> list[str
     errors = []
     teachers = problem.teachers
     sess = {(d, p): s.name for d, ss in config.DAY_SESSIONS.items() for s in ss for p in s.periods}
-    campuses: dict[tuple[str, int, str], set[int]] = defaultdict(set)
+    campuses: dict[tuple[str, int, str], set[int]] = defaultdict(set)  # (GV, ngày, buổi) -> các cơ sở
     busy: dict[str, set[tuple[int, str]]] = defaultdict(set)
     for les in lessons:
         t = teachers.get(les.teacher)
         if t is None:
             continue
         key = (les.day, sess.get((les.day, les.period), ""))
-        at2 = les.class_name in problem.campus2
-        if t.campus2_only and not at2 and config.on("co_so_2"):
+        if t.campus2_only and les.class_name not in problem.campus2 and config.on("co_so_2"):
             errors.append(f"{les.class_name} {config.DAYS[les.day]} tiết {les.period}: {t.title} chỉ dạy ở cơ sở 2 "
-                          f"nhưng lớp ở cơ sở 1")
-        campuses[les.teacher, *key].add(2 if at2 else 1)
+                          f"nhưng lớp ở {problem.campus_label(les.class_name)}")
+        campuses[les.teacher, *key].add(problem.campus.get(les.class_name, 0))
         busy[les.teacher].add(key)
         if key in t.off_sessions and config.on("buoi_nghi"):
             errors.append(f"{t.title} có tiết buổi nghỉ {key[1].lower()} {config.DAYS[key[0]]} ({les.class_name} "
                           f"tiết {les.period})")
     for (g, d, name), cs in sorted(campuses.items()):
         if len(cs) > 1 and config.on("co_so"):
-            errors.append(f"{g} dạy cả hai cơ sở trong buổi {name.lower()} {config.DAYS[d]}")
+            where = ", ".join(campus_label(problem.campuses[at]) for at in sorted(cs))
+            errors.append(f"{g} dạy {'cả hai' if len(cs) == 2 else len(cs)} cơ sở ({where}) trong buổi "
+                          f"{name.lower()} {config.DAYS[d]}")
     sessions = [(d, s.name) for d, ss in config.DAY_SESSIONS.items() for s in ss]
     for g, t in teachers.items() if config.on("buoi_nghi") else ():
         free = [k for k in sessions if k not in t.off_sessions and k not in busy.get(g, set())]

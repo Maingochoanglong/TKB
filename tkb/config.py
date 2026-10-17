@@ -91,7 +91,7 @@ class SchoolClass:
     GVCN."""
     name: str  # tên lớp như ghi trong file, vd "1/1", "Lá 2"
     grade: int | str  # khối: số nếu ghi toàn chữ số, không thì tên khối như ghi (vd "Lá")
-    campus2: bool = False  # lớp ở cơ sở 2
+    campus: str = ""  # cột Cơ sở: tên cơ sở (điểm trường) của lớp, như ghi; trống: Cơ sở 1 (staff.campus_of)
     row: int = 0  # dòng trong sheet LỚP (để báo lỗi)
     tags: tuple[str, ...] = ()  # cột Nhãn: nhãn tự đặt (vd "Song ngữ"); cột Lớp của sheet LUẬT ghi nhãn là các lớp đó
 

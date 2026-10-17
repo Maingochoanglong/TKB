@@ -189,7 +189,7 @@ def test_class_step(page):
     grade.fill("Mầm")
     grade.press("Tab")
     sc = page.evaluate("({grades: st.scenario.grades, cls: st.scenario.classes[29], lessons: st.scenario.subjects[0].lessons})")
-    assert sc["grades"] == [1, 2, 3, 4, 5, "Mầm"] and sc["cls"] == {"name": "Lá 1", "grade": "Mầm", "campus2": False}
+    assert sc["grades"] == [1, 2, 3, 4, 5, "Mầm"] and sc["cls"] == {"name": "Lá 1", "grade": "Mầm", "campus": ""}
     assert "Mầm" in sc["lessons"] and "Lá" not in sc["lessons"]
     _wait_mark(page, "lop", "✓")
     # Chủ Nhiệm ghi lớp không có trong danh sách: lỗi ở bước Giáo viên; xóa lớp 1/1 khỏi danh sách cũng vậy.
@@ -243,8 +243,8 @@ def test_extra_roles_picker(page):
 
 
 def test_tags_in_rule_dialog(page):
-    """Cột Nhãn: nhãn lớp ghi ở bước Lớp, nhãn giáo viên ghi trong hộp thoại giáo viên hiện trong gợi ý cột Lớp, cột
-    Giáo viên của hộp thoại luật; kiểm tra vẫn ✓."""
+    """Cột Nhãn: nhãn lớp, tên cơ sở ghi ở bước Lớp, nhãn giáo viên ghi trong hộp thoại giáo viên hiện trong gợi ý cột
+    Lớp, cột Giáo viên của hộp thoại luật; kiểm tra vẫn ✓."""
     page.wait_for_selector("#start:not([hidden])")
     page.click('[data-start="sample"]')
     _wait_mark(page, "lop", "✓")
@@ -253,6 +253,10 @@ def test_tags_in_rule_dialog(page):
     tags = page.locator('#class-table [data-f="class"][data-i="0"][data-k="tags"]')
     tags.fill("Song ngữ")
     tags.press("Tab")
+    campus = page.locator('#class-table [data-f="class"][data-i="1"][data-k="campus"]')
+    campus.fill("Điểm Tân Phú")
+    campus.press("Tab")
+    assert page.evaluate("st.scenario.classes[1].campus") == "Điểm Tân Phú"
     page.click('.tabs [data-tab="gv"]')
     page.click('[data-act="edit-staff"][data-i="0"]')
     field = page.locator('#detail-body [data-f="staff"][data-i="0"][data-k="tags"]')
@@ -264,7 +268,7 @@ def test_tags_in_rule_dialog(page):
     page.click("#btn-add-rule")
     options = lambda sel: page.evaluate(  # noqa: E731
         f"[...document.querySelectorAll('{sel} option')].map((o) => o.value)")
-    assert "Song ngữ" in options("#rule-class-list") and "1/1" in options("#rule-class-list")
+    assert {"Song ngữ", "1/1", "Điểm Tân Phú", "Cơ sở 1"} <= set(options("#rule-class-list"))
     assert {"Tổ Một", "Bán thời gian", "Bộ Môn"} <= set(options("#teacher-list"))
     page.keyboard.press("Escape")
     _wait_mark(page, "lop", "✓")

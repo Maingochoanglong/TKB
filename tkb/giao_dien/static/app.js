@@ -147,7 +147,8 @@ function input(kind, value, attrs, cls = "") {
     if (cur && !grades.some((g) => String(g) === cur)) opts.push(`<option value="${esc(cur)}" selected>Khối ${esc(cur)} (chưa có)</option>`);
     return `<select ${a} data-grade="1" class="${cls}">${opts.join("")}</select>`;
   }
-  const list = kind === "role" ? 'list="role-list"' : kind === "class" ? 'list="class-list"' : "";
+  const list = kind === "role" ? 'list="role-list"' : kind === "class" ? 'list="class-list"'
+    : kind === "campus" ? `list="campus-list" placeholder="${esc(S.custom.campus_default)}"` : "";
   return `<input type="text" ${a} ${list} value="${esc(value)}" class="${cls}" spellcheck="false">`;
 }
 function readInput(el) {
@@ -646,8 +647,8 @@ function renderClasses() {
     <span class="muted">${hasClassList() ? `${count(g)} lớp` : ""}</span>
     <button type="button" class="icon" data-act="del-grade" data-i="${i}" title="Bỏ khối này">✕</button></span>`).join("")
     || `<p class="muted">Chưa có khối nào.</p>`;
-  const head = `<thead><tr><th>Dòng</th><th class="left">Lớp</th><th>Khối</th><th>Cơ sở 2</th><th class="left">Nhãn</th>
-    <th class="left">Chủ Nhiệm</th><th></th></tr></thead>`;
+  const head = `<thead><tr><th>Dòng</th><th class="left">Lớp</th><th>Khối</th><th class="left">Cơ sở</th>
+    <th class="left">Nhãn</th><th class="left">Chủ Nhiệm</th><th></th></tr></thead>`;
   const body = sc.classes.map((c, i) => {
     const t = String(c.name || "").trim() ? homeroomOf(c.name) : null;
     const who = t ? esc(String(t.name || "").trim() || "(chưa có tên)")
@@ -655,12 +656,16 @@ function renderClasses() {
     return `<tr data-row="${i + 2}"><td class="num">${i + 2}</td>
       <td class="left">${input("text", c.name, { f: "class", i, k: "name" })}</td>
       <td>${input("grade", c.grade, { f: "class", i, k: "grade" })}</td>
-      <td>${input("yes", c.campus2, { f: "class", i, k: "campus2" })}</td>
+      <td class="left">${input("campus", c.campus ?? (c.campus2 === true ? S.custom.campus2 : ""),
+        { f: "class", i, k: "campus" })}</td>
       <td class="left">${input("text", c.tags, { f: "class", i, k: "tags" })}</td>
       <td class="left">${who}</td>
       <td><button type="button" class="icon" data-act="del-class" data-i="${i}" title="Xóa lớp">✕</button></td></tr>`;
   }).join("");
   $("#class-table").innerHTML = sc.classes.length ? head + `<tbody>${body}</tbody>` : "";
+  const campuses = [S.custom.campus_default, S.custom.campus2, ...sc.classes.map(campusOf)];
+  $("#campus-list").innerHTML = [...new Map(campuses.map((x) => [key(x), x])).values()]
+    .map((x) => `<option value="${esc(x)}">`).join("");
   $("#class-table").parentElement.hidden = !sc.classes.length;
   const homerooms = sc.staff.filter((t) => isHomeroom(t) && String(t.class || "").trim()).length;
   const without = sc.classes.filter((c) => String(c.name || "").trim() && !homeroomOf(c.name)).length;
@@ -1020,10 +1025,13 @@ function staffTags() {
   const tags = [...st.scenario.staff.flatMap((t) => splitTags(t.tags)), ...flags];
   return [...new Map(tags.map((x) => [key(x), x])).values()];
 }
+// Tên cơ sở của lớp (bước 3; trống: Cơ sở 1; kịch bản cũ: ô Cơ sở 2) — cũng là nhãn lớp.
+const campusOf = (c) => String(c.campus ?? "").trim()
+  || (c.campus2 === true ? S.custom.campus2 : S.custom.campus_default);
 function classTags() {
   const cls = (st.scenario.classes || []).filter(named);
-  const flag = cls.some((c) => c.campus2 === true) ? [S.custom.class_campus2] : [];
-  return [...new Map([...cls.flatMap((c) => splitTags(c.tags)), ...flag].map((x) => [key(x), x])).values()];
+  const tags = [...cls.flatMap((c) => splitTags(c.tags)), ...cls.map(campusOf)];
+  return [...new Map(tags.map((x) => [key(x), x])).values()];
 }
 
 // Luật ghi một người (Mã GV hay họ tên) phải đi theo đúng người. Mã GV đánh số theo thứ tự dòng trong chức vụ, nên xóa,
@@ -2223,6 +2231,7 @@ function onEdit(e) {
     }
   } else if (d.f === "class") {
     sc.classes[i][d.k] = v;
+    if (d.k === "campus") delete sc.classes[i].campus2; // kịch bản cũ: ô Cơ sở 2 thay bằng tên cơ sở
     if (done) renderClasses();
   } else if (d.f === "staff") {
     const t = sc.staff[i];
@@ -2421,7 +2430,8 @@ async function onClick(e) {
     }
     case "add-class": {
       const last = sc.classes[sc.classes.length - 1];
-      sc.classes.push({ name: "", grade: last ? last.grade : (sc.grades[0] ?? null), campus2: false });
+      sc.classes.push({ name: "", grade: last ? last.grade : (sc.grades[0] ?? null),
+        campus: last ? last.campus ?? "" : "" });
       renderClasses();
       $(`#class-table [data-f="class"][data-i="${sc.classes.length - 1}"][data-k="name"]`)?.focus();
       break;
@@ -2435,7 +2445,8 @@ async function onClick(e) {
     case "classes-from-homeroom": {
       const have = new Set(sc.classes.map((c) => classKey(c.name)));
       const add = sc.staff.filter((t) => isHomeroom(t) && String(t.class || "").trim() && !have.has(classKey(t.class)))
-        .map((t) => ({ name: String(t.class).trim(), grade: toGrade(classGrade(t.class)), campus2: !!t.campus2 }));
+        .map((t) => ({ name: String(t.class).trim(), grade: toGrade(classGrade(t.class)),
+          campus: t.campus2 ? S.custom.campus2 : "" }));
       if (!add.length) { notify("Không có lớp nào của Chủ Nhiệm mà danh sách chưa có.", "warn"); return; }
       sc.classes = [...sc.classes.filter(named), ...add].sort((a, b) => byClass(a.name, b.name));
       renderClasses();
