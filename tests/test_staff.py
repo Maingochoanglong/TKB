@@ -3,7 +3,7 @@ import pytest
 
 from tkb import config
 from tkb.program import canonical_subject, read_program, subject_key
-from tkb.staff import InputError, classes_from_staff, read_staff, validate
+from tkb.staff import InputError, class_list, read_staff, validate
 
 from .conftest import CURRICULUM, INPUT_FILE, teacher
 
@@ -25,7 +25,7 @@ def test_duplicates_rejected():
 
 def test_read_sample_staff(sample_staff):
     assert len(sample_staff) == 45
-    classes = classes_from_staff(sample_staff)
+    classes = class_list(sample_staff)
     assert len(classes) == 29
     assert classes[0] == "1/1" and classes[-1] == "5/5"
     cn55 = next(t for t in sample_staff if t.class_name == "5/5")
@@ -159,7 +159,7 @@ def test_named_classes_and_optional_columns(tmp_path):
         ("D", "Bộ Môn", None, 19, "Có", None, None, "1D15; 2D16", "Chiều thứ 5, sáng T6, chiều T6"),
         ("E", "Tiếng Anh", None, 23, None, "Không", None, "2D16", None)], header=EXTRA)
     ts = read_staff(path)
-    assert classes_from_staff(ts) == ["1D9", "1D15", "2D16"]  # sắp theo khối rồi số
+    assert class_list(ts) == ["1D9", "1D15", "2D16"]  # sắp theo khối rồi số
     a, b, c, d, e = ts
     assert a.contract and not a.maternity and a.title == "chủ nhiệm 1D15" and a.grade == 1
     assert b.maternity and b.campus2 and b.off_any == (("Chiều", 2),) and not b.campus2_only

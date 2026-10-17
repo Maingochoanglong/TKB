@@ -19,7 +19,7 @@ from dataclasses import dataclass, field, replace
 
 from ortools.sat.python import cp_model
 
-from . import config
+from . import config, khung_gio
 from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, previous_cost,
                          roles_for_subject, subject_group)
 from .bo_ghep import assign_cost
@@ -135,7 +135,8 @@ def allowed_slots(course: Course, problem: Problem) -> list[tuple[int, int]]:
             continue
         if course.subject == config.HDTN and s in config.HDTN_FIXED_SLOTS and on("hdtn_co_dinh"):
             continue
-        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS and on("tiet_gvcn"):
+        if not course.homeroom and s[1] in config.HOMEROOM_PERIODS and on("tiet_gvcn") \
+                and course.class_name not in problem.no_homeroom:
             continue
         result.append(s)
     if config.CUSTOM_RULES:  # luật riêng bắt buộc về vị trí (tkb/bo_ghep.py)
@@ -483,17 +484,24 @@ def build_timetable(problem: Problem, settings: config.Settings,
             vs = [x[c.id, s] for c in courses if (c.id, s) in x]
             m.Add(sum(vs) == 1) if full else m.Add(sum(vs) <= 1)
 
-    # GV dạy course tại slot nào.
+    # GV dạy course tại slot nào. Tiết của người mới mà là tiết bù của một người (problem.covers) chiếm lịch của cả
+    # hai: chế độ tuyển người mới dạy, chế độ bù giờ người bù dạy đúng ô đó.
     occ_terms: dict[tuple[str, tuple[int, int]], list] = {}
     occ_campus: dict[tuple[str, tuple[int, int], bool], list] = {}  # (GV, slot, lớp ở cơ sở 2?) -> literal
+
+    def occupy(cid: int, g: str, s: tuple[int, int], v, at2: bool) -> None:
+        for who in (g, problem.covers.get((cid, g))):
+            if who:
+                occ_terms.setdefault((who, s), []).append(v)
+                occ_campus.setdefault((who, s, at2), []).append(v)
+
     z: dict[tuple[int, str, tuple[int, int]], cp_model.IntVar] = {}
     for c in problem.courses:
         cand = alloc.teachers_of[c.id]
         at2 = c.class_name in problem.campus2
         if len(cand) == 1:
             for s in dom[c.id]:
-                occ_terms.setdefault((cand[0], s), []).append(x[c.id, s])
-                occ_campus.setdefault((cand[0], s, at2), []).append(x[c.id, s])
+                occupy(c.id, cand[0], s, x[c.id, s], at2)
             continue
         for s in dom[c.id]:
             zs = []
@@ -501,8 +509,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 v = m.NewBoolVar(f"z_{c.id}_{g}_{s[0]}_{s[1]}")
                 z[c.id, g, s] = v
                 zs.append(v)
-                occ_terms.setdefault((g, s), []).append(v)
-                occ_campus.setdefault((g, s, at2), []).append(v)
+                occupy(c.id, g, s, v, at2)
             m.Add(sum(zs) == x[c.id, s])
         for g in cand:
             m.Add(sum(z[c.id, g, s] for s in dom[c.id]) == alloc.a[c.id, g])
@@ -629,10 +636,11 @@ def build_timetable(problem: Problem, settings: config.Settings,
             objective.extend(w.heavy_late * x[c.id, s] for s in dom[c.id]
                              if s[1] in config.HEAVY_LATE_PERIODS)
 
-    # Buổi sáng dành cho TV, Toán.
+    # Buổi sáng (buổi đầu của khung giờ, tkb/khung_gio.py) dành cho TV, Toán.
+    first, sess = khung_gio.first_session_name(), session_of()
     for c in problem.courses:
         if c.subject in config.MORNING_SUBJECTS and w.morning_core:
-            objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if s[1] not in config.MORNING.periods)
+            objective.extend(w.morning_core * x[c.id, s] for s in dom[c.id] if sess[s].name != first)
 
     # Tải ngày của GV: phạt vượt mức mong muốn và vượt buffer (+1).
     days = sorted(config.DAY_SESSIONS)
@@ -988,6 +996,9 @@ def _assignment(staff: list[Teacher], curriculum: dict[int, dict[str, int]], set
     counts = {role: len(groups) for role, groups in split.items()}
     work = build_problem(staff, curriculum, counts, overtime_max=0)
     fixed, owners = _hire_assignment(plan, work, split)
+    # Tiết bù do người mới dạy vẫn chiếm lịch của người bù khi xếp giờ (tach_tiet_bu: mỗi (course, người mới) một
+    # người bù), để TKB chế độ bù giờ (_to_overtime) giữ mọi luật của người bù: không trùng giờ, buổi nghỉ, cơ sở.
+    work = replace(work, covers={key: who[0] for key, who in owners.items() if who[0]})
     if hire:
         need = ", ".join(f"{work.teachers[titles[0]].label or role} x{len(titles)}"
                          for role, titles in work.supplement_roles.items() if titles)

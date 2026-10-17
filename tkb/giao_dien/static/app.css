@@ -345,6 +345,9 @@ select.bad, table.grid select.bad { border-color: var(--danger); color: var(--da
 .gen-row.block { grid-template-columns: 1fr; }
 .gen-row.block .val { justify-self: stretch; display: grid; gap: 6px; }
 .grade-row { display: flex; gap: 8px; align-items: flex-start; }
+.grade-list { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.grade-item { display: inline-flex; align-items: center; gap: 6px; }
+.grade-item input { width: 90px; }
 .grade-row > button { flex: none; min-width: 72px; justify-content: center; }
 table.off-grid { width: auto; }
 table.off-grid th, table.off-grid td { padding: 4px 10px; }
@@ -439,3 +442,10 @@ input.search { width: 220px; }
 @media (max-width: 640px) { input.search { width: 100%; } }
 .pick .inline-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; }
 .pick .inline-pick select { width: auto; max-width: 260px; }
+
+/* Bảng Ngày học (bước 1): cột "Buổi <tên>" sửa được tên ngay ở tiêu đề */
+#day-table th.session-head { white-space: nowrap; }
+#day-table th.session-head input.session-name { min-width: 0; width: 6.5em; font-weight: 600; }
+#day-table input.day-name { min-width: 0; width: 8em; }
+.toolbar .actions-right { display: flex; gap: 8px; margin-left: auto; }
+.actions #new-grade { width: 130px; }

@@ -165,6 +165,31 @@ def test_checker_flags_campus_and_leave_violations(campus_solution):
     assert any("thể dục 1 dạy cả hai cơ sở" in e for e in check(sol.problem, moved))
 
 
+def test_overtime_lessons_keep_the_leave_of_the_teacher():
+    """Chế độ bù giờ: tiết bù được xếp như tiết của người mới rồi trả về người bù, nên vẫn phải tránh buổi nghỉ
+    của người bù (trước đây GVCN 3/1 có 2 tiết bù rơi vào buổi nghỉ)."""
+    off = frozenset({(0, "Chiều"), (1, "Chiều"), (2, "Chiều")})
+    staff = _set(small_staff(general=False), "chủ nhiệm 3/1", off_sessions=off)
+    settings = dataclasses.replace(FAST, mode=config.MODE_OVERTIME, overtime_max=4)
+    sol = solve(staff, CURRICULUM, settings, log=lambda *_: None)
+    mine = [l for l in sol.lessons if l.teacher == "chủ nhiệm 3/1"]
+    assert check(sol.problem, sol.lessons) == [] and any(l.overtime for l in mine)
+    assert not {(l.day, SESSION[l.period]) for l in mine} & off
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_overtime_of_a_general_teacher_never_clashes(seed):
+    """Bộ môn dạy bù ở lớp khác: tiết bù chiếm lịch của chính bộ môn đó (trước đây seed 1 cho bộ môn 1 dạy hai lớp
+    cùng lúc); hai chế độ vẫn cùng vị trí môn."""
+    settings = dataclasses.replace(FAST, mode=config.MODE_OVERTIME, overtime_max=1, seed=seed)
+    sol = solve(_general([5]), CURRICULUM, settings, log=lambda *_: None)
+    assert sol.overtime().get("bộ môn 1") and check(sol.problem, sol.lessons) == []
+    hired = solve(_general([5]), CURRICULUM, dataclasses.replace(settings, mode=config.MODE_HIRE),
+                  log=lambda *_: None)
+    cells = lambda s: sorted((l.class_name, l.day, l.period, l.subject) for l in s.lessons)  # noqa: E731
+    assert check(hired.problem, hired.lessons) == [] and cells(hired) == cells(sol)
+
+
 def test_timetable_class_column_is_plain_name(campus_solution, tmp_path):
     import openpyxl
 

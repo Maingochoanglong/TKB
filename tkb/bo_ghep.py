@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from . import config
 from .config import CustomRule
-from .staff import grade_of
+from .staff import grade_key, grade_of
 
 
 # --------------------------------------------------------------------------
@@ -420,9 +420,10 @@ def _key(dim: str, a: Atom, problem):
 class _Source:
     """Các tiết có thể có (mỗi course × ô trong miền × GV): từ biến của mô hình, hoặc từ một TKB."""
 
-    def __init__(self, problem, dom: dict[int, list], lit, teachers_of, extra=()):
+    def __init__(self, problem, dom: dict[int, list], lit, teachers_of, extra=(), relabel=None):
         from .solver import session_of
         self.problem, self.dom, self.lit, self.teachers_of, self.extra = problem, dom, lit, teachers_of, extra
+        self.relabel = relabel or {}  # (course, GV trong mô hình) -> GV tính cho luật (người bù, Problem.covers)
         self.sess = session_of()
 
     def atoms(self, L: Luat, subjects=_ALL, skip=None) -> list[Atom]:
@@ -443,18 +444,19 @@ class _Source:
                     out.append(Atom(self.lit(c.id, None, s), c.class_name, c.grade, c.subject, s[0], s[1], name))
                     continue
                 for g in self.teachers_of(c.id):
-                    if not ok[g]:
+                    t = self.relabel.get((c.id, g), g)
+                    if not ok[t]:
                         continue
-                    out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, g))
+                    out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, t))
         return out
 
 
-def _cp_source(problem, x, z, dom, teachers_of) -> _Source:
+def _cp_source(problem, x, z, dom, teachers_of, relabel=None) -> _Source:
     def lit(cid, g, s):
         if g is None or len(teachers_of[cid]) == 1:
             return x[cid, s]
         return z[cid, g, s]
-    return _Source(problem, dom, lit, lambda cid: teachers_of[cid])
+    return _Source(problem, dom, lit, lambda cid: teachers_of[cid], relabel=relabel)
 
 
 def _domains(problem) -> dict[int, list]:
@@ -501,7 +503,7 @@ def _universe(L: Luat, problem) -> list[tuple]:
                and (L.subjects is None or any(problem.curriculum[grade_of(c)].get(s, 0) for s in L.subjects))]
     slots = sorted(s for s in _all_slots() if L.slots is None or s in L.slots)
     sess = session_of()
-    values = {"lop": classes, "khoi": sorted({grade_of(c) for c in classes}), "ngay": sorted({d for d, _ in slots}),
+    values = {"lop": classes, "khoi": sorted({grade_of(c) for c in classes}, key=grade_key), "ngay": sorted({d for d, _ in slots}),
               "buoi": sorted({(d, sess[(d, p)].name) for d, p in slots}), "o": slots}
     if any(d not in values for d in L.scope):
         return []
@@ -638,7 +640,8 @@ class _Eval:
 # Phép đo: mỗi phép đo một hàm, dùng cho cả dựng mô hình và đánh giá
 # --------------------------------------------------------------------------
 def _day(d: int) -> str:
-    return f"Thứ {d + 2}"
+    from .khung_gio import day_name
+    return day_name(d)
 
 
 def _label(problem, subject: str) -> str:
@@ -989,11 +992,16 @@ def build(m, problem, x: dict, z: dict, dom: dict, teachers_of: dict, w: config.
     if not rules:
         return []
     ctx, src = _Cp(m, w), _cp_source(problem, x, z, dom, teachers_of)
+    # Tiết bù do người mới dạy (Problem.covers) ở chế độ bù giờ là tiết của người bù, cùng ô: luật bắt buộc theo GV
+    # phải đúng cả khi tính các tiết đó cho người bù.
+    covered = _cp_source(problem, x, z, dom, teachers_of, relabel=problem.covers) if problem.covers else None
     for i, L in enumerate(rules):
         if forced(L) or (_ban(L) is not None and L.measure == "vi_tri"):
             continue
         ctx.use(L, i)
         LOWER[L.measure](ctx, L, problem, src)
+        if covered is not None and L.hard and L.teacher() and L.measure != "nguoi_day":
+            LOWER[L.measure](ctx, L, problem, covered)
     return ctx.objective
 
 
@@ -1045,7 +1053,7 @@ def precheck(problem, label, skip: set[int] = frozenset()) -> list[str]:
             continue
         r = L.rule
         classes = [c for c in problem.classes if _class_ok(L, c, grade_of(c), problem.curriculum)]
-        grades = sorted({grade_of(c) for c in classes})
+        grades = sorted({grade_of(c) for c in classes}, key=grade_key)
         subjects = sorted(L.subjects or ())
         if _ban(L) is not None:
             for g in grades:
@@ -1126,4 +1134,8 @@ def validate(problem, sheet: str, role_label) -> list[str]:
         for c in r.classes:
             if c not in problem.classes:
                 out.append(f"{sheet} dòng {r.row}: không có lớp '{c}'")
+        for g in r.grades:
+            if isinstance(g, str) and g not in problem.curriculum:
+                out.append(f"{sheet} dòng {r.row}: không có khối '{g}' (các khối: "
+                           f"{', '.join(map(str, sorted(problem.curriculum, key=grade_key)))})")
     return out

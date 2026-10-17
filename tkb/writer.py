@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from copy import copy
+from dataclasses import dataclass
 from pathlib import Path
 
 import re
@@ -17,13 +18,15 @@ from openpyxl.formatting.formatting import ConditionalFormattingList
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidationList
 
-from . import config
+from . import config, khung_gio
 from .solver import Solution, session_of
-from .staff import Teacher, _find_columns, class_sort_key, clean_name, find_sheet, grade_of, normalize, staff_sheet
+from .staff import (Teacher, _find_columns, class_sort_key, clean_name, find_sheet, grade_key, grade_of, normalize,
+                    staff_sheet)
 from .style import CellStyle, Style
 from .rules import code as rules_code, subject_columns
 from . import luat_rieng
-from .template import GUIDE_SHEET, write_guide, write_luat_sheet, write_roles_sheet, write_rules_sheet
+from .template import (GUIDE_SHEET, write_classes_sheet, write_guide, write_luat_sheet, write_roles_sheet,
+                       write_rules_sheet)
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -82,14 +85,34 @@ def teacher_labels(teachers: dict[str, Teacher], with_codes: bool = False) -> di
     return labels
 
 
-def session_rows() -> list[tuple[config.Session, int]]:
-    """Các hàng của bảng TKB: (buổi, tiết trong ngày). Cột TIẾT ghi tiết trong ngày: sáng 1–4, chiều 5–7."""
-    sessions: dict[str, config.Session] = {}
-    for d in sorted(config.DAY_SESSIONS):
-        for s in config.DAY_SESSIONS[d]:
-            sessions.setdefault(s.name, s)
-    ordered = sorted(sessions.values(), key=lambda s: s.periods[0])
-    return [(s, p) for s in ordered for p in s.periods]
+@dataclass(frozen=True)
+class GridRow:
+    """Một hàng của bảng TKB: tiết thứ k của một buổi. Khung giờ mỗi ngày một khác (tkb/khung_gio.py) thì hàng đó có
+    thể là tiết khác nhau ở các ngày, hoặc không có ở ngày ít tiết hơn (ô ghi config.OFF_LABEL)."""
+    session: str  # tên buổi (cột BUỔI)
+    label: int  # cột TIẾT: tiết trong ngày, theo ngày đầu tiên có hàng này (vd sáng 1–4, chiều 5–7)
+    at: tuple[tuple[int, int], ...]  # (ngày, tiết trong ngày) ở các ngày có hàng này
+
+    def period(self, d: int) -> int | None:
+        return dict(self.at).get(d)
+
+
+def session_rows() -> list[GridRow]:
+    """Các hàng của bảng TKB theo khung giờ: mỗi buổi (theo thứ tự trong ngày) có số hàng bằng số tiết nhiều nhất của
+    buổi đó ở các ngày."""
+    days = khung_gio.days()
+    rows = []
+    for name in khung_gio.session_names():
+        parts = [(d, s) for d in days for s in khung_gio.sessions(d) if s.name == name]
+        for k in range(max(len(s.periods) for _, s in parts)):
+            at = tuple((d, s.periods[k]) for d, s in parts if k < len(s.periods))
+            rows.append(GridRow(name, at[0][1], at))
+    return rows
+
+
+def _sheet_title(text: str) -> str:
+    """Tên sheet Excel hợp lệ: bỏ các ký tự Excel không cho dùng ([ ] : * ? / \\), tối đa 31 ký tự."""
+    return re.sub(r"[\[\]:*?/\\]", "-", text)[:31]
 
 
 def _merge(ws, style: Style, r1: int, c1: int, r2: int, c2: int, value) -> None:
@@ -106,7 +129,6 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
     grid = {(l.class_name, l.day, l.period): l for l in solution.lessons}
     days = sorted(config.DAY_SESSIONS)
     rows = session_rows()
-    day_periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
     first_day_col = 4
     problem = solution.problem
     names = teacher_labels(problem.teachers, with_codes)
@@ -117,11 +139,11 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
     title = {c: c for c in problem.classes}  # cột LỚP chỉ ghi tên lớp (cơ sở 2 đã tách file riêng)
     chosen = problem.classes if classes is None else classes
-    for grade in sorted({grade_of(c) for c in chosen}):
-        ws = wb.create_sheet(f"Khối {grade}")
+    for grade in sorted({grade_of(c) for c in chosen}, key=grade_key):
+        ws = wb.create_sheet(_sheet_title(f"Khối {grade}"))
         classes = sorted((c for c in chosen if grade_of(c) == grade), key=class_sort_key)
         widths = [max(style.text_width(t) for t in [header[0], *(title[c] for c in classes)]),
-                  max(style.text_width(t) for t in [header[1], *(s.name.upper() for s, _ in rows)]) + LABEL_PAD,
+                  max(style.text_width(t) for t in [header[1], *(row.session.upper() for row in rows)]) + LABEL_PAD,
                   style.text_width(header[2]) + LABEL_PAD]
         for i, width in enumerate(widths + [day_width] * len(days), start=1):
             ws.column_dimensions[get_column_letter(i)].width = round(width, 1)
@@ -134,17 +156,17 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
             first = top + 1
             _merge(ws, style, first, 1, first + len(rows) - 1, 1, title[cls])
             r = first
-            for session in dict.fromkeys(s for s, _ in rows):
-                n = sum(1 for s, _ in rows if s is session)
-                _merge(ws, style, r, 2, r + n - 1, 2, session.name.upper())
+            for session in dict.fromkeys(row.session for row in rows):
+                n = sum(1 for row in rows if row.session == session)
+                _merge(ws, style, r, 2, r + n - 1, 2, session.upper())
                 r += n
-            for j, (_, period) in enumerate(rows):
+            for j, row in enumerate(rows):
                 r = first + j
                 lines = 2  # môn + tên giáo viên
-                style.body_cell(ws, r, 3, period)
+                style.body_cell(ws, r, 3, row.label)
                 for i, d in enumerate(days):
                     value = None
-                    if period not in day_periods[d]:
+                    if (period := row.period(d)) is None:
                         value = config.OFF_LABEL
                     elif (les := grid.get((cls, d, period))) is not None:
                         value = f"{problem.subject_label(les.subject)}\n{names[les.teacher]}"
@@ -213,11 +235,10 @@ def _teacher_blocks(ws, solution: Solution, style: Style, teachers: list[Teacher
     load = solution.teacher_load()
     days = sorted(config.DAY_SESSIONS)
     rows = session_rows()
-    day_periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
     header = ["BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
     texts = {line for les in solution.lessons for line in _teacher_cell(solution, les).split("\n")}
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[2:], config.OFF_LABEL, *texts]))
-    widths = [max(style.text_width(t) for t in [header[0], *(s.name.upper() for s, _ in rows)]) + LABEL_PAD,
+    widths = [max(style.text_width(t) for t in [header[0], *(row.session.upper() for row in rows)]) + LABEL_PAD,
               style.text_width(header[1]) + LABEL_PAD]
     for i, width in enumerate(widths + [day_width] * len(days), start=1):
         ws.column_dimensions[get_column_letter(i)].width = round(width, 1)
@@ -233,17 +254,17 @@ def _teacher_blocks(ws, solution: Solution, style: Style, teachers: list[Teacher
         ws.row_dimensions[top + 1].height = style.row_height
         first = top + 2
         r = first
-        for session in dict.fromkeys(s for s, _ in rows):
-            n = sum(1 for s, _ in rows if s is session)
-            _merge(ws, style, r, 1, r + n - 1, 1, session.name.upper())
+        for session in dict.fromkeys(row.session for row in rows):
+            n = sum(1 for row in rows if row.session == session)
+            _merge(ws, style, r, 1, r + n - 1, 1, session.upper())
             r += n
-        for j, (_, period) in enumerate(rows):
+        for j, row in enumerate(rows):
             r = first + j
             lines = 2  # lớp + môn
-            style.body_cell(ws, r, 2, period)
+            style.body_cell(ws, r, 2, row.label)
             for i, d in enumerate(days):
                 value = None
-                if period not in day_periods[d]:
+                if (period := row.period(d)) is None:
                     value = config.OFF_LABEL
                 elif (les := grid.get((t.title, d, period))) is not None:
                     value = _teacher_cell(solution, les)
@@ -317,7 +338,7 @@ def campus_moves(solution: Solution) -> dict[str, tuple[list[str], list[str]]]:
     campuses = defaultdict(set)
     for (g, _, _), cs in where.items():
         campuses[g] |= cs
-    day = lambda d: config.DAYS[d].replace("Thứ ", "T")  # noqa: E731
+    day = khung_gio.short_day
     out = {}
     for g in sorted(g for g, cs in campuses.items() if len(cs) > 1):
         keys = sorted((d, config.DAY_SESSIONS[d].index(s), s) for (h, d, s) in where if h == g)
@@ -661,7 +682,7 @@ def _write_saved(wb, solution: Solution, style: Style) -> None:
     for c, value in enumerate((result, solution.fingerprint(), rules, rules_code()), start=1):
         ws.cell(1, c, value).font = copy(style.body.font)
     days = sorted(config.DAY_SESSIONS)
-    periods = [p for _, p in session_rows()]
+    periods = list(range(1, khung_gio.max_periods() + 1))  # tiết trong ngày (ngày ít tiết hơn: ô ghi OFF_LABEL)
     day_periods = {d: {p for s in config.DAY_SESSIONS[d] for p in s.periods} for d in days}
     header = ["Lớp", "Tiết", *[config.DAYS[d] for d in days]]
     top = 3
@@ -781,6 +802,12 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     _add_subject_rules(wb)
     program = find_sheet(wb, config.PROGRAM_SHEET)
     after = wb.worksheets.index(program) + 1 if program is not None else None
+    classes = find_sheet(wb, config.CLASSES_SHEET)
+    if classes is None:  # trống: lớp vẫn lấy từ các dòng Chủ Nhiệm
+        write_classes_sheet(wb, [], after)
+        after = after and after + 1
+    elif after is not None and wb.worksheets.index(classes) == after:
+        after += 1
     if find_sheet(wb, config.ROLES_SHEET) is None:
         write_roles_sheet(wb, role_rows(solution), after)
         after = after and after + 1
