@@ -3,7 +3,7 @@ viền mảnh). Không cố định dòng/cột, không danh sách thả xuống
 cột nằm ở sheet HƯỚNG DẪN.
 
 - Sheet "NHÂN SỰ": Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy |
-  Buổi Nghỉ | Chức Vụ Thêm | Nhãn (7 cột sau không bắt buộc)
+  Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù (8 cột sau không bắt buộc)
   - Chức Vụ: Chủ Nhiệm, Bộ Môn, Quản Lý, một chức vụ của sheet CHỨC VỤ hoặc tên một môn (GV chuyên biệt, vd
     "Tiếng Anh"); không ghi số thứ tự (chương trình tự đánh số theo thứ tự dòng).
   - Lớp chỉ ghi cho Chủ Nhiệm: một lớp của sheet LỚP, hoặc (sheet LỚP trống) khối/số thứ tự, vd 1/1, hay khối
@@ -42,8 +42,8 @@ from .rules import (CLASS_CAMPUS, CLASS_GRADE, CLASS_NAME, CLASS_TAGS, ROLE_NAME
 from .staff import Teacher, class_sort_key, grade_key, off_text
 
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
-                 "Buổi Nghỉ", "Chức Vụ Thêm", "Nhãn"]
-STAFF_WIDTHS = (34, 16, 8, 17, 12, 12, 11, 26, 24, 22, 22)
+                 "Buổi Nghỉ", "Chức Vụ Thêm", "Nhãn", "Thứ Tự Bù"]
+STAFF_WIDTHS = (34, 16, 8, 17, 12, 12, 11, 26, 24, 22, 22, 12)
 RULES_WIDTHS = (40, 16, 16, 20, 24)  # sheet QUY ĐỊNH: cột đầu (Quy định, Ngày, Tiết) và các cột giá trị
 GUIDE_SHEET = "HƯỚNG DẪN"
 GUIDE_HEADERS = ("Mục", "Cách ghi")
@@ -87,10 +87,13 @@ NOTES = {
     "Nhãn": "Các nhãn tự đặt, cách nhau bằng dấu phẩy (vd Bán thời gian, Tổ Toán). Cột Giáo viên của sheet LUẬT ghi "
             "một nhãn là mọi GV có nhãn đó, vd luật Bán thời gian không dạy buổi chiều. Thai Sản, Hợp Đồng, Cơ sở 2 "
             "ghi Có cũng là nhãn cùng tên.",
+    "Thứ Tự Bù": "Ai dạy bù trước khi phải bù giờ: số nguyên dương, 1 là bù trước nhất; người cùng số bù ngang nhau. "
+                 "Để trống: GVCN hợp đồng 1, GVCN 2, bộ môn hợp đồng 3, bộ môn 4. Chỉ có tác dụng với người được "
+                 "dạy bù (sheet QUY ĐỊNH, không thai sản).",
 }
 GUIDE = [
-    (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Bảy cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ, "
-                         "Chức Vụ Thêm, Nhãn không bắt buộc (để trống hoặc xóa cột)."),
+    (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Tám cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ, "
+                         "Chức Vụ Thêm, Nhãn, Thứ Tự Bù không bắt buộc (để trống hoặc xóa cột)."),
     *((f"{config.STAFF_SHEET}: {head}", note) for head, note in NOTES.items()),
     (config.PROGRAM_SHEET, "Mỗi môn một dòng: cột Môn học ghi tên môn (dùng đúng tên này ở sheet CHỨC VỤ, hoặc ở cột "
                            "Chức Vụ của GV chuyên biệt chỉ dạy môn này), cột Khối <tên> ghi số tiết/tuần của môn ở "
@@ -118,7 +121,7 @@ def staff_row(t: Teacher) -> list:
     history = ", ".join(sorted(t.history, key=class_sort_key)) or None
     extra = ", ".join(config.ROLE_LABELS.get(r) or r.title() for r in t.extra_roles) or None
     return [t.name or None, role_label(t), t.class_name, t.max_lessons, flag(t.maternity), flag(t.contract),
-            flag(t.campus2), history, off_text(t) or None, extra, ", ".join(t.tags) or None]
+            flag(t.campus2), history, off_text(t) or None, extra, ", ".join(t.tags) or None, t.overtime_order]
 
 
 def _style_rows(ws, first: int, last: int, n_cols: int, header: bool = False, left: tuple[int, ...] = ()) -> None:

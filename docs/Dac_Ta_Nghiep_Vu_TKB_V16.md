@@ -90,6 +90,7 @@
 | 72 | Một người nhiều chức vụ | Mỗi người đúng một chức vụ; GVCN chỉ dạy lớp mình (phần GVCN và tiết bù), nên GVCN dạy thêm Tiếng Anh ở lớp khác hay dạy như bộ môn ở lớp khác thì không ghi được | Cột **Chức Vụ Thêm** không bắt buộc của sheet NHÂN SỰ (mục 2.1.1): các chức vụ khác người đó cũng giữ (Bộ Môn hoặc chức vụ GV chuyên biệt); quyền dạy là hợp các chức vụ, ở mọi lớp, trong định mức (mục 4). GVCN có chức vụ thêm chỉ nhận trọn các môn ưu tiên của lớp mình (và môn cùng nhóm), không nhận thêm cho đủ định mức, phần còn lại dùng cho chức vụ thêm (mục 5.3); khi bù thì bù như bộ môn (mục 7.2). Chủ Nhiệm ghi `Bộ Môn` ở cột này là cách bỏ "GVCN chỉ dạy lớp mình" cho từng người. Luật của sheet `LUẬT` ghi chức vụ ở cột Giáo viên khớp cả người giữ chức vụ đó ở cột này. Giao diện: ô đánh dấu Chức Vụ Thêm trong trang chi tiết giáo viên. Cột trống: như cũ, cùng mã kết quả |
 | 73 | Nhãn giáo viên, nhãn lớp | Luật chỉ nhắm được chức vụ, một người, một lớp hay khối: muốn áp cho một nhóm người (vd người bán thời gian, tổ Toán) hay nhóm lớp (lớp song ngữ) phải ghi từng người, từng lớp | Cột **Nhãn** không bắt buộc của sheet NHÂN SỰ và sheet `LỚP` (mục 2.1.1, 2.2): các nhãn tự đặt, không tự có nghĩa gì. Cột Giáo viên của sheet `LUẬT` ghi một nhãn là mọi GV có nhãn đó, cột Lớp ghi một nhãn lớp là mọi lớp có nhãn đó (mục 6.1). Thai Sản, Hợp Đồng, Cơ sở 2 ghi Có cũng là nhãn cùng tên (người và lớp). Nhãn lớp vào mã quy định; không ghi nhãn: như cũ, cùng mã kết quả |
 | 74 | Nhiều cơ sở | Chỉ có hai cơ sở (cột Có/Không `Cơ sở 2`): trường ba điểm trường trở lên không ghi được | Cột **Cơ sở** của sheet `LỚP` ghi tên cơ sở (điểm trường) tùy ý, bao nhiêu cơ sở cũng được; trống là `Cơ sở 1`, cột `Cơ sở 2` của dòng Chủ Nhiệm và cột Có/Không `Cơ sở 2` của bản trước vẫn đọc được (mục 2.2). Luật cứng mỗi buổi một cơ sở và luật ưu tiên hạn chế đổi cơ sở trong ngày (mỗi lần đổi bị phạt) áp cho mọi số cơ sở (mục 4.1); mỗi cơ sở một file TKB; thống kê, câu báo lỗi ghi tên cơ sở. Tên cơ sở cũng là nhãn lớp ở cột Lớp của sheet `LUẬT`. Hai cơ sở `Cơ sở 1`, `Cơ sở 2` giữ cách mã hóa cũ: cùng mã kết quả |
+| 75 | Thứ tự dạy bù tự đặt | Ai bù trước cố định theo chức vụ và cột Hợp Đồng: GVCN hợp đồng → GVCN → bộ môn hợp đồng → bộ môn (`Weights.overtime_*`) | Cột **Thứ Tự Bù** không bắt buộc của sheet NHÂN SỰ (mục 2.1.1): số nguyên dương, 1 bù trước nhất, cùng số bù ngang nhau; trống thì như cũ (1, 2, 3, 4 theo chức vụ và Hợp Đồng). Thứ tự 1–4 giữ đúng bốn mức giá cũ; số khác thì các thứ tự đang dùng chia đều khoảng giá đó (mục 7.2, 8.1). Bộ kiểm tra "GVCN được ưu tiên bù lớp mình" chỉ áp khi GVCN đứng trước bộ môn trong thứ tự này (mặc định luôn đúng). Cột trống: cùng mã kết quả |
 
 ---
 
@@ -147,6 +148,7 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 | Lớp Đang Dạy | Không | Các lớp GV dạy trong TKB cũ, cách nhau bằng dấu phẩy/chấm phẩy (vd `3D17, 3D18`). Chỉ dùng cho GV không chủ nhiệm (mục 8.1) |
 | Buổi Nghỉ | Không | Buổi cố định (`Chiều T5`, `Sáng thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, dấu. Buổi vốn nghỉ (chiều Thứ 6) bỏ qua. Số buổi bất kỳ tính thêm ngoài buổi cố định; `n buổi` (không ghi sáng/chiều) là tổng số buổi trống tối thiểu |
 | Chức Vụ Thêm | Không | Các chức vụ khác người đó cũng giữ, cách nhau bằng dấu phẩy: `Bộ Môn` hoặc chức vụ GV chuyên biệt, không ghi số thứ tự (`Chủ Nhiệm`, `Quản Lý` chỉ là chức vụ chính; Quản Lý không có chức vụ thêm). Quyền dạy là hợp các chức vụ (mục 4); Mã GV theo cột Chức Vụ |
+| Thứ Tự Bù | Không | Ai dạy bù trước: số nguyên dương, 1 bù trước nhất, cùng số bù ngang nhau. Trống: GVCN hợp đồng 1, GVCN 2, bộ môn hợp đồng 3, bộ môn 4 (`allocation.overtime_rank`). Chỉ có tác dụng với người được dạy bù; ghi cho người khác thì cảnh báo (mục 7.2) |
 | Nhãn | Không | Các nhãn tự đặt, cách nhau bằng dấu phẩy (vd `Bán thời gian`, `Tổ Toán`). Cột Giáo viên của sheet `LUẬT` ghi một nhãn là mọi GV có nhãn đó (mục 6.1). Thai Sản, Hợp Đồng, Cơ sở 2 ghi Có cũng là nhãn cùng tên; Chủ Nhiệm có lớp ở cơ sở 2 có nhãn Cơ sở 2 (`Teacher.tag_keys`) |
 | STT, cột khác | Không | Không dùng, ghi gì cũng được (ví dụ cột ghi chú) |
 
@@ -167,7 +169,7 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối bị hụt, ví dụ có 1/3, 1/5 mà không có 1/4.
 
 **File mẫu V8** (tạo bằng `python -m tkb.template`), style giống file của nhà trường (Times New Roman 14, tiêu đề in đậm không tô nền, viền mảnh, căn giữa, dòng cao 25):
-- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn`, mỗi cột có chú thích. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải bắt đầu bằng số khối. Ba cột Có/Không có danh sách `Có`. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
+- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù`, mỗi cột có chú thích. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải bắt đầu bằng số khối. Ba cột Có/Không có danh sách `Có`. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
 - Sheet CHƯƠNG TRÌNH HỌC: `Môn học | Khối 1 …`. File mẫu trống không có môn nào.
 
 #### 2.1.2. Sheet CHỨC VỤ (không bắt buộc)
@@ -534,6 +536,7 @@ Cả hai chế độ **dùng chung một TKB** (cùng vị trí môn ở mọi �
   2. Ít tiết bù của **bộ môn** nhất: **GVCN bù trước**, bộ môn chỉ bù khi GVCN đã bù hết mức.
   3. Ít tiết bù của GVCN nhất.
   4. **Hợp đồng trước:** GVCN hợp đồng bù trước GVCN khác; bộ môn hợp đồng bù trước bộ môn khác. Thứ tự đầy đủ: GVCN hợp đồng → GVCN khác → bộ môn hợp đồng → bộ môn khác.
+  - Các mục 2–4 là thứ tự mặc định (thứ tự dạy bù 1, 2, 3, 4); cột **Thứ Tự Bù** của sheet NHÂN SỰ đặt lại thứ tự cho từng người (1 bù trước nhất, cùng số bù ngang nhau), vd bộ môn ghi 1 thì bù trước GVCN. Luật cứng "GVCN được ưu tiên bù lớp mình" chỉ áp khi GVCN đứng trước bộ môn trong thứ tự này.
   5. **Chia đều** trong từng nhóm trên: mọi người bù +1 rồi mới có người bù +2.
   6. Đúng thứ tự môn ở trên. GVCN phải nhường môn ưu tiên vì chia chẵn thì đổi mức bù với một GVCN khác (tổng không đổi).
 - **Bù hết mức mà vẫn thiếu: báo lỗi, không tuyển, không ra TKB.** Màn hình in từng lớp, môn, số tiết thiếu, lý do và cách sửa (tăng mức bù, sửa định mức/nhân sự, hoặc chạy chế độ tuyển thêm); `Thong_Ke.xlsx` chỉ có sheet `Thiếu tiết` (mục 11.3); mã thoát 3.
@@ -548,7 +551,7 @@ Viết bằng Python thuần, số nguyên, duyệt theo thứ tự cố định
 
 1. **Dự toán:** luồng chi phí nhỏ nhất từ các lớp–môn ngoài phần GVCN sang các giáo viên được dạy. Mỗi giáo viên không nhận quá định mức (cộng mức bù) và không quá số ô giờ có thể dạy (ví dụ 26 với giáo viên không chủ nhiệm). Giá mỗi tiết:
    - không ai dạy: 1.000.000;
-   - tiết bù: GVCN hợp đồng 100.000, GVCN khác 300.000, bộ môn hợp đồng 500.000, bộ môn khác 700.000; mỗi tiết bù sau của một người thêm 50.000 (các mức cách nhau 200.000 nên thứ tự đúng đến +4);
+   - tiết bù: GVCN hợp đồng 100.000, GVCN khác 300.000, bộ môn hợp đồng 500.000, bộ môn khác 700.000 (thứ tự dạy bù 1–4; cột Thứ Tự Bù ghi số khác thì các thứ tự đang dùng chia đều từ 100.000 đến 700.000, `allocation.overtime_cost`); mỗi tiết bù sau của một người thêm 50.000 (các mức cách nhau 200.000 nên thứ tự đúng đến +4);
    - GV có `Lớp Đang Dạy` dạy khối không nằm trong các khối cũ: 60; đúng khối nhưng khác lớp cũ: 10 (`keep_grade`, `keep_class`);
    - GVCN bù: 3.000 × hạng môn (môn ưu tiên 0, rồi theo `HOMEROOM_FILL_ORDER`, Âm nhạc/Mỹ thuật sau cùng);
    - bộ môn dạy môn chuyên biệt: 1.000;

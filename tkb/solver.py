@@ -288,7 +288,7 @@ class _Allocation:
             ot = m.NewIntVar(0, extra, f"ot_{title}")
             m.Add(ot >= self.load[title] - t.max_lessons)
             result[title] = ot
-            main.append(overtime_cost(t, w) * ot)
+            main.append(overtime_cost(t, w, problem.overtime_order) * ot)
             if extra > 1:
                 second = m.NewIntVar(0, extra - 1, f"ot2_{title}")
                 m.Add(second >= ot - 1)

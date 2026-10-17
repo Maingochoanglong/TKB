@@ -178,7 +178,8 @@ class _Search:
         out += [("khối", f"khối {g}", self.free([c for c in classes if grade[c] == g], days), limits["khối"])
                 for g in grades]
         pairs = sorted(itertools.combinations(days, 2), key=lambda p: (-round(by_day[p[0]] + by_day[p[1]]), p))
-        out += [("cặp ngày", f"thứ {a + 2}+{b + 2}", self.free(classes, [a, b]), limits["cặp ngày"])
+        out += [("cặp ngày", f"{khung_gio.day_name(a).lower()}+{khung_gio.day_name(b).lower()}",
+                 self.free(classes, [a, b]), limits["cặp ngày"])
                 for a, b in pairs]
         return out
 

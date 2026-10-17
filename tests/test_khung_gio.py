@@ -55,7 +55,7 @@ def test_free_frame_is_read(tmp_path):
 
 def test_free_frame_end_to_end(tmp_path, capsys):
     """Xếp đủ luật với khung giờ đó: luật và buổi nghỉ theo tên ngày, tên buổi mới đều giữ; file TKB có cột từng ngày,
-    hàng buổi Tối, tiết 8 của Thu."""
+    hàng buổi Tối, tiết 8 của Thu; nạp lại file vào cập nhật thì dùng lại TKB đã xếp (đọc đủ các ngày tên tự đặt)."""
     path = _free_frame_file(tmp_path)
     argv = [str(path), "-o", str(tmp_path / "TKB.xlsx"), "--time-limit", "10", "--workers", "4", "--mode", "tuyen_them"]
     assert main(argv) == 0
@@ -67,6 +67,7 @@ def test_free_frame_end_to_end(tmp_path, capsys):
                for cls, config_day, period, subject, teacher, *_ in saved.rows]
     assert not [row for row in lessons if row[3] == "Toán" and row[1] == "Sat"]
     assert not [row for row in lessons if row[3] == "Tiếng Anh" and row[1] == "Wed" and row[2] >= 8]
+    assert {row[1] for row in lessons} == set(NAMES)  # sheet TKB đã xếp đọc lại đủ các ngày tên tự đặt
     english = [row for row in lessons if row[4] == "Tiếng Anh 1"]
     assert english and not [row for row in english if row[1] == "Sat"]
     ws = openpyxl.load_workbook(tmp_path / "TKB.xlsx")["Khối 3"]
@@ -75,3 +76,7 @@ def test_free_frame_end_to_end(tmp_path, capsys):
     assert [p for _, p in labels] == [1, 2, 3, 4, 5, 6, 7, 8, 8, 9]  # chiều 4 hàng (tiết 8 ở Thu), tối 2 hàng
     assert labels[0][0] == "SÁNG" and labels[4][0] == "CHIỀU" and labels[8][0] == "TỐI"
     assert ws.cell(9, 4).value == config.OFF_LABEL  # hàng tiết 8 buổi chiều: Mon không có
+    # Nạp lại file vào cập nhật: dùng lại TKB đã xếp, không xếp lại.
+    again = [str(tmp_path / "vao_cap_nhat.xlsx"), "-o", str(tmp_path / "lai" / "TKB.xlsx"), "--time-limit", "10",
+             "--workers", "4", "--mode", "tuyen_them"]
+    assert main(again) == 0 and "Dùng lại TKB đã xếp" in capsys.readouterr().out
