@@ -95,6 +95,27 @@ def precheck(problem: Problem, student_rules: bool = True) -> list[str]:
     return out
 
 
+def same_teacher(problem: Problem, lessons: dict[tuple[int, str], int]) -> list[str]:
+    """Học cùng giờ (problem.links): sau phân công (course, GV) -> số tiết, hai môn của một nhóm ở một lớp không được
+    giao cho cùng một người, vì người đó không dạy được hai nửa lớp cùng giờ."""
+    taught: dict[tuple[str, str], set[str]] = {}
+    for (cid, g), n in lessons.items():
+        if n:
+            c = problem.courses[cid]
+            taught.setdefault((c.class_name, c.subject), set()).add(g)
+    out = []
+    for cls, groups in problem.links.items():
+        for group in groups:
+            seen: dict[str, str] = {}
+            for s in group:
+                for g in sorted(taught.get((cls, s), ())):
+                    if seen.setdefault(g, s) != s:
+                        out.append(f"Lớp {cls}: {problem.subject_label(seen[g])} và {problem.subject_label(s)} học "
+                                   f"cùng giờ (luật Học cùng giờ) nhưng phân công giao cả hai cho "
+                                   f"{problem.teachers[g].code}; ghi luật Chỉ giáo viên dạy để mỗi môn một người dạy")
+    return out
+
+
 @dataclass(frozen=True)
 class _Rule:
     """Một dòng luật bắt buộc có thể bỏ khi chẩn đoán."""

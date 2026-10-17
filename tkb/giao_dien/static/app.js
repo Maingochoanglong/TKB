@@ -1590,16 +1590,20 @@ function savedSet(c, value) {
   while (row.length < c.c) row.push(null);
   row[c.c - 1] = value;
 }
-// Chữ của một ô có hoặc không có dấu khóa (cuối dòng cuối, như staff.parse_saved_grid đọc).
+// Chữ của một ô có hoặc không có dấu khóa (cuối dòng cuối, như staff.parse_saved_grid đọc). Ô có các môn học cùng
+// giờ (các cặp "môn", "Mã GV"): dấu khóa ở cuối mỗi dòng Mã GV.
 function lockText(value, on) {
   if (value == null || String(value).trim() === "") return null;
   const flag = S.saved_marks.locked;
   const lines = String(value).split(/\r?\n/).map((l) => {
     const t = l.trimEnd();
     return fold(t).endsWith(fold(flag)) ? t.slice(0, -flag.length).trimEnd() : t;
-  });
+  }).filter((l, i, all) => l.trim() || i < all.length - 1);
   while (lines.length > 1 && !lines[lines.length - 1].trim()) lines.pop();
-  if (on) lines[lines.length - 1] += ` ${flag}`;
+  if (on) {
+    const codes = lines.length > 2 ? lines.map((_, i) => i).filter((i) => i % 2 === 1) : [lines.length - 1];
+    for (const i of codes) lines[i] += ` ${flag}`;
+  }
   return lines.join("\n");
 }
 
@@ -1647,7 +1651,7 @@ function renderTkb() {
   }
   const grades = [...new Set(tkb.classes.map(gradeOf))];
   const load = new Map();
-  for (const c of tkb.cells) if (c.code) load.set(key(c.code), (load.get(key(c.code)) || 0) + 1);
+  for (const c of tkb.cells) for (const code of c.codes || []) load.set(key(code), (load.get(key(code)) || 0) + 1);
   const teachers = tkb.teachers.filter((t) => load.has(key(t.code)));
   const rooms = tkb.rooms || []; // sheet PHÒNG: xem TKB từng phòng học dùng chung
   const valid = [...grades.map((g) => `k:${g}`), ...tkb.classes.map((c) => `c:${c}`), ...teachers.map((t) => `t:${t.code}`),
@@ -1659,7 +1663,7 @@ function renderTkb() {
     <optgroup label="Theo giáo viên">${teachers.map((t) => `<option value="t:${esc(t.code)}">${esc(t.code)}${
       t.name && !hireName(t.name) ? ` · ${esc(t.name)}` : hireName(t.name) ? " (cần tuyển)" : ""} · ${load.get(key(t.code))} tiết</option>`).join("")}</optgroup>
     ${rooms.length ? `<optgroup label="Theo phòng">${rooms.map((r) => `<option value="r:${esc(r)}">${esc(r)} · ${
-      tkb.cells.filter((c) => c.room === r).length} tiết</option>`).join("")}</optgroup>` : ""}`;
+      tkb.cells.filter((c) => (c.rooms || []).includes(r)).length} tiết</option>`).join("")}</optgroup>` : ""}`;
   $("#tkb-view").value = tkbView;
   $("#tkb-code").textContent = tkb.code ? `· mã TKB ${tkb.code}` : "";
   const locked = tkb.cells.filter((c) => c.locked).length;
@@ -1726,7 +1730,10 @@ function renderTkbGrid() {
     const room = tkbView.startsWith("r:") ? tkbView.slice(2) : null;
     const code = key(tkbView.slice(2));
     const at = new Map();
-    for (const c of tkb.cells) if (room !== null ? c.room === room : c.code && key(c.code) === code) {
+    // Ô có các môn học cùng giờ: theo giáo viên (theo phòng) chỉ ghi môn của người đó (học ở phòng đó).
+    const mineOf = (c) => (room !== null ? (c.rooms || []).indexOf(room) : (c.codes || []).findIndex((x) => key(x) === code));
+    const subjectOf = (c) => ((c.subjects || []).length > 1 ? c.subjects[mineOf(c)] : c.subject);
+    for (const c of tkb.cells) if (mineOf(c) >= 0) {
       const k = `${c.d}|${c.p}`;
       at.set(k, [...(at.get(k) || []), c]);
     }
@@ -1737,8 +1744,8 @@ function renderTkbGrid() {
       const ks = list.map((c) => cellKey(c.cls, c.d, c.p));
       const bad = ks.some((k) => tkb.bad.has(k)) || (room === null && list.length > 1); // phòng chứa được nhiều lớp
       return `<td class="cell${bad ? " bad" : ""}${ks.some((k) => tkbChanged.has(k)) ? " changed" : ""}" data-cell="${esc(ks[0])}"
-        title="${esc(list.map((c) => `${c.cls} · ${c.subject}`).join("\n"))}">${list.some((c) => c.locked) ? `<span class="lock">🔒</span>` : ""}${
-        list.map((c) => `<b>${esc(c.cls)}</b><small>${esc(c.subject)}</small>`).join("")}</td>`;
+        title="${esc(list.map((c) => `${c.cls} · ${subjectOf(c)}`).join("\n"))}">${list.some((c) => c.locked) ? `<span class="lock">🔒</span>` : ""}${
+        list.map((c) => `<b>${esc(c.cls)}</b><small>${esc(subjectOf(c))}</small>`).join("")}</td>`;
     }).join("")}</tr>`).join("");
   } else {
     const classes = tkbView.startsWith("k:") ? tkb.classes.filter((c) => String(gradeOf(c)) === tkbView.slice(2))
@@ -2003,10 +2010,12 @@ function savedOvertime(grid) {
   for (const row of grid || []) {
     for (const cell of row || []) {
       const lines = String(cell ?? "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-      const last = lines.length > 1 ? fold(lines[lines.length - 1]) : "";
-      if (!last.includes(flag)) continue;
-      const code = last.replace(fold(S.saved_marks.locked), "").replace(flag, "").trim();
-      count[code] = (count[code] || 0) + 1;
+      // Dòng Mã GV: dòng thứ hai của mỗi cặp "môn", "Mã GV" (ô có các môn học cùng giờ có nhiều cặp).
+      for (const [i, line] of lines.entries()) {
+        if (i % 2 === 0 || !fold(line).includes(flag)) continue;
+        const code = fold(line).replace(fold(S.saved_marks.locked), "").replace(flag, "").trim();
+        count[code] = (count[code] || 0) + 1;
+      }
     }
   }
   return Math.max(0, ...Object.values(count));

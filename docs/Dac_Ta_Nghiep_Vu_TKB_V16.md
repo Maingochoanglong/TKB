@@ -92,6 +92,7 @@
 | 74 | Nhiều cơ sở | Chỉ có hai cơ sở (cột Có/Không `Cơ sở 2`): trường ba điểm trường trở lên không ghi được | Cột **Cơ sở** của sheet `LỚP` ghi tên cơ sở (điểm trường) tùy ý, bao nhiêu cơ sở cũng được; trống là `Cơ sở 1`, cột `Cơ sở 2` của dòng Chủ Nhiệm và cột Có/Không `Cơ sở 2` của bản trước vẫn đọc được (mục 2.2). Luật cứng mỗi buổi một cơ sở và luật ưu tiên hạn chế đổi cơ sở trong ngày (mỗi lần đổi bị phạt) áp cho mọi số cơ sở (mục 4.1); mỗi cơ sở một file TKB; thống kê, câu báo lỗi ghi tên cơ sở. Tên cơ sở cũng là nhãn lớp ở cột Lớp của sheet `LUẬT`. Hai cơ sở `Cơ sở 1`, `Cơ sở 2` giữ cách mã hóa cũ: cùng mã kết quả |
 | 75 | Thứ tự dạy bù tự đặt | Ai bù trước cố định theo chức vụ và cột Hợp Đồng: GVCN hợp đồng → GVCN → bộ môn hợp đồng → bộ môn (`Weights.overtime_*`) | Cột **Thứ Tự Bù** không bắt buộc của sheet NHÂN SỰ (mục 2.1.1): số nguyên dương, 1 bù trước nhất, cùng số bù ngang nhau; trống thì như cũ (1, 2, 3, 4 theo chức vụ và Hợp Đồng). Thứ tự 1–4 giữ đúng bốn mức giá cũ; số khác thì các thứ tự đang dùng chia đều khoảng giá đó (mục 7.2, 8.1). Bộ kiểm tra "GVCN được ưu tiên bù lớp mình" chỉ áp khi GVCN đứng trước bộ môn trong thứ tự này (mặc định luôn đúng). Cột trống: cùng mã kết quả |
 | 76 | Phòng học dùng chung | Chỉ giới hạn được số lớp học một môn cùng lúc (luật `Số lớp học cùng lúc tối đa`): không có tên phòng nên TKB không ghi lớp học phòng nào, không ghi được phòng dùng cho nhiều môn hay chỉ cho vài khối, trường nhiều cơ sở phải tự ghép phạm vi | Sheet **`PHÒNG`** không bắt buộc (mục 2.2.1): `Phòng | Cơ sở | Môn | Khối | Sức chứa`. Luật cứng: tiết của môn, khối, cơ sở có phòng phải học ở một phòng hợp, mỗi giờ không quá sức chứa (mục 6.2); chương trình chọn phòng cho từng tiết sau khi xếp giờ, ghi tên phòng trong TKB, TKB giáo viên và file mới `TKB_phong.xlsx` (mục 11). Không có sheet (hoặc sheet trống): cùng mã quy định, cùng mã kết quả |
+| 77 | Học cùng giờ: chia nhóm, dạy kèm | Mỗi giờ một lớp học đúng một tiết một môn với một người dạy: không ghi được lớp chia nhóm (nửa lớp Tin học, nửa lớp Tiếng Anh cùng giờ) hay giáo viên chính cùng trợ giảng | Kiểu luật **Học cùng giờ** (phép đo mới **Cùng giờ** của bộ ghép, họ Đi cùng nhau; mục 6.1, 6.3): mỗi lớp học Môn và các môn ở Môn thứ hai luôn cùng giờ, cùng số tiết/tuần, mỗi môn một người dạy, lớp tính một tiết ở giờ đó (`Problem.links`). Dạy kèm ghi bằng môn riêng (vd Trợ giảng Tiếng Anh). Phân công giao hai môn của nhóm cho một người thì báo lỗi trước khi xếp. Ô TKB ghi các môn nối bằng ` / `; sheet `TKB đã xếp` ghi các cặp môn, Mã GV nối tiếp (mục 11.1, 11.2). Không có luật này: cùng mã quy định, cùng mã kết quả |
 
 ---
 
@@ -454,7 +455,7 @@ Luật đọc là thêm "(Tạm tắt)") và ghi "tắt" ở sheet Chất lượ
 một **mẫu** (điền sẵn phạm vi, phép đo) hoặc **Tự ghép**. Mỗi mẫu và mỗi phép đo thuộc một trong **bốn câu hỏi** về các
 tiết: **Ở đâu** (Không xếp vào, Chỉ xếp vào, Cố định vào; Vị trí), **Bao nhiêu** (Giáo viên tối đa tiết/lớp mỗi ngày, Số
 lớp học cùng lúc tối đa, Học ít nhất số ngày; Số tiết, Số khác nhau, Khoảng cách), **Đi cùng nhau** (Học 2 tiết liền,
-Học trước; Liền nhau, Theo cặp 2 tiết, Thứ tự, Đi kèm), **Ai dạy** (Chỉ giáo viên dạy, Buổi nghỉ, Chỉ dạy cơ sở 2; Người
+Học trước, Học cùng giờ; Liền nhau, Theo cặp 2 tiết, Thứ tự, Đi kèm, Cùng giờ), **Ai dạy** (Chỉ giáo viên dạy, Buổi nghỉ, Chỉ dạy cơ sở 2; Người
 dạy). Câu đọc lại: dòng đúng dạng gốc của một luật có sẵn đọc bằng **tên riêng** của luật đó (vd "Mỗi buổi, một lớp học
 tối đa 2 tiết của một môn, tính chung môn chính với môn tăng cường cùng nhóm"), dòng khác đọc bằng câu ghép không ký hiệu
 (vd "Mỗi lớp, mỗi ngày: học tối đa 1 tiết Toán, khi số tiết/tuần của môn từ 4 trở lên và là số chẵn"); mức đọc bằng chữ.
@@ -479,6 +480,7 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
 | Theo cặp 2 tiết | Mỗi buổi 0 hoặc 2 tiết, liền nhau; theo lớp và môn thì là nhóm ghép cặp (`allocation.paired_groups`), phân công chia chẵn | Mỗi tiết không có tiết cùng nhóm liền trước hay liền sau |
 | Thứ tự (+ Môn thứ hai) | Trong mỗi buổi (ngày) không tiết Môn thứ hai nào đứng trước tiết Môn | Mỗi cặp đứng sai |
 | Đi kèm (+ Môn thứ hai) | Buổi (ngày) có tiết Môn thì có tiết Môn thứ hai | Mỗi tiết Môn không có đi kèm |
+| Cùng giờ (+ Môn thứ hai; Với mỗi Lớp, chỉ cứng) | Mỗi giờ: có tiết Môn khi và chỉ khi có tiết từng môn ở Môn thứ hai (mục 6.3) | — |
 | Người dạy (Do / Cùng một người) | Tiết do GV ghi ở cột Giáo viên (chức vụ; Chủ Nhiệm: GVCN của chính lớp; hoặc đúng người ghi Mã GV, họ tên); không xét ô thì lọc ngay khi phân công. Hoặc mọi tiết của nhóm do một người | Mỗi tiết trái luật (không xét ô: giá mỗi tiết khi phân công) / mỗi người thừa |
 | Khoảng cách (Tiết trống tối đa / Cách cuối buổi tối đa n) | Số tiết trống giữa các tiết trong buổi ≤ n; hoặc mỗi tiết cách cuối buổi ≤ n | Mỗi tiết trống / mỗi tiết cách xa thêm |
 
@@ -487,6 +489,7 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
 | Không xếp vào / Chỉ xếp vào | Vị trí, Không trong / Chỉ trong các ô ghi ở Ngày, Tiết, Buổi; ghi Giáo viên thì bỏ trống Môn được: **giờ bận** của người đó (bắt buộc, mọi môn, mọi lớp: phân công bớt các ô đó khỏi sức chứa, `bo_ghep.busy`) |
 | Học 2 tiết liền | Với mỗi lớp, buổi: Theo cặp 2 tiết (gồm môn tăng cường) |
 | Học trước | Với mỗi lớp, buổi: Thứ tự Môn trước Môn thứ hai |
+| Học cùng giờ | Với mỗi lớp: Cùng giờ Môn với Môn thứ hai (bắt buộc; mục 6.3) |
 | Giáo viên tối đa tiết mỗi ngày | Với mỗi giáo viên, ngày: Số tiết tối đa n (bắt buộc: phân công tính sức chứa theo đó, `phan_cong.teacher_slots`) |
 | Số lớp học cùng lúc tối đa | Với mỗi giờ học: Số tiết của môn tối đa n |
 | Cố định vào | Với mỗi lớp, giờ học (các ô ghi ở dòng): Số tiết đúng 1 |
@@ -533,6 +536,22 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
   học môn đó ở các giờ trước. Phòng không vào mã kết quả; nạp lại file vào cập nhật thì chọn lại cùng cách.
 - Phép đếm trước khi xếp (`chan_doan.precheck`): số tiết của một loại (và của cả cụm) ≤ tổng sức chứa × số giờ học
   trong tuần. Chẩn đoán khi không xếp được: sức chứa phòng là một nhóm luật (`config.OFF` khóa `phong`).
+
+### 6.3. Học cùng giờ: chia nhóm, dạy kèm
+
+- **[Cứng]** Luật Học cùng giờ (kiểu luật, hoặc Tự ghép phép đo Cùng giờ, Với mỗi Lớp): ở mỗi lớp khớp cột Khối, Lớp,
+  Môn và từng môn ở Môn thứ hai có tiết ở đúng các giờ như nhau. Cột Môn ghi đúng một môn (không nhãn, không gồm môn
+  tăng cường); không ghi Ngày, Tiết, Buổi, Giáo viên, Áp dụng khi; chỉ Bắt buộc (`luat_rieng._check_together`).
+- **Nhóm**: `bo_ghep.links` → `Problem.links` (lớp → các nhóm môn, môn đầu là môn chính; hai luật có chung môn ở một lớp
+  gộp một nhóm). Các môn sau môn chính (`Problem.link_extra`) không tính vào "mỗi lớp mỗi giờ một tiết" (mô hình và bộ
+  kiểm tra) và vào tổng số tiết của khối so với khung giờ (`Problem.class_load`); ràng buộc "cùng giờ" là chính phép đo
+  Cùng giờ (`bo_ghep._cung_gio`: mỗi giờ, hai chiều Tối đa 0).
+- Các môn trong nhóm cùng số tiết/tuần ở mỗi lớp, không thì `bo_ghep.validate` báo lỗi (và lớp đó không thành nhóm).
+- **Phân công** không đổi: mỗi môn phân công riêng; giao hai môn của một nhóm ở một lớp cho cùng một người thì
+  `chan_doan.same_teacher` báo lỗi trước khi xếp (`ConflictError`), gợi ý luật Chỉ giáo viên dạy.
+- Luật bảo vệ học sinh, rải đều, GVCN… tính theo từng môn như cũ. Luật đếm theo lớp mọi môn đếm mỗi môn của nhóm là một
+  tiết.
+- Không có luật Học cùng giờ: `Problem.links` trống, mô hình và mã kết quả như cũ.
 
 ---
 
@@ -715,6 +734,8 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
   - Các cột ngày ở mọi sheet cùng độ rộng, nới theo dòng dài nhất của cả trường, tối đa 30 (đơn vị cột Excel). Tên dài hơn thì xuống dòng và hàng tự cao thêm.
 - Tên môn in như trong file vào; viết tắt: `HĐTN`, `TNXH`, `TV tăng cường`.
 - Tiết học ở phòng dùng chung (sheet `PHÒNG`, mục 2.2.1): ô thêm dòng cuối ghi tên phòng.
+- Các môn học cùng giờ (mục 6.3): một ô, mỗi dòng nối bằng ` / `, vd `Âm nhạc / Mỹ thuật` rồi `Lan / Hùng`
+  (`writer.cell_lessons`, môn chính trước).
 - Khi in: khổ ngang, co vừa chiều rộng 1 trang.
 
 **Style của mọi file ra** (`TKB.xlsx`, `Thong_Ke.xlsx`, file vào cập nhật): chép từ sheet NHÂN SỰ của file vào, không cố định trong code:
@@ -731,7 +752,7 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
 - Chỉ chữ, số và màu: bỏ cố định dòng/cột, danh sách thả xuống, định dạng theo điều kiện và sheet danh mục ẩn của file mẫu (các thứ này không cần để đọc lại file).
 - Dùng làm đầu vào cho lần chạy sau được (các cột thêm được bỏ qua khi đọc). File gốc không bị sửa.
 - **Quy định** (mục 2.5): file ghi đủ các quy định đã dùng, để nhà trường sửa rồi nạp lại: sheet CHƯƠNG TRÌNH HỌC thêm các cột quy định còn thiếu (chép style của file vào) và dòng cho môn có quy định mà chương trình học chưa có (số tiết để trống); sheet CHỨC VỤ (các chức vụ GV chuyên biệt có người giữ, mục 2.1.2), QUY ĐỊNH và LUẬT RIÊNG giữ nguyên nếu file vào đã có, chưa có thì ghi sau sheet CHƯƠNG TRÌNH HỌC.
-- **Sheet TKB đã xếp** (`config.SAVED_SHEET`), dạng lưới như TKB: dòng 1 ghi `Mã kết quả` và `Mã quy định` (`rules.code`, tính từ giá trị các quy định); bảng `Lớp | Tiết | Thứ 2 … Thứ 6`, mỗi lớp 7 dòng (tên lớp ở dòng đầu), mỗi ô ghi môn, xuống dòng ghi Mã GV, thêm `(bù)` ở tiết dạy bù; ô không học ghi `Nghỉ`. Nạp lại mà quy định đã sửa (mã quy định khác) thì xếp lại từ đầu theo quy định mới; file chưa có mã này thì bỏ qua bước so mã.
+- **Sheet TKB đã xếp** (`config.SAVED_SHEET`), dạng lưới như TKB: dòng 1 ghi `Mã kết quả` và `Mã quy định` (`rules.code`, tính từ giá trị các quy định); bảng `Lớp | Tiết | Thứ 2 … Thứ 6`, mỗi lớp 7 dòng (tên lớp ở dòng đầu), mỗi ô ghi môn, xuống dòng ghi Mã GV, thêm `(bù)` ở tiết dạy bù (ô có các môn học cùng giờ, mục 6.3: các cặp môn, Mã GV nối tiếp, dấu `(bù)`, `(khóa)` theo từng cặp); ô không học ghi `Nghỉ`. Nạp lại mà quy định đã sửa (mã quy định khác) thì xếp lại từ đầu theo quy định mới; file chưa có mã này thì bỏ qua bước so mã.
   - Nạp lại file này làm file vào (`GIU_TKB_DA_XEP = True`, mặc định), chương trình dùng lại TKB đó thay vì xếp lại (`solver.reuse`), với điều kiện:
     - mọi Lớp, Môn, Mã GV có trong file vào;
     - mỗi lớp đủ số tiết từng môn;

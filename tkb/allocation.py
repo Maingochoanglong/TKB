@@ -54,6 +54,20 @@ class Problem:
     # ở đây thì học ở lớp). Không có sheet PHÒNG: trống.
     rooms: tuple[config.Room, ...] = ()
     room_fit: dict[int, tuple[int, ...]] = field(default_factory=dict)
+    # Học cùng giờ (luật bắt buộc Cùng giờ, bo_ghep.links): lớp -> các nhóm môn luôn xếp cùng giờ (môn đầu là môn
+    # chính). Lớp tính một tiết ở giờ đó: các môn sau môn chính (link_extra) không chiếm thêm giờ của lớp.
+    links: dict[str, tuple[tuple[str, ...], ...]] = field(default_factory=dict)
+
+    @property
+    def link_extra(self) -> frozenset[tuple[str, str]]:
+        """(lớp, môn) học cùng giờ với môn chính của nhóm: không tính vào "mỗi lớp mỗi giờ một tiết"."""
+        return frozenset((cls, s) for cls, groups in self.links.items() for g in groups for s in g[1:])
+
+    def class_load(self, class_name: str) -> int:
+        """Số giờ học của lớp trong tuần: số tiết theo chương trình, các môn học cùng giờ tính một lần."""
+        req = self.curriculum[grade_of(class_name)]
+        extra = self.link_extra
+        return sum(n for s, n in req.items() if (class_name, s) not in extra)
 
     def overtime_mode(self) -> bool:
         return self.overtime_max > 0
@@ -339,6 +353,10 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     campus2 = frozenset(c for c, n in where.items() if _fold(n) == _fold(CAMPUS2))
     no_homeroom = frozenset(c for c in classes if c not in homeroom)
 
+    from .bo_ghep import links as together  # bo_ghep nhập muộn như ở dưới
+    links = together(classes, curriculum)
+    extra = {(cls, s) for cls, groups in links.items() for g in groups for s in g[1:]}
+
     for g in sorted({grade_of(c) for c in classes}, key=grade_key):
         # Lớp ghi dạng khối/số thứ tự: báo số thứ tự bị bỏ trống.
         numbers = {int(m.group(2)) for c in classes if (m := _CLASS_RE.match(c)) and grade_of(c) == g}
@@ -349,7 +367,9 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                             f"{config.CLASSES_SHEET} không ghi lớp này)")
         if g not in curriculum:
             raise InputError(f"Không có chương trình học cho Khối {g}")
-        total = sum(curriculum[g].values())
+        # Môn học cùng giờ với môn chính (luật Học cùng giờ) không chiếm thêm giờ của lớp.
+        total = max(sum(n for s, n in curriculum[g].items() if (c, s) not in extra)
+                    for c in classes if grade_of(c) == g)
         if total > len(slots):
             raise InputError(f"Khối {g} có {total} tiết/tuần, vượt {len(slots)} tiết của khung giờ")
         if total < len(slots):
@@ -514,4 +534,5 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         no_homeroom=no_homeroom,
         rooms=tuple(config.ROOMS) if room_fit else (),
         room_fit=room_fit,
+        links=links,
     )

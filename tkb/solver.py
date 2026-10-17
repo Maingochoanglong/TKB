@@ -504,9 +504,11 @@ def build_timetable(problem: Problem, settings: config.Settings,
         else:
             m.Add(sum(vs) == c.lessons)
 
-    # Mỗi lớp mỗi slot đúng 1 tiết (hoặc tối đa 1 nếu chương trình ít hơn số slot).
+    # Mỗi lớp mỗi slot đúng 1 tiết (hoặc tối đa 1 nếu chương trình ít hơn số slot). Môn học cùng giờ với môn chính
+    # (luật Học cùng giờ, problem.links) không tính: luật đó (bo_ghep) buộc nó cùng giờ với môn chính.
+    extra = problem.link_extra
     for cls in problem.classes:
-        courses = problem.class_courses(cls)
+        courses = [c for c in problem.class_courses(cls) if (cls, c.subject) not in extra]
         full = sum(c.lessons for c in courses) == len(slots)
         for s in slots:
             vs = [x[c.id, s] for c in courses if (c.id, s) in x]
@@ -936,14 +938,15 @@ class KeptCell:
 
 @dataclass
 class Previous:
-    """TKB cũ để xếp lại ít xáo trộn (solve(previous=...)): (lớp, (ngày, tiết)) -> ô; các ô không đọc được bỏ qua."""
-    cells: dict[tuple[str, tuple[int, int]], KeptCell]
+    """TKB cũ để xếp lại ít xáo trộn (solve(previous=...)): (lớp, (ngày, tiết), môn) -> ô (ô có các môn học cùng giờ:
+    mỗi môn một mục); các ô không đọc được bỏ qua."""
+    cells: dict[tuple[str, tuple[int, int], str], KeptCell]
     skipped: list[str] = field(default_factory=list)  # lý do bỏ qua (ô không đọc được, ô khóa không giữ được)
 
     def taught(self) -> dict[str, set[tuple[str, str]]]:
         """GV -> các (lớp, môn) GV đó dạy trong TKB cũ."""
         out: dict[str, set[tuple[str, str]]] = {}
-        for (cls, _), cell in self.cells.items():
+        for (cls, _, _), cell in self.cells.items():
             out.setdefault(cell.teacher, set()).add((cls, cell.subject))
         return out
 
@@ -951,7 +954,7 @@ class Previous:
 def previous_from(problem: Problem, rows: list[tuple]) -> Previous:
     """TKB cũ từ các dòng của sheet TKB đã xếp: chỉ các ô đọc được với file vào hiện tại (_parse_saved)."""
     parsed, errors = _parse_saved(problem, rows)
-    return Previous({(cls, slot): KeptCell(subject, teacher, overtime, locked)
+    return Previous({(cls, slot, subject): KeptCell(subject, teacher, overtime, locked)
                      for cls, slot, subject, teacher, overtime, locked in parsed}, errors)
 
 
@@ -965,7 +968,7 @@ def _keep_previous(m, problem: Problem, x: dict, z: dict, teachers_of: dict, kee
     for c in problem.courses:
         courses.setdefault((c.class_name, c.subject), []).append(c)
     terms = []
-    for (cls, slot), cell in sorted(keep.cells.items()):
+    for (cls, slot, _), cell in sorted(keep.cells.items()):
         options = courses.get((cls, cell.subject), [])
         vs = [x[c.id, slot] for c in options if (c.id, slot) in x]
         where = f"lớp {cls} {config.DAYS[slot[0]]} tiết {slot[1]}"
@@ -1024,6 +1027,11 @@ def _assignment(staff: list[Teacher], curriculum: dict[int, dict[str, int]], set
     plan = phan_cong(base, settings.weights)
     for line in du_toan_lines(base, plan):
         log(line)
+    if base.links:  # học cùng giờ: mỗi môn của nhóm một người dạy
+        from .chan_doan import same_teacher
+        clash = same_teacher(base, plan.lessons)
+        if clash:
+            raise ConflictError("Phân công mâu thuẫn với luật Học cùng giờ:\n  - " + "\n  - ".join(clash))
     if plan.missing and not hire:
         raise ShortageError(base, plan)
     split = tach_tiet_bu(base, plan, staff, include_missing=hire)
@@ -1128,8 +1136,6 @@ def _mark_locked(solution: Solution, keep: Previous | None, log) -> Solution:
     for line in keep.skipped:
         log(f"  Bỏ qua: {line}")
     locked = {k for k, c in keep.cells.items() if c.locked}
-    solution.lessons = [replace(les, locked=True)
-                        if (les.class_name, (les.day, les.period)) in locked
-                        and keep.cells[les.class_name, (les.day, les.period)].subject == les.subject else les
-                        for les in solution.lessons]
+    solution.lessons = [replace(les, locked=True) if (les.class_name, (les.day, les.period), les.subject) in locked
+                        else les for les in solution.lessons]
     return solution

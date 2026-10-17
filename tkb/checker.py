@@ -31,13 +31,15 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
         by_class_slot[les.class_name, s].append(les)
         by_teacher_slot[les.teacher, s].append(les)
 
-    # Lớp: mỗi slot đúng 1 tiết, đủ số tiết từng môn.
+    # Lớp: mỗi slot đúng 1 tiết, đủ số tiết từng môn. Môn học cùng giờ với môn chính (luật Học cùng giờ) không tính
+    # thêm giờ của lớp; luật đó (luat_rieng.check) kiểm các môn có cùng giờ.
+    extra = problem.link_extra
     for cls in problem.classes:
         grade = grade_of(cls)
         req = {s: n for s, n in problem.curriculum[grade].items() if n > 0}
-        full = sum(req.values()) == len(slots)
+        full = problem.class_load(cls) == len(slots)
         for s in slots:
-            n = len(by_class_slot.get((cls, s), []))
+            n = sum(1 for les in by_class_slot.get((cls, s), []) if (cls, les.subject) not in extra)
             if n > 1 or (full and n == 0):
                 errors.append(f"Lớp {cls} {where(*s)}: có {n} tiết")
         got = Counter(les.subject for les in lessons if les.class_name == cls)

@@ -102,6 +102,10 @@ MEASURES = (
     Measure("khoang_cach", "Khoảng cách", ("trong_tiet", "cuoi_buoi"), True, sequence=True, family="Bao nhiêu",
             note="Số tiết trống xen giữa các tiết trong buổi (0: không có tiết trống); hoặc số tiết từ tiết đó đến "
                  "cuối buổi (0: ở tiết cuối buổi)."),
+    Measure("cung_gio", "Cùng giờ", (), False, other=True, family="Đi cùng nhau",
+            note="Các tiết của Môn và của Môn thứ hai luôn học cùng giờ, cùng số tiết mỗi tuần: lớp chia nhóm (mỗi "
+                 "nhóm học một môn, mỗi môn một người dạy) hoặc giáo viên chính và trợ giảng (ghi trợ giảng thành một "
+                 "môn riêng, vd Trợ giảng Tiếng Anh). Với mỗi là Lớp, chỉ ghi Bắt buộc; lớp tính một tiết ở giờ đó."),
 )
 MEASURE = {m.key: m for m in MEASURES}
 OPS = {"<=": "Tối đa", ">=": "Tối thiểu", "=": "Đúng", "trong": "Chỉ trong", "ngoai": "Không trong", "do": "Do",
@@ -260,6 +264,7 @@ PRESETS = {  # mẫu -> (phạm vi, phép đo, so sánh, đếm theo)
     "gv_lop_ngay": (("gv", "ngay"), "so_khac", "<=", "lop"),
     "rai_ngay": (("lop",), "so_khac", ">=", "ngay"),
     "chi_gv": ((), "nguoi_day", "do", ""),
+    "hoc_cung_gio": (("lop",), "cung_gio", "", ""),
 }
 
 
@@ -822,6 +827,28 @@ def _di_kem(ctx, L, problem, src):
                                                 f"không có {_other_names(problem, L)}")
 
 
+def _cung_gio(ctx, L, problem, src):
+    """Mỗi lớp, mỗi giờ: có tiết Môn khi và chỉ khi có tiết của từng môn ở cột Môn thứ hai (hai chiều Tối đa 0)."""
+    mine = dict(_groups(L, src.atoms(L), problem, False))
+    for other in sorted(L.other or ()):
+        theirs = dict(_groups(L, src.atoms(L, subjects=frozenset({other})), problem, False))
+        for key in sorted(set(mine) | set(theirs), key=repr):
+            a_at, b_at = _by_slot(mine.get(key, [])), _by_slot(theirs.get(key, []))
+            for s in sorted(set(a_at) | set(b_at)):
+                for first, second, name in ((a_at, b_at, _label(problem, other)),
+                                            (b_at, a_at, _names(problem, L.subjects))):
+                    ctx.at_most(first.get(s, []), 0, neg=second.get(s, []),
+                                text=lambda v, key=key, s=s, name=name: f"{_where(L, key, problem)} {_day(s[0])} tiết "
+                                                                         f"{s[1]}: không có {name} cùng giờ")
+
+
+def _by_slot(atoms: list[Atom]) -> dict[tuple[int, int], list[Atom]]:
+    out: dict[tuple[int, int], list[Atom]] = defaultdict(list)
+    for a in atoms:
+        out[a.day, a.period].append(a)
+    return out
+
+
 def teacher_ok(L: Luat, t, class_name: str) -> bool:
     """Phép đo Người dạy "Do": GV t được dạy tiết của lớp class_name: t có tên (Mã GV, họ tên) ở cột Giáo viên, hoặc
     có chức vụ ở đó (chủ nhiệm: GVCN của chính lớp đó; cả chức vụ ở cột Chức Vụ Thêm), hoặc có nhãn ở đó."""
@@ -902,7 +929,8 @@ def _khoang_cach(ctx, L, problem, src):
 
 
 LOWER = {"so_tiet": _so_tiet, "so_khac": _so_khac, "vi_tri": _vi_tri, "lien": _lien, "cap": _cap,
-         "thu_tu": _thu_tu, "di_kem": _di_kem, "nguoi_day": _nguoi_day, "khoang_cach": _khoang_cach}
+         "thu_tu": _thu_tu, "di_kem": _di_kem, "nguoi_day": _nguoi_day, "khoang_cach": _khoang_cach,
+         "cung_gio": _cung_gio}
 
 
 # --------------------------------------------------------------------------
@@ -968,6 +996,42 @@ def busy(teacher) -> set[tuple[int, int]]:
                 and L.grades is None and L.classes is None and not L.when \
                 and picks(L.roles, teacher) and not picks(L.roles_not, teacher):
             out |= bad_slots(L)
+    return out
+
+
+def _together(L: Luat, cls: str, curriculum) -> tuple[list[str], dict[str, int]] | None:
+    """Các môn luật Cùng giờ nối với nhau ở lớp `cls` (Môn trước, rồi Môn thứ hai) và số tiết/tuần của chúng; None nếu
+    luật không xét lớp này."""
+    grade = grade_of(cls)
+    if not (L.hard and L.measure == "cung_gio" and L.subjects and L.other) or not _class_ok(L, cls, grade, curriculum):
+        return None
+    req = curriculum.get(grade, {})
+    items = [*sorted(L.subjects), *sorted(L.other - L.subjects)]
+    return items, {s: req.get(s, 0) for s in items}
+
+
+def links(classes, curriculum) -> dict[str, tuple[tuple[str, ...], ...]]:
+    """Lớp -> các nhóm môn học cùng giờ (luật bắt buộc Cùng giờ, kiểu luật Học cùng giờ): mỗi nhóm là các môn luôn
+    xếp cùng giờ, môn đầu là môn chính (allocation.build_problem). Hai luật có chung môn ở một lớp thì gộp một nhóm.
+    Lớp có môn khác số tiết (validate báo lỗi) hay không có tiết nào thì bỏ qua."""
+    out: dict[str, tuple[tuple[str, ...], ...]] = {}
+    rules = [L for L in compiled() if L.measure == "cung_gio"]
+    if not rules:
+        return out
+    for cls in classes:
+        groups: list[list[str]] = []
+        for L in rules:
+            found = _together(L, cls, curriculum)
+            if found is None:
+                continue
+            items, counts = found
+            if len(set(counts.values())) != 1 or not counts[items[0]]:
+                continue
+            joined = [g for g in groups if set(g) & set(items)]
+            merged = [*dict.fromkeys(x for g in [*joined, items] for x in g)]
+            groups = [g for g in groups if g not in joined] + [merged]
+        if groups:
+            out[cls] = tuple(tuple(g) for g in groups)
     return out
 
 
@@ -1149,4 +1213,16 @@ def validate(problem, sheet: str, role_label) -> list[str]:
             if isinstance(g, str) and g not in problem.curriculum:
                 out.append(f"{sheet} dòng {r.row}: không có khối '{g}' (các khối: "
                            f"{', '.join(map(str, sorted(problem.curriculum, key=grade_key)))})")
+        if r.off:
+            continue
+        L = make(r)
+        for cls in problem.classes:  # Cùng giờ: các môn cùng số tiết/tuần ở mỗi lớp (mỗi khối báo một lần)
+            linked = _together(L, cls, problem.curriculum)
+            if linked is None or len(set(linked[1].values())) == 1:
+                continue
+            counts = ", ".join(f"{_label(problem, s)} {n} tiết" for s, n in linked[1].items())
+            text = f"{sheet} dòng {r.row}: khối {grade_of(cls)} có {counts}/tuần: học cùng giờ thì các môn phải cùng " \
+                   f"số tiết/tuần"
+            if text not in out:
+                out.append(text)
     return out
