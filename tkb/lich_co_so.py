@@ -11,7 +11,8 @@ vào giờ cụ thể) chọn cho mỗi GV dạy ở từ hai cơ sở trở lê
 - rải đều tiết của từng course và tải ngày của người đó (mục tiêu: kế hoạch dồn lệch ngày thường không xếp được).
 
 Xếp giờ (solver.build_timetable) cấm người đó dạy ở cơ sở khác trong ngày đã chọn. Kế hoạch không xếp được thành giờ
-cụ thể (bước khởi đầu không ra nghiệm) thì solver.timetable xếp lại không theo kế hoạch, như trước khi có bước này.
+cụ thể (bước khởi đầu không ra nghiệm) thì solver.timetable xếp lại không theo kế hoạch, như trước khi có bước này;
+xếp được thì các vòng xếp lại dừng xong, solver.timetable xếp tiếp không theo kế hoạch từ chính TKB đó (lns.carry).
 Không làm gì (mô hình như cũ) khi: trường một cơ sở; sheet LUẬT không có dòng đó; phép đếm cho thấy không thể để mọi
 người mỗi ngày một cơ sở (luật ưu tiên lo phần còn lại).
 """
