@@ -233,6 +233,8 @@ def apply(all_rows: list[CustomRule]) -> dict:
                 found.append(hit)
         if len(found) < len(native.rows()):  # thiếu một dòng của luật: tắt, dòng còn lại xếp bằng bộ ghép
             off.add(native.key)
+            if native.weight:  # luật ưu tiên tắt: bỏ điểm của nó khỏi mục tiêu xếp giờ (solver, lns)
+                weights[native.weight] = 0
             continue
         left = [r for r in left if r not in found]
         r = found[0]
