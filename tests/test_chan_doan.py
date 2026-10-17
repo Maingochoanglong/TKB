@@ -1,7 +1,7 @@
 """Chẩn đoán quy định mâu thuẫn (tkb/chan_doan.py): đếm trước khi xếp, và khi không xếp được thì chỉ ra luật nào."""
 import pytest
 
-from tkb import config, solver
+from tkb import bo_mau, config, solver
 from tkb.allocation import build_problem
 from tkb.chan_doan import diagnose, precheck
 from tkb.rules import applied
@@ -37,7 +37,7 @@ def test_session_limit_too_small_for_the_lessons(sample_staff):
 
 
 def test_pairs_against_daily_limit(sample_staff):
-    found = _precheck(sample_staff, PAIR_MIN_LESSONS=4, DAILY_LIMITS={config.TIENG_ANH: 1, config.TOAN: 1})
+    found = _precheck(sample_staff, PAIR_MIN_LESSONS=4, DAILY_LIMITS={bo_mau.TIENG_ANH: 1, bo_mau.TOAN: 1})
     daily = ("'Luật có sẵn: Mỗi ngày, một lớp học tối đa 1 tiết Tiếng Anh, khi số tiết/tuần của môn không quá số "
              "ngày học (bắt buộc)'")
     assert found == [f"Khối {g}: Tiếng Anh có 4 tiết/tuần nên phải học thành cặp 2 tiết liền (luật {PAIRS.format(4)}) "

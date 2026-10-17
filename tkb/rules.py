@@ -784,6 +784,31 @@ def read_rules(path: str | Path, warn=lambda text: None) -> dict[str, object] | 
     return _rules_rows(values, warn)
 
 
+def mau(key: str | None = None) -> dict[str, object]:
+    """Giá trị config của một bộ luật mẫu (tkb/bo_mau.py): các quy định gắn tên môn, khung giờ, các dòng sheet LUẬT.
+    Bộ Tiểu học Việt Nam là giá trị mặc định của chương trình (sheet LUẬT: các dòng mặc định). Bộ Trống: quy định của
+    môn để trống, khung giờ của bộ Trống, sheet LUẬT ghi mọi luật có sẵn, chỉ bật các luật trong bo_mau.TRONG_ON, các
+    luật khác Tạm tắt."""
+    from . import bo_mau, luat_co_san
+    key = key or bo_mau.DEFAULT
+    if key not in bo_mau.PRESETS:
+        raise InputError(f"không có bộ luật mẫu '{key}' (các bộ mẫu: {', '.join(bo_mau.PRESETS)})")
+    values = {attr: copy.deepcopy(value) for attr, value in DEFAULTS.items()}
+    values["RULES"] = None
+    if key == "tieu_hoc_vn":
+        return values
+    preset = copy.deepcopy(bo_mau.TRONG)
+    preset["MANAGER_RULES"] = [config.ManagerRule(subject=s, grade=g) for s, g in preset["MANAGER_RULES"]]
+    values.update(preset)
+    values.update(_build_frame([(day, tuple(parts)) for day, parts in bo_mau.TRONG_FRAME]))
+    with applied(values):
+        rows = [replace(r, group_label=n.group, off=n.key not in bo_mau.TRONG_ON)
+                for n in luat_co_san.NATIVES for r in n.rows()]
+        values.update(luat_co_san.apply([r for r in rows if not r.off]))
+    values["RULES"] = rows
+    return values
+
+
 def _rules_rows(values: dict, warn) -> dict:
     """Các dòng luật (sheet LUẬT; không có thì dòng mặc định theo các cột cũ, cộng sheet LUẬT RIÊNG) -> tham số luật
     có sẵn, luật bị tắt, luật xếp bằng bộ ghép (luat_co_san.apply)."""

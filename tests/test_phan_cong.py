@@ -1,6 +1,6 @@
 from collections import Counter
 
-from tkb import config
+from tkb import bo_mau, config
 from tkb.allocation import build_problem
 from tkb.phan_cong import MinCostFlow, phan_cong, tach_tiet_bu
 
@@ -64,8 +64,8 @@ def test_homeroom_overtime_takes_music_and_art():
     plan = phan_cong(problem, W)
     assert plan.missing_total() == 0
     extra = Counter(problem.courses[cid].subject for (cid, g) in plan.extra if problem.teachers[g].class_name)
-    assert extra[config.AM_NHAC] == 1 and extra[config.MY_THUAT] == 1
-    assert not {config.TIENG_ANH, config.TIN_HOC, "Thể dục"} & set(extra)
+    assert extra[bo_mau.AM_NHAC] == 1 and extra[bo_mau.MY_THUAT] == 1
+    assert not {bo_mau.TIENG_ANH, bo_mau.TIN_HOC, "Thể dục"} & set(extra)
 
 
 def test_assignment_is_deterministic():
@@ -93,5 +93,5 @@ def test_hire_split_limits_pairs_and_orders_by_load(sample_staff):
     loads = [sum(n for _, _, n in g) for g in groups]
     assert loads == sorted(loads, reverse=True) and sum(loads) == sum(plan.overtime.values())
     for g in groups:  # mỗi người mới tối đa một cặp mỗi buổi
-        tv = sum(n for cid, _, n in g if problem.courses[cid].grade == 1 and problem.courses[cid].subject == config.TV)
+        tv = sum(n for cid, _, n in g if problem.courses[cid].grade == 1 and problem.courses[cid].subject == bo_mau.TV)
         assert tv // 2 <= 9 and sum(n for _, _, n in g) <= 23

@@ -6,7 +6,7 @@ from collections import Counter
 import openpyxl
 import pytest
 
-from tkb import config, luat_co_san, luat_rieng
+from tkb import bo_mau, config, luat_co_san, luat_rieng
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.config import CustomRule
@@ -120,20 +120,20 @@ def test_hard_rules_hold_and_are_checked():
     assert errors == []
     les = sol.lessons
     assert not [l for l in les if l.subject == "Thể dục" and l.period in (2, 3, 4)]
-    assert {l.day for l in les if l.subject == config.TIN_HOC} <= {1, 2}
-    assert max(Counter((l.day, l.period) for l in les if l.subject == config.TIENG_ANH).values()) == 1
-    assert max(Counter((l.teacher, l.day) for l in les if l.subject == config.TIENG_ANH).values()) <= 2
+    assert {l.day for l in les if l.subject == bo_mau.TIN_HOC} <= {1, 2}
+    assert max(Counter((l.day, l.period) for l in les if l.subject == bo_mau.TIENG_ANH).values()) == 1
+    assert max(Counter((l.teacher, l.day) for l in les if l.subject == bo_mau.TIENG_ANH).values()) <= 2
     session = lambda p: p <= 4  # noqa: E731
     for cls in sol.problem.classes:
         for d in range(5):
             for morning in (True, False):
                 tv = [l.period for l in les if (l.class_name, l.day) == (cls, d) and session(l.period) == morning
-                      and l.subject == config.TV]
+                      and l.subject == bo_mau.TV]
                 toan = [l.period for l in les if (l.class_name, l.day) == (cls, d) and session(l.period) == morning
-                        and l.subject == config.TOAN]
+                        and l.subject == bo_mau.TOAN]
                 assert not tv or not toan or max(tv) < min(toan)
                 ta = sorted(l.period for l in les if (l.class_name, l.day) == (cls, d) and session(l.period) == morning
-                            and l.subject == config.TIENG_ANH)
+                            and l.subject == bo_mau.TIENG_ANH)
                 assert len(ta) in (0, 2) and (not ta or ta[1] == ta[0] + 1)
     # Bộ kiểm tra độc lập bắt được TKB sai luật: TKB xếp không có luật, kiểm với luật.
     plain, _ = _solve()
@@ -146,15 +146,15 @@ def test_hard_rules_hold_and_are_checked():
 
 
 def test_soft_rules_are_preferred():
-    monday_it = lambda sol: sum(1 for l in sol.lessons if l.subject == config.TIN_HOC and l.day == 0)  # noqa: E731
+    monday_it = lambda sol: sum(1 for l in sol.lessons if l.subject == bo_mau.TIN_HOC and l.day == 0)  # noqa: E731
     plain, _ = _solve()
     prefer, errors = _solve(CustomRule("khong_xep", "Tin học", days=(0, 1, 2, 3), level=3))
     assert errors == []  # luật ưu tiên không phải lỗi
-    assert monday_it(prefer) == 0 and {l.day for l in prefer.lessons if l.subject == config.TIN_HOC} == {4}
+    assert monday_it(prefer) == 0 and {l.day for l in prefer.lessons if l.subject == bo_mau.TIN_HOC} == {4}
     with applied({"CUSTOM_RULES": [CustomRule("khong_xep", "Tin học", days=(0, 1, 2, 3), level=3, row=4)]}):
         assert luat_rieng.soft_report(prefer.problem, prefer.lessons) == [
             "LUẬT RIÊNG dòng 4: Tin học không xếp vào Thứ 2, Thứ 3, Thứ 4, Thứ 5 (ưu tiên cao): 0 lần không theo"]
-        before = sum(1 for l in plain.lessons if l.subject == config.TIN_HOC and l.day < 4)
+        before = sum(1 for l in plain.lessons if l.subject == bo_mau.TIN_HOC and l.day < 4)
         assert before > 0 and luat_rieng.soft_report(plain.problem, plain.lessons)[0].endswith(
             f": {before} lần không theo")
 

@@ -1892,8 +1892,8 @@ function showTab(name) {
   try { localStorage.setItem(TAB_KEY, name); } catch { /* bỏ qua */ }
 }
 
-async function newScenario() {
-  const data = await api("GET", "/api/new");
+async function newScenario(mau = "") {
+  const data = await api("GET", `/api/new${mau ? `?mau=${encodeURIComponent(mau)}` : ""}`);
   staffBaseline = null;
   st = { scenario: data.scenario, run: { ...S.run_defaults }, label: "Kịch bản mới" };
   renderAll();
@@ -1950,17 +1950,21 @@ function hideStart() {
   $("#start").hidden = true;
   if (st && st.fresh) { delete st.fresh; changed(); }
 }
-async function startWith(how) {
+async function startWith(how, mau = "") {
   const back = !$("#start-back").hidden; // đang có kịch bản: chọn cách khác thì hoàn tác được
   if (how === "open") $("#file-open").click();
   else if (how === "template") $("#btn-template").click();
   else if (how === "back") hideStart();
   else if (how === "new") {
-    await newScenario();
+    await newScenario(mau);
     hideStart();
-    showTab("mon");
-    notify("Kịch bản mới, luật và quy định mặc định: nhập số tiết ở bước Môn học, danh sách ở bước Giáo viên.", "ok",
-      back ? UNDO : null);
+    const name = (S.presets.find((p) => p.key === mau) || S.presets[0]).name;
+    showTab(mau === "trong" ? "khung" : "mon");
+    notify(mau === "trong"
+      ? `Kịch bản mới, bộ mẫu ${esc(name)}: đặt khung giờ ở bước này, rồi thêm môn, khối, lớp, giáo viên; các luật có sẵn
+        đang Tạm tắt, bật luật cần dùng ở bước Luật.`
+      : `Kịch bản mới, bộ mẫu ${esc(name)}: nhập số tiết ở bước Môn học, danh sách ở bước Giáo viên.`, "ok",
+    back ? UNDO : null);
   } else if (how === "sample") {
     const data = await api("GET", "/api/sample");
     useImported({ ...data, warnings: [] }, "Trường mẫu (tên giả)");
@@ -2441,7 +2445,7 @@ function wire() {
   document.addEventListener("click", (e) => onClick(e).catch(fail));
   $$(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
   $("#btn-new").onclick = () => showStart(true);
-  $$("[data-start]").forEach((b) => b.addEventListener("click", () => startWith(b.dataset.start).catch(fail)));
+  $$("[data-start]").forEach((b) => b.addEventListener("click", () => startWith(b.dataset.start, b.dataset.mau).catch(fail)));
   $("#btn-undo").onclick = undo;
   $("#btn-redo").onclick = redo;
   document.addEventListener("keydown", (e) => {

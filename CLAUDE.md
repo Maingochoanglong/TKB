@@ -47,7 +47,10 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 - Never hard-code school data (classes, subjects, lesson counts, teachers) in code: it all comes from the input
   file. The app must not be tied to any country's rules: the code holds mechanisms only, every rule, frame and name is
   data the school can change, and defaults are a removable template (plan: frame and classes free, roles as rules,
-  staff tags; one PR per phase). `tkb/config.py` holds the defaults of the rules (overridden by the file's rules),
+  staff tags; one PR per phase). Subject names and subject-tied defaults live only in the rule presets of
+  `tkb/bo_mau.py` (`TIEU_HOC_VN` = the defaults, `TRONG` = blank start; `rules.mau(key)` → config values, used by
+  `template --mau` and the UI's "Soạn mới"); tests use `bo_mau.TV`, `bo_mau.TOAN`…, never names in code.
+  `tkb/config.py` holds the defaults of the rules (taken from `bo_mau.TIEU_HOC_VN`, overridden by the file's rules),
   weights and LNS params. A new business rule the school may want to change gets a `Col` in `tkb/rules.py` (read in `_Reader`,
   written in `rule_tables`/`subject_columns`, listed in `ATTRS`), keeping the Có/Không/number convention.
 - Hard rules are the school's decisions: do not loosen or tighten one without asking.
@@ -64,7 +67,7 @@ python tools/code_map.py --write             # regenerate docs/CODE_MAP.md (test
 python main.py                               # school's real file (FILE_VAO) -> project root; real names! ~10 min
 python tools/mau_dau_ra.py                   # regenerate data/Output_Template_*_V8.xlsx from the fake school (~10 min)
 python -m tkb <input.xlsx> -o out/TKB.xlsx [--mode bu_gio] [--time-limit 30] [--no-student-rules]
-python -m tkb.template <new.xlsx>            # blank input template
+python -m tkb.template <new.xlsx> [--mau trong]  # blank input template (rule preset, default tieu_hoc_vn)
 python -m tkb.giao_dien [--khong-mo-trinh-duyet] [--thu-muc DIR] [--cong 8765]  # local web UI (or giao_dien.py)
 ```
 No linter/formatter is configured. CLI default `--mode` is `tuyen_them`; `main.py` default `CHE_DO` is `bu_gio`.

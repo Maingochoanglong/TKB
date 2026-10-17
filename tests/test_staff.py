@@ -1,7 +1,7 @@
 import openpyxl
 import pytest
 
-from tkb import config
+from tkb import bo_mau, config
 from tkb.program import canonical_subject, read_program, subject_key
 from tkb.staff import InputError, class_list, read_staff, validate
 
@@ -43,9 +43,9 @@ def test_program_file_is_read_as_written():
 
 def test_subject_names_match_rules_loosely():
     assert subject_key("Lịch Sử và Địa Lý") == subject_key("Lịch sử - Địa lý") == "lịch sử địa lý"
-    assert canonical_subject(" Tự Nhiên và Xã Hội ") == config.TNXH
+    assert canonical_subject(" Tự Nhiên và Xã Hội ") == bo_mau.TNXH
     assert canonical_subject("HĐTN") == config.HDTN
-    assert canonical_subject("Toán  Tăng Cường") == config.TOAN_TC
+    assert canonical_subject("Toán  Tăng Cường") == bo_mau.TOAN_TC
     assert canonical_subject("Múa  dân gian") == "Múa dân gian"  # môn không có luật: giữ tên trong file
 
 

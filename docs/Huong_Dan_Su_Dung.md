@@ -23,9 +23,13 @@ Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên 
 
 ## 2. Nhập dữ liệu
 
-Lần đầu mở trang là **trang bắt đầu** với ba cách:
+Lần đầu mở trang là **trang bắt đầu** với các cách:
 - **Mở file Excel của trường** (mẫu V8; hoặc file `_cap_nhat.xlsx` của lần xếp trước);
-- **Soạn mới trên trang**;
+- **Soạn mới: Tiểu học Việt Nam**: có sẵn các môn, luật và quy định của trường tiểu học Việt Nam, chỉ cần nhập số tiết
+  và giáo viên;
+- **Soạn mới: Trống**: chưa có môn nào, không theo quy ước của nước nào (vd trường mầm non, trường quốc tế): tự đặt
+  khung giờ, môn, khối, lớp; các luật có sẵn như ghép cặp, HĐTN, tiết của GVCN để **Tạm tắt**, bật luật nào cần ở bước
+  Luật (ô **Dùng**);
 - **Xem thử với trường mẫu** (tên giả): muốn biết chương trình làm gì thì chọn cách này, bấm Kiểm tra rồi Xếp TKB.
 
 ![Trang bắt đầu](hinh/0_bat_dau.jpg)

@@ -20,6 +20,9 @@ cột nằm ở sheet HƯỚNG DẪN.
 Chạy:
     python -m tkb.template <file mới.xlsx>    tạo file mẫu trống (các môn và quy định điền sẵn giá trị mặc định,
                                               số tiết để trống)
+    python -m tkb.template <file mới.xlsx> --mau trong
+                                              bộ luật mẫu Trống (tkb/bo_mau.py): chưa có môn nào, các luật theo quy
+                                              ước của một nước để Tạm tắt
 """
 from __future__ import annotations
 
@@ -31,10 +34,11 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.utils import get_column_letter
 
-from . import config
+from . import bo_mau, config
 from . import luat_rieng
-from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, ROLE_NAME, ROLE_SUBJECTS, class_rows, default_subjects,
-                    luat_headers, luat_rows, notes as rule_notes, role_rows, rule_tables, subject_columns)
+from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, ROLE_NAME, ROLE_SUBJECTS, applied, class_rows,
+                    default_subjects, luat_headers, luat_rows, mau as preset, notes as rule_notes, role_rows,
+                    rule_tables, subject_columns)
 from .staff import Teacher, class_sort_key, grade_key, off_text
 
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
@@ -257,19 +261,23 @@ def write_input(path: str | Path, staff: list[list], program: tuple, tables=None
 
 
 def write_staff_template(path: str | Path, teachers: list[Teacher] = (),
-                         curriculum: dict[int, dict[str, int]] | None = None) -> None:
+                         curriculum: dict[int, dict[str, int]] | None = None, mau: str | None = None) -> None:
     """Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), LỚP, CHỨC VỤ, QUY ĐỊNH,
-    LUẬT (mọi luật, kể cả luật có sẵn) và HƯỚNG DẪN."""
+    LUẬT (mọi luật, kể cả luật có sẵn) và HƯỚNG DẪN. `mau`: bộ luật mẫu (tkb/bo_mau.py); không ghi thì theo các quy
+    định đang dùng."""
     teachers = list(teachers)
-    write_input(path, [staff_row(t) for t in teachers], program_rows(curriculum, teachers))
+    with applied(preset(mau) if mau else None):
+        write_input(path, [staff_row(t) for t in teachers], program_rows(curriculum, teachers))
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tkb.template",
                                  description="Tạo file vào mẫu V8 trống (nhân sự, chương trình học, quy định)")
     ap.add_argument("output", help="File mẫu cần tạo (.xlsx)")
+    ap.add_argument("--mau", choices=list(bo_mau.PRESETS), default=bo_mau.DEFAULT,
+                    help="Bộ luật mẫu: " + "; ".join(f"{k} = {name}" for k, (name, _) in bo_mau.PRESETS.items()))
     args = ap.parse_args(argv)
-    write_staff_template(args.output)
+    write_staff_template(args.output, mau=args.mau)
     print(f"Đã ghi: {args.output}")
     return 0
 

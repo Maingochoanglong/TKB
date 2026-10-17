@@ -4,7 +4,7 @@ from collections import Counter
 
 import pytest
 
-from tkb import bo_ghep, config, luat_rieng
+from tkb import bo_ghep, bo_mau, config, luat_rieng
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.config import CustomRule
@@ -105,11 +105,11 @@ def test_each_measure_counts_like_a_hand_count(plain):
     les = plain.lessons
     teachers = plain.problem.teachers
     # Số tiết: mỗi lớp mỗi ngày tối đa 1 tiết Tiếng Việt.
-    per = Counter((l.class_name, l.day) for l in les if l.subject == config.TV)
+    per = Counter((l.class_name, l.day) for l in les if l.subject == bo_mau.TV)
     rule = CustomRule("tu_ghep", "Tiếng Việt", scope=("lop", "ngay"), measure="so_tiet", op="<=", number=1)
     assert _count(plain, rule) == sum(n - 1 for n in per.values() if n > 1) > 0
     # Số tiết, tối thiểu: mỗi lớp mỗi ngày ít nhất 1 tiết Tiếng Anh (ngày không có tiết nào cũng tính).
-    have = Counter((l.class_name, l.day) for l in les if l.subject == config.TIENG_ANH)
+    have = Counter((l.class_name, l.day) for l in les if l.subject == bo_mau.TIENG_ANH)
     rule = CustomRule("tu_ghep", "Tiếng Anh", scope=("lop", "ngay"), measure="so_tiet", op=">=", number=1)
     assert _count(plain, rule) == sum(1 for c in plain.problem.classes for d in range(5) if not have[c, d])
     # Số khác nhau: mỗi GV mỗi ngày dạy tối đa 1 lớp.
@@ -120,15 +120,15 @@ def test_each_measure_counts_like_a_hand_count(plain):
     assert _count(plain, rule) == sum(len(v) - 1 for v in classes.values() if len(v) > 1) > 0
     # Vị trí: Toán không trong tiết 5–7.
     rule = CustomRule("tu_ghep", "Toán", measure="vi_tri", op="ngoai", periods=(5, 6, 7))
-    assert _count(plain, rule) == sum(1 for l in les if l.subject == config.TOAN and l.period >= 5)
+    assert _count(plain, rule) == sum(1 for l in les if l.subject == bo_mau.TOAN and l.period >= 5)
     # Liền nhau: các tiết Tiếng Việt trong buổi.
     rule = CustomRule("tu_ghep", "Tiếng Việt", scope=("lop",), measure="lien")
-    assert _count(plain, rule) == _tv_triples(plain, config.TV)
+    assert _count(plain, rule) == _tv_triples(plain, bo_mau.TV)
     # Thứ tự: Toán trước Tiếng Việt trong buổi.
     n = 0
     for l in les:
-        if l.subject == config.TV:
-            n += sum(1 for m in les if m.subject == config.TOAN and (m.class_name, m.day) == (l.class_name, l.day)
+        if l.subject == bo_mau.TV:
+            n += sum(1 for m in les if m.subject == bo_mau.TOAN and (m.class_name, m.day) == (l.class_name, l.day)
                      and _session(m.period) == _session(l.period) and m.period > l.period)
     rule = CustomRule("tu_ghep", "Toán", other="Tiếng Việt", scope=("lop",), measure="thu_tu")
     assert _count(plain, rule) == n
@@ -138,9 +138,9 @@ def test_each_measure_counts_like_a_hand_count(plain):
     assert _count(plain, rule) == sum(1 for l in les if l.subject == "Âm nhạc" and (l.class_name, l.day) not in art)
     # Người dạy: Tiếng Việt chỉ do Chủ Nhiệm dạy; Tiếng Anh do Bộ Môn dạy (không ai).
     rule = CustomRule("tu_ghep", "Tiếng Anh", role="bộ môn", measure="nguoi_day", op="do")
-    assert _count(plain, rule) == sum(1 for l in les if l.subject == config.TIENG_ANH)
+    assert _count(plain, rule) == sum(1 for l in les if l.subject == bo_mau.TIENG_ANH)
     rule = CustomRule("tu_ghep", "Tiếng Việt", role="chủ nhiệm", measure="nguoi_day", op="do")
-    assert _count(plain, rule) == sum(1 for l in les if l.subject == config.TV and not teachers[l.teacher].class_name)
+    assert _count(plain, rule) == sum(1 for l in les if l.subject == bo_mau.TV and not teachers[l.teacher].class_name)
     # Người dạy, cùng một người: mỗi lớp mỗi ngày mọi tiết do một người (số người thừa).
     who = {}
     for l in les:
@@ -157,12 +157,12 @@ def test_each_measure_counts_like_a_hand_count(plain):
     assert _count(plain, rule) == gaps
     end = lambda p: 4 if p in MORNING else 7  # noqa: E731
     rule = CustomRule("tu_ghep", "Toán", measure="khoang_cach", scope=("lop",), op="cuoi_buoi", number=1)
-    assert _count(plain, rule) == sum(max(0, end(l.period) - l.period - 1) for l in les if l.subject == config.TOAN)
+    assert _count(plain, rule) == sum(max(0, end(l.period) - l.period - 1) for l in les if l.subject == bo_mau.TOAN)
     # Theo cặp (ưu tiên): tiết Tiếng Anh lẻ trong buổi.
     lonely = 0
     for l in les:
-        if l.subject == config.TIENG_ANH and not any(
-                m.subject == config.TIENG_ANH and (m.class_name, m.day) == (l.class_name, l.day)
+        if l.subject == bo_mau.TIENG_ANH and not any(
+                m.subject == bo_mau.TIENG_ANH and (m.class_name, m.day) == (l.class_name, l.day)
                 and abs(m.period - l.period) == 1 and _session(m.period) == _session(l.period) for m in les):
             lonely += 1
     rule = CustomRule("tu_ghep", "Tiếng Anh", scope=("lop",), measure="cap")
@@ -186,10 +186,10 @@ def test_composed_hard_rules_hold():
     sol, errors = _solve(*rules)
     assert errors == []
     les = sol.lessons
-    for g in {l.teacher for l in les if l.subject == config.TIENG_ANH}:
+    for g in {l.teacher for l in les if l.subject == bo_mau.TIENG_ANH}:
         assert max(Counter(d for d in {(l.day, l.class_name) for l in les if l.teacher == g}).values()) <= 2
-    assert max(Counter((l.class_name, l.day) for l in les if l.subject == config.TIENG_ANH).values()) == 1
-    assert all(l.period >= 5 for l in les if l.subject == config.TIN_HOC)
+    assert max(Counter((l.class_name, l.day) for l in les if l.subject == bo_mau.TIENG_ANH).values()) == 1
+    assert all(l.period >= 5 for l in les if l.subject == bo_mau.TIN_HOC)
     art = {(l.class_name, l.day) for l in les if l.subject == "Mỹ thuật"}
     assert all((l.class_name, l.day) in art for l in les if l.subject == "Âm nhạc")
     with applied({"CUSTOM_RULES": rules}):
@@ -217,9 +217,9 @@ def test_new_presets():
     les = sol.lessons
     assert [l.subject for l in les if (l.class_name, l.day, l.period) == ("3/1", 1, 3)] == ["Thể dục"]
     for cls in sol.problem.classes:
-        assert len({l.day for l in les if l.class_name == cls and l.subject == config.TIENG_ANH}) >= 4
+        assert len({l.day for l in les if l.class_name == cls and l.subject == bo_mau.TIENG_ANH}) >= 4
     assert max(Counter(l.day for l in les if l.subject == "Âm nhạc").values()) == 1  # 2 lớp, 1 GV, 1 lớp/ngày
-    assert {sol.problem.teachers[l.teacher].role for l in les if l.subject == config.TIENG_ANH} == {"tiếng anh"}
+    assert {sol.problem.teachers[l.teacher].role for l in les if l.subject == bo_mau.TIENG_ANH} == {"tiếng anh"}
     assert luat_rieng.describe(rules[0]) == "Thể dục lớp 3/1 cố định vào Thứ 3 tiết 3 (bắt buộc)"
     assert luat_rieng.describe(rules[3]) == "Tiếng Anh chỉ do GV Tiếng Anh dạy (bắt buộc)"
     with applied({"CUSTOM_RULES": [CustomRule("chi_gv", "Kỹ năng sống", role="tiếng anh", hard=True, row=6)]}):
@@ -233,7 +233,7 @@ def test_teacher_rule_filters_the_assignment():
     with applied({"CUSTOM_RULES": [rule]}):
         p = build_problem(small_staff(), CURRICULUM, {}, overtime_max=0)
     for c in p.courses:
-        if c.subject == config.TIN_HOC:
+        if c.subject == bo_mau.TIN_HOC:
             assert {p.teachers[g].role for g in c.teachers} == {"tin học"}
 
 
@@ -279,8 +279,8 @@ def test_extensions_count_like_a_hand_count(plain):
     rule = CustomRule("tu_ghep", tags=("Môn tăng cường",), scope=("lop", "nhom_mon", "ngay"), measure="thu_tu",
                       op="sau", hard=True)
     assert _count(plain, rule) == 0
-    tc = next(l for l in les if l.subject == config.TOAN_TC)
-    main = next(l for l in les if (l.class_name, l.day, l.subject) == (tc.class_name, tc.day, config.TOAN))
+    tc = next(l for l in les if l.subject == bo_mau.TOAN_TC)
+    main = next(l for l in les if (l.class_name, l.day, l.subject) == (tc.class_name, tc.day, bo_mau.TOAN))
     swapped = [l if l not in (tc, main) else type(l)(**{**l.__dict__, "period": (main if l is tc else tc).period})
                for l in les]
     assert _count(type(plain)(**{**plain.__dict__, "lessons": swapped}), rule) == 1
@@ -339,14 +339,14 @@ def test_rules_for_one_teacher(plain):
              CustomRule("chi_gv", "Tiếng Anh", classes=("3/2",), role="ta", hard=True, row=4)]
     with applied({"CUSTOM_RULES": rules}):
         p = build_problem(_two_english(), CURRICULUM, {}, overtime_max=4)
-        english = {c.class_name: c.teachers for c in p.courses if c.subject == config.TIENG_ANH}
+        english = {c.class_name: c.teachers for c in p.courses if c.subject == bo_mau.TIENG_ANH}
         assert english == {"3/1": ["tiếng anh 2"], "3/2": ["tiếng anh 1"]}
         sol = solve(_two_english(), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS),
                     log=lambda *_: None)
         assert check(sol.problem, sol.lessons) == []
         les = sol.lessons
-        assert {l.teacher for l in les if l.subject == config.TIENG_ANH and l.class_name == "3/1"} == {"tiếng anh 2"}
-        assert {l.teacher for l in les if l.subject == config.TIENG_ANH and l.class_name == "3/2"} == {"tiếng anh 1"}
+        assert {l.teacher for l in les if l.subject == bo_mau.TIENG_ANH and l.class_name == "3/1"} == {"tiếng anh 2"}
+        assert {l.teacher for l in les if l.subject == bo_mau.TIENG_ANH and l.class_name == "3/2"} == {"tiếng anh 1"}
         assert not [l for l in les if l.teacher == "thể dục 1" and (l.day, l.period) in bad]
         assert [n for _, n, _, _ in bo_ghep.violations(sol.problem, sol.lessons, hard=True)] == []
         # Câu đọc lại ghi Mã GV (config.PEOPLE), không ghi họ tên.

@@ -6,7 +6,7 @@ import openpyxl
 import pytest
 
 import main
-from tkb import config
+from tkb import bo_mau, config
 from tkb.rules import ATTRS, DEFAULTS, LABELS, applied, changed, code, read_rules
 from tkb.staff import InputError
 from tkb.template import write_staff_template
@@ -118,11 +118,11 @@ def test_subject_columns(tmp_path):
         (MON, "Tiếng Việt", "Môn khó", "Có"),  # cột lạ ở sheet chương trình học: cảnh báo, bỏ qua
     ])
     rules = read_rules(path, warn=warnings.append)
-    assert rules["HEAVY_SUBJECTS"] == {config.TOAN, config.TOAN_TC, config.TV_TC, config.TIENG_ANH, config.TIN_HOC,
+    assert rules["HEAVY_SUBJECTS"] == {bo_mau.TOAN, bo_mau.TOAN_TC, bo_mau.TV_TC, bo_mau.TIENG_ANH, bo_mau.TIN_HOC,
                                        "Thể dục"}
-    assert rules["HOMEROOM_PRIORITY"] == [config.TOAN, config.HDTN, config.KH, config.LSDL, config.DD]
-    assert rules["MANAGER_RULES"] == [config.ManagerRule(config.DD, 5), config.ManagerRule(config.KNS, 4)]  # thứ tự dòng
-    assert rules["DAILY_LIMITS"] == {config.TOAN: 1}  # nay là dòng luật của sheet LUẬT
+    assert rules["HOMEROOM_PRIORITY"] == [bo_mau.TOAN, config.HDTN, bo_mau.KH, bo_mau.LSDL, bo_mau.DD]
+    assert rules["MANAGER_RULES"] == [config.ManagerRule(bo_mau.DD, 5), config.ManagerRule(bo_mau.KNS, 4)]  # thứ tự dòng
+    assert rules["DAILY_LIMITS"] == {bo_mau.TOAN: 1}  # nay là dòng luật của sheet LUẬT
     assert rules["DISPLAY_NAMES"]["Thể dục"] == "TD"
     assert changed(rules) == ["Tên trong TKB", "GVCN nhận trọn", "Quản lý dạy khối", "Môn nặng"]
     assert len(warnings) == 1 and "'Môn khó' không phải quy định nào" in warnings[0]
@@ -133,7 +133,7 @@ def test_subject_groups(tmp_path):
     rules = read_rules(_input(tmp_path, [(MON, "Toán", "Nhóm môn", 1), (MON, "Toán tăng cường", "Nhóm môn", 1),
                                          (MON, "Tiếng Việt", "Nhóm môn", 2),
                                          (MON, "Tiếng Việt tăng cường", "Nhóm môn", 2)]))
-    assert list(rules["SUBJECT_GROUPS"].items()) == [(config.TOAN_TC, config.TOAN), (config.TV_TC, config.TV)]
+    assert list(rules["SUBJECT_GROUPS"].items()) == [(bo_mau.TOAN_TC, bo_mau.TOAN), (bo_mau.TV_TC, bo_mau.TV)]
 
 
 @pytest.mark.parametrize("old_frame", [False, True])

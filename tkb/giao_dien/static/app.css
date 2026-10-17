@@ -136,7 +136,7 @@ button.link { border: none; background: none; padding: 0; color: var(--accent); 
 body.starting .tabs, body.starting main { display: none; }
 .start { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
 .start h2 { font-size: 24px; margin: 0 0 6px; }
-.start-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 18px 0; }
+.start-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin: 18px 0; }
 .start-card {
   display: grid; gap: 8px; align-content: start; text-align: left; white-space: normal; padding: 20px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); min-height: 140px;
