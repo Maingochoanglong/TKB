@@ -115,6 +115,8 @@ ROLE_NAME, ROLE_SUBJECTS = "Chức vụ", "Môn được dạy"
 # Sheet LỚP (không bắt buộc): mỗi dòng một lớp (thêm cột Ghi chú nếu cần).
 CLASS_NAME, CLASS_GRADE, CLASS_CAMPUS, CLASS_TAGS = "Lớp", "Khối", "Cơ sở", "Nhãn"
 CLASS_CAMPUS2 = "Cơ sở 2"  # cột Có/Không của bản trước (Có: lớp ở Cơ sở 2): vẫn đọc được, không ghi
+# Sheet PHÒNG (không bắt buộc): mỗi dòng một phòng học dùng chung (thêm cột Ghi chú nếu cần).
+ROOM_NAME, ROOM_CAMPUS, ROOM_SUBJECTS, ROOM_GRADES, ROOM_CAPACITY = "Phòng", "Cơ sở", "Môn", "Khối", "Sức chứa"
 # Cột của bản trước mà nay là số của một dòng luật (sheet LUẬT): vẫn đọc được ở file cũ, không ghi, không hiện.
 LEGACY = frozenset({"SESSION_GROUP_LIMIT", "PAIR_MIN_LESSONS", "DAILY_LIMITS"})
 # Cách ghi khung giờ của bản trước (số tiết buổi sáng/chiều chung mọi ngày, cột Có/Không học buổi sáng/chiều): vẫn
@@ -132,14 +134,14 @@ ATTRS = (*FRAME_ATTRS, "SESSION_GROUP_LIMIT", "PAIR_MIN_LESSONS", "OVERTIME_ROLE
          "HDTN_FLEX_DAYS", "HOMEROOM_PERIODS", "HEAVY_LATE_PERIODS", "DISPLAY_NAMES", "HDTN", "HOMEROOM_PRIORITY",
          "HOMEROOM_CUT_ORDER", "HOMEROOM_FILL_ORDER", "HOMEROOM_ONLY_SUBJECTS", "GENERAL_FORBIDDEN_SUBJECTS",
          "MANAGER_RULES", "HOMEROOM_OVERTIME_SPECIALIST", "SUBJECT_GROUPS", "DAILY_LIMITS", "PAIR_EXCLUDED",
-         "HEAVY_SUBJECTS", "MORNING_SUBJECTS", "CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS", "CLASSES")
+         "HEAVY_SUBJECTS", "MORNING_SUBJECTS", "CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS", "CLASSES", "ROOMS")
 # Không ghi gì thì không tính vào mã quy định (mã cũ giữ nguyên).
-OPTIONAL_ATTRS = ("CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS", "CLASSES")
+OPTIONAL_ATTRS = ("CUSTOM_RULES", "CUSTOM_ROLES", "OFF", "WEIGHTS", "CLASSES", "ROOMS")
 # Tên quy định khi in "khác mặc định".
 LABELS = {**{c.key: c.header for c in (*GENERAL, *DAY_COLS, *PERIOD_COLS, *SUBJECT_COLS)},
           **{a: "Khung giờ" for a in FRAME_ATTRS}, "OVERTIME_ROLES": "Được dạy bù",
           "SUBJECT_GROUPS": "Nhóm môn, Môn tăng cường", "CUSTOM_RULES": "Luật riêng", "CUSTOM_ROLES": "Chức vụ",
-          "OFF": "Luật có sẵn bị bỏ", "WEIGHTS": "Điểm của luật ưu tiên", "CLASSES": "Lớp"}
+          "OFF": "Luật có sẵn bị bỏ", "WEIGHTS": "Điểm của luật ưu tiên", "CLASSES": "Lớp", "ROOMS": "Phòng"}
 DEFAULTS = {attr: copy.deepcopy(getattr(config, attr)) for attr in ATTRS}  # giá trị mặc định trong tkb/config.py
 # Tên môn trong tkb/config.py (và chữ viết tắt mặc định), để khớp tên môn ghi trong sheet CHƯƠNG TRÌNH HỌC.
 _KNOWN = {**{subject_key(label): s for s, label in config.DISPLAY_NAMES.items()},
@@ -699,6 +701,80 @@ class _Reader:
                     self.error(sheet, c.row, f"{what} '{tag}' trùng tên lớp ở dòng {seen[_fold(tag)]}")
         self.values["CLASSES"] = tuple(out)
 
+    # ---- sheet PHÒNG: mỗi dòng một phòng học dùng chung ----
+    def rooms(self, ws, grades: dict[str, int | str]) -> None:
+        """Bảng có dòng tiêu đề chứa cột Phòng; các dòng sau là các phòng (dòng trống bỏ qua): tên phòng, Cơ sở (tên
+        như cột Cơ sở của sheet LỚP; trống: Cơ sở 1), Môn (các môn hoặc nhãn môn học ở phòng này), Khối (trống: mọi
+        khối), Sức chứa (số lớp học cùng lúc; trống: 1). Tên môn, tên cơ sở kiểm tra khi dựng bài toán
+        (allocation.build_problem), vì cần chương trình học và các lớp."""
+        sheet = ws.title
+        self.values["ROOMS"] = ()
+        heads = {normalize(ROOM_NAME): "name", normalize(ROOM_CAMPUS): "campus", normalize(ROOM_SUBJECTS): "subjects",
+                 normalize(ROOM_GRADES): "grades", normalize(ROOM_CAPACITY): "capacity"}
+        header_row = next((r for r in range(1, min(ws.max_row, 20) + 1)
+                           if normalize(ROOM_NAME) in {normalize(v) for v in _row(ws, r).values()}), None)
+        if header_row is None:
+            if ws.max_row > 1 or _row(ws, 1):
+                self.error(sheet, None, f"không có dòng tiêu đề có cột {ROOM_NAME}")
+            return
+        cols: dict[str, int] = {}
+        for c, value in _row(ws, header_row).items():
+            key = heads.get(normalize(value))
+            if key is not None:
+                cols[key] = c
+            elif normalize(value) != normalize(NOTE):
+                names = ", ".join((ROOM_NAME, ROOM_CAMPUS, ROOM_SUBJECTS, ROOM_GRADES, ROOM_CAPACITY, NOTE))
+                self.error(sheet, header_row, f"không có cột nào tên '{clean_name(value)}' (các cột: {names})")
+        if "subjects" not in cols:
+            self.error(sheet, header_row, f"thiếu cột {ROOM_SUBJECTS}")
+            return
+        get = lambda r, key: ws.cell(r, cols[key]).value if key in cols else None  # noqa: E731
+        out: list[config.Room] = []
+        seen: dict[tuple[str, str], int] = {}
+        campuses: dict[str, str] = {}
+        for r in range(header_row + 1, ws.max_row + 1):
+            name = get(r, "name")
+            if _blank(name):
+                if any(not _blank(get(r, k)) for k in ("campus", "subjects", "grades", "capacity")):
+                    self.error(sheet, r, f"thiếu tên phòng ở cột {ROOM_NAME}")
+                continue
+            name = clean_name(name)
+            campus = "" if _blank(get(r, "campus")) else clean_name(get(r, "campus"))
+            campus = campuses.setdefault(_fold(campus), campus)  # cùng một cơ sở ghi khác hoa thường: một tên
+            key = (_fold(campus or CAMPUS1), _fold(name))
+            if key in seen:
+                self.error(sheet, r, f"phòng '{name}' đã ghi ở dòng {seen[key]}")
+                continue
+            seen[key] = r
+            names: dict[str, str] = {}  # môn ghi trùng chỉ tính một lần
+            subjects = get(r, "subjects")
+            for x in re.split(r"[,;\n]", "" if _blank(subjects) else str(subjects)):
+                if x.strip():
+                    names.setdefault(subject_key(x), clean_name(x))
+            if not names:
+                self.error(sheet, r, f"phòng '{name}' chưa ghi môn ở cột {ROOM_SUBJECTS}")
+                continue
+            room_grades: list[int | str] = []
+            if not _blank(get(r, "grades")):
+                try:
+                    parsed = luat_rieng._grades(str(get(r, "grades")))
+                except InputError:
+                    parsed = None
+                if not parsed:
+                    self.error(sheet, r, f"cột {ROOM_GRADES} ghi tên các khối, vd 4, 5, đang ghi {get(r, 'grades')!r}")
+                    continue
+                room_grades = [grades.get(_fold(str(g)), g) for g in parsed]
+                unknown = [str(g) for g in room_grades if grades and g not in grades.values()]
+                if unknown:
+                    self.error(sheet, r, f"phòng '{name}': không có cột Khối {', '.join(unknown)} ở sheet "
+                                         f"{config.PROGRAM_SHEET}")
+                    continue
+            capacity = 1 if _blank(get(r, "capacity")) else self.number(sheet, r, ROOM_CAPACITY, get(r, "capacity"))
+            if capacity is None:
+                continue
+            out.append(config.Room(name, tuple(names.values()), campus, tuple(room_grades), capacity, r))
+        self.values["ROOMS"] = tuple(out)
+
     def frame(self) -> dict[str, object]:
         """Khung giờ của file (DAYS, DAY_SESSIONS, MORNING, AFTERNOON; {} nếu file không ghi): đọc xong sheet QUY ĐỊNH
         thì tính ngay, để cột Ngày, Buổi của sheet LUẬT đọc theo tên ngày, tên buổi của chính file."""
@@ -786,6 +862,10 @@ def read_rules(path: str | Path, warn=lambda text: None) -> dict[str, object] | 
         if ws is not None:
             reader.custom(ws, "RULES")
             found = True
+        ws = find_sheet(wb, config.ROOMS_SHEET)
+        if ws is not None:  # cột Khối viết tên khối như sheet LỚP
+            reader.rooms(ws, reader.program_grades(program) if program is not None else {})
+            found = found or bool(reader.values["ROOMS"])  # sheet PHÒNG trống: như không có
     if not found:
         return None
     values = reader.finish()
@@ -881,6 +961,11 @@ def _canonical(attr: str, value):
             return {_fold(CAMPUS1): False, _fold(CAMPUS2): True}.get(key, key)
         return sorted(((c.name, c.grade, campus(c.campus), *((sorted(map(_fold, c.tags)),) if c.tags else ()))
                        for c in value), key=repr)
+    if attr == "ROOMS":  # số dòng, thứ tự dòng, cách viết hoa thường không phải là quy định
+        from .program import canonical_subject
+        return sorted(((_fold(r.campus or CAMPUS1), _fold(r.name), sorted({subject_key(canonical_subject(s))
+                                                                             for s in r.subjects}),
+                        sorted(map(str, r.grades)), r.capacity) for r in value), key=repr)
     if attr == "CUSTOM_ROLES":  # dòng một môn trùng tên chức vụ là như không ghi (chức vụ trùng tên môn có sẵn)
         from .program import canonical_subject
         key = lambda name: subject_key(canonical_subject(name))  # noqa: E731
@@ -928,6 +1013,12 @@ def role_rows() -> list[list]:
 def class_rows() -> list[list]:
     """Các dòng của sheet LỚP theo config hiện tại: [lớp, khối, cơ sở, nhãn]."""
     return [[c.name, c.grade, c.campus or None, ", ".join(c.tags) or None] for c in config.CLASSES]
+
+
+def room_rows() -> list[list]:
+    """Các dòng của sheet PHÒNG theo config hiện tại: [phòng, cơ sở, các môn, các khối, sức chứa]."""
+    return [[r.name, r.campus or None, ", ".join(r.subjects), ", ".join(map(str, r.grades)) or None, r.capacity]
+            for r in config.ROOMS]
 
 
 def luat_headers() -> list[str]:
@@ -1013,6 +1104,15 @@ def notes() -> list[tuple[str, str]]:
              f"môn chia cho GV khác; môn Chỉ GVCN dạy, tiết Luôn do GVCN dạy, tiết HĐTN cố định của GVCN không áp "
              f"dụng cho lớp đó). Không có sheet này (hoặc sheet trống) thì lớp là lớp của các dòng Chủ Nhiệm, ghi "
              f"dạng khối/số thứ tự (1/1) hoặc khối rồi tên lớp (1A)."),
+            (config.ROOMS_SHEET,
+             f"Không bắt buộc. Mỗi dòng một phòng học dùng chung (phòng Tin, phòng đa năng, sân trường): cột "
+             f"{ROOM_NAME} ghi tên phòng, cột {ROOM_CAMPUS} ghi tên cơ sở như cột Cơ sở của sheet "
+             f"{config.CLASSES_SHEET} (trống: {CAMPUS1}), cột {ROOM_SUBJECTS} ghi các môn học ở phòng này cách nhau "
+             f"dấu phẩy (đúng tên trong sheet {config.PROGRAM_SHEET}, hoặc một nhãn môn là tiêu đề một cột Có/Không "
+             f"của sheet đó), cột {ROOM_GRADES} ghi các khối dùng phòng (trống: mọi khối), cột {ROOM_CAPACITY} ghi số "
+             f"lớp học cùng lúc trong phòng (trống: 1; vd sân trường 3). Luật cứng: tiết của môn, khối, cơ sở có phòng "
+             f"ghi ở đây phải học ở một phòng như vậy, mỗi giờ học không quá sức chứa; tên phòng ghi trong TKB và file "
+             f"TKB phòng. Môn không có phòng nào ghi thì học ở lớp."),
             (luat_rieng.RULES_SHEET,
              "Mọi luật xếp TKB, mỗi dòng một luật, đọc như một câu: Với mỗi [cột Với mỗi] · các tiết [Môn, Nhãn, Khối, "
              "Lớp, Ngày, Tiết, Buổi, Giáo viên] · thì [Phép đo] [So sánh] [Số] · khi [Áp dụng khi]. Mỗi luật trả lời "

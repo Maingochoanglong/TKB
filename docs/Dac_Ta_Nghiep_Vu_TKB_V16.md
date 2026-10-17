@@ -91,6 +91,7 @@
 | 73 | Nhãn giáo viên, nhãn lớp | Luật chỉ nhắm được chức vụ, một người, một lớp hay khối: muốn áp cho một nhóm người (vd người bán thời gian, tổ Toán) hay nhóm lớp (lớp song ngữ) phải ghi từng người, từng lớp | Cột **Nhãn** không bắt buộc của sheet NHÂN SỰ và sheet `LỚP` (mục 2.1.1, 2.2): các nhãn tự đặt, không tự có nghĩa gì. Cột Giáo viên của sheet `LUẬT` ghi một nhãn là mọi GV có nhãn đó, cột Lớp ghi một nhãn lớp là mọi lớp có nhãn đó (mục 6.1). Thai Sản, Hợp Đồng, Cơ sở 2 ghi Có cũng là nhãn cùng tên (người và lớp). Nhãn lớp vào mã quy định; không ghi nhãn: như cũ, cùng mã kết quả |
 | 74 | Nhiều cơ sở | Chỉ có hai cơ sở (cột Có/Không `Cơ sở 2`): trường ba điểm trường trở lên không ghi được | Cột **Cơ sở** của sheet `LỚP` ghi tên cơ sở (điểm trường) tùy ý, bao nhiêu cơ sở cũng được; trống là `Cơ sở 1`, cột `Cơ sở 2` của dòng Chủ Nhiệm và cột Có/Không `Cơ sở 2` của bản trước vẫn đọc được (mục 2.2). Luật cứng mỗi buổi một cơ sở và luật ưu tiên hạn chế đổi cơ sở trong ngày (mỗi lần đổi bị phạt) áp cho mọi số cơ sở (mục 4.1); mỗi cơ sở một file TKB; thống kê, câu báo lỗi ghi tên cơ sở. Tên cơ sở cũng là nhãn lớp ở cột Lớp của sheet `LUẬT`. Hai cơ sở `Cơ sở 1`, `Cơ sở 2` giữ cách mã hóa cũ: cùng mã kết quả |
 | 75 | Thứ tự dạy bù tự đặt | Ai bù trước cố định theo chức vụ và cột Hợp Đồng: GVCN hợp đồng → GVCN → bộ môn hợp đồng → bộ môn (`Weights.overtime_*`) | Cột **Thứ Tự Bù** không bắt buộc của sheet NHÂN SỰ (mục 2.1.1): số nguyên dương, 1 bù trước nhất, cùng số bù ngang nhau; trống thì như cũ (1, 2, 3, 4 theo chức vụ và Hợp Đồng). Thứ tự 1–4 giữ đúng bốn mức giá cũ; số khác thì các thứ tự đang dùng chia đều khoảng giá đó (mục 7.2, 8.1). Bộ kiểm tra "GVCN được ưu tiên bù lớp mình" chỉ áp khi GVCN đứng trước bộ môn trong thứ tự này (mặc định luôn đúng). Cột trống: cùng mã kết quả |
+| 76 | Phòng học dùng chung | Chỉ giới hạn được số lớp học một môn cùng lúc (luật `Số lớp học cùng lúc tối đa`): không có tên phòng nên TKB không ghi lớp học phòng nào, không ghi được phòng dùng cho nhiều môn hay chỉ cho vài khối, trường nhiều cơ sở phải tự ghép phạm vi | Sheet **`PHÒNG`** không bắt buộc (mục 2.2.1): `Phòng | Cơ sở | Môn | Khối | Sức chứa`. Luật cứng: tiết của môn, khối, cơ sở có phòng phải học ở một phòng hợp, mỗi giờ không quá sức chứa (mục 6.2); chương trình chọn phòng cho từng tiết sau khi xếp giờ, ghi tên phòng trong TKB, TKB giáo viên và file mới `TKB_phong.xlsx` (mục 11). Không có sheet (hoặc sheet trống): cùng mã quy định, cùng mã kết quả |
 
 ---
 
@@ -199,6 +200,21 @@ Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối
 - **Khối** có tên tùy ý (`staff.parse_grade`): tên toàn chữ số là khối số (`1`), tên khác giữ như ghi (`Lá`, `Year 7`).
   Khối sắp theo số rồi theo tên (thứ tự tự nhiên, `Lá 2` trước `Lá 10`); lớp sắp theo khối, rồi theo tên (`1D9` trước
   `1D15`). Với khối số và tên lớp có khối ở đầu, thứ tự (và mô hình, mã kết quả) như trước.
+
+#### 2.2.1. Phòng học dùng chung (sheet `PHÒNG`)
+
+- Không bắt buộc. Mỗi dòng một phòng: `Phòng | Cơ sở | Môn | Khối | Sức chứa` (cột `Ghi chú` bỏ qua; đọc ở
+  `rules._Reader.rooms` → `config.ROOMS` của `config.Room`).
+  - **Phòng**: tên tùy ý, không trùng trong một cơ sở (không phân biệt hoa thường).
+  - **Cơ sở**: tên như cột Cơ sở của sheet `LỚP`; trống là `Cơ sở 1`. Không có lớp nào ở cơ sở đó thì báo lỗi.
+  - **Môn**: các môn (tên như sheet chương trình học) hoặc nhãn môn (tiêu đề một cột Có/Không của sheet đó), cách nhau
+    dấu phẩy. Không có môn hay nhãn đó thì báo lỗi (khi dựng bài toán, `phong_hoc.fit`).
+  - **Khối**: các khối dùng phòng (vd `4, 5`, `3-5`, `Lá`); trống là mọi khối. **Sức chứa**: số lớp học cùng lúc; trống
+    là 1.
+- Một tiết (lớp, môn) **cần phòng** nếu có ít nhất một phòng ghi môn đó, khối của lớp, ở cơ sở của lớp
+  (`Problem.room_fit`: course → các phòng hợp). Luật ở mục 6.2.
+- Mã quy định: sheet `PHÒNG` dạng chuẩn hóa (bỏ số dòng, thứ tự dòng, hoa thường), chỉ khi có ghi phòng. Không có sheet
+  hoặc sheet trống: như trước.
 
 ### 2.3. Chương trình học
 
@@ -499,6 +515,25 @@ tối đa 2 tiết của một môn, tính chung môn chính với môn tăng c�
   chỗ tiết thì bộ ghép và bộ kiểm tra độc lập cùng thấy; tắt bản gốc của "liền nhau", "tiết tăng cường" (cờ chẩn đoán)
   và hạ chính các câu đó qua bộ ghép thì TKB vẫn qua bộ kiểm tra.
 
+### 6.2. Phòng học dùng chung (sheet `PHÒNG`)
+
+- **[Cứng]** Tiết cần phòng (mục 2.2.1) học ở một phòng hợp; mỗi giờ học, số lớp trong một phòng không quá sức chứa.
+  Một lớp chiếm một chỗ.
+- Cài đặt (`tkb/phong_hoc.py`, gọi ở `solver.build_timetable` ngay sau luật mỗi lớp mỗi giờ một tiết):
+  - Các course hợp cùng một tập phòng là một **loại**; các loại có chung phòng nối thành một **cụm** (`clusters`).
+  - Cụm một loại (các phòng giống nhau, vd hai phòng Tin cho mọi khối): mỗi giờ, tổng số tiết của cụm ≤ tổng sức chứa
+    (cùng dạng với luật `Số lớp học cùng lúc tối đa`).
+  - Cụm nhiều loại (vd Phòng Tin 2 chỉ khối 4, 5; phòng đa năng cho hai môn còn môn kia có thêm phòng riêng): mỗi giờ,
+    biến nguyên `y[loại, phòng]` = số tiết của loại học ở phòng đó; tổng theo phòng bằng số tiết của loại, tổng trong
+    một phòng ≤ sức chứa. Đây là bài toán luồng nên có `y` thỏa là chọn được phòng cho mọi tiết.
+  - Giờ mà mọi tiết có thể có của cụm đều chọn được phòng thì không thêm gì. Không có sheet `PHÒNG`: không thêm gì,
+    mô hình và mã kết quả như cũ.
+- **Chọn phòng cho từng tiết** sau khi xếp giờ (`phong_hoc.placed`, `Solution.rooms`): mỗi giờ học một bài toán luồng
+  chi phí nhỏ nhất (`phan_cong.MinCostFlow`, Python thuần, thứ tự cố định nên mọi máy như nhau), ưu tiên phòng lớp đó đã
+  học môn đó ở các giờ trước. Phòng không vào mã kết quả; nạp lại file vào cập nhật thì chọn lại cùng cách.
+- Phép đếm trước khi xếp (`chan_doan.precheck`): số tiết của một loại (và của cả cụm) ≤ tổng sức chứa × số giờ học
+  trong tuần. Chẩn đoán khi không xếp được: sức chứa phòng là một nhóm luật (`config.OFF` khóa `phong`).
+
 ---
 
 ## 7. Xử lý khi thiếu người
@@ -648,6 +683,7 @@ Các trọng số chọn qua thử nghiệm trên file của trường (lượng
 9. Hai tiết liền nhau cùng nhóm môn do 1 người dạy; nhóm môn ưu tiên: người khác không dạy trước tiết GVCN đầu tuần (mục 5.7).
 10. Nếu bật luật học sinh: mỗi nhóm môn tối đa 2 tiết mỗi buổi; Toán tối đa 1 tiết mỗi ngày; nhóm ghép cặp mỗi buổi 0 hoặc 2 tiết liền; môn có từ 2 tiết trong buổi học liền nhau; tiết tăng cường đứng sau mọi tiết chính cùng nhóm trong ngày và ngày đó có tiết chính.
 11. Mục 4.1: mỗi GV mỗi buổi chỉ một cơ sở; GV thai sản hoặc chỉ-cơ-sở-2 không dạy lớp cơ sở 1 (và thai sản không bù, qua mục 3); buổi nghỉ cố định không có tiết; đủ số buổi trống đã xin.
+12. Mục 6.2: mỗi giờ học chọn được phòng hợp cho mọi tiết cần phòng (giải lại bài toán luồng, không dùng biến của mô hình); không được thì báo giờ, các tiết và các phòng hợp.
 
 Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn hình.
 
@@ -655,13 +691,14 @@ Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn h�
 
 ## 11. Đầu ra
 
-Năm file, ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: chỉ `Thong_Ke.xlsx` với sheet `Thiếu tiết`):
+Năm file (thêm `TKB_phong.xlsx` khi có sheet `PHÒNG`), ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: chỉ `Thong_Ke.xlsx` với sheet `Thiếu tiết`):
 
 | File | Nội dung |
 |---|---|
 | `TKB.xlsx` | **Chỉ thời khóa biểu**: các sheet Khối (mục 11.1). Trường có nhiều cơ sở: mỗi cơ sở một file, `TKB_diem_chinh.xlsx` (Cơ sở 1), `TKB_diem_phu.xlsx` (Cơ sở 2), cơ sở tên khác `TKB_<tên không dấu>.xlsx` (`writer.campus_paths`) |
 | `TKB_chuc_vu.xlsx` | Cùng TKB, mỗi ô thêm dòng thứ 3 là chức vụ (Mã GV), để theo dõi ai dạy tiết nào. Hai cơ sở: tách như `TKB.xlsx` |
 | `TKB_giao_vien.xlsx` | TKB của từng giáo viên, in mỗi người một trang, và bảng tổng hợp (mục 11.5) |
+| `TKB_phong.xlsx` | Chỉ khi có sheet `PHÒNG`: TKB của từng phòng học dùng chung, in mỗi phòng một trang (mục 11.6) |
 | `Thong_Ke.xlsx` | Số tiết từng môn của mỗi giáo viên và chất lượng TKB theo từng dòng luật (mục 11.3) |
 | `<tên file vào>_cap_nhat.xlsx` | File vào cập nhật, dùng lại làm file vào lần sau (mục 11.2) |
 
@@ -677,6 +714,7 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
   - Hai giáo viên trùng tên thì kèm Mã GV, ví dụ `Lan (Bộ Môn 1)`.
   - Các cột ngày ở mọi sheet cùng độ rộng, nới theo dòng dài nhất của cả trường, tối đa 30 (đơn vị cột Excel). Tên dài hơn thì xuống dòng và hàng tự cao thêm.
 - Tên môn in như trong file vào; viết tắt: `HĐTN`, `TNXH`, `TV tăng cường`.
+- Tiết học ở phòng dùng chung (sheet `PHÒNG`, mục 2.2.1): ô thêm dòng cuối ghi tên phòng.
 - Khi in: khổ ngang, co vừa chiều rộng 1 trang.
 
 **Style của mọi file ra** (`TKB.xlsx`, `Thong_Ke.xlsx`, file vào cập nhật): chép từ sheet NHÂN SỰ của file vào, không cố định trong code:
@@ -758,11 +796,18 @@ Sheet **`Thống kê`** (mẫu `data/Output_Template_Thong_Ke_V8.xlsx`), style t
 Mẫu `data/Output_Template_TKB_Giao_Vien_V8.xlsx`, style theo file vào (`writer.write_teacher_timetable`):
 - Sheet **`Giáo viên`**: mỗi giáo viên có tiết dạy (thứ tự file nhân sự, rồi người cần tuyển) một bảng `BUỔI | TIẾT |
   THỨ 2 … THỨ 6` như bảng một lớp của `TKB.xlsx`; dòng tựa `<tên> (<Mã GV>): <n> tiết` (tên trống: chỉ Mã GV). Mỗi ô
-  ghi lớp, xuống dòng môn; tiết dạy bù thêm `(bù)`; lớp ở cơ sở 2 thêm `(CS2)`; ô không học ghi `Nghỉ`. Ngắt trang sau
-  mỗi bảng (in mỗi người một trang), khổ ngang, co vừa chiều rộng.
+  ghi lớp, xuống dòng môn; tiết dạy bù thêm `(bù)`; lớp ở cơ sở 2 thêm `(CS2)`; tiết ở phòng dùng chung thêm dòng tên
+  phòng; ô không học ghi `Nghỉ`. Ngắt trang sau mỗi bảng (in mỗi người một trang), khổ ngang, co vừa chiều rộng.
 - Sheet **`Tổng hợp`**: mỗi giáo viên một dòng (Họ và Tên, Mã GV), mỗi cột một (thứ, tiết) với hai dòng tiêu đề (thứ
   gộp ô, rồi số tiết), ô ghi lớp; in lặp hai dòng tiêu đề.
 - Không tách theo cơ sở (một giáo viên có thể dạy cả hai cơ sở).
+
+### 11.6. TKB phòng `TKB_phong.xlsx`
+
+Chỉ khi file vào có sheet `PHÒNG` ghi phòng (`writer.write_room_timetable`, dòng lệnh `--rooms-out`). Sheet **`Phòng`**:
+mỗi phòng (thứ tự sheet `PHÒNG`) một bảng `BUỔI | TIẾT | THỨ 2 …` như TKB giáo viên; dòng tựa `<phòng>: <n> tiết, <sức
+chứa> lớp cùng lúc` (trường có phòng ở nhiều cơ sở: tên phòng kèm cơ sở); ô ghi các lớp học ở phòng giờ đó và môn, mỗi
+lớp một dòng (`3/1 Thể dục`). Ngắt trang sau mỗi bảng.
 
 ## 12. Cấu hình
 

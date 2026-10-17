@@ -273,3 +273,36 @@ def test_tags_in_rule_dialog(page):
     page.keyboard.press("Escape")
     _wait_mark(page, "lop", "✓")
     _wait_mark(page, "gv", "✓")
+
+
+def test_rooms_step(page, tmp_path):
+    """Sheet PHÒNG trên trang: ô TKB ghi tên phòng, xem được TKB theo phòng; bảng Phòng học dùng chung ở bước Lớp:
+    ghi môn không có thì bước Lớp ⚠ và dòng phòng viền đỏ, sửa lại thì ✓."""
+    from tkb.__main__ import main
+
+    from .test_phong import ART, _file
+    source = _file(tmp_path, [ART], name="phong")
+    assert main([str(source), "-o", str(tmp_path / "ra" / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
+    page.wait_for_selector("#start:not([hidden])")
+    page.set_input_files("#file-open", str(tmp_path / "ra" / "phong_cap_nhat.xlsx"))
+    page.wait_for_selector("#import-dialog[open]")
+    page.click("#import-apply")
+    page.click('.tabs [data-tab="tkb"]')
+    page.wait_for_selector("#tkb-grid table.tkb")
+    _wait_mark(page, "tkb", "✓")
+    assert page.locator("#tkb-grid small.room", has_text="Phòng nghệ thuật").count() == 4
+    page.select_option("#tkb-view", "r:Phòng nghệ thuật")
+    assert page.locator("#tkb-grid td.cell[data-cell]").count() == 4
+    page.click('.tabs [data-tab="lop"]')
+    subjects = page.locator('#room-table [data-f="room"][data-i="0"][data-k="subjects"]')
+    assert subjects.input_value() == "Âm nhạc, Mỹ thuật"
+    subjects.fill("Hóa học")
+    subjects.press("Tab")
+    _wait_mark(page, "lop", "⚠")
+    assert page.locator('#room-table tr[data-row="p2"].has-error').count() == 1
+    assert "Phòng nghệ thuật: không có môn hay nhãn môn 'Hóa học'" in page.text_content("#tab-lop")
+    subjects.fill("Âm nhạc")
+    subjects.press("Tab")
+    _wait_mark(page, "lop", "✓")
+    page.click('[data-act="add-room"]')
+    assert page.evaluate("st.scenario.rooms.length") == 2

@@ -674,7 +674,35 @@ function renderClasses() {
       giáo viên khác; môn chỉ GVCN dạy thì phải có Chủ Nhiệm)` : ""}. Chủ Nhiệm chọn Lớp trong danh sách này (bước 5).`
     : `Chưa ghi lớp nào: lớp là cột Lớp của ${homerooms} Chủ Nhiệm (bước 5), ghi dạng khối/số thứ tự (vd 1/1) hoặc khối
       rồi tên lớp (vd 1A). Ghi danh sách lớp ở đây để đặt tên lớp tùy ý (vd Lá 1) hoặc có lớp chưa có Chủ Nhiệm.`;
+  renderRooms();
   updateCounts();
+}
+// Phòng học dùng chung (sheet PHÒNG): tiết của các môn ghi ở đây phải học ở một phòng như vậy, mỗi giờ không quá sức
+// chứa; môn không có phòng nào thì học ở lớp.
+function renderRooms() {
+  const sc = st.scenario;
+  sc.rooms ||= [];
+  const head = `<thead><tr><th>Dòng</th><th class="left">Phòng</th><th class="left">Cơ sở</th><th class="left">Môn</th>
+    <th class="left">Khối</th><th>Sức chứa</th><th></th></tr></thead>`;
+  const body = sc.rooms.map((r, i) => `<tr data-row="${rowKey(S.sheets.rooms, i + 2)}"><td class="num">${i + 2}</td>
+    <td class="left">${input("text", r.name, { f: "room", i, k: "name" })}</td>
+    <td class="left">${input("campus", r.campus, { f: "room", i, k: "campus" })}</td>
+    <td class="left"><input type="text" data-f="room" data-i="${i}" data-k="subjects" list="room-subject-list"
+      value="${esc(r.subjects)}" spellcheck="false" placeholder="vd Tin học" class="wide"></td>
+    <td class="left"><input type="text" data-f="room" data-i="${i}" data-k="grades" value="${esc(r.grades)}"
+      spellcheck="false" placeholder="mọi khối" class="short"></td>
+    <td>${input("int", r.capacity, { f: "room", i, k: "capacity" }, "short")}</td>
+    <td><button type="button" class="icon" data-act="del-room" data-i="${i}" title="Xóa phòng">✕</button></td></tr>`).join("");
+  $("#room-table").innerHTML = sc.rooms.length ? head + `<tbody>${body}</tbody>` : "";
+  $("#room-table").parentElement.hidden = !sc.rooms.length;
+  $("#room-subject-list").innerHTML = [...new Set([...subjectNames(), ...CP().tags.subject])]
+    .map((x) => `<option value="${esc(x)}">`).join("");
+  const n = sc.rooms.filter(named).length;
+  $("#room-summary").innerHTML = n
+    ? `${n} phòng. Tiết của các môn ghi ở đây học ở một phòng như vậy (của khối ghi ở cột Khối, ở cơ sở của phòng),
+      mỗi giờ không quá Sức chứa (số lớp học cùng lúc, trống là 1); môn khác học ở lớp. TKB ghi tên phòng ở mỗi tiết.`
+    : `Không bắt buộc. Trường có phòng dùng chung (phòng Tin, phòng đa năng, sân trường) thì ghi ở đây: mỗi giờ học không
+      xếp quá số lớp phòng chứa được, TKB ghi tên phòng ở mỗi tiết. Không ghi: tiết nào cũng học ở lớp.`;
 }
 
 function roleCard(title, badge, teachers, body, extra = "") {
@@ -1268,10 +1296,12 @@ function renderRun() {
 
 // Bước của một sheet: lỗi đọc lại ghi tên sheet ở đầu câu (NHÂN SỰ, CHƯƠNG TRÌNH HỌC, CHỨC VỤ, QUY ĐỊNH, LUẬT…).
 function sheetTab(sheet) {
-  return { [S.sheets.staff]: "gv", [S.sheets.program]: "mon", [S.sheets.classes]: "lop", [S.sheets.roles]: "chucvu",
-    [S.sheets.rules]: "khung",
+  return { [S.sheets.staff]: "gv", [S.sheets.program]: "mon", [S.sheets.classes]: "lop", [S.sheets.rooms]: "lop",
+    [S.sheets.roles]: "chucvu", [S.sheets.rules]: "khung",
     [S.sheets.luat]: "luat", [S.sheets.custom]: "luat", [S.sheets.saved]: "tkb" }[sheet] || null;
 }
+// data-row của dòng `row` (dòng Excel) của một sheet; bước Lớp có hai bảng (LỚP, PHÒNG) nên dòng PHÒNG có tiền tố.
+const rowKey = (sheet, row) => (sheet === S.sheets.rooms ? `p${row}` : String(row));
 // Sheet và các dòng một câu lỗi nói tới, vd "NHÂN SỰ: Dòng 12, 15: …" -> {sheet: "NHÂN SỰ", rows: [12, 15]}.
 function sheetOf(text) {
   const names = Object.values(S.sheets).sort((a, b) => b.length - a.length).join("|"); // LUẬT RIÊNG trước LUẬT
@@ -1285,7 +1315,8 @@ function jumpTo(sheet, rows) {
   const box = { gv: "staff", mon: "subjects", luat: "rules" }[tab]; // lỗi ở dòng đang ẩn vì ô tìm: bỏ tìm
   if (box && search[box]) { search[box] = ""; $(`#${{ staff: "staff", subjects: "subject", rules: "rule" }[box]}-search`).value = ""; }
   showTab(tab);
-  const els = String(rows).split(",").filter(Boolean).map((r) => $(`#tab-${tab} [data-row="${r}"]`)).filter(Boolean);
+  const els = String(rows).split(",").filter(Boolean).map((r) => $(`#tab-${tab} [data-row="${rowKey(sheet, r)}"]`))
+    .filter(Boolean);
   if (!els.length) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
   els[0].scrollIntoView({ block: "center", behavior: "smooth" });
   for (const el of els) {
@@ -1311,6 +1342,10 @@ function whoAt(sheet, row) {
   if (sheet === S.sheets.classes) {
     const c = (sc.classes || [])[row - 2];
     return c ? `Lớp ${String(c.name || "").trim() || `dòng ${row} (chưa có tên)`}` : "";
+  }
+  if (sheet === S.sheets.rooms) {
+    const name = String((sc.rooms || [])[row - 2]?.name || "").trim();
+    return name ? (/^phòng /i.test(name) ? name : `Phòng ${name}`) : sc.rooms?.[row - 2] ? `Phòng dòng ${row} (chưa có tên)` : "";
   }
   if (sheet === S.sheets.luat || sheet === S.sheets.custom) {
     const text = said?.rules[row - 2]?.text?.replace(/ \((bắt buộc|ưu tiên[^)]*)\)$/, "");
@@ -1365,7 +1400,7 @@ function markRows(tab) {
   for (const t of stepErrors) {
     const { sheet, rows } = sheetOf(t);
     if (sheetTab(sheet) !== tab) continue;
-    for (const r of rows) $$(`[data-row="${r}"]`, section).forEach((el) => el.classList.add("has-error"));
+    for (const r of rows) $$(`[data-row="${rowKey(sheet, r)}"]`, section).forEach((el) => el.classList.add("has-error"));
   }
 }
 function renderStepChecks(res) {
@@ -1614,13 +1649,17 @@ function renderTkb() {
   const load = new Map();
   for (const c of tkb.cells) if (c.code) load.set(key(c.code), (load.get(key(c.code)) || 0) + 1);
   const teachers = tkb.teachers.filter((t) => load.has(key(t.code)));
-  const valid = [...grades.map((g) => `k:${g}`), ...tkb.classes.map((c) => `c:${c}`), ...teachers.map((t) => `t:${t.code}`)];
+  const rooms = tkb.rooms || []; // sheet PHÒNG: xem TKB từng phòng học dùng chung
+  const valid = [...grades.map((g) => `k:${g}`), ...tkb.classes.map((c) => `c:${c}`), ...teachers.map((t) => `t:${t.code}`),
+    ...rooms.map((r) => `r:${r}`)];
   if (!valid.includes(tkbView)) tkbView = valid[0] || "";
   $("#tkb-view").innerHTML = `<optgroup label="Theo lớp">${grades.map((g) => `<option value="k:${esc(g)}">Khối ${esc(g)}
     (${tkb.classes.filter((c) => gradeOf(c) === g).length} lớp)</option>`).join("")}
     ${tkb.classes.map((c) => `<option value="c:${esc(c)}">Lớp ${esc(c)}</option>`).join("")}</optgroup>
     <optgroup label="Theo giáo viên">${teachers.map((t) => `<option value="t:${esc(t.code)}">${esc(t.code)}${
-      t.name && !hireName(t.name) ? ` · ${esc(t.name)}` : hireName(t.name) ? " (cần tuyển)" : ""} · ${load.get(key(t.code))} tiết</option>`).join("")}</optgroup>`;
+      t.name && !hireName(t.name) ? ` · ${esc(t.name)}` : hireName(t.name) ? " (cần tuyển)" : ""} · ${load.get(key(t.code))} tiết</option>`).join("")}</optgroup>
+    ${rooms.length ? `<optgroup label="Theo phòng">${rooms.map((r) => `<option value="r:${esc(r)}">${esc(r)} · ${
+      tkb.cells.filter((c) => c.room === r).length} tiết</option>`).join("")}</optgroup>` : ""}`;
   $("#tkb-view").value = tkbView;
   $("#tkb-code").textContent = tkb.code ? `· mã TKB ${tkb.code}` : "";
   const locked = tkb.cells.filter((c) => c.locked).length;
@@ -1667,24 +1706,27 @@ function tkbCellHtml(c) {
   }
   if (tkbChanged.has(k)) cls.push("changed");
   const who = c.name && !hireName(c.name) ? c.name : c.code || "";
-  const title = c.subject ? [c.subject, c.code, c.name && !hireName(c.name) ? c.name : null,
+  const title = c.subject ? [c.subject, c.code, c.name && !hireName(c.name) ? c.name : null, c.room || null,
     c.overtime ? "tiết dạy bù" : null, c.locked ? "ô khóa" : null].filter(Boolean).join(" · ") : "Ô trống";
   return `<td class="${cls.join(" ")}" data-cell="${esc(k)}" title="${esc(title)}">${c.overtime ? `<span class="ot">bù</span>` : ""}${
     c.locked ? `<span class="lock" aria-label="ô khóa">🔒</span>` : ""}${c.subject
-    ? `<b>${esc(c.subject)}</b><small>${esc(who)}</small>` : "<small>trống</small>"}</td>`;
+    ? `<b>${esc(c.subject)}</b><small>${esc(who)}</small>${c.room ? `<small class="room">${esc(c.room)}</small>` : ""}`
+    : "<small>trống</small>"}</td>`;
 }
 
 function renderTkbGrid() {
   const periods = tkb.sessions.flatMap((s) => s.periods);
   const starts = new Set(tkb.sessions.slice(1).map((s) => s.periods[0]));
   const off = new Set(tkb.off.map(([d, p]) => `${d}|${p}`));
-  const head = `<thead><tr>${tkbView.startsWith("t:") ? "" : "<th>Lớp</th>"}<th>Tiết</th>${
+  const byCell = tkbView.startsWith("t:") || tkbView.startsWith("r:"); // một giáo viên, một phòng: ô ghi lớp
+  const head = `<thead><tr>${byCell ? "" : "<th>Lớp</th>"}<th>Tiết</th>${
     tkb.days.map((d) => `<th>${esc(d)}</th>`).join("")}</tr></thead>`;
   let body = "";
-  if (tkbView.startsWith("t:")) {
+  if (byCell) {
+    const room = tkbView.startsWith("r:") ? tkbView.slice(2) : null;
     const code = key(tkbView.slice(2));
     const at = new Map();
-    for (const c of tkb.cells) if (c.code && key(c.code) === code) {
+    for (const c of tkb.cells) if (room !== null ? c.room === room : c.code && key(c.code) === code) {
       const k = `${c.d}|${c.p}`;
       at.set(k, [...(at.get(k) || []), c]);
     }
@@ -1693,7 +1735,7 @@ function renderTkbGrid() {
       const list = at.get(`${d}|${p}`) || [];
       if (!list.length) return `<td class="cell empty off"></td>`;
       const ks = list.map((c) => cellKey(c.cls, c.d, c.p));
-      const bad = ks.some((k) => tkb.bad.has(k)) || list.length > 1;
+      const bad = ks.some((k) => tkb.bad.has(k)) || (room === null && list.length > 1); // phòng chứa được nhiều lớp
       return `<td class="cell${bad ? " bad" : ""}${ks.some((k) => tkbChanged.has(k)) ? " changed" : ""}" data-cell="${esc(ks[0])}"
         title="${esc(list.map((c) => `${c.cls} · ${c.subject}`).join("\n"))}">${list.some((c) => c.locked) ? `<span class="lock">🔒</span>` : ""}${
         list.map((c) => `<b>${esc(c.cls)}</b><small>${esc(c.subject)}</small>`).join("")}</td>`;
@@ -2035,6 +2077,8 @@ const PARTS = [
   { key: "subjects", label: "Môn học và quy định của môn", sheet: "program",
     sum: (x) => `${x.subjects.filter(named).length} môn, khối ${x.grades.join(", ")}` },
   { key: "classes", label: "Lớp", sheet: "classes", sum: (x) => `${(x.classes || []).filter(named).length} lớp` },
+  { key: "rooms", label: "Phòng học dùng chung", sheet: "rooms",
+    sum: (x) => `${(x.rooms || []).filter(named).length} phòng` },
   { key: "roles", label: "Chức vụ", sheet: "roles", sum: (x) => `${x.roles.filter(named).length} chức vụ GV chuyên biệt` },
   { key: "frame", label: "Khung giờ và quy định chung", sheet: "rules",
     sum: (x) => `${(x.days || []).filter((d) => d.morning_days).length} ngày học, ${(x.periods || []).length} tiết mỗi ngày` },
@@ -2095,6 +2139,7 @@ function applyImport() {
   if (parts.includes("staff")) sc.staff = append ? [...sc.staff, ...src.staff] : src.staff;
   if (parts.includes("subjects")) { sc.subjects = src.subjects; sc.grades = src.grades; }
   if (parts.includes("classes")) sc.classes = src.classes || [];
+  if (parts.includes("rooms")) sc.rooms = src.rooms || [];
   if (parts.includes("roles")) sc.roles = src.roles;
   if (parts.includes("frame")) { sc.general = src.general; sc.sessions = src.sessions; sc.days = src.days; sc.periods = src.periods; }
   if (parts.includes("rules")) {
@@ -2233,6 +2278,9 @@ function onEdit(e) {
     sc.classes[i][d.k] = v;
     if (d.k === "campus") delete sc.classes[i].campus2; // kịch bản cũ: ô Cơ sở 2 thay bằng tên cơ sở
     if (done) renderClasses();
+  } else if (d.f === "room") {
+    sc.rooms[i][d.k] = v;
+    if (done) renderRooms();
   } else if (d.f === "staff") {
     const t = sc.staff[i];
     t[d.k] = v;
@@ -2440,6 +2488,19 @@ async function onClick(e) {
       const [c] = sc.classes.splice(i, 1);
       renderClasses();
       done(`Đã xóa lớp "${esc(String(c.name || "").trim() || "(chưa có tên)")}".`);
+      break;
+    }
+    case "add-room": {
+      sc.rooms ||= [];
+      sc.rooms.push({ name: "", campus: "", subjects: "", grades: "", capacity: 1 });
+      renderRooms();
+      $(`#room-table [data-f="room"][data-i="${sc.rooms.length - 1}"][data-k="name"]`)?.focus();
+      break;
+    }
+    case "del-room": {
+      const [r] = sc.rooms.splice(i, 1);
+      renderRooms();
+      done(`Đã xóa phòng "${esc(String(r.name || "").trim() || "(chưa có tên)")}".`);
       break;
     }
     case "classes-from-homeroom": {

@@ -36,9 +36,10 @@ from openpyxl.utils import get_column_letter
 
 from . import bo_mau, config
 from . import luat_rieng
-from .rules import (CLASS_CAMPUS, CLASS_GRADE, CLASS_NAME, CLASS_TAGS, ROLE_NAME, ROLE_SUBJECTS, applied, class_rows,
-                    default_subjects, luat_headers, luat_rows, mau as preset, notes as rule_notes, role_rows,
-                    rule_tables, subject_columns)
+from .rules import (CLASS_CAMPUS, CLASS_GRADE, CLASS_NAME, CLASS_TAGS, ROLE_NAME, ROLE_SUBJECTS, ROOM_CAMPUS,
+                    ROOM_CAPACITY, ROOM_GRADES, ROOM_NAME, ROOM_SUBJECTS, applied, class_rows, default_subjects,
+                    luat_headers, luat_rows, mau as preset, notes as rule_notes, role_rows, room_rows, rule_tables,
+                    subject_columns)
 from .staff import Teacher, class_sort_key, grade_key, off_text
 
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
@@ -225,6 +226,21 @@ def write_classes_sheet(wb, rows: list[list] | None = None, index: int | None = 
     _widths(ws, (16, 12, 18, 24))
 
 
+def write_rooms_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
+    """Sheet PHÒNG ở vị trí `index`: Phòng | Cơ sở | Môn | Khối | Sức chứa, các dòng `rows` (không có thì theo các
+    phòng đang dùng; trống: không có phòng học dùng chung), kẻ sẵn vài dòng trống để nhà trường điền."""
+    rows = room_rows() if rows is None else rows
+    ws = wb.create_sheet(config.ROOMS_SHEET, index)
+    ws.append([ROOM_NAME, ROOM_CAMPUS, ROOM_SUBJECTS, ROOM_GRADES, ROOM_CAPACITY])
+    for row in rows:
+        ws.append(row)
+    _style_rows(ws, 1, 1, 5, header=True)
+    _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, 5, left=(1, 3))
+    for r in range(2, LAST_ROW + 1):
+        ws.cell(r, 4).number_format = "@"  # các khối là chữ, để Excel không đổi "4, 5" thành số
+    _widths(ws, (22, 18, 36, 12, 10))
+
+
 def write_luat_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
     """Sheet LUẬT ở vị trí `index`: tiêu đề và các dòng luật (không có thì theo các luật đang dùng, kể cả luật có
     sẵn), kẻ sẵn vài dòng trống để nhà trường thêm luật."""
@@ -253,15 +269,17 @@ def write_guide(wb, extra=(), index: int | None = None) -> None:
 
 def write_input(path: str | Path, staff: list[list], program: tuple, tables=None, extra=None,
                 rules: list[list] | None = None, roles: list[list] | None = None,
-                classes: list[list] | None = None) -> None:
+                classes: list[list] | None = None, rooms: list[list] | None = None) -> None:
     """Ghi file vào V8 từ các dòng có sẵn: NHÂN SỰ (`staff`: các dòng theo STAFF_HEADERS), CHƯƠNG TRÌNH HỌC
-    (`program`: (các khối, tiêu đề cột quy định, các dòng) như `program_rows`), LỚP (`classes`: các dòng), CHỨC VỤ
-    (`roles`: các dòng), QUY ĐỊNH (`tables` như `rules.rule_tables`), LUẬT (`rules`: các dòng như `rules.luat_rows`),
-    HƯỚNG DẪN; phần nào không có thì theo các quy định đang dùng. `extra(wb)` ghi thêm sheet nếu cần."""
+    (`program`: (các khối, tiêu đề cột quy định, các dòng) như `program_rows`), LỚP (`classes`: các dòng), PHÒNG
+    (`rooms`: các dòng), CHỨC VỤ (`roles`: các dòng), QUY ĐỊNH (`tables` như `rules.rule_tables`), LUẬT (`rules`: các
+    dòng như `rules.luat_rows`), HƯỚNG DẪN; phần nào không có thì theo các quy định đang dùng. `extra(wb)` ghi thêm
+    sheet nếu cần."""
     wb = openpyxl.Workbook()
     _staff_sheet(wb, staff)
     _program_sheet(wb, *program)
     write_classes_sheet(wb, classes)
+    write_rooms_sheet(wb, rooms)
     write_roles_sheet(wb, roles)
     write_rules_sheet(wb, tables=tables)
     write_luat_sheet(wb, rules)
@@ -274,9 +292,9 @@ def write_input(path: str | Path, staff: list[list], program: tuple, tables=None
 
 def write_staff_template(path: str | Path, teachers: list[Teacher] = (),
                          curriculum: dict[int, dict[str, int]] | None = None, mau: str | None = None) -> None:
-    """Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), LỚP, CHỨC VỤ, QUY ĐỊNH,
-    LUẬT (mọi luật, kể cả luật có sẵn) và HƯỚNG DẪN. `mau`: bộ luật mẫu (tkb/bo_mau.py); không ghi thì theo các quy
-    định đang dùng."""
+    """Ghi file vào mẫu V8: sheet NHÂN SỰ, CHƯƠNG TRÌNH HỌC (kèm các cột quy định của môn), LỚP, PHÒNG, CHỨC VỤ, QUY
+    ĐỊNH, LUẬT (mọi luật, kể cả luật có sẵn) và HƯỚNG DẪN. `mau`: bộ luật mẫu (tkb/bo_mau.py); không ghi thì theo các
+    quy định đang dùng."""
     teachers = list(teachers)
     with applied(preset(mau) if mau else None):
         write_input(path, [staff_row(t) for t in teachers], program_rows(curriculum, teachers))

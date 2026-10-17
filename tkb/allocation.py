@@ -50,6 +50,10 @@ class Problem:
     # (course, người tuyển mới) -> người bù: các tiết đó là tiết bù của người bù (chế độ bù giờ dạy đúng các ô này),
     # nên khi xếp giờ cũng chiếm lịch của người bù (solver.build_timetable). Chỉ có ở bài toán xếp giờ (solver.solve).
     covers: dict[tuple[int, str], str] = field(default_factory=dict)
+    # Phòng học dùng chung (sheet PHÒNG, tkb/phong_hoc.py): các phòng, course -> chỉ số các phòng hợp (course không có
+    # ở đây thì học ở lớp). Không có sheet PHÒNG: trống.
+    rooms: tuple[config.Room, ...] = ()
+    room_fit: dict[int, tuple[int, ...]] = field(default_factory=dict)
 
     def overtime_mode(self) -> bool:
         return self.overtime_max > 0
@@ -485,6 +489,9 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
             warnings.append(f"{m.title}: chỉ có {manager_pool_lessons[m.title]} tiết phù hợp "
                             f"để dạy (định mức {m.max_lessons})")
 
+    from .phong_hoc import fit  # phong_hoc dùng phan_cong, phan_cong nhập module này: nhập muộn
+    room_fit = fit(courses, where, subject_labels)
+
     return Problem(
         teachers={t.title: t for t in all_teachers},
         classes=sorted(classes, key=class_sort_key),
@@ -505,4 +512,6 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
         campus=campus,
         campuses=campuses,
         no_homeroom=no_homeroom,
+        rooms=tuple(config.ROOMS) if room_fit else (),
+        room_fit=room_fit,
     )

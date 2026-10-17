@@ -27,7 +27,7 @@ from .style import CellStyle, Style
 from .rules import code as rules_code, subject_columns
 from . import luat_rieng
 from .template import (GUIDE_SHEET, write_classes_sheet, write_guide, write_luat_sheet, write_roles_sheet,
-                       write_rules_sheet)
+                       write_rooms_sheet, write_rules_sheet)
 
 MAX_DAY_WIDTH = 30  # cột ngày trong TKB: tên dài hơn thì xuống dòng
 BLOCK_GAP = 2  # số dòng trống giữa hai lớp (giống template)
@@ -42,6 +42,7 @@ STATS_SHEET = "Thống kê"
 SHORTAGE_SHEET = "Thiếu tiết"
 TEACHER_SHEET = "Giáo viên"  # file TKB giáo viên: mỗi người một bảng, in mỗi người một trang
 TEACHER_SUMMARY_SHEET = "Tổng hợp"  # file TKB giáo viên: mỗi người một dòng, ô ghi lớp
+ROOM_SHEET = "Phòng"  # file TKB phòng (sheet PHÒNG): mỗi phòng một bảng, in mỗi phòng một trang
 QUALITY_SHEET = "Chất lượng"  # file thống kê: số lần không theo từng dòng luật (sheet LUẬT) của TKB đã xếp
 QUALITY_HEADERS = ("Nhóm", "Luật", "Mức", "Số Lần Không Theo", "Điểm Trừ", "Ví Dụ")
 QUALITY_EXAMPLES = 3  # số chỗ không theo ghi làm ví dụ cho mỗi luật
@@ -129,6 +130,7 @@ def _merge(ws, style: Style, r1: int, c1: int, r2: int, c2: int, value) -> None:
 def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False,
                   classes: list[str] | None = None) -> None:
     grid = {(l.class_name, l.day, l.period): l for l in solution.lessons}
+    rooms = solution.rooms()  # tiết học ở phòng dùng chung (sheet PHÒNG): ô ghi thêm dòng tên phòng
     days = sorted(config.DAY_SESSIONS)
     rows = session_rows()
     first_day_col = 4
@@ -138,6 +140,7 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
     # Cột ngày: cùng độ rộng ở mọi sheet Khối, nới theo dòng dài nhất của cả trường (tối đa MAX_DAY_WIDTH).
     texts = {line for les in solution.lessons
              for t in (problem.subject_label(les.subject), names[les.teacher]) for line in t.split("\n")}
+    texts |= set(rooms.values())
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[3:], config.OFF_LABEL, *texts]))
     title = {c: c for c in problem.classes}  # cột LỚP chỉ ghi tên lớp (cơ sở 2 đã tách file riêng)
     chosen = problem.classes if classes is None else classes
@@ -172,6 +175,8 @@ def _grade_sheets(wb, solution: Solution, style: Style, with_codes: bool = False
                         value = config.OFF_LABEL
                     elif (les := grid.get((cls, d, period))) is not None:
                         value = f"{problem.subject_label(les.subject)}\n{names[les.teacher]}"
+                        if room := rooms.get((cls, d, period, les.subject)):
+                            value += f"\n{room}"
                         lines = max(lines, style.lines(value, day_width))
                     style.body_cell(ws, r, first_day_col + i, value)
                 ws.row_dimensions[r].height = max(style.row_height, style.line_height * lines)
@@ -224,29 +229,45 @@ def _print_setup(ws) -> None:
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
 
-def _teacher_cell(solution: Solution, les) -> str:
+def _teacher_cell(solution: Solution, les, room: str = "") -> str:
     """Ô TKB giáo viên: lớp (lớp không ở cơ sở đầu ghi thêm cơ sở: "(CS2)" với Cơ sở 2, tên cơ sở với cơ sở khác),
-    xuống dòng môn; tiết dạy bù ghi thêm " (bù)"."""
-    problem = solution.problem
-    cls = les.class_name
+    xuống dòng môn; tiết dạy bù ghi thêm " (bù)"; tiết học ở phòng dùng chung (sheet PHÒNG) thêm dòng tên phòng."""
+    return f"{_class_label(solution.problem, les.class_name)}\n{solution.problem.subject_label(les.subject)}" \
+           f"{' (bù)' if les.overtime else ''}" + (f"\n{room}" if room else "")
+
+
+def _class_label(problem, cls: str) -> str:
+    """Tên lớp trong ô TKB giáo viên, TKB phòng: lớp không ở cơ sở đầu ghi thêm cơ sở ("(CS2)" với Cơ sở 2)."""
     if problem.campus.get(cls, 0):
         name = problem.campus_name(cls)
-        cls = f"{cls} ({'CS2' if _fold(name) == _fold(CAMPUS2) else name})"
-    return f"{cls}\n{problem.subject_label(les.subject)}{' (bù)' if les.overtime else ''}"
+        return f"{cls} ({'CS2' if _fold(name) == _fold(CAMPUS2) else name})"
+    return cls
 
 
 def _teacher_blocks(ws, solution: Solution, style: Style, teachers: list[Teacher]) -> None:
     """Sheet TEACHER_SHEET: mỗi giáo viên một bảng BUỔI | TIẾT | các ngày, dòng tựa ghi tên, Mã GV, số tiết; ngắt
     trang sau mỗi bảng để in mỗi người một trang."""
-    from openpyxl.worksheet.pagebreak import Break
     problem = solution.problem
     names = teacher_labels(problem.teachers)
-    grid = {(les.teacher, les.day, les.period): les for les in solution.lessons}
+    rooms = solution.rooms()
+    cells = {(les.teacher, les.day, les.period):
+             _teacher_cell(solution, les, rooms.get((les.class_name, les.day, les.period, les.subject), ""))
+             for les in solution.lessons}
     load = solution.teacher_load()
+    blocks = [(f"{names[t.title]} ({t.code}): {load[t.title]} tiết" if names[t.title] != t.code else
+               f"{t.code}: {load[t.title]} tiết", {(d, p): text for (g, d, p), text in cells.items() if g == t.title})
+              for t in teachers]
+    _week_blocks(ws, style, blocks, cells.values())
+
+
+def _week_blocks(ws, style: Style, blocks: list[tuple[str, dict[tuple[int, int], str]]], texts) -> None:
+    """Mỗi khối một bảng BUỔI | TIẾT | các ngày: dòng tựa, rồi ô (ngày, tiết) ghi chữ của khối; ngắt trang sau mỗi
+    bảng để in mỗi bảng một trang. Cột ngày rộng theo dòng dài nhất của `texts` (mọi ô của mọi bảng)."""
+    from openpyxl.worksheet.pagebreak import Break
     days = sorted(config.DAY_SESSIONS)
     rows = session_rows()
     header = ["BUỔI", "TIẾT", *[config.DAYS[d].upper() for d in days]]
-    texts = {line for les in solution.lessons for line in _teacher_cell(solution, les).split("\n")}
+    texts = {line for text in texts for line in text.split("\n")}
     day_width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in [*header[2:], config.OFF_LABEL, *texts]))
     widths = [max(style.text_width(t) for t in [header[0], *(row.session.upper() for row in rows)]) + LABEL_PAD,
               style.text_width(header[1]) + LABEL_PAD]
@@ -254,9 +275,7 @@ def _teacher_blocks(ws, solution: Solution, style: Style, teachers: list[Teacher
         ws.column_dimensions[get_column_letter(i)].width = round(width, 1)
     _print_setup(ws)
     top = 1
-    for t in teachers:
-        title = f"{names[t.title]} ({t.code}): {load[t.title]} tiết" if names[t.title] != t.code else \
-            f"{t.code}: {load[t.title]} tiết"
+    for title, grid in blocks:
         _merge(ws, style, top, 1, top, len(header), title)
         ws.row_dimensions[top].height = style.row_height
         for col, text in enumerate(header, start=1):
@@ -276,8 +295,7 @@ def _teacher_blocks(ws, solution: Solution, style: Style, teachers: list[Teacher
                 value = None
                 if (period := row.period(d)) is None:
                     value = config.OFF_LABEL
-                elif (les := grid.get((t.title, d, period))) is not None:
-                    value = _teacher_cell(solution, les)
+                elif (value := grid.get((d, period))) is not None:
                     lines = max(lines, style.lines(value, day_width))
                 style.body_cell(ws, r, 3 + i, value)
             ws.row_dimensions[r].height = max(style.row_height, style.line_height * lines)
@@ -329,6 +347,31 @@ def write_teacher_timetable(solution: Solution, path: str | Path, style: Style |
     ws.title = TEACHER_SHEET
     _teacher_blocks(ws, solution, style, teachers)
     _teacher_summary(wb.create_sheet(TEACHER_SUMMARY_SHEET), solution, style, teachers)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
+
+
+def write_room_timetable(solution: Solution, path: str | Path, style: Style | None = None) -> None:
+    """File TKB phòng (chỉ khi có sheet PHÒNG): sheet ROOM_SHEET, mỗi phòng học dùng chung một bảng ngày × tiết, ô
+    ghi các lớp học ở phòng giờ đó và môn, ngắt trang để in mỗi phòng một trang. Phòng theo thứ tự sheet PHÒNG."""
+    style = style or Style()
+    from .phong_hoc import campus, placed
+    problem = solution.problem
+    at = placed(problem, solution.lessons)
+    multi = len({_fold(r.campus or CAMPUS1) for r in problem.rooms}) > 1
+    blocks = []
+    for k, room in enumerate(problem.rooms):
+        here = [((les.day, les.period), les.class_name, les.subject) for les, r in zip(solution.lessons, at) if r == k]
+        grid: dict[tuple[int, int], str] = {}
+        for slot, cls, subject in sorted(here, key=lambda x: (x[0], class_sort_key(x[1]))):
+            line = f"{_class_label(problem, cls)} {problem.subject_label(subject)}"
+            grid[slot] = f"{grid[slot]}\n{line}" if slot in grid else line
+        name = f"{room.name} ({campus(problem, room)})" if multi else room.name
+        blocks.append((f"{name}: {len(here)} tiết, {room.capacity} lớp cùng lúc", grid))
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = ROOM_SHEET
+    _week_blocks(ws, style, blocks, [text for _, grid in blocks for text in grid.values()])
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
@@ -827,12 +870,13 @@ def write_updated_staff(solution: Solution, source: str | Path, path: str | Path
     _add_subject_rules(wb)
     program = find_sheet(wb, config.PROGRAM_SHEET)
     after = wb.worksheets.index(program) + 1 if program is not None else None
-    classes = find_sheet(wb, config.CLASSES_SHEET)
-    if classes is None:  # trống: lớp vẫn lấy từ các dòng Chủ Nhiệm
-        write_classes_sheet(wb, [], after)
-        after = after and after + 1
-    elif after is not None and wb.worksheets.index(classes) == after:
-        after += 1
+    for name, write in ((config.CLASSES_SHEET, write_classes_sheet), (config.ROOMS_SHEET, write_rooms_sheet)):
+        sheet = find_sheet(wb, name)
+        if sheet is None:  # sheet trống: lớp vẫn lấy từ các dòng Chủ Nhiệm, không có phòng học dùng chung
+            write(wb, [], after)
+            after = after and after + 1
+        elif after is not None and wb.worksheets.index(sheet) == after:
+            after += 1
     if find_sheet(wb, config.ROLES_SHEET) is None:
         write_roles_sheet(wb, role_rows(solution), after)
         after = after and after + 1

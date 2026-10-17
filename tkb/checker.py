@@ -151,6 +151,9 @@ def check(problem: Problem, lessons: list[Lesson], student_rules: bool = True) -
     if config.CUSTOM_RULES:  # luật riêng bắt buộc (tkb/luat_rieng.py)
         from .luat_rieng import check as check_custom
         errors.extend(check_custom(problem, lessons))
+    if problem.room_fit and config.on("phong"):  # phòng học dùng chung (sheet PHÒNG): xếp được phòng mỗi giờ
+        from .phong_hoc import errors as room_errors
+        errors.extend(room_errors(problem, lessons))
     return errors
 
 

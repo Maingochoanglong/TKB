@@ -1,6 +1,7 @@
 """Kịch bản của một trường cho giao diện (tkb/giao_dien): toàn bộ nội dung file vào V8 dưới dạng dữ liệu JSON.
 
-Kịch bản chỉ là các bảng của file vào (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, LỚP, CHỨC VỤ, QUY ĐỊNH, LUẬT),
+Kịch bản chỉ là các bảng của file vào (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, LỚP, PHÒNG, CHỨC VỤ, QUY ĐỊNH,
+LUẬT),
 mỗi cột quy định lấy từ tkb/rules.py (`Col`: tiêu đề, khóa, loại ô, ghi chú) nên thêm một quy định vào rules.py là
 giao diện tự có ô nhập. Xuất kịch bản ra Excel dùng đúng hàm ghi file mẫu (tkb/template.py); kiểm tra
 kịch bản = xuất ra file tạm rồi đọc lại bằng chính các hàm đọc của chương trình, nên giao diện và dòng lệnh luôn hiểu
@@ -12,6 +13,8 @@ Kịch bản:
     grades   : [1, 2, "Lá", ...] các cột Khối <tên> (tên khối toàn chữ số là số)
     subjects : [{name, lessons: {"1": số tiết hoặc None, ...}, rules: {khóa Col: giá trị}}]
     classes  : [{name, grade, campus, tags}] sheet LỚP (trống: lớp là lớp của các dòng Chủ Nhiệm); campus: tên cơ sở
+    rooms    : [{name, campus, subjects, grades, capacity}] sheet PHÒNG (phòng học dùng chung; trống: không có), chữ
+               như trong ô, capacity số hoặc None
     roles    : [{name, subjects: [tên môn]}] chức vụ GV chuyên biệt (sheet CHỨC VỤ); đọc file thì thêm các chức vụ
                trùng tên môn nhân sự đang dùng (ghi ra sheet CHỨC VỤ thì như không ghi)
     general  : {khóa Col: giá trị} (bảng Quy định | Giá trị)
@@ -38,7 +41,8 @@ import openpyxl
 from . import bo_ghep, bo_mau, config, khung_gio, luat_co_san, luat_rieng
 from .program import grade_columns, read_program
 from .rules import (CLASS_CAMPUS, CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, CLASS_TAGS, DAY_COLS, DAY_KEY, GENERAL,
-                    GENERAL_KEY, NO, PERIOD_COLS, PERIOD_KEY, SESSION_PREFIX, VALUE, YES, applied, luat_row, mau as rules_mau, read_rules,
+                    GENERAL_KEY, NO, PERIOD_COLS, PERIOD_KEY, ROOM_CAMPUS, ROOM_CAPACITY, ROOM_GRADES, ROOM_NAME,
+                    ROOM_SUBJECTS, SESSION_PREFIX, VALUE, YES, applied, luat_row, mau as rules_mau, read_rules,
                     rule_tables, subject_columns, visible)
 from .rules import SUBJECT_COLS as _ALL_SUBJECT_COLS
 from .staff import (CAMPUS1, CAMPUS2, InputError, _find_columns, _fold, _NO, _YES, class_list, class_sort_key,
@@ -109,7 +113,7 @@ def schema() -> dict:
                    "structure": luat_co_san.STRUCTURE,
                    "composer": composer()},
         "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "classes": config.CLASSES_SHEET,
-                   "roles": config.ROLES_SHEET,
+                   "rooms": config.ROOMS_SHEET, "roles": config.ROLES_SHEET,
                    "rules": config.RULES_SHEET, "luat": luat_rieng.RULES_SHEET, "custom": luat_rieng.SHEET,
                    "saved": config.SAVED_SHEET},
         # Chữ đánh dấu ô của sheet TKB đã xếp (staff.parse_saved_grid): giao diện thêm, bỏ khi khóa ô, đổi ô.
@@ -208,6 +212,31 @@ def _read_program_rows(wb) -> tuple[list[int | str], list[tuple[str, dict]]]:
             continue
         rows.append((clean_name(name), {str(g): _number(ws.cell(r, grades[g]).value) for g in order}))
     return order, rows
+
+
+def _read_room_rows(wb) -> list[dict]:
+    """Các phòng của sheet PHÒNG đúng như chữ trong file (dòng trống giữa bảng giữ lại: phòng i là dòng i + 2 của
+    sheet). File không có sheet PHÒNG: không có phòng nào."""
+    ws = find_sheet(wb, config.ROOMS_SHEET)
+    if ws is None:
+        return []
+    for top in range(1, min(ws.max_row, 20) + 1):
+        heads = {normalize(ws.cell(top, c).value): c for c in range(1, ws.max_column + 1)
+                 if not _blank(ws.cell(top, c).value)}
+        if normalize(ROOM_NAME) in heads:
+            break
+    else:
+        return []
+    get = lambda r, h: ws.cell(r, heads[normalize(h)]).value if normalize(h) in heads else None  # noqa: E731
+    rows = []
+    for r in range(top + 1, ws.max_row + 1):
+        row = {"name": _text(get(r, ROOM_NAME)), "campus": _text(get(r, ROOM_CAMPUS)),
+               "subjects": _text(get(r, ROOM_SUBJECTS)), "grades": _text(get(r, ROOM_GRADES)),
+               "capacity": _number(get(r, ROOM_CAPACITY))}
+        rows.append(row)
+    while rows and not any(v not in ("", None) for v in rows[-1].values()):
+        rows.pop()  # các dòng kẻ sẵn để trống ở cuối bảng
+    return rows
 
 
 def _read_class_rows(wb) -> list[dict]:
@@ -360,8 +389,8 @@ def from_excel(path: str | Path) -> tuple[dict, list[str]]:
     subjects += [{"name": name, "lessons": {str(g): None for g in grades}, "rules": by_subject[name]}
                  for name in rest]
     scenario = {"version": VERSION, "staff": staff, "grades": grades, "subjects": subjects,
-                "classes": _read_class_rows(wb), "roles": roles, "general": general, **frame, "periods": periods,
-                "rules": luat, "saved": _read_saved(wb)}
+                "classes": _read_class_rows(wb), "rooms": _read_room_rows(wb), "roles": roles, "general": general,
+                **frame, "periods": periods, "rules": luat, "saved": _read_saved(wb)}
     return scenario, warnings
 
 
@@ -394,7 +423,8 @@ def default_scenario(mau: str | None = None) -> dict:
         luat = [rule_dict(r) for r in (luat_co_san.rows() if mau else luat_co_san.default_rows())]
     return {"version": VERSION, "staff": [], "grades": grades,
             "subjects": [{"name": n, "lessons": {str(g): None for g in grades}, "rules": by_subject[n]} for n in names],
-            "classes": [], "roles": [], "general": general, **frame, "periods": periods, "rules": luat, "saved": None}
+            "classes": [], "rooms": [], "roles": [], "general": general, **frame, "periods": periods, "rules": luat,
+            "saved": None}
 
 
 # ---- ghi kịch bản ra file Excel ----
@@ -461,9 +491,12 @@ def to_excel(scenario: dict, path: str | Path) -> None:
     classes = [[_text(c.get("name")) or None, _grade(c.get("grade")),
                 _text(c.get("campus")) or (CAMPUS2 if c.get("campus2") is True else None),  # campus2: kịch bản cũ
                 _text(c.get("tags")) or None] for c in scenario.get("classes") or []]
+    # Cả dòng trống: phòng i là dòng i + 2 của sheet PHÒNG.
+    rooms = [[_text(r.get("name")) or None, _text(r.get("campus")) or None, _text(r.get("subjects")) or None,
+              _text(r.get("grades")) or None, _number(r.get("capacity"))] for r in scenario.get("rooms") or []]
     write_input(path, staff, (grades, [c.header for c in SUBJECT_COLS], rows), tables,
                 extra=write_saved if saved else None, rules=luat_sheet_rows(scenario.get("rules") or []),
-                roles=roles, classes=classes)
+                roles=roles, classes=classes, rooms=rooms)
 
 
 def luat_sheet_rows(rows: list[dict]) -> list[list]:
@@ -712,9 +745,17 @@ class Grid:
             out["rules_changed"] = saved.rules_code not in (None, self.rules_code) and self.problem is not None
             if self.problem is None:
                 return {**out, "ok": False, "input_errors": self.errors, "errors": []}
+            from .phong_hoc import labels, placed
+            names = labels(self.problem)
+            out["rooms"] = names  # sheet PHÒNG: xem TKB theo phòng
             if not saved.rows:
                 return {**out, "ok": False, "input_errors": [], "errors": []}
-            _, errors = self._lessons(saved)
+            lessons, errors = self._lessons(saved)
+            if self.problem.room_fit and lessons:  # tiết học ở phòng dùng chung: ô ghi tên phòng
+                at = {(normalize(les.class_name), les.day, les.period): names[r]
+                      for les, r in zip(lessons, placed(self.problem, lessons)) if r is not None}
+                for cell in out["cells"]:
+                    cell["room"] = at.get((normalize(cell["cls"]), cell["d"], cell["p"]), "")
             return {**out, "ok": not errors, "input_errors": [],
                     "errors": [_marked(text, self.problem, out["cells"]) for text in errors]}
 
