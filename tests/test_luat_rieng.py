@@ -29,8 +29,11 @@ def _parse(**cells):
     return rule, errors
 
 
+DEFAULT_RULES = config.CUSTOM_RULES  # các luật có sẵn (xếp bằng bộ ghép)
+
+
 def _solve(*rules, mode=config.MODE_OVERTIME):
-    with applied({"CUSTOM_RULES": list(rules)}):
+    with applied({"CUSTOM_RULES": [*config.CUSTOM_RULES, *rules]}):  # luật thêm sau các luật mặc định
         sol = solve(small_staff(general=False), CURRICULUM, config.Settings(mode=mode, **SETTINGS),
                     log=lambda *_: None)
         return sol, check(sol.problem, sol.lessons)
@@ -93,11 +96,14 @@ def test_read_sheet_and_rules_code(tmp_path):
     ws.delete_rows(n + 1)
     wb.save(path)
     rules = read_rules(path)
-    assert rules["CUSTOM_RULES"] == [CustomRule("khong_xep", "Thể dục", periods=(1,), hard=True, row=n)]
+    *built_in, own = rules["CUSTOM_RULES"]
+    assert own == CustomRule("khong_xep", "Thể dục", periods=(1,), hard=True, row=n) and len(built_in) == len(
+        config.CUSTOM_RULES)  # sau các luật có sẵn (cũng xếp bằng bộ ghép)
     with applied(rules):
         assert code() != empty  # có luật riêng thì mã quy định khác (TKB đã lưu không dùng lại được)
         moved = code()
-    with applied({"CUSTOM_RULES": [CustomRule("khong_xep", "Thể dục", periods=(1,), hard=True, row=40)]}):
+    with applied({"CUSTOM_RULES": [*config.CUSTOM_RULES,
+                                   CustomRule("khong_xep", "Thể dục", periods=(1,), hard=True, row=40)]}):
         assert code() == moved  # dời dòng thì mã không đổi
 
 
@@ -198,4 +204,4 @@ def test_diagnosis_names_the_custom_rule():
     assert "  - LUẬT RIÊNG dòng 12: Toán chỉ xếp vào buổi chiều (bắt buộc)" in lines
     assert ("  - Luật có sẵn: Mỗi ngày, một lớp học tối đa 1 tiết Toán, khi số tiết/tuần của môn không quá số ngày "
             "học (bắt buộc)") in lines
-    assert config.CUSTOM_RULES == []  # chẩn đoán xong trả lại như cũ
+    assert config.CUSTOM_RULES == DEFAULT_RULES  # chẩn đoán xong trả lại như cũ

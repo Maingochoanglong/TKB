@@ -175,7 +175,9 @@ def test_check_finds_rules_in_conflict():
     scenario, _ = kich_ban.from_excel(INPUT_FILE)
     _row(scenario, "nhom_buoi")["number"] = 1
     res = kich_ban.check(scenario, config.MODE_OVERTIME, 2)
-    assert res["errors"][0].startswith("Quy định mâu thuẫn, không có TKB nào thỏa: Khối 1: Tiếng Việt có 14 tiết/tuần")
+    assert res["errors"][0].startswith("Quy định mâu thuẫn, không có TKB nào thỏa: LUẬT dòng 2: Mỗi buổi, một lớp học "
+                                       "tối đa 1 tiết")
+    assert "lớp 1/1 có 14 tiết Tiếng Việt/tuần nhưng tối đa 1 × 9 buổi = 9 tiết" in res["errors"][0]
     assert res["info"] == [] or not any(line.startswith("Dự toán:") for line in res["info"])
     assert kich_ban.check(scenario, config.MODE_OVERTIME, 2, student_rules=False)["errors"] == []
 
@@ -196,7 +198,7 @@ def test_rules_round_trip(tmp_path):
                            "number": 2, "count_by": "Lớp", "role": "Tiếng Anh", "hard": True}]
     out = tmp_path / "ra.xlsx"
     kich_ban.to_excel(scenario, out)
-    assert read_rules(out)["CUSTOM_RULES"] == [
+    assert read_rules(out)["CUSTOM_RULES"][-3:] == [  # sau các luật có sẵn (cũng xếp bằng bộ ghép)
         CustomRule("chi_xep", "Thể dục", sessions=("Chiều",), level=3, row=n + 2),
         CustomRule("truoc", "Tiếng Việt", other="Toán", hard=True, row=n + 3),
         CustomRule("tu_ghep", role="tiếng anh", number=2, hard=True, row=n + 4, scope=("gv", "ngay"),
@@ -243,7 +245,8 @@ def test_rules_only_file(tmp_path):
         {**{k: "" for k in kich_ban.RULE_KEYS}, "kind": "Không xếp vào", "subject": "Tin học", "days": "Thứ 2",
          "hard": True, "number": None, "level": None, "points": None, "off": False}]
     rules = read_rules(path)
-    assert rules["SESSION_GROUP_LIMIT"] == 3 and rules["OFF"] == frozenset({"tiet_trong"})
+    keys = {n.key for r in rules["CUSTOM_RULES"] if (n := luat_co_san.native_of(r)) is not None}
+    assert rules["SESSION_GROUP_LIMIT"] == 3 and "tiet_trong" not in keys and len(keys) == len(config.OFF) - 1
 
 def test_rule_switched_off_on_the_page(tmp_path):
     """Ô Dùng của bước Luật: luật tạm tắt ghi Tạm tắt = Có ở sheet LUẬT, chương trình bỏ qua mà vẫn đọc lại được,
@@ -253,7 +256,9 @@ def test_rule_switched_off_on_the_page(tmp_path):
     row["off"] = True
     path = tmp_path / "vao.xlsx"
     kich_ban.to_excel(scenario, path)
-    assert read_rules(path)["OFF"] == frozenset({"tiet_gvcn"})
+    custom = read_rules(path)["CUSTOM_RULES"]
+    assert "tiet_gvcn" not in {luat_co_san.native_of(r).key for r in custom}
+    assert len(custom) == len(config.CUSTOM_RULES) - 1
     back, _ = kich_ban.from_excel(path)
     assert back["rules"] == scenario["rules"]
     i = scenario["rules"].index(row)
@@ -326,8 +331,13 @@ def test_timetable_view_marks_errors_and_tries_swaps(small_updated):
     assert all(c["name"] in names and c["code"] for c in taught)
     cell = {(c["cls"], c["d"], c["p"]): c for c in view["cells"]}
 
-    a = cell["3/1", 0, 2]
-    tried = grid.swaps(scenario["saved"], "3/1", 0, 2)
+    # Một ô có cả cách đổi được lẫn cách đổi làm sai luật (tùy TKB của từng hệ điều hành; thử ô Thứ 2 tiết 2 trước).
+    spots = sorted({(c["d"], c["p"]) for c in taught if c["cls"] == "3/1"}, key=lambda s: (s != (0, 2), s))
+    for d0, p0 in spots:
+        tried = grid.swaps(scenario["saved"], "3/1", d0, p0)
+        if any(t["new"] == 0 for t in tried) and any(t["new"] > 0 for t in tried):
+            break
+    a = cell["3/1", d0, p0]
     assert tried and all(t["fixed"] == 0 for t in tried)
     others = {(t["d"], t["p"]): cell["3/1", t["d"], t["p"]] for t in tried}
     assert all((o["subject"], o["code"]) != (a["subject"], a["code"]) for o in others.values())  # không thử đổi vô ích
@@ -339,8 +349,9 @@ def test_timetable_view_marks_errors_and_tries_swaps(small_updated):
     assert not after["ok"] and len(after["errors"]) >= bad["new"]
     marked = {tuple(m) for e in after["errors"] for m in e["cells"]}
     assert marked and marked <= {(c["cls"], c["d"], c["p"]) for c in after["cells"] if c["subject"]}
-    assert ("3/1", 0, 2) in marked or ("3/1", b["d"], b["p"]) in marked
-    assert all(c["locked"] for c in after["cells"] if (c["d"], c["p"]) in {(0, 2), (b["d"], b["p"])} and c["cls"] == "3/1")
+    assert ("3/1", d0, p0) in marked or ("3/1", b["d"], b["p"]) in marked
+    assert all(c["locked"] for c in after["cells"]
+               if (c["d"], c["p"]) in {(d0, p0), (b["d"], b["p"])} and c["cls"] == "3/1")
     titles = [t.title for t in grid.problem.teachers.values()]
     assert not any(title in e["text"] for e in after["errors"] for title in titles)  # Mã GV, không phải chức vụ chuẩn hóa
     # Đổi người dạy (bước 7): người được dạy từng môn không có phần GVCN, kể cả khi đã có luật Chỉ giáo viên dạy.

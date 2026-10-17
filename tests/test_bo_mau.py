@@ -31,7 +31,8 @@ def test_empty_preset_template(tmp_path):
     assert not any(row[0] for row in program[1:])  # chưa có môn nào
     rules = read_rules(path)
     with applied(rules):
-        assert config.OFF == OFF and not config.CUSTOM_RULES
+        on = {luat_co_san.native_of(r).key for r in config.CUSTOM_RULES} | (set(luat_co_san.NATIVE_ONLY) - config.OFF)
+        assert on == set(bo_mau.TRONG_ON)  # chỉ các luật bật của bộ Trống, xếp bằng bộ ghép
         assert config.HDTN == "" and not config.HOMEROOM_PERIODS and not config.HEAVY_SUBJECTS
         assert not config.HOMEROOM_PRIORITY and not config.GENERAL_FORBIDDEN_SUBJECTS and not config.MANAGER_RULES
         assert all([s.name for s in config.DAY_SESSIONS[d]] == ["Sáng", "Chiều"] for d in range(5))

@@ -25,7 +25,7 @@ def _parse(**cells):
 
 
 def _solve(*rules):
-    with applied({"CUSTOM_RULES": list(rules)}):
+    with applied({"CUSTOM_RULES": [*config.CUSTOM_RULES, *rules]}):  # luật thêm sau các luật mặc định
         sol = solve(small_staff(general=False), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS),
                     log=lambda *_: None)
         return sol, check(sol.problem, sol.lessons)
@@ -239,7 +239,7 @@ def test_teacher_rule_filters_the_assignment():
 
 def test_precheck_finds_impossible_counts():
     def run(*rules):
-        with applied({"CUSTOM_RULES": list(rules)}):
+        with applied({"CUSTOM_RULES": [*config.CUSTOM_RULES, *rules]}):
             problem = build_problem(small_staff(), CURRICULUM, {}, overtime_max=0)
             return luat_rieng.precheck(problem)
 
@@ -323,7 +323,7 @@ def test_rules_for_one_teacher(plain):
     assert _count(plain, busy) == by_hand > 0
     assert _count(plain, CustomRule("khong_xep", role="an", days=(gym.day,), hard=True)) == sum(
         1 for les in plain.lessons if les.teacher == "âm nhạc 1" and les.day == gym.day)
-    with applied({"CUSTOM_RULES": [busy]}):
+    with applied({"CUSTOM_RULES": [*config.CUSTOM_RULES, busy]}):
         from tkb.phan_cong import teacher_slots
         p = build_problem(small_staff(general=False), CURRICULUM, {}, overtime_max=4)
         bad = {(gym.day, q) for q in (MORNING if _session(gym.period) == "Sáng" else (5, 6, 7))}
@@ -331,13 +331,13 @@ def test_rules_for_one_teacher(plain):
     with applied({}):
         p0 = build_problem(small_staff(general=False), CURRICULUM, {}, overtime_max=4)
         before = teacher_slots(p0)["thể dục 1"]
-    with applied({"CUSTOM_RULES": [busy]}):
+    with applied({"CUSTOM_RULES": [*config.CUSTOM_RULES, busy]}):
         assert teacher_slots(p)["thể dục 1"] == before - len(bad)
 
     # Ép phân công: Tiếng Anh lớp 3/1 chỉ Tiếng Anh 2 dạy (Mã GV), lớp 3/2 chỉ người tên "TA" dạy (họ tên).
     rules = [busy, CustomRule("chi_gv", "Tiếng Anh", classes=("3/1",), role="tiếng anh 2", hard=True, row=3),
              CustomRule("chi_gv", "Tiếng Anh", classes=("3/2",), role="ta", hard=True, row=4)]
-    with applied({"CUSTOM_RULES": rules}):
+    with applied({"CUSTOM_RULES": [*config.CUSTOM_RULES, *rules]}):
         p = build_problem(_two_english(), CURRICULUM, {}, overtime_max=4)
         english = {c.class_name: c.teachers for c in p.courses if c.subject == bo_mau.TIENG_ANH}
         assert english == {"3/1": ["tiếng anh 2"], "3/2": ["tiếng anh 1"]}
@@ -414,11 +414,14 @@ def _model_size(**values) -> tuple[int, int]:
 def test_groups_that_cannot_break_the_rule_add_nothing():
     """Số khác nhau "tối đa n": nhóm không thể có quá n giá trị (trường nhỏ chỉ có một cơ sở) không thêm biến, ràng
     buộc nào, cả luật bắt buộc lẫn ưu tiên."""
+    from tkb import luat_co_san
     rules = [CustomRule("tu_ghep", scope=("gv", "buoi"), measure="so_khac", op="<=", number=1, count_by="co_so",
                         hard=True),
              CustomRule("tu_ghep", scope=("gv", "ngay"), measure="so_khac", op="<=", number=1, count_by="co_so",
                         points=10_000)]
-    assert _model_size(CUSTOM_RULES=rules) == _model_size()
+    without = [r for r in config.CUSTOM_RULES if luat_co_san.native_of(r).key not in ("co_so", "doi_co_so")]
+    assert len(without) == len(config.CUSTOM_RULES) - 2  # hai luật có sẵn về cơ sở chính là hai luật trên
+    assert _model_size(CUSTOM_RULES=[*without, *rules]) == _model_size(CUSTOM_RULES=without) == _model_size()
 
 
 def test_rules_are_compiled_once_per_config():

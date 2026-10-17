@@ -77,13 +77,13 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      đúng chữ như ghi tay, vd `3/1, 3/2`, `Chiều T5, 2 buổi chiều` và `Bộ Môn, Tiếng Anh`.
    - **Luật** (bộ ghép luật, sheet LUẬT): mọi luật, kể cả các luật có sẵn, xếp theo nhóm, mỗi luật một câu dễ đọc
      (luật có sẵn có tên riêng, vd "Mỗi buổi, một lớp học tối đa 2 tiết của một môn…") và nhãn **Bắt buộc** hoặc
-     **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mặc định** chương trình xếp như trước. **Sửa** mở hộp thoại
+     **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mặc định** là luật có sẵn chưa sửa dạng (đọc bằng tên riêng). **Sửa** mở hộp thoại
      theo thứ tự câu luật: **Loại luật** (một ô chọn chia theo bốn câu hỏi **Ở đâu**, **Bao nhiêu**, **Đi cùng nhau**,
      **Ai dạy**, gồm các mẫu và "Tự ghép · <phép đo>") · **Với mỗi** · **Các tiết nào** (Môn, Khối, Lớp; các ô ít dùng
      nằm trong **Thêm điều kiện**, nhãn môn và nhãn giờ học tách riêng) · **Vào giờ nào** (họ Ở đâu) · **Thì** (Áp dụng
      khi chọn bằng ô: từ … tiết/tuần trở lên, không quá …/số ngày học, chẵn/lẻ) · **Mức** (Bắt buộc/Ưu tiên và mức;
      Điểm, Nhóm trong **Nâng cao**). Hộp thoại hiện ngay **luật đọc là** (cùng câu chương trình in ra), lỗi nếu ghép
-     sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (mã kết quả sẽ khác), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
+     sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (đọc bằng câu ghép, tắt luật bảo vệ học sinh không tắt nó), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
      đa 3 lớp khác nhau (bắt buộc)". Ô **Dùng** ở mỗi luật: bỏ dấu là **tạm tắt** (luật mờ đi, ghi `Có` ở cột Tạm tắt,
      chương trình bỏ qua; đánh dấu lại là dùng lại); **✕** xóa luật; chọn loại luật rồi **+ Thêm luật**.
      Menu **Tệp luật ▾**: **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (file chỉ có sheet
@@ -228,8 +228,8 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 
 | Hệ điều hành | Mã kết quả `data/INPUT_V8.xlsx` | Đã kiểm |
 |---|---|---|
-| Windows x86-64 | **`DEB9-056B-FF59`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
-| Linux x86-64 | **`FF2F-F451-28ED`** | Python 3.13 |
+| Windows x86-64 | **`835A-7973-494A`** | Máy ảo GitHub Actions: Windows Server 2022 và 2025, Python 3.12 và 3.14 |
+| Linux x86-64 | **`73BC-265B-29F2`** | Python 3.13 |
 
 **Đã sửa lỗi "thỉnh thoảng ra TKB khác":** trước đây, dù đã bật chế độ tất định của OR-Tools, chạy lặp cùng một mô hình vẫn có lúc ra TKB khác (6 lần ra 3 TKB). Nguyên nhân là các luồng của bộ giải chia sẻ mệnh đề học được và cận ở mức gốc cho nhau, và phần này không tất định. Chế độ tái lập nay tắt hai loại chia sẻ đó (`tkb/solver.py`, hàm `_configure`): chạy lặp 8 lần ra 8 lần cùng mã, chất lượng không giảm. Máy ảo Windows của GitHub Actions kiểm tra việc này mỗi lần đổi code (`.github/workflows/windows.yml`): 4 máy (Windows Server 2022 và 2025, Python 3.12 và 3.14), mỗi máy chạy 2 lần, mọi mã phải trùng nhau. Máy ảo Linux chạy toàn bộ test, kể cả mã tham chiếu Linux và test trang web trên Chromium (`.github/workflows/linux.yml`); gói `TKB.exe` được dựng và chạy thử trên Windows (`.github/workflows/dong_goi.yml`: xếp bằng `TKB.exe --cli`, xếp và Dừng sớm qua giao diện).
 
@@ -647,7 +647,7 @@ Dưới đây là các quy tắc với giá trị mặc định. Phần lớn s�
 2. **Tiết bù → người mới:** các tiết bù (và, ở chế độ tuyển, tiết thiếu) giao cho người tuyển mới.
 3. **Xếp giờ** với phân công cố định đó (`tkb/lns.py`), trong `THOI_GIAN_TOI_DA`:
    - **khởi đầu:** CP-SAT xếp toàn trường với 20% thời gian nhưng không quá 120 (không giới hạn: 120), được một TKB đúng luật;
-   - **các vòng xếp lại:** mỗi vòng chấm điểm từng lớp-ngày theo các mục tiêu mềm (QA), rồi lần lượt xếp lại từng vùng, vùng xấu trước: từng lớp, các "điểm nóng" (lớp-ngày xấu nhất cùng các lớp chung giáo viên hôm đó), nhóm lớp của một giáo viên dùng chung, từng khối, từng cặp ngày. Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT tìm cách xếp tốt hơn trong vùng, chỉ nhận khi tốt hơn. Luật bắt buộc luôn đúng;
+   - **các vòng xếp lại:** mỗi vòng chấm điểm từng lớp-ngày theo các mục tiêu mềm (QA), rồi lần lượt xếp lại từng vùng, vùng xấu trước: từng lớp, các "điểm nóng" (lớp-ngày xấu nhất và một ngày khác, cùng các lớp mà giáo viên dạy chung lớp đó dạy ở hai ngày ấy), nhóm lớp của một giáo viên dùng chung, từng khối, từng cặp ngày. Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT tìm cách xếp tốt hơn trong vùng, chỉ nhận khi tốt hơn. Luật bắt buộc luôn đúng;
    - **dừng** khi hết thời gian, khi một vòng tốt lên chưa tới 0,3% (không giới hạn: khi vòng không tốt lên), sau 10 vòng, hoặc khi bấm Ctrl+C. Màn hình in chi phí xếp giờ (tổng điểm phạt mềm) sau mỗi vòng.
    - Với file của trường bản trước (chưa có hai cơ sở), cách này cho TKB tốt hơn cả khi để một lần CP-SAT chạy 110 phút, ngay với 600 (khoảng 4–6 phút), và mặc định 1200 ra đúng TKB của chế độ không giới hạn. Kết quả là tốt nhất tìm được, không chứng minh là tối ưu.
    - File hiện tại có thêm hai cơ sở, thai sản, buổi nghỉ (44 nhân sự, bù tối đa +3), luật tiết tăng cường sau tiết chính và trọng số mới (môn nặng tiết 7: 1200, đổi cơ sở trong ngày: 10000): chi phí xếp giờ 28.220 (Linux) / 37.340 (Windows). Giáo viên dạy sáng một cơ sở, chiều cơ sở kia: 0 lần (Linux), 1 lần (Windows); trước khi có mục tiêu này: 21 lần. Môn nặng ở tiết 7: 6 tiết (đều là Tiếng Anh, thấp nhất có thể là 4); TV/Toán buổi chiều 38/408.
@@ -679,7 +679,7 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/checker.py` | Kiểm tra độc lập các luật bắt buộc |
 | `tkb/luat_rieng.py` | Dòng luật (sheet LUẬT, LUẬT RIÊNG cũ): đọc/ghi các ô, các mẫu luật, câu đọc lại |
 | `tkb/bo_ghep.py` | Bộ ghép luật: phạm vi, điều kiện, 10 phép đo; mỗi phép đo viết một lần cho mô hình CP-SAT, kiểm tra độc lập, QA của LNS, đếm trước, phân công |
-| `tkb/luat_co_san.py` | Luật có sẵn là các dòng mặc định của sheet LUẬT; dòng ở dạng gốc xếp như trước (số, điểm lấy từ dòng), luật không còn dòng thì tắt |
+| `tkb/luat_co_san.py` | Luật có sẵn là các dòng mặc định của sheet LUẬT, xếp bằng bộ ghép như mọi dòng (Buổi nghỉ, Cơ sở 2: chỉ có dạng gốc); dạng gốc để đọc tên riêng, nhận ra luật bảo vệ học sinh; xóa dòng là tắt luật |
 | `tkb/chan_doan.py` | Quy định mâu thuẫn: đếm trước khi xếp; khi không xếp được thì thử nới từng nhóm luật để chỉ ra luật nào gây ra |
 | `tkb/writer.py` | Xuất Excel |
 | `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |

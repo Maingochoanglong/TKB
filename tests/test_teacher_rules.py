@@ -136,10 +136,13 @@ def _campus_day_switches(sol) -> list[tuple[str, int]]:
 
 def test_whole_day_at_one_campus_is_preferred(campus_solution):
     """Mục tiêu mềm campus_day_switch: không phạt thì GV tiếng anh có ngày sáng một cơ sở, chiều cơ sở kia."""
+    from tkb import luat_co_san
+    from tkb.rules import applied
     assert _campus_day_switches(campus_solution) == []
-    settings = dataclasses.replace(FAST, weights=config.Weights(campus_day_switch=0))
-    free = solve(_campus_staff(), CURRICULUM, settings, log=lambda *_: None)
-    assert check(free.problem, free.lessons) == [] and _campus_day_switches(free)
+    without = [r for r in config.CUSTOM_RULES if luat_co_san.native_of(r).key != "doi_co_so"]  # bỏ dòng luật đó
+    with applied({"CUSTOM_RULES": without}):
+        free = solve(_campus_staff(), CURRICULUM, FAST, log=lambda *_: None)
+        assert check(free.problem, free.lessons) == [] and _campus_day_switches(free)
 
 
 def test_checker_flags_campus_and_leave_violations(campus_solution):

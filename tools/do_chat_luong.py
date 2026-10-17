@@ -9,6 +9,10 @@ Mỗi cách xếp (biến thể) là một lần solver.solve trên cùng file v
 Mọi TKB chấm cùng một cách: bộ kiểm tra độc lập (checker) và sheet Chất lượng (writer.quality_rows) với các luật như
 file vào (luật gốc), nên điểm trừ so được với nhau. In thêm kích thước mô hình CP-SAT (số biến, số ràng buộc).
 
+Từ khi chuyển mô hình (docs/Thiet_Ke_Gop_Luat.md, PR D) chương trình xếp mọi luật bằng bộ ghép: goc và ghep như nhau
+(không còn luật có sẵn nào xếp bằng mã riêng để thay). So với mã riêng cũ: chạy công cụ ở commit trước PR D, cùng
+hằng số, cùng hạt giống.
+
 Không in họ tên, không ghi file ra: dùng được với file thật của trường.
   python tools/do_chat_luong.py data/INPUT_V8.xlsx --mode bu_gio --max-overtime 3 --time-limit 300 goc ghep
   python tools/do_chat_luong.py <file> --tung-luat     # mỗi luật có sẵn một biến thể ghep:<khóa>

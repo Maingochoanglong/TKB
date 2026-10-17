@@ -1,4 +1,5 @@
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -20,8 +21,12 @@ def sample_staff():
 
 
 def plain_rules(values):
-    """Quy định đọc từ file, bỏ các dòng của sheet LUẬT (RULES: chỉ để ghi lại, không phải giá trị config mặc định)."""
-    return {k: v for k, v in (values or {}).items() if k != "RULES"}
+    """Quy định đọc từ file, bỏ các dòng của sheet LUẬT (RULES: chỉ để ghi lại, không phải giá trị config mặc định) và
+    số dòng của các luật (CUSTOM_RULES), để so với giá trị mặc định."""
+    out = {k: v for k, v in (values or {}).items() if k != "RULES"}
+    if "CUSTOM_RULES" in out:
+        out["CUSTOM_RULES"] = [replace(r, row=0) for r in out["CUSTOM_RULES"]]
+    return out
 
 
 def teacher(name: str, title: str, lessons, row: int | None = None):

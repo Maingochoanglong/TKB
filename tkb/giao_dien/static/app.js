@@ -919,7 +919,7 @@ function renderRuleList() {
       const r = said && said.rules[i];
       const errs = r ? r.errors : [];
       const text = r && r.text ? r.text.replace(/ \((bắt buộc|ưu tiên[^)]*)\)$/, "") : `${kindOf(row).label}…`;
-      const native = r && r.native ? `<span class="tag" title="Luật mặc định của chương trình, chỉ sửa số hoặc mức: xếp như trước">mặc định</span>` : "";
+      const native = r && r.native ? `<span class="tag" title="Luật có sẵn của chương trình, chỉ sửa số hoặc mức: đọc bằng tên riêng">mặc định</span>` : "";
       const off = row.off ? `<span class="tag off-tag">tạm tắt</span>` : "";
       return `<li class="rule-item${errs.length ? " bad" : ""}${row.off ? " off" : ""}" data-row="${i + 2}" title="Dòng ${i + 2} của sheet LUẬT trong file Excel">
         <div class="say">${levelBadge(row, r)} ${esc(text)} ${native}${off}${errs.map((e) => `<div class="warn-text">${esc(e)}</div>`).join("")}</div>

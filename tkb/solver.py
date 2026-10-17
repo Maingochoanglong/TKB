@@ -656,7 +656,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
                                 if q > p:
                                     m.Add(v + u <= 1)
             for d, sessions in config.DAY_SESSIONS.items():
-                for subject, limit in config.DAILY_LIMITS.items():
+                for subject, limit in config.DAILY_LIMITS.items() if on("toi_da_ngay") else ():
                     if req.get(subject, 0) > n_days:
                         continue
                     vs = [x[c.id, (d, p)] for c in by_subject.get(subject, []) for session in sessions
@@ -1126,6 +1126,13 @@ def solve(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     lại **ít xáo trộn nhất**: phân công ưu tiên giữ người dạy cũ (Teacher.previous, allocation.previous_cost), xếp
     giờ giữ mọi ô được (Weights.keep_cell mỗi ô đổi môn), ô khóa giữ nguyên bắt buộc; ô khóa mâu thuẫn với luật
     thì bỏ khóa (in ra) rồi xếp lại."""
+    from .luat_co_san import student, without_student
+    if not settings.student_rules and any(student(r) for r in config.CUSTOM_RULES):
+        # --no-student-rules: các dòng luật bảo vệ học sinh không vào bộ ghép trong cả lần xếp (phân công, mô hình,
+        # LNS, chẩn đoán); checker.check, sheet Chất lượng bỏ chúng theo cùng cờ.
+        from .rules import applied
+        with applied({"CUSTOM_RULES": without_student(config.CUSTOM_RULES)}):
+            return solve(staff, curriculum, settings, log, previous)
     if settings.mode not in config.MODES:
         raise SolveError(f"Chế độ không hợp lệ: {settings.mode!r} (chọn một trong {', '.join(config.MODES)})")
     if settings.overtime_max < 0:

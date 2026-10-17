@@ -204,13 +204,21 @@ scope has one]", hard or soft (Điểm points, else Mức Thấp/Vừa/Cao/Rất
 `luat_rieng.LEVELS`; written as words, read as words or 1–4). `Kiểu luật` is a preset
 (`luat_rieng.KINDS`, expanded by `bo_ghep.PRESETS`; `nghi_gv`, `co_so_2` exist only in native form) or "Tự ghép".
 **Built-in rules** are the default rows of `tkb/luat_co_san.py` (`NATIVES`, `default_rows`, written by the template):
-`rules.read_rules` → `luat_co_san.apply(rows)`: a row in a native's exact shape (only number/points differ, `fits`)
-keeps the native encoding (params into `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `config.WEIGHTS` via
-`config.rule_weights`), a native with no row is off (`config.OFF`; code checks `config.on(key)`, the solver
-`solver.on(key)` which also honours `RELAXED`), every other row goes to `config.CUSTOM_RULES` (composer). No sheet
-`LUẬT` (old file): default rows from the old columns (`rules.LEGACY`: still read, never written or shown) plus sheet
-`LUẬT RIÊNG` rows; so defaults give the same model and codes (`OFF`/`WEIGHTS` are optional attrs of `rules.code()`).
-`config.RULES` holds the sheet rows (None: no sheet, `luat_co_san.rows()` rebuilds them). Read-back sentences (`luat_rieng.describe`, used by the UI, diagnosis, the
+`rules.read_rules` → `luat_co_san.apply(rows)`: **every row goes to `config.CUSTOM_RULES` (composer)**, built-in rows
+too (one encoding per rule, `docs/Thiet_Ke_Gop_Luat.md` PR D), except the two native-only rules `NATIVE_ONLY`
+(`nghi_gv`, `co_so_2`: they read NHÂN SỰ columns; on when their row is present). The old native encodings are all off
+(`config.OFF` = every other native key, `config.WEIGHTS` = 0 for their weights; code checks `config.on(key)`, the solver
+`solver.on(key)` which also honours `RELAXED`) until PR E deletes them; `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`,
+`PAIR_MIN_LESSONS` are still read from native-shaped rows only for the old-column warning. `tkb/__init__.py` sets the
+config defaults to `apply(default_rows())`, so no file and a file with the default rows build the same model and codes
+(tests that add a rule use `[*config.CUSTOM_RULES, rule]`; `NATIVE = {"OFF": frozenset(), "WEIGHTS": {},
+"CUSTOM_RULES": []}` turns the old encodings back on for comparisons). A row in a native's exact shape (only
+number/points differ, `fits`, `native_of`) still matters for its title and `luat_co_san.student` (rows of the
+"Bảo vệ học sinh" natives): `--no-student-rules` drops them from `CUSTOM_RULES` in `solver.solve`,
+`chan_doan.precheck`, `luat_co_san.hard_rows` (checker) and marks them "tắt" in the quality sheet. No sheet `LUẬT` (old
+file): default rows from the old columns (`rules.LEGACY`: still read, never written or shown) plus sheet `LUẬT RIÊNG`
+rows. `config.RULES` holds the sheet rows (None: no sheet, `luat_co_san.rows()` rebuilds them: default rows not already
+in `CUSTOM_RULES`, then `CUSTOM_RULES`, in native order). Read-back sentences (`luat_rieng.describe`, used by the UI, diagnosis, the
 "Luật đọc là" column): a row in a native's shape reads as that native's hand-written title (`Native.titles`,
 `luat_co_san.title`, filled with the row's number/subject), any other row as a plain composed sentence (no `>=`/`<=`,
 one colon, "giờ học" not "ô"). Every preset (`Kind.family`) and measure (`Measure.family`) belongs to one of the four
@@ -246,7 +254,8 @@ together; TKB cell "Thể dục (ghép 3/2)", teacher cell "3/1, 3/2"; UI cells 
 "Người dạy: Do" without slots filters eligible teachers in `allocation.build_problem`; one Mã GV + class = forced
 assignment), `assign_cost` (soft one:
 `phan_cong._flow`, `_Local._part`, `solver._Allocation`), `validate`/`precheck` (also capacity per class and
-day/session, pairs per session), and composer rows with a native's meaning (so natives can be replaced): `fixed_slots`
+day/session, pairs per session, pair rows against caps below 2 per session/day `_precheck_pair_caps`), and composer rows
+with a native's meaning (so natives can be replaced): `fixed_slots`
 (HĐTN fixed course, `allocation.hdtn_fixed_slots`), `homeroom_slots` (`allocation.homeroom_periods_slots`, domain cut in
 `allowed_slots`, GVCN leave check), `homeroom_subjects` (`homeroom_only`), `paired_by_group` (the assignment's
 `paired_groups(..., assignment=True)`; the model lowers that row itself). Diagnosis (`chan_doan._rules`) tries
@@ -254,9 +263,9 @@ dropping each hard row (native: `OFF`; daily: drop the subject; composer: drop f
 `LUẬT dòng n: <sentence>` (`luat_rieng.label`). Sentences show Mã GV, never names: `bo_ghep.know_staff(staff)` fills
 `config.PEOPLE` (name/code → Mã GV; not a rule, restored by `rules.applied`) after the staff is read in `__main__._run`
 and `kich_ban.check`/`describe`; `bo_ghep.person` treats any name with a digit as a Mã GV. A new measure = one `Measure` + one function in `LOWER`; a new tag = a
-new Có/Không `Col`; a new built-in rule = a `Native` + its encoding guarded by `on(key)` (the checker reads its rows
-through the composer, `luat_co_san.hard_rows`; add a hand count to `tests/kiem_tra_cu.py`). Everything
-composer-side is skipped when `CUSTOM_RULES` is empty. `tests/test_luat_co_san.py` checks default rows change nothing,
+new Có/Không `Col`; a new built-in rule = a `Native` whose rows are composer sentences (the model, the checker and
+the quality sheet read them; add a hand count to `tests/kiem_tra_cu.py`). Everything composer-side is skipped when
+`CUSTOM_RULES` is empty. `tests/test_luat_co_san.py` checks default rows change nothing,
 edits work, the composer matches the old hand-written checks both ways (`test_composer_matches_the_old_checker`) and
 its lowering can replace natives. The UI rules step edits
 `scenario["rules"]` (all rows) in a composer dialog driven by `kich_ban.composer()`, asks `/api/describe`
@@ -277,7 +286,7 @@ Friday afternoon off). Never assume two sessions, a session's periods or day nam
 `AFTERNOON` only keep the rules code of old frames. LUẬT rows are parsed under the file's frame (`_Reader.frame`). Subject names in config match file names loosely via
 `staff.subject_key` → `program.canonical_subject`.
 
-Each rule below (except who-may-teach and the assignment/LNS rows) is a default row of sheet `LUẬT` (`luat_co_san.NATIVES`; deleting the row turns it off, its number/points come from the row).
+Each rule below (except who-may-teach and the assignment/LNS rows) is a default row of sheet `LUẬT` (`luat_co_san.NATIVES`; deleting the row turns it off, its number/points come from the row). They are all lowered and checked by the composer (except leave and campus 2); the native solver/LNS blocks named below are off (`config.OFF`, weights 0) and only kept for comparisons until PR E removes them.
 
 | Rule | `tkb/config.py` default (the file's rules override) | Implemented in |
 |---|---|---|
@@ -308,10 +317,10 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   `win32`: from the Windows workflow logs; an OS without a reference is skipped and prints its code), README table
   "Chạy trên máy khác" (codes of `python main.py`), the spec (§0 history row, §9), and the output templates
   (`python tools/mau_dau_ra.py`).
-- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `5444-2BE7-93B3`/`1F0E-EA75-72A3`, Windows
-  `ACDF-23D8-8E1D`/`435A-D916-6EF5`;
-  `python main.py` (school file as of now) Linux `FF2F-F451-28ED`, Windows `DEB9-056B-FF59`; fake school of
-  `tkb/truong_mau.py` with main.py constants Linux `515A-B49D-D6A7`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+- Current codes: small school (`tuyen_them`/`bu_gio`) Linux `FF38-5D84-51CD`/`163C-C24E-C838`, Windows
+  `55DF-B412-A92E`/`17E8-9D71-CCE4`;
+  `python main.py` (school file as of now) Linux `73BC-265B-29F2`, Windows `835A-7973-494A`; fake school of
+  `tkb/truong_mau.py` with main.py constants Linux `4DCC-D5FC-F768`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
