@@ -1,6 +1,7 @@
 """Mọi luật là dòng của sheet LUẬT (tkb/luat_co_san.py): dòng mặc định cho đúng mô hình cũ (mã không đổi); sửa số,
 điểm, xóa dòng, đổi Bắt buộc có tác dụng; bộ ghép kiểm chéo với bộ kiểm tra độc lập và hạ thay được luật gốc."""
 import random
+from collections import Counter
 from dataclasses import replace
 
 import openpyxl
@@ -13,6 +14,7 @@ from tkb.rules import DEFAULTS, applied, code, read_rules
 from tkb.staff import _check_extras
 from tkb.template import write_staff_template
 
+from . import kiem_tra_cu
 from .conftest import CURRICULUM, small_staff
 
 SETTINGS = dict(time_limit=5, workers=4, overtime_max=4)
@@ -173,7 +175,7 @@ def test_deleted_rule_is_off_when_solving():
     assert errors == []
     with applied({}):  # luật gốc đầy đủ: tiết 1 có thể không do GVCN dạy
         found = checker.check(sol.problem, sol.lessons)
-    assert all("tiết của GVCN" in e for e in found)
+    assert all("lớp học với GV chủ nhiệm" in e for e in found)
 
 
 def test_legacy_file_rows(tmp_path):
@@ -210,26 +212,57 @@ def test_solved_timetable_keeps_every_hard_row(plain):
     assert found == [], [luat_rieng.describe(L.rule) + ": " + t for L, _, _, t in found]
 
 
-def test_cross_check_with_the_checker(plain):
-    """Đổi chỗ hai tiết của một lớp: dòng bắt buộc nào bộ ghép thấy bị vi phạm thì bộ kiểm tra độc lập cũng báo lỗi;
-    bộ kiểm tra thấy lỗi luật bảo vệ học sinh thì bộ ghép cũng thấy ở các dòng Bảo vệ học sinh."""
-    rnd = random.Random(0)
-    rows = _hard_rows()
-    student = [r for r in rows if r.group_label == "Bảo vệ học sinh"]
-    hits = 0
-    for _ in range(40):
-        les = list(plain.lessons)
-        cls = rnd.choice(plain.problem.classes)
+def _perturb(rnd: random.Random, problem, lessons):
+    """Đổi chỗ một, hai cặp tiết của một lớp; nửa số lần đổi thêm người dạy một tiết."""
+    les = list(lessons)
+    for _ in range(rnd.randint(1, 2)):
+        cls = rnd.choice(problem.classes)
         i, j = rnd.sample([k for k, l in enumerate(les) if l.class_name == cls], 2)
         a, b = les[i], les[j]
         les[i] = replace(a, day=b.day, period=b.period)
         les[j] = replace(b, day=a.day, period=a.period)
-        found = bo_ghep.violations(plain.problem, les, rules=rows, skip_forced=False)
-        assert not found or checker.check(plain.problem, les)
-        if checker._check_student_rules(plain.problem, les):
-            assert bo_ghep.violations(plain.problem, les, rules=student, skip_forced=False)
-            hits += 1
-    assert hits >= 5
+    if rnd.random() < 0.5:
+        i = rnd.randrange(len(les))
+        les[i] = replace(les[i], teacher=rnd.choice(sorted(problem.teachers)))
+    return les
+
+
+@pytest.fixture(scope="module")
+def campuses(tmp_path_factory):
+    """Ba cơ sở, lớp Lá 1 không có GVCN (tests/test_co_so.py), xếp xong."""
+    from tkb.program import read_program
+    from tkb.staff import read_staff
+
+    from .test_co_so import _file
+    path = _file(tmp_path_factory.mktemp("co_so"))
+    values = read_rules(path)
+    with applied(values):
+        curriculum = read_program(path)
+        staff = read_staff(path, subjects=[s for req in curriculum.values() for s in req])
+        sol = solver.solve(staff, curriculum, config.Settings(time_limit=5, workers=4), log=lambda *_: None)
+    return values, sol
+
+
+@pytest.mark.parametrize("school", ["nho", "co_so"])
+def test_composer_matches_the_old_checker(school, plain, campuses):
+    """Đổi chỗ ngẫu nhiên: với từng luật có sẵn, bộ ghép thấy dòng của luật bị vi phạm khi và chỉ khi bộ kiểm tra viết
+    tay (tests/kiem_tra_cu.py) thấy lỗi của luật đó; checker (kiểm bằng bộ ghép) báo lỗi đúng lúc đó."""
+    values, sol = ({}, plain) if school == "nho" else campuses
+    rows = _hard_rows()
+    rnd = random.Random(0)
+    hits = Counter()
+    with applied(values):
+        keys = {luat_co_san.native_of(r).key for r in rows}
+        assert checker.check(sol.problem, sol.lessons) == []
+        for _ in range(80):
+            les = _perturb(rnd, sol.problem, sol.lessons)
+            old = {k for k, found in kiem_tra_cu.errors(sol.problem, les).items() if found and k in keys}
+            new = {luat_co_san.native_of(L.rule).key
+                   for L, *_ in bo_ghep.violations(sol.problem, les, rules=rows, skip_forced=False)}
+            assert new == old, (sorted(old), sorted(new))
+            assert bool(old) <= bool(checker.check(sol.problem, les))
+            hits.update(old)
+    assert len(hits) >= (10 if school == "nho" else 12), hits  # mọi luật có sẵn bắt buộc (một cơ sở: trừ co_so)
 
 
 @pytest.mark.parametrize("keys", [("lien_nhau", "tang_cuong", "lien_tiet", "gvcn_truoc"), ("nhom_buoi", "tiet_gvcn"),

@@ -446,23 +446,35 @@ class Atom:
         return list(self.cells)
 
 
+_KEYS = {"lop": lambda a, p: a.cls, "gv": lambda a, p: a.teacher, "mon": lambda a, p: a.subject,
+         "nhom_mon": lambda a, p: config.SUBJECT_GROUPS.get(a.subject, a.subject), "khoi": lambda a, p: a.grade,
+         "ngay": lambda a, p: a.day, "buoi": lambda a, p: (a.day, a.session), "o": lambda a, p: (a.day, a.period),
+         "co_so": lambda a, p: p.campus.get(a.cls, 0)}
+
+
 def _key(dim: str, a: Atom, problem):
-    from .allocation import subject_group
-    return {"lop": lambda: a.cls, "gv": lambda: a.teacher, "mon": lambda: a.subject,
-            "nhom_mon": lambda: subject_group(a.subject), "khoi": lambda: a.grade, "ngay": lambda: a.day,
-            "buoi": lambda: (a.day, a.session), "o": lambda: (a.day, a.period),
-            "co_so": lambda: problem.campus.get(a.cls, 0)}[dim]()
+    return _KEYS[dim](a, problem)
 
 
 class _Source:
     """Các tiết có thể có (mỗi course × ô trong miền × GV): từ biến của mô hình, hoặc từ một TKB."""
 
-    def __init__(self, problem, dom: dict[int, list], lit, teachers_of, extra=(), relabel=None, both=False):
+    def __init__(self, problem, dom: dict[int, list], lit, teachers_of, extra=(), relabel=None, both=False,
+                 live=None):
         from .solver import session_of
         self.problem, self.dom, self.lit, self.teachers_of, self.extra = problem, dom, lit, teachers_of, extra
         self.relabel = relabel or {}  # (course, GV trong mô hình) -> GV tính cho luật (người bù, Problem.covers)
         self.both = both  # True: tiết bù tính cho cả người mới và người bù (như occ_terms của solver)
+        self.live = live  # đánh giá: chỉ các (course, ô) có tiết; None: mọi ô trong miền (`_placed_only`)
         self.sess = session_of()
+        self._slots: dict[int, list] = {}
+
+    def slots(self, cid: int) -> list:
+        """Các ô của course: miền (theo thứ tự) rồi các ô có tiết ngoài miền; live: chỉ ô có tiết."""
+        if cid not in self._slots:
+            out = list(self.dom.get(cid, ())) + [s for c, s in self.extra if c == cid]
+            self._slots[cid] = out if self.live is None else [s for s in out if (cid, s) in self.live]
+        return self._slots[cid]
 
     def atoms(self, L: Luat, subjects=_ALL, skip=None) -> list[Atom]:
         """Các tiết của luật; subjects/skip: thay bộ lọc môn của luật (Môn thứ hai)."""
@@ -473,8 +485,7 @@ class _Source:
         for c in p.courses:
             if not _lesson_ok(L, c.class_name, c.grade, c.subject, p.curriculum, subjects, skip):
                 continue
-            slots = list(self.dom.get(c.id, ())) + [s for cid, s in self.extra if cid == c.id]
-            for s in slots:
+            for s in self.slots(c.id):
                 if L.slots is not None and s not in L.slots:
                     continue
                 name = self.sess[s].name if s in self.sess else ""
@@ -511,7 +522,9 @@ def _domains(problem) -> dict[int, list]:
     return out
 
 
-def _eval_source(problem, lessons, dom=None, relabel=None, both=False) -> _Source:
+def _eval_source(problem, lessons, dom=None, relabel=None, both=False, placed_only=False) -> _Source:
+    """Nguồn tiết của một TKB: mọi (course, ô trong miền), tiết đã xếp có giá trị 1; placed_only: chỉ các tiết đã xếp
+    (nhanh hơn nhiều, cùng kết quả với các luật `_placed_only`)."""
     dom = _domains(problem) if dom is None else dom
     placed = {(les.course_id, (les.day, les.period)) for les in lessons}
     taught = {(les.course_id, (les.day, les.period), les.teacher) for les in lessons}
@@ -523,7 +536,20 @@ def _eval_source(problem, lessons, dom=None, relabel=None, both=False) -> _Sourc
 
     def lit(cid, g, s):
         return int((cid, s) in placed) if g is None else int((cid, s, g) in taught)
-    return _Source(problem, dom, lit, lambda cid: sorted(by_course.get(cid, ())), extra, relabel, both)
+    return _Source(problem, dom, lit, lambda cid: sorted(by_course.get(cid, ())), extra, relabel, both,
+                   live=placed if placed_only else None)
+
+
+def _placed_only(L: Luat) -> bool:
+    """Đánh giá luật chỉ cần các tiết đã xếp: tiết không xếp có giá trị 0 nên không đổi tổng nào. Trừ hai chỗ mà
+    nhóm sinh ra từ tiết có thể có: so sánh Tối thiểu, Đúng theo phạm vi không liệt kê được (GV, môn, nhóm môn, cơ
+    sở: `_universe` rỗng), và Người dạy "đầu tuần" có chiều thời gian hay giới hạn ô (người được dạy trước có trong
+    nhóm dù không có tiết ở đó)."""
+    if L.measure in ("so_tiet", "so_khac") and L.op in (">=", "=") and \
+            any(d in ("gv", "mon", "nhom_mon", "co_so") for d in L.scope):
+        return False
+    return not (L.measure == "nguoi_day" and L.op == "dau_tuan"
+                and (set(L.scope) & set(TIME_DIMS) or L.slots is not None))
 
 
 def _groups(L: Luat, atoms: list[Atom], problem, all_keys: bool) -> list[tuple[tuple, list[Atom]]]:
@@ -691,17 +717,18 @@ def _label(problem, subject: str) -> str:
     return problem.subject_labels.get(subject, subject)
 
 
-def _where(L: Luat, key: tuple, problem) -> str:
+def _part(d: str, v, problem) -> str:
+    """Một giá trị của chiều d khi báo, vd "lớp 3/1", "Thứ 2 buổi sáng", Mã GV, tên cơ sở."""
     from .allocation import campus_label
-    parts = []
-    for d, v in zip(L.scope, key):
-        parts.append({"lop": lambda: f"lớp {v}", "gv": lambda: problem.teachers[v].code if v in problem.teachers else v,
-                      "mon": lambda: _label(problem, v), "nhom_mon": lambda: f"nhóm {_label(problem, v)}",
-                      "khoi": lambda: f"khối {v}", "ngay": lambda: _day(v),
-                      "buoi": lambda: f"{_day(v[0])} buổi {v[1].lower()}",
-                      "o": lambda: f"{_day(v[0])} tiết {v[1]}",
-                      "co_so": lambda: campus_label(problem.campuses[v] if problem.campuses else CAMPUS1)}[d]())
-    return " ".join(parts) or "cả trường"
+    return {"lop": lambda: f"lớp {v}", "gv": lambda: problem.teachers[v].code if v in problem.teachers else v,
+            "mon": lambda: _label(problem, v), "nhom_mon": lambda: f"nhóm {_label(problem, v)}",
+            "khoi": lambda: f"khối {v}", "ngay": lambda: _day(v), "buoi": lambda: f"{_day(v[0])} buổi {v[1].lower()}",
+            "o": lambda: f"{_day(v[0])} tiết {v[1]}",
+            "co_so": lambda: campus_label(problem.campuses[v] if problem.campuses else CAMPUS1)}[d]()
+
+
+def _where(L: Luat, key: tuple, problem) -> str:
+    return " ".join(_part(d, v, problem) for d, v in zip(L.scope, key)) or "cả trường"
 
 
 def _by_period(atoms: list[Atom]) -> dict[int, list[Atom]]:
@@ -731,9 +758,11 @@ def _limit_text(L: Luat, n: int) -> str:
 
 def _so_tiet(ctx, L, problem, src):
     atoms = src.atoms(L)
+    what = f" {_names(problem, L.subjects)}" if L.subjects is not None and not {"mon", "nhom_mon"} & {*L.scope} \
+        else ""  # vd "lớp 3/1 Thứ 5: 2 tiết Toán (tối đa 1)"
     for key, group in _groups(L, atoms, problem, all_keys=L.op in (">=", "=")):
         n = threshold(L, key, problem)
-        text = (lambda v, key=key, n=n: f"{_where(L, key, problem)}: {v} tiết ({_limit_text(L, n)})")
+        text = (lambda v, key=key, n=n: f"{_where(L, key, problem)}: {v} tiết{what} ({_limit_text(L, n)})")
         if L.op in ("<=", "="):
             ctx.at_most(group, n, text=text)
         if L.op in (">=", "="):
@@ -748,9 +777,11 @@ def _so_khac(ctx, L, problem, src):
             by[_key(L.count_by, a, problem)].append(a)
         if L.op == "<=" and len(by) <= L.number:
             continue  # nhóm không thể có quá L.number giá trị khác nhau (vd trường chỉ có một cơ sở)
-        terms = [ctx.any(by[v]) for v in sorted(by, key=repr)]
-        text = (lambda v, key=key: f"{_where(L, key, problem)}: {v} {unit} khác nhau ({OPS[L.op].lower()} "
-                                   f"{L.number})")
+        values = sorted(by, key=repr)
+        terms = [ctx.any(by[v]) for v in values]
+        text = (lambda v, key=key, values=values, terms=terms: f"{_where(L, key, problem)}: {v} {unit} khác nhau ("
+                + "".join(f"{_part(L.count_by, x, problem)}, " for x, t in zip(values, terms) if t.lit)
+                + f"{OPS[L.op].lower()} {L.number})")
         if L.op in ("<=", "="):
             ctx.at_most(terms, L.number, text=text)
         if L.op in (">=", "="):
@@ -919,8 +950,11 @@ def teacher_ok(L: Luat, t, class_name: str) -> bool:
 def _nguoi_day(ctx, L, problem, src):
     atoms = src.atoms(L)
     if L.op == "do":
+        homeroom = L.who == frozenset({config.ROLE_HOMEROOM})  # lớp không có GVCN (sheet LỚP): luật không áp
         for a in atoms:
             t = problem.teachers[a.teacher]
+            if homeroom and a.cls in problem.no_homeroom:
+                continue
             if not teacher_ok(L, t, a.cls):
                 ctx.at_most([a], 0, text=lambda v, a=a, t=t: f"{t.code} dạy {_label(problem, a.subject)} lớp {a.cls} "
                                                              f"{_day(a.day)} tiết {a.period}")
@@ -1258,13 +1292,21 @@ def violations(problem, lessons, hard: bool | None = None, dom=None, rules: list
     luats = [L for L in luats if hard is None or L.hard == hard]
     if not luats:
         return []
-    ctx, src = _Eval(), _eval_source(problem, lessons, dom)
-    both = _eval_source(problem, lessons, dom, problem.covers, both=True) if covers and problem.covers else src
+    dom = _domains(problem) if dom is None else dom
+    ctx = _Eval()
+    sources = {}  # (cả miền?, tính tiết bù cho cả hai người?) -> nguồn tiết, dựng khi cần
+
+    def source(full: bool, both: bool) -> _Source:
+        if (full, both) not in sources:
+            sources[full, both] = _eval_source(problem, lessons, dom, problem.covers if both else None, both,
+                                               placed_only=not full)
+        return sources[full, both]
     for i, L in enumerate(luats):
         if skip_forced and forced(L):
             continue
         ctx.use(L, i)
-        LOWER[L.measure](ctx, L, problem, both if not L.hard and _per_teacher(L) else src)
+        LOWER[L.measure](ctx, L, problem, source(not _placed_only(L),
+                                                 covers and bool(problem.covers) and not L.hard and _per_teacher(L)))
     return ctx.found
 
 

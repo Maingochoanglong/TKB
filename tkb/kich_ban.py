@@ -904,7 +904,7 @@ def _marked(text: str, problem, cells: list[dict]) -> dict:
     for t in teachers:
         text = re.sub(rf"(?<![\w/]){re.escape(t.title)}(?![\w/])", t.code, text)
     body = text
-    for r in config.CUSTOM_RULES:  # "LUẬT dòng n: <câu của luật>: <chỗ sai>": chỉ đọc chỗ sai
+    for r in luat_co_san.rows():  # "LUẬT dòng n: <câu của luật>: <chỗ sai>": chỉ đọc chỗ sai
         head = luat_rieng.label(r) + ": "
         if body.startswith(head):
             body = body[len(head):]

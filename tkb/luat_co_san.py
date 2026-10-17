@@ -147,6 +147,8 @@ NATIVES = (
         titles=("Giáo viên, trừ GV chủ nhiệm, không có tiết trống xen giữa các tiết trong buổi",)),
 )
 BY_KEY = {n.key: n for n in NATIVES}
+# Luật chỉ có dạng gốc (đọc cột của sheet NHÂN SỰ, không có câu bộ ghép): checker kiểm bằng mã riêng.
+NATIVE_ONLY = ("buoi_nghi", "co_so_2")
 # Khóa của luật có sẵn dùng chung với cờ chẩn đoán solver.RELAXED.
 STUDENT = frozenset(n.key for n in NATIVES if n.student)
 
@@ -161,6 +163,16 @@ def rows() -> list[CustomRule]:
     if config.RULES is not None:
         return list(config.RULES)
     return [*default_rows(), *(replace(r, group_label=r.group_label or CUSTOM_GROUP) for r in config.CUSTOM_RULES)]
+
+
+def hard_rows(student_rules: bool = True) -> list[CustomRule]:
+    """Các dòng bắt buộc đang có hiệu lực, cho bộ kiểm tra (checker.check kiểm bằng bộ ghép): dòng ở dạng gốc của luật
+    có sẵn đang bật (trừ NATIVE_ONLY; trừ luật bảo vệ học sinh khi student_rules False, như mô hình), rồi các dòng
+    xếp bằng bộ ghép (config.CUSTOM_RULES)."""
+    custom = [r for r in config.CUSTOM_RULES if r.hard]
+    natives = [r for r in rows() if r.hard and not r.off and r not in custom and (n := native_of(r)) is not None
+               and n.key not in NATIVE_ONLY and config.on(n.key) and (student_rules or not n.student)]
+    return natives + custom
 
 
 def title(r: CustomRule) -> str | None:
