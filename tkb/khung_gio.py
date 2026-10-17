@@ -69,14 +69,18 @@ def short_day(d: int) -> str:
     return f"T{m.group(1)}" if m else name
 
 
+# Thứ ghi bằng chữ (bỏ dấu): "thứ năm" là Thứ 5.
+_DAY_WORDS = {"2": ("hai",), "3": ("ba",), "4": ("tu", "bon"), "5": ("nam",), "6": ("sau",), "7": ("bay",)}
+
+
 def _day_keys(d: int) -> set[str]:
-    """Các cách viết một ngày: tên ngày (không phân biệt hoa thường, dấu), và với tên dạng "Thứ n": "Tn", "thu n", "n";
-    "Chủ nhật": "CN"."""
+    """Các cách viết một ngày: tên ngày (không phân biệt hoa thường, dấu), và với tên dạng "Thứ n": "Tn", "thu n", "n",
+    "thứ năm"; "Chủ nhật": "CN"."""
     name = _fold(day_name(d))
     keys = {name, name.replace(" ", "")}
     if m := re.fullmatch(r"thu\s*(\d)", name):
         n = m.group(1)
-        keys |= {f"t{n}", f"t {n}", f"thu{n}", n}
+        keys |= {f"t{n}", f"t {n}", f"thu{n}", n} | {f"thu {w}" for w in _DAY_WORDS.get(n, ())}
     if name.replace(" ", "") == "chunhat":
         keys |= {"cn", "chu nhat"}
     return keys
@@ -132,7 +136,7 @@ def session_name(text) -> str | None:
 
 
 def split_session_day(text) -> tuple[str, int] | None:
-    """"Chiều T5", "Sáng thứ 6", "Tối Mon" -> (buổi, ngày); None nếu không đọc được."""
+    """"Chiều T5", "Sáng thứ 6", "Tối Mon", "T5 chiều" -> (buổi, ngày); None nếu không đọc được."""
     folded = re.sub(r"\s+", " ", _fold(text)).strip()
     for name in sorted(session_names(), key=lambda n: -len(_fold(n))):
         head = _fold(name)
@@ -140,6 +144,11 @@ def split_session_day(text) -> tuple[str, int] | None:
             if folded.startswith(prefix + " ") or (folded.startswith(prefix) and folded[len(prefix):len(prefix) + 1]
                                                     .isdigit()):
                 d = day_index(folded[len(prefix):])
+                if d is not None:
+                    return name, d
+            day = folded[:-len(prefix) - 1]
+            if folded.endswith(" " + prefix) and not day.isdigit():  # ngày trước: "T5 chiều" ("2 buổi sáng" thì không)
+                d = day_index(day)
                 if d is not None:
                     return name, d
     return None

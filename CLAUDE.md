@@ -23,8 +23,11 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 - Hand-filled Excel is read leniently: sheet names and headers match by `staff.fold_key` (no accents/case/spaces;
   `find_sheet`, `_find_columns` aliases, rules/LUẬT headers), `staff.near_sheets` warns on look-alike unread sheets,
   `staff.sheet_notes` spreads merged cells and warns on hidden rows / near-miss headers, `role_text` maps `GVCN`…,
-  `_YES`/`_NO` take ✓/Đúng/ko, `is_total_row` skips total rows, `suggest` adds "ý là …?"; `build_problem` errors on a
-  quota above the week's slots and warns on same names (rows + Mã GV, never names). The page reads staff like the CLI.
+  `_YES`/`_NO` take ✓/Đúng/ko, `is_total_row`/`is_footer_row` skip total and note rows, `to_number` takes "23 tiết"/"23,0",
+  `suggest` adds "ý là …?"; `find_sheet` also takes "Nhân sự 2026" for the two required sheets, `program.grade_columns`
+  takes `Khối1`/`Lớp 1`, `parse_class` takes "Lớp 3/2"/"3.1" (text cells), `parse_off` "T5 chiều"/"Thứ 6";
+  `build_problem` errors on a quota above the week's slots and warns on same names (rows + Mã GV, never names). The
+  page reads staff like the CLI.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
   sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB` (and `Quản lý dạy

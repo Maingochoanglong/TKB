@@ -177,19 +177,41 @@ def _school() -> tuple[dict[str, config.SchoolClass], dict[str, str]]:
     return _school_cache[1], _school_cache[2]
 
 
+_CLASS_SEP_RE = re.compile(r"^(\d+)\s*[.\-]\s*(\d+)$")  # "3.1", "3-1" (ô chữ) là lớp 3/1
+
+
+def _without_word_class(text: str) -> str:
+    """Tên lớp ghi kèm chữ "Lớp" ở đầu ("Lớp 3/2", "lop 3/2") -> phần sau chữ đó; tên khác giữ nguyên."""
+    m = re.match(r"lop\b\s*", _fold(text))
+    return text[m.end():] if m and m.end() < len(text) and len(_fold(text)) == len(text) else text
+
+
+def _loose_class(text: str) -> str | None:
+    """_numbered_class, cả khi ghi kèm chữ "Lớp" ở đầu hoặc ngăn khối và số bằng dấu chấm, gạch ngang ("3.1")."""
+    bare = _without_word_class(text)
+    if name := _numbered_class(text) or _numbered_class(bare):
+        return name
+    m = _CLASS_SEP_RE.match(bare)
+    return f"{int(m.group(1))}/{int(m.group(2))}" if m else None
+
+
 def parse_class(value) -> str:
     """Cột Lớp: một lớp của sheet LỚP (tên tùy ý); file không có sheet LỚP thì khối/số thứ tự, vd "1/1", hoặc khối +
-    tên lớp, vd "1D15" (khối là các chữ số đầu)."""
+    tên lớp, vd "1D15" (khối là các chữ số đầu). Nhận cả "Lớp 3/2", và "3.2", "3-2" khi ô là chữ."""
     if isinstance(value, (datetime.date, datetime.datetime)):
-        raise InputError(f"cột Lớp bị Excel đổi thành ngày tháng ({value:%d/%m}); hãy chọn lớp từ danh sách "
-                         f"thả xuống hoặc định dạng cột Lớp là Text")
+        raise InputError(f"cột Lớp bị Excel đổi thành ngày tháng ({value:%d/%m}): chọn cột Lớp, định dạng ô là Text "
+                         f"(Format Cells › Text) rồi gõ lại tên lớp")
+    if isinstance(value, float):  # Excel đọc "3.10" thành số 3.1: không biết là lớp 3/1 hay 3/10
+        raise InputError(f"cột Lớp ghi số {value!r} (Excel bỏ số 0 cuối, vd 3.10 thành 3.1): ghi lớp dạng 3/1, "
+                         f"hoặc định dạng cột Lớp là Text rồi gõ lại")
     names = _school()[1]
     if names:  # tên như ghi ở sheet LỚP, không phân biệt hoa thường; "1d15" cũng khớp lớp "1D15"
-        for key in (canonical_class(value), _numbered_class(normalize(value))):
+        text = normalize(value)
+        for key in (canonical_class(value), canonical_class(_without_word_class(text)), _loose_class(text)):
             if key and _fold(key) in names:
                 return names[_fold(key)]
         raise InputError(f"lớp {clean_name(value)!r} không có trong sheet {config.CLASSES_SHEET}")
-    name = _numbered_class(normalize(value))
+    name = _loose_class(normalize(value))
     if name is None:
         raise InputError(f"cột Lớp phải ghi dạng khối/số thứ tự (vd '1/1') hoặc khối rồi tên lớp (vd '1D15'), "
                          f"đang ghi {value!r}; muốn đặt tên lớp tùy ý thì ghi các lớp ở sheet {config.CLASSES_SHEET}")
@@ -315,6 +337,30 @@ def is_total_row(name) -> bool:
     return fold_key(name) in {"tong", "tongcong", "tongso", "tongsotiet", "tongtiet", "cong"}
 
 
+_NUMBER_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:tiet|t)?\.?")  # "23", "23,0", "23 tiết", "23t"
+# Dòng ghi chú cuối bảng: "Ghi chú: ...", "Lưu ý: ...", "* ..." (có dấu hai chấm: "Lưu Ý" cũng là một họ tên).
+_NOTE_RE = re.compile(r"(?:ghi chu|luu y|chu y|chu thich)\s*:|\*")
+
+
+def to_number(value) -> float:
+    """Số trong ô: số, chữ số ("23"), kèm chữ "tiết" ("23 tiết"), dấu phẩy thập phân ("23,0"). Không đọc được thì
+    ValueError."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    m = _NUMBER_RE.fullmatch(_fold(value)) if not isinstance(value, bool) else None
+    if m is None:
+        raise ValueError(value)
+    return float(m.group(1).replace(",", "."))
+
+
+def is_footer_row(name, title, cls, lessons) -> bool:
+    """Dòng cộng tổng ("Tổng cộng", có thể ghi tổng số tiết) hoặc ghi chú ("Ghi chú: ...", không có số tiết) ở bảng
+    nhân sự: không phải một người, bỏ qua."""
+    if not _blank(title) or not _blank(cls) or _blank(name):
+        return False
+    return is_total_row(name) or (_blank(lessons) and _NOTE_RE.match(_fold(name)) is not None)
+
+
 # Cách ghi khác của ba chức vụ có sẵn (khóa fold_key): "GVCN" là Chủ Nhiệm, "GV bộ môn" là Bộ Môn...
 _ROLE_ALIASES = {
     **dict.fromkeys(("chunhiem", "gvcn", "gvchunhiem", "giaovienchunhiem"), config.ROLE_HOMEROOM),
@@ -347,17 +393,20 @@ def parse_yes(value, column: str) -> bool:
 
 
 def parse_classes(value) -> frozenset[str]:
-    """Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy, chấm phẩy, "+", "&" hoặc chữ "và"."""
+    """Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy, chấm phẩy, "+", "&", " - ", chữ "và" hoặc dấu cách."""
     if _blank(value):
         return frozenset()
     out = set()
-    for part in re.split(r"[,;+&]|\s+và\s+", str(value)):
+    for part in re.split(r"[,;+&]|\s+và\s+|\s+[-–]\s+", str(value)):
         if part.strip():
             try:
                 out.add(parse_class(part))
             except InputError:
-                raise InputError(f"cột {OPTIONAL_COLUMNS['history']} ghi các lớp cách nhau bằng dấu phẩy (vd 3/1, "
-                                 f"3/2), không đọc được {part.strip()!r}") from None
+                try:  # các lớp chỉ cách nhau bằng dấu cách: "3/1 3/2"
+                    out |= {parse_class(word) for word in part.split()}
+                except InputError:
+                    raise InputError(f"cột {OPTIONAL_COLUMNS['history']} ghi các lớp cách nhau bằng dấu phẩy (vd "
+                                     f"3/1, 3/2), không đọc được {part.strip()!r}") from None
     return frozenset(out)
 
 
@@ -374,9 +423,10 @@ def off_text(t: Teacher) -> str:
 
 def parse_off(value) -> tuple[frozenset[tuple[int, str]], tuple[tuple[str | None, int], ...]]:
     """Cột Buổi Nghỉ: các mục cách nhau bằng dấu phẩy/chấm phẩy. Mỗi mục là buổi cố định ("Chiều T5",
-    "Sáng thứ 6") hoặc số buổi bất kỳ ("2 buổi chiều", "1 buổi sáng", "2 buổi": buổi nào cũng được).
+    "Sáng thứ 6", "T5 chiều", "chiều thứ năm"), cả ngày ("Thứ 6": mọi buổi của ngày đó) hoặc số buổi bất kỳ
+    ("2 buổi chiều", "1 buổi sáng", "2 buổi": buổi nào cũng được).
     Buổi không có trong khung giờ (vd chiều Thứ 6) vốn đã nghỉ nên bỏ qua."""
-    from .khung_gio import session_name, split_session_day
+    from .khung_gio import day_index, session_name, split_session_day
     fixed: set[tuple[int, str]] = set()
     count: dict[str | None, int] = defaultdict(int)
     if _blank(value):
@@ -389,6 +439,8 @@ def parse_off(value) -> tuple[frozenset[tuple[int, str]], tuple[tuple[str | None
             name, day = found
             if any(s.name == name for s in config.DAY_SESSIONS.get(day, ())):
                 fixed.add((day, name))
+        elif not item.isdigit() and (day := day_index(part)) is not None:  # "Thứ 6": nghỉ cả ngày
+            fixed |= {(day, s.name) for s in config.DAY_SESSIONS.get(day, ())}
         elif (m := _ANY_OFF_RE.match(item)) and (m.group(2) is None or session_name(m.group(2))):
             count[session_name(m.group(2)) if m.group(2) else None] += int(m.group(1))
         elif session_name(item.split(" ")[0]) and not split_session_day(part):
@@ -407,9 +459,16 @@ def parse_off(value) -> tuple[frozenset[tuple[int, str]], tuple[tuple[str | None
 
 def find_sheet(wb, name: str):
     """Sheet có tên `name` (không phân biệt hoa thường; không có thì so cả khi bỏ dấu, khoảng trắng: "Quy dinh" là
-    "QUY ĐỊNH"), hoặc None."""
-    return (next((ws for ws in wb.worksheets if normalize(ws.title) == normalize(name)), None)
-            or next((ws for ws in wb.worksheets if fold_key(ws.title) == fold_key(name)), None))
+    "QUY ĐỊNH"), hoặc None. Hai sheet bắt buộc (nhân sự, chương trình học) còn nhận tên ghi thêm chữ sau, vd "Nhân sự
+    2026", khi chỉ có một sheet như vậy."""
+    found = (next((ws for ws in wb.worksheets if normalize(ws.title) == normalize(name)), None)
+             or next((ws for ws in wb.worksheets if fold_key(ws.title) == fold_key(name)), None))
+    if found is None and name in (config.STAFF_SHEET, config.PROGRAM_SHEET):
+        head = _fold(name)
+        longer = [ws for ws in wb.worksheets
+                  if _fold(ws.title).startswith(head) and not _fold(ws.title)[len(head):][:1].isalpha()]
+        found = longer[0] if len(longer) == 1 else None
+    return found
 
 
 def near_sheets(wb, names) -> list[str]:
@@ -434,8 +493,17 @@ def near_sheets(wb, names) -> list[str]:
 
 
 def staff_sheet(wb):
-    """Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có, không thì sheet đầu tiên."""
-    return find_sheet(wb, config.STAFF_SHEET) or wb.worksheets[0]
+    """Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có (find_sheet), không thì sheet đầu tiên có dòng tiêu đề nhân sự (Họ và
+    Tên, Chức Vụ, Số Tiết/Tuần), không có thì sheet đầu tiên."""
+    found = find_sheet(wb, config.STAFF_SHEET)
+    if found is None:
+        for ws in wb.worksheets:
+            try:
+                _find_columns(ws)
+            except InputError:
+                continue
+            return ws
+    return found or wb.worksheets[0]
 
 
 @dataclass
@@ -628,7 +696,7 @@ def _to_lessons(value, title: str) -> int:
     if isinstance(value, bool) or value is None:
         raise InputError(f"Số tiết của '{title}' bị trống hoặc không hợp lệ")
     try:
-        number = float(str(value).strip())
+        number = to_number(value)
     except ValueError:
         raise InputError(f"Số tiết của '{title}' không phải số: {value!r}") from None
     if number != int(number) or number < 0:
@@ -703,7 +771,10 @@ def validate(teachers: list[Teacher]) -> None:
                 errors.append(f"Trùng chức vụ '{t.role} {t.index}' (dòng {keys[key].row} và {t.row})")
             else:
                 keys[key] = t
-    if not homeroom and not config.CLASSES:
+    if not teachers:
+        errors.append(f"Sheet {config.STAFF_SHEET} chưa có giáo viên nào đọc được: mỗi giáo viên ghi một dòng dưới "
+                      f"dòng tiêu đề (Họ và Tên, Chức Vụ, Số Tiết/Tuần)")
+    elif not homeroom and not config.CLASSES:
         errors.append(f"Không có Chủ Nhiệm nào nên không xác định được danh sách lớp (hoặc ghi các lớp ở sheet "
                       f"{config.CLASSES_SHEET})")
     if errors:
@@ -727,9 +798,13 @@ def read_staff(path: str | Path, subjects=None, warn=lambda text: None) -> list[
     errors: list[str] = []
     for r in range(header_row + 1, ws.max_row + 1):
         name, title, lessons, cls = cell(r, "name"), cell(r, "title"), cell(r, "lessons"), cell(r, "class")
+        if is_footer_row(name, title, cls, lessons):
+            continue
         if _blank(title):
-            if not all(_blank(v) for v in (name, lessons, cls)):
+            if not all(_blank(v) for v in (lessons, cls)):
                 errors.append(f"Dòng {r}: thiếu chức vụ")
+            elif not _blank(name):
+                errors.append(f"Dòng {r}: thiếu chức vụ và số tiết (dòng không phải một người thì xóa dòng)")
             continue
         try:
             if re.search(r"\d", str(title)):

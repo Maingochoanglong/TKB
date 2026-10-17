@@ -12,33 +12,53 @@ from pathlib import Path
 import openpyxl
 
 from . import config
-from .staff import (InputError, clean_name, find_sheet, grade_key, is_total_row, normalize, parse_grade,
-                    subject_key)
+from .staff import (InputError, _fold, clean_name, find_sheet, fold_key, grade_key, is_total_row, parse_grade,
+                    subject_key, to_number)
 
-_GRADE_HEAD = re.compile(r"khối\s+(\S.*)", re.IGNORECASE)
+_GRADE_HEAD = re.compile(r"khoi\s*(\S.*)")  # "Khối 1", "Khối1", "Khoi 1", "Khối Lá" (so trên chữ bỏ dấu)
+_CLASS_HEAD = re.compile(r"lop\s*(\d+)")  # "Lớp 1": khối 1 khi bảng không có cột Khối nào
+_SUBJECT_HEADS = {"monhoc", "mon", "tenmon", "tenmonhoc"}
+
+
+def is_subject_head(value) -> bool:
+    """Tiêu đề cột Môn học của sheet chương trình học (cả "Môn", "Tên môn", "Mon hoc")."""
+    return value is not None and fold_key(value) in _SUBJECT_HEADS
 
 
 def grade_head(value) -> int | str | None:
-    """Tiêu đề cột "Khối <tên>" -> tên khối (staff.parse_grade); cột khác: None."""
-    m = _GRADE_HEAD.fullmatch(clean_name(value)) if value is not None else None
-    return parse_grade(m.group(1)) if m else None
+    """Tiêu đề cột "Khối <tên>" (cả "Khoi 1", "Khối1") -> tên khối (staff.parse_grade, tên giữ dấu như ghi); cột
+    khác: None."""
+    if value is None:
+        return None
+    text = clean_name(value)
+    m = _GRADE_HEAD.fullmatch(_fold(text))
+    return parse_grade(text[m.start(1):]) if m and len(_fold(text)) == len(text) else None
+
+
+def class_head(value) -> int | None:
+    """Tiêu đề cột "Lớp <số>" (cách gọi khối của tiểu học, vd "Lớp 1" là khối 1) -> khối; cột khác: None."""
+    m = _CLASS_HEAD.fullmatch(_fold(value)) if value is not None else None
+    return int(m.group(1)) if m else None
 
 
 def grade_columns(ws) -> tuple[int, int, dict[int | str, int]] | None:
     """Dòng tiêu đề, cột Môn học và {khối: cột} của sheet chương trình học; None nếu không có dòng tiêu đề có cột Môn
-    học và ít nhất một cột Khối."""
+    học và ít nhất một cột Khối. Dòng tiêu đề không có cột Khối nào thì các cột "Lớp 1", "Lớp 2"... là các khối."""
     for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
         subject = None
         cols: dict[int | str, int] = {}
+        by_class: dict[int | str, int] = {}
         for cell in row:
             if cell.value is None:
                 continue
-            if normalize(cell.value) == "môn học":
+            if is_subject_head(cell.value) and subject is None:
                 subject = cell.column
             elif (grade := grade_head(cell.value)) is not None:
                 cols.setdefault(grade, cell.column)
-        if subject and cols:
-            return row[0].row, subject, cols
+            elif (grade := class_head(cell.value)) is not None:
+                by_class.setdefault(grade, cell.column)
+        if subject and (cols or by_class):
+            return row[0].row, subject, cols or by_class
     return None
 
 
@@ -80,9 +100,10 @@ def read_program(path: str | Path) -> dict[int | str, dict[str, int]]:
         seen[key] = r
         for grade, col in grade_cols.items():
             value = ws.cell(r, col).value
-            value = 0 if value is None or str(value).strip() == "" else value
+            # trống hoặc "-" (cách ghi số 0 trong bảng): không có tiết
+            value = 0 if value is None or str(value).strip() in ("", "-", "–") else value
             try:
-                number = float(value)
+                number = to_number(value)
             except (TypeError, ValueError):
                 raise InputError(f"Dòng {r}, Khối {grade}: số tiết không hợp lệ {value!r}") from None
             if number != int(number) or number < 0:
