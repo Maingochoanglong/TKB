@@ -34,7 +34,7 @@ from .staff import class_sort_key, grade_key, grade_of
 
 @dataclass
 class LnsResult:
-    values: list[int]  # giá trị mọi biến của nghiệm tốt nhất (theo chỉ số biến)
+    values: list[int] | None  # giá trị mọi biến của nghiệm tốt nhất (theo chỉ số biến); None: bỏ (improve give_up)
     objective: float
     bound: float  # cận dưới của bước khởi đầu
     status: str  # "OPTIMAL" nếu bước khởi đầu đã chứng minh tối ưu, không thì "FEASIBLE"
@@ -162,8 +162,11 @@ class _Search:
         return out
 
 
-def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) -> LnsResult | None:
-    """Khởi đầu + các vòng QA -> LNS (xem đầu module). None nếu không tìm được TKB nào."""
+def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None,
+            give_up: bool = False) -> LnsResult | None:
+    """Khởi đầu + các vòng QA -> LNS (xem đầu module). None nếu không tìm được TKB nào. give_up: bước khởi đầu không
+    ra nghiệm thì dừng luôn, trả kết quả values None, used = ngân sách đã dùng (mô hình theo lịch cơ sở,
+    solver.timetable xếp lại không theo lịch)."""
     search = _Search(tm, settings, log)
     total = settings.time_limit if settings.time_limit else math.inf
     unlimited = math.isinf(total)
@@ -178,6 +181,8 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) 
     old_handlers = {sig: signal.signal(sig, on_sigint) for sig in signals} if main_thread else {}
     try:
         status, best, values, bound, solver = search.solve(tm.model, start)
+        if values is None and give_up:
+            return LnsResult(None, math.inf, math.inf, "", used=search.used, stop="khởi đầu không ra nghiệm")
         if values is None:
             # Khởi đầu chưa ra nghiệm: giải tiếp toàn mô hình với phần ngân sách còn lại, như cách cũ.
             status, best, values, bound, solver = search.solve(tm.model, None if unlimited else total - search.used)
