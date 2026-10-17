@@ -361,16 +361,26 @@ def timetable(problem: Problem, settings: config.Settings,
     trộn, _keep_previous)."""
     if fixed is not None:
         from .lich_co_so import plan
-        from .lns import improve
+        from .lns import carry, improve
         start = time.time()
         days = plan(problem, fixed, settings, log)
         tm = build_timetable(problem, settings, fixed, hint, keep, campus_days=days or None)
         res = improve(tm, settings, log, give_up=bool(days))
-        if res is not None and res.values is None:  # lịch cơ sở không xếp được: xếp như thường với thời gian còn lại
+        # Thời gian còn lại (không giới hạn: 0 như THOI_GIAN_TOI_DA)
+        rest = settings.time_limit - res.used if days and res is not None and settings.time_limit else 0
+        if days and res is not None and res.values is None:  # lịch không xếp được: xếp như thường, thời gian còn lại
             log("  Không xếp được theo lịch cơ sở; xếp không theo lịch...")
-            rest = None if settings.time_limit is None else max(settings.time_limit - res.used, 1)
             tm = build_timetable(problem, settings, fixed, hint, keep)
-            res = improve(tm, replace(settings, time_limit=rest), log)
+            res = improve(tm, replace(settings, time_limit=max(rest, 1) if settings.time_limit else 0), log)
+        elif (days and res is not None and res.stop not in ("Ctrl+C", "hết thời gian")
+              and (not settings.time_limit or rest >= 1)):
+            # Xếp tiếp từ TKB đó, bỏ lịch cơ sở: các vùng xếp lại được dời tiết qua ngày khác miễn không đổi cơ sở.
+            log("  Xếp tiếp không theo lịch cơ sở...")
+            free = build_timetable(problem, settings, fixed, hint, keep)
+            more = improve(free, replace(settings, time_limit=rest), log, initial=carry(tm, res.values, free))
+            if more is not None and more.objective <= res.objective:
+                more.history = res.history + more.history[1:]
+                tm, res = free, more
         if res is None:
             return None
         return Solution(problem=problem, status=res.status, lessons=tm.lessons(lambda v: res.values[v.Index()]),

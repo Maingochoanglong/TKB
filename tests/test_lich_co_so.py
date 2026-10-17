@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from tkb import config, lich_co_so, luat_co_san, solver
 from tkb.checker import check
+from tkb.lns import improve
 from tkb.program import read_program
 from tkb.rules import applied, read_rules
 from tkb.staff import read_staff
@@ -27,26 +28,47 @@ def _school(tmp_path, classes=TWO):
 
 
 def _plan(staff, curriculum):
-    settings = config.Settings(**SETTINGS)
-    _, _, work, fixed, _, _ = solver._assignment(staff, curriculum, settings, lambda *_: None)
-    return work, lich_co_so.plan(work, fixed, settings)
+    work, fixed = _work(staff, curriculum)
+    return work, lich_co_so.plan(work, fixed, config.Settings(**SETTINGS))
+
+
+def _work(staff, curriculum):
+    _, _, work, fixed, _, _ = solver._assignment(staff, curriculum, config.Settings(**SETTINGS), lambda *_: None)
+    return work, fixed
+
+
+def _campuses(problem, lessons) -> dict[tuple[str, int], set[int]]:
+    where = defaultdict(set)
+    for les in problem.taught(lessons):
+        where[les.teacher, les.day].add(problem.campus.get(les.class_name, 0))
+    return where
 
 
 def test_each_teacher_is_at_one_campus_a_day(tmp_path):
     values, staff, curriculum = _school(tmp_path)
     with applied(values):
-        work, days = _plan(staff, curriculum)
-        assert days and all(set(d) == set(config.DAY_SESSIONS) for d in days.values())
         log = []
         sol = solver.solve(staff, curriculum, config.Settings(**SETTINGS), log=log.append)
         assert check(sol.problem, sol.lessons) == []
-    assert any("Lịch cơ sở:" in line for line in log) and not any("không theo lịch" in line for line in log)
-    where = defaultdict(set)
-    for les in sol.problem.taught(sol.lessons):
-        at = sol.problem.campus.get(les.class_name, 0)
-        where[les.teacher, les.day].add(at)
-        assert days.get(les.teacher, {}).get(les.day, at) == at  # đúng kế hoạch
-    assert all(len(cs) == 1 for cs in where.values())
+    assert any("Lịch cơ sở:" in line for line in log) and any("Xếp tiếp không theo lịch" in line for line in log)
+    assert not any("Không xếp được theo lịch" in line for line in log)
+    assert all(len(cs) == 1 for cs in _campuses(sol.problem, sol.lessons).values())
+
+
+def test_the_model_follows_the_plan(tmp_path):
+    """Mô hình dựng theo lịch cơ sở: mỗi GV chỉ dạy ở cơ sở của ngày đó (bước xếp tiếp bỏ lịch có thể dời)."""
+    values, staff, curriculum = _school(tmp_path)
+    settings = config.Settings(**SETTINGS)
+    with applied(values):
+        work, fixed = _work(staff, curriculum)
+        days = lich_co_so.plan(work, fixed, settings)
+        assert days and all(set(d) == set(config.DAY_SESSIONS) for d in days.values())
+        tm = solver.build_timetable(work, settings, fixed, campus_days=days)
+        res = improve(tm, settings)
+        lessons = tm.lessons(lambda v: res.values[v.Index()])
+        assert check(work, lessons) == []
+    for (g, d), cs in _campuses(work, lessons).items():
+        assert cs == {days[g][d]} if g in days else len(cs) == 1
 
 
 def test_no_plan_when_one_campus_a_day_is_impossible(tmp_path):
