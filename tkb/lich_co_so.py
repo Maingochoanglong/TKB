@@ -14,13 +14,15 @@ sheet LUẬT không có dòng đó: không làm gì, mô hình như cũ.
 """
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 
 from ortools.sat.python import cp_model
 
 from . import config
 
-SECONDS = 30  # thời lượng tối đa của bài toán lập lịch (đơn vị như THOI_GIAN_TOI_DA)
+SECONDS = 5  # thời lượng tối đa của bài toán lập lịch (đơn vị như THOI_GIAN_TOI_DA)
+SWITCH = 1_000  # mỗi (GV, ngày) vẫn phải dạy ở hai cơ sở (chỉ khi không có kế hoạch mỗi ngày một cơ sở)
 
 
 def applies() -> bool:
@@ -42,8 +44,9 @@ def away(problem, days: dict[str, dict[int, int]], cid: int, g: str, day: int) -
 def plan(problem, fixed: dict[tuple[int, str], int], settings: config.Settings,
          log=lambda *_: None) -> dict[str, dict[int, int]]:
     """GV -> ngày -> chỉ số cơ sở (Problem.campuses) của ngày đó, cho các GV dạy ở từ hai cơ sở trở lên; rỗng: không
-    cần (một cơ sở, không có dòng luật) hay không lập được. Tìm một kế hoạch mỗi ngày một cơ sở (không có mục tiêu
-    phụ: có mục tiêu thì chậm hơn trăm lần); không có thì kế hoạch ít ngày phải đổi cơ sở nhất."""
+    cần (một cơ sở, không có dòng luật) hay không lập được. Tìm kế hoạch mỗi ngày một cơ sở; không có thì kế hoạch ít
+    ngày phải đổi cơ sở nhất. Mục tiêu phụ: rải đều tiết của từng course và tải ngày của người đó (kế hoạch dồn lệch
+    ngày thì thường không xếp được thành giờ cụ thể)."""
     if len(problem.campuses) < 2 or not applies():
         return {}
     from .solver import course_domains
@@ -84,8 +87,8 @@ def plan(problem, fixed: dict[tuple[int, str], int], settings: config.Settings,
 
 def _solve(problem, dom, at, lessons, parts, planned, settings, mixed_days: bool):
     """(GV, ngày) -> các cơ sở người đó dạy ngày đó; None: không lập được. mixed_days False: mỗi ngày một cơ sở là
-    bắt buộc, tìm nghiệm đầu tiên; True: ít ngày hai cơ sở nhất."""
-    from .solver import _configure
+    bắt buộc; True: ít ngày hai cơ sở nhất."""
+    from .solver import _configure, day_targets
     days = sorted(config.DAY_SESSIONS)
     m = cp_model.CpModel()
     per_day = {(cid, d): sum(1 for s in dom[cid] if s[0] == d) for cid in dom for d in days}
@@ -114,30 +117,41 @@ def _solve(problem, dom, at, lessons, parts, planned, settings, mixed_days: bool
     leave = config.on("buoi_nghi")
     sess = {(d, p): s.name for d, ss in config.DAY_SESSIONS.items() for s in ss for p in s.periods}
     y: dict[tuple[str, int], dict[int, cp_model.IntVar]] = {}
-    switches = []
+    objective = []
     for g in planned:
         t = problem.teachers[g]
         mine = parts[g]
+        total = sum(lessons[p] for p in mine)
+        target = day_targets(total, problem.slots)
         for d in days:
             free = {s for cid, _ in mine for s in dom[cid] if s[0] == d}
             if leave:
                 free = {s for s in free if (d, sess[s]) not in t.off_sessions}
-            m.Add(sum(n[cid, h, d] for cid, h in mine) <= len(free))
+            load = sum(n[cid, h, d] for cid, h in mine)
+            m.Add(load <= len(free))
+            over = m.NewIntVar(0, total, f"over_{g}_{d}")
+            m.Add(over >= load - target[d])
+            objective.append(3 * over)
             here = y[g, d] = {c: m.NewBoolVar(f"y_{g}_{d}_{c}") for c in sorted({at[cid] for cid, _ in mine})}
             for cid, h in mine:
                 m.Add(n[cid, h, d] <= per_day[cid, d] * here[at[cid]])
             if mixed_days:
                 switch = m.NewBoolVar(f"doi_{g}_{d}")
                 m.Add(sum(here.values()) <= 1 + switch)
-                switches.append(switch)
+                objective.append(SWITCH * switch)
             else:
                 m.AddAtMostOne(here.values())
+    # Rải đều tiết của từng course: số tiết mỗi ngày quá số tiết/tuần chia số ngày (làm tròn lên).
+    for (cid, g), k in lessons.items():
+        cap = math.ceil(k / len(days))
+        for d in days:
+            if per_day[cid, d] > cap:
+                ex = m.NewIntVar(0, k, f"ex_{cid}_{g}_{d}")
+                m.Add(ex >= n[cid, g, d] - cap)
+                objective.append(ex)
+    m.Minimize(sum(objective))
     solver = cp_model.CpSolver()
     _configure(solver, settings, SECONDS)
-    if mixed_days:
-        m.Minimize(sum(switches))
-    else:
-        solver.parameters.stop_after_first_solution = True
     if solver.Solve(m) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         return None
     return {(g, d): [c for c, v in here.items() if solver.Value(v)] for (g, d), here in y.items()}
