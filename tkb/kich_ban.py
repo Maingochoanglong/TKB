@@ -751,6 +751,11 @@ class Grid:
             from .phong_hoc import labels, placed
             names = labels(self.problem)
             out["rooms"] = names  # sheet PHÒNG: xem TKB theo phòng
+            mates = _mates(self.problem)
+            for cell in out["cells"] if mates else ():  # ghép lớp: ô ghi các lớp học chung (không đổi tay được)
+                found = [m for s in cell["subjects"] if (m := mates.get((normalize(cell["cls"]), normalize(s))))]
+                if found:
+                    cell["merged"] = found[0]
             if not saved.rows:
                 return {**out, "ok": False, "input_errors": [], "errors": []}
             lessons, errors = self._lessons(saved)
@@ -792,12 +797,19 @@ class Grid:
                     mine.setdefault((les.day, les.period), []).append(i)
             out = []
             here = mine.get((day, period), [])
+            # Ô ghép lớp: đổi một lớp thì lệch giờ các lớp kia của nhóm, nên không đổi tay (xếp lại phần còn lại).
+            groups = self.problem.merge_groups()
+            merged = lambda idx: any(self.problem.courses[lessons[i].course_id].lead is not None  # noqa: E731
+                                     or lessons[i].course_id in groups for i in idx)
+            if merged(here):
+                return []
             what = lambda idx: sorted((lessons[i].subject, lessons[i].teacher, lessons[i].overtime)  # noqa: E731
                                       for i in idx)
             for slot in slots:
                 there = mine.get(slot, [])
-                if slot == (day, period) or (not there and not here) or (there and what(there) == what(here)):
-                    continue  # đổi với chính nó, hai ô trống, hai tiết như nhau: không đổi gì
+                if slot == (day, period) or (not there and not here) or (there and what(there) == what(here)) \
+                        or merged(there):
+                    continue  # đổi với chính nó, hai ô trống, hai tiết như nhau, ô ghép lớp: không đổi
                 trial = list(lessons)
                 for idx, to in ((here, slot), (there, (day, period))):
                     for i in idx:
@@ -811,6 +823,18 @@ def timetable(scenario: dict, mode: str = config.MODE_OVERTIME, overtime_max: in
               student_rules: bool = True) -> dict:
     """Grid(...).view của TKB đã xếp trong kịch bản (một lần, không giữ lại)."""
     return Grid(scenario, mode, overtime_max, student_rules).view(scenario.get("saved"))
+
+
+def _mates(problem) -> dict[tuple[str, str], list[str]]:
+    """Ghép lớp: (lớp, môn như ghi trong TKB, chuẩn hóa) -> các lớp khác của nhóm."""
+    out = {}
+    for members in problem.merge_groups().values():
+        names = [problem.courses[k].class_name for k in members]
+        for k in members:
+            c = problem.courses[k]
+            out[normalize(c.class_name), normalize(problem.subject_label(c.subject))] = \
+                [n for n in names if n != c.class_name]
+    return out
 
 
 def _choices(problem) -> dict[str, dict]:

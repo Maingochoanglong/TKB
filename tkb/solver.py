@@ -73,8 +73,9 @@ class Solution:
     notes: list[str] = field(default_factory=list)
 
     def teacher_load(self) -> dict[str, int]:
+        """GV -> số giờ dạy (tiết ghép lớp tính một lần, Problem.taught)."""
         load = {t: 0 for t in self.problem.teachers}
-        for les in self.lessons:
+        for les in self.problem.taught(self.lessons):
             load[les.teacher] += 1
         return load
 
@@ -203,6 +204,11 @@ class _Allocation:
         secondary: list = []  # chia môn, bộ môn dạy thay, cân bằng tải
         load_terms: dict[str, list] = {t: [] for t in problem.teachers}
         for c in problem.courses:
+            if c.lead is not None:  # ghép lớp: lớp theo dạy đúng như lớp chính, không tính thêm tải
+                self.teachers_of[c.id] = self.teachers_of[c.lead]
+                for g in self.teachers_of[c.id]:
+                    self.a[c.id, g], self.used[c.id, g] = self.a[c.lead, g], self.used[c.lead, g]
+                continue
             if fixed is not None:
                 cand = [g for g in c.teachers if fixed.get((c.id, g), 0) > 0]
                 if sum(fixed.get((c.id, g), 0) for g in cand) != c.lessons:
@@ -259,6 +265,8 @@ class _Allocation:
         specialist = problem.specialist_subjects()
         for (cid, g), a in self.a.items():
             c = problem.courses[cid]
+            if c.lead is not None:
+                continue
             if c.subject in specialist and not as_specialist(problem.teachers[g], c.subject, problem.specialists):
                 secondary.append(w.general_on_specialist * a)
             if not isinstance(a, int) and (keep := keep_cost(problem.teachers[g], c.class_name, w)
@@ -306,7 +314,7 @@ class _Allocation:
         for (cid, g), a in self.a.items():
             c = problem.courses[cid]
             if not c.homeroom and problem.teachers[g].class_name and not problem.teachers[g].extra_roles \
-                    and not isinstance(a, int):
+                    and not isinstance(a, int) and c.lead is None:
                 rank = order.get(c.subject, len(config.HOMEROOM_FILL_ORDER) + 1)
                 if rank:
                     secondary.append(w.overtime_subject_order * rank * a)
@@ -321,7 +329,8 @@ class _Allocation:
         dom = {c.id: frozenset(allowed_slots(c, problem)) for c in problem.courses}
         by_teacher: dict[str, list[int]] = {}
         for cid, g in self.a:
-            by_teacher.setdefault(g, []).append(cid)
+            if problem.courses[cid].lead is None:  # ghép lớp: một giờ dạy cho cả nhóm
+                by_teacher.setdefault(g, []).append(cid)
         for g, cids in by_teacher.items():
             groups = {dom[cid] for cid in cids}
             groups.add(frozenset().union(*groups))
@@ -490,9 +499,20 @@ def build_timetable(problem: Problem, settings: config.Settings,
     objective = list(alloc.objective)
 
     x: dict[tuple[int, tuple[int, int]], cp_model.IntVar] = {}
-    dom: dict[int, list[tuple[int, int]]] = {}
+    dom: dict[int, list[tuple[int, int]]] = {c.id: allowed_slots(c, problem) for c in problem.courses}
+    for lead, members in problem.merge_groups().items():  # ghép lớp: các lớp của nhóm học ở giờ chung của cả nhóm
+        common = [s for s in dom[lead] if all(s in dom[cid] for cid in members)]
+        if len(common) < problem.courses[lead].lessons:
+            c, names = problem.courses[lead], ", ".join(problem.courses[k].class_name for k in members)
+            raise SolveError(f"Ghép lớp môn {c.subject} lớp {names}: cần {c.lessons} tiết nhưng các lớp chỉ có chung "
+                             f"{len(common)} giờ học hợp lệ")
+        for cid in members:
+            dom[cid] = common
     for c in problem.courses:
-        dom[c.id] = allowed_slots(c, problem)
+        if c.lead is not None:  # lớp theo dùng chung biến với lớp chính
+            for s in dom[c.id]:
+                x[c.id, s] = x[c.lead, s]
+            continue
         vs = []
         for s in dom[c.id]:
             v = m.NewBoolVar(f"x_{c.id}_{s[0]}_{s[1]}")
@@ -532,6 +552,12 @@ def build_timetable(problem: Problem, settings: config.Settings,
     for c in problem.courses:
         cand = alloc.teachers_of[c.id]
         at = problem.campus.get(c.class_name, 0)
+        if c.lead is not None:  # ghép lớp: cùng người dạy với lớp chính, giờ dạy đó đã tính ở lớp chính
+            if len(cand) > 1:
+                for s in dom[c.id]:
+                    for g in cand:
+                        z[c.id, g, s] = z[c.lead, g, s]
+            continue
         if len(cand) == 1:
             for s in dom[c.id]:
                 occupy(c.id, cand[0], s, x[c.id, s], at)
@@ -751,7 +777,7 @@ def build_timetable(problem: Problem, settings: config.Settings,
 
     if hint and fixed is None:
         for (cid, g), a in alloc.a.items():
-            if not isinstance(a, int):
+            if not isinstance(a, int) and problem.courses[cid].lead is None:  # lớp theo: cùng biến với lớp chính
                 m.AddHint(a, hint.get((cid, g), 0))
                 m.AddHint(alloc.used[cid, g], 1 if hint.get((cid, g), 0) > 0 else 0)
     return TimetableModel(problem, m, x, z, dom, alloc.teachers_of, list(alloc.objective))
@@ -783,7 +809,9 @@ def du_toan_lines(problem: Problem, plan: PhanCong) -> list[str]:
     """Dự toán in ra trước khi xếp giờ."""
     teachers = problem.teachers
     spec = problem.specialist_subjects()
-    total = sum(sum(problem.curriculum[grade_of(cls)].values()) for cls in problem.classes)
+    # Ghép lớp: tiết của lớp theo do người dạy lớp chính dạy cùng giờ, không cần thêm giờ dạy.
+    total = sum(sum(problem.curriculum[grade_of(cls)].values()) for cls in problem.classes) - \
+        sum(c.lessons for c in problem.courses if c.lead is not None)
     part = {"gvcn": 0, "spec": 0, "manager": 0, "general": 0, "general_spec": 0}
     for (cid, g), n in plan.lessons.items():
         t, c = teachers[g], problem.courses[cid]
@@ -827,6 +855,10 @@ def _hire_assignment(plan: PhanCong, work: Problem, split: dict[str, list[list[t
                         del fixed[cid, owner]
                 fixed[cid, title] = fixed.get((cid, title), 0) + n
                 owners.setdefault((cid, title), []).extend([owner] * n)
+    for c in work.courses:  # ghép lớp: lớp theo có đúng phân công (và người bù) của lớp chính
+        if c.lead is not None:
+            fixed.update({(c.id, g): n for (cid, g), n in list(fixed.items()) if cid == c.lead})
+            owners.update({(c.id, g): who for (cid, g), who in list(owners.items()) if cid == c.lead})
     return fixed, owners
 
 

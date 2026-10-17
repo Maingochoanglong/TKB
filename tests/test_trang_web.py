@@ -36,6 +36,7 @@ def page(browser, tmp_path):
     page = context.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
+    page.app = app  # _solved giữ khóa của máy chủ
     page.goto(url)
     yield page
     context.close()
@@ -52,6 +53,19 @@ def _mark(page, tab):
 def _wait_mark(page, tab, text):
     page.wait_for_function(f"""() => (document.querySelector('.tabs [data-tab="{tab}"] .mark') || {{}})
         .textContent?.startsWith("{text}")""", timeout=30000)
+
+
+def _solved(page, make):
+    """File vào cập nhật sau một lần xếp TKB ngay trong tiến trình test: `make()` ghi file vào (thư mục tmp_path), rồi
+    xếp ra thư mục ra/ cạnh đó. Giữ khóa của máy chủ trang (App.lock) trong lúc đó: rules.applied đổi config chung
+    của tiến trình, trang đang kiểm tra nhanh cùng lúc thì hai bên khôi phục config sai cho nhau (lệch cả các test
+    sau)."""
+    from tkb.__main__ import main
+    with page.app.lock:
+        source = make()
+        out = source.parent / "ra"
+        assert main([str(source), "-o", str(out / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
+    return out / f"{source.stem}_cap_nhat.xlsx"
 
 
 def _wait_text(page, selector, text):
@@ -278,13 +292,10 @@ def test_tags_in_rule_dialog(page):
 def test_rooms_step(page, tmp_path):
     """Sheet PHÒNG trên trang: ô TKB ghi tên phòng, xem được TKB theo phòng; bảng Phòng học dùng chung ở bước Lớp:
     ghi môn không có thì bước Lớp ⚠ và dòng phòng viền đỏ, sửa lại thì ✓."""
-    from tkb.__main__ import main
-
     from .test_phong import ART, _file
-    source = _file(tmp_path, [ART], name="phong")
-    assert main([str(source), "-o", str(tmp_path / "ra" / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
+    updated = _solved(page, lambda: _file(tmp_path, [ART], name="phong"))
     page.wait_for_selector("#start:not([hidden])")
-    page.set_input_files("#file-open", str(tmp_path / "ra" / "phong_cap_nhat.xlsx"))
+    page.set_input_files("#file-open", str(updated))
     page.wait_for_selector("#import-dialog[open]")
     page.click("#import-apply")
     page.click('.tabs [data-tab="tkb"]')
@@ -312,13 +323,11 @@ def test_split_group_cells(page, tmp_path):
     """Học cùng giờ trên trang: ô hai môn hiện "Âm nhạc / Mỹ thuật"; theo giáo viên Mỹ thuật chỉ thấy Mỹ thuật; khóa ô
     thì cả hai cặp "môn, Mã GV" có dấu khóa; kiểu luật Học cùng giờ có trong hộp thoại luật."""
     from tkb import bo_mau
-    from tkb.__main__ import main
 
     from .test_cung_gio import ART, _file
-    source = _file(tmp_path, [ART], name="nhom", assistant=False)
-    assert main([str(source), "-o", str(tmp_path / "ra" / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
+    updated = _solved(page, lambda: _file(tmp_path, [ART], name="nhom", assistant=False))
     page.wait_for_selector("#start:not([hidden])")
-    page.set_input_files("#file-open", str(tmp_path / "ra" / "nhom_cap_nhat.xlsx"))
+    page.set_input_files("#file-open", str(updated))
     page.wait_for_selector("#import-dialog[open]")
     page.click("#import-apply")
     page.click('.tabs [data-tab="tkb"]')
@@ -338,3 +347,34 @@ def test_split_group_cells(page, tmp_path):
     page.click('.tabs [data-tab="luat"]')
     page.click("#btn-add-rule")
     assert "Học cùng giờ" in page.text_content("#rule-dialog")
+
+
+def test_merged_cells(page, tmp_path):
+    """Ghép lớp trên trang: ô ghi "ghép 3/2"; theo giáo viên Thể dục một ô ghi "3/1, 3/2", không tô đỏ trùng giờ; chọn
+    ô ghép thì báo không đổi tay được, bấm ô khác cùng lớp không đổi."""
+    from .test_ghep_lop import MERGE, TD, _file
+    updated = _solved(page, lambda: _file(tmp_path, [MERGE], name="ghep"))
+    page.wait_for_selector("#start:not([hidden])")
+    page.set_input_files("#file-open", str(updated))
+    page.wait_for_selector("#import-dialog[open]")
+    page.click("#import-apply")
+    page.click('.tabs [data-tab="tkb"]')
+    page.wait_for_selector("#tkb-grid table.tkb")
+    _wait_mark(page, "tkb", "✓")
+    merged = page.locator("#tkb-grid td.cell", has_text="ghép 3/2")
+    assert merged.count() == 2
+    cell = merged.first.get_attribute("data-cell")
+    before = page.evaluate("JSON.stringify(st.scenario.saved)")
+    page.click(f'#tkb-grid [data-cell="{cell}"]')
+    assert "không đổi tay được" in page.text_content("#tkb-pick")
+    # Bấm một ô khác của lớp đó (không ghép): không đổi gì.
+    other = page.evaluate("(cls) => [...document.querySelectorAll('#tkb-grid td.cell')].map((e) => e.dataset.cell)"
+                          ".find((k) => k.startsWith(cls + '|') && !tkb.byKey.get(k).merged"
+                          " && tkb.byKey.get(k).subject)", cell.split("|")[0])
+    page.click(f'#tkb-grid [data-cell="{other}"]')
+    assert page.evaluate("JSON.stringify(st.scenario.saved)") == before
+    page.select_option("#tkb-view", "t:Thể Dục 1")
+    cells = page.locator("#tkb-grid td.cell:not(.empty)")
+    assert cells.count() == 2 and page.locator("#tkb-grid td.cell.bad").count() == 0
+    assert set(cells.locator("b").all_text_contents()) == {"3/1, 3/2"}
+    assert set(cells.locator("small").all_text_contents()) == {TD}

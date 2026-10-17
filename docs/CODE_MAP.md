@@ -22,6 +22,8 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 - `class Problem`
   - `.link_extra()` — (lớp, môn) học cùng giờ với môn chính của nhóm: không tính vào "mỗi lớp mỗi giờ một tiết".
   - `.class_load(class_name)` — Số giờ học của lớp trong tuần: số tiết theo chương trình, các môn học cùng giờ tính một lần.
+  - `.merge_groups()` — Ghép lớp (luật bắt buộc Cùng giờ, so sánh Cùng một người; bo_ghep.merges): course của lớp chính -> các
+  - `.taught(lessons)` — Các tiết tính giờ dạy của GV: tiết ghép lớp (nhiều lớp, một người, cùng giờ) là một giờ dạy, chỉ tính một
   - `.overtime_mode()`
   - `.roles()` — Chủ Nhiệm, Bộ Môn, các GV chuyên biệt (theo thứ tự trong file), Quản Lý.
   - `.specialist_subjects()`
@@ -48,10 +50,12 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 - `overtime_cost(t, w, ranks)` — Giá tiết bù thứ nhất của t (mỗi tiết sau đắt thêm w.overtime_second) theo thứ tự dạy bù (overtime_rank; `ranks`:
 - `keep_cost(t, class_name, w)` — Giá mỗi tiết GV không chủ nhiệm t dạy lớp `class_name` khi lệch TKB cũ (cột Lớp Đang Dạy): khác mọi khối
 - `previous_cost(t, course, w)` — Xếp lại ít xáo trộn: giá mỗi tiết t dạy (lớp, môn) của course mà TKB cũ không giao cho t (Teacher.previous).
+- `_merge_courses(courses, merged, subject_labels)` — Ghép lớp: các course của mỗi nhóm theo course của lớp chính (Course.lead); ai cũng chỉ được dạy cả nhóm nếu
 - `build_problem(staff, curriculum, supplement_counts, overtime_max)` — Dựng bài toán.
   · Môn có luật trong config được gọi theo tên trong config; tên như trong file giữ lại để in ra.
   · Sắp môn theo tên: đổi thứ tự dòng trong file chương trình học không làm đổi TKB.
   · Cơ sở của từng lớp (cột Cơ sở của sheet LỚP, cột Cơ sở 2 của dòng Chủ Nhiệm); cùng tên khác hoa thường là một.
+  · Ghép lớp: mỗi nhóm (lớp, môn) một người dạy cho cả nhóm; GVCN không nhận các môn này trong phần của mình.
   · Môn/khối dành riêng cho quản lý thì GVCN không lấy để bù.
   · Nhu cầu tối đa theo chức vụ để dựng đủ GV bổ sung dự kiến.
 
@@ -66,6 +70,7 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
   - `.hard()`
   - `.lesson_only()` — Chỉ xét môn, khối, lớp (không ô, không GV): áp dụng được ở tầng phân công.
   - `.teacher()` — Cần biết GV dạy từng tiết.
+  - `.merge()` — Ghép lớp: phép đo Cùng giờ, so sánh Cùng một người (kiểu luật Ghép lớp).
 - `_subject(name)`
 - `names(text)` — "Toán, Tiếng Việt; Tin học" -> các tên (bỏ ô trống).
 - `_all_slots()`
@@ -92,7 +97,7 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `_cp_source(problem, x, z, dom, teachers_of, relabel)`
 - `_domains(problem)`
 - `_eval_source(problem, lessons, dom)`
-- `_groups(L, atoms, problem, all_keys)` — Chia các tiết theo phạm vi. all_keys: có cả nhóm không có tiết nào (cho so sánh Tối thiểu, Đúng).
+- `_groups(L, atoms, problem, all_keys)` — Chia các tiết theo phạm vi. all_keys: có cả nhóm không có tiết nào (cho so sánh Tối thiểu, Đúng). Phạm vi theo
 - `_universe(L, problem)` — Mọi nhóm của phạm vi (chiều GV, môn, nhóm môn, cơ sở: chỉ các giá trị có tiết).
 - `_periods(a)`
 - `_const(v)`
@@ -131,6 +136,7 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `_names(problem, subjects)`
 - `_di_kem(ctx, L, problem, src)`
 - `_cung_gio(ctx, L, problem, src)` — Mỗi lớp, mỗi giờ: có tiết Môn khi và chỉ khi có tiết của từng môn ở cột Môn thứ hai (hai chiều Tối đa 0).
+- `_ghep_lop(ctx, L, problem, src)` — Ghép lớp: trong mỗi nhóm của phạm vi, mỗi lớp có tiết (Môn hoặc Môn thứ hai) ở đúng các giờ, với đúng người
 - `_by_slot(atoms)`
 - `teacher_ok(L, t, class_name)` — Phép đo Người dạy "Do": GV t được dạy tiết của lớp class_name: t có tên (Mã GV, họ tên) ở cột Giáo viên, hoặc
 - `_nguoi_day(ctx, L, problem, src)`
@@ -142,6 +148,9 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `busy(teacher)` — Giờ bận của GV: các ô luật bắt buộc Vị trí chỉ xét người dạy (mọi môn, mọi lớp) không cho GV dạy, vd "Bộ Môn 3
 - `_together(L, curriculum)` — Các môn luật Cùng giờ nối với nhau ở lớp `cls` (Môn trước, rồi Môn thứ hai) và số tiết/tuần của chúng; None nếu
 - `links(classes, curriculum)` — Lớp -> các nhóm môn học cùng giờ (luật bắt buộc Cùng giờ, kiểu luật Học cùng giờ): mỗi nhóm là các môn luôn
+- `_merge_items(L, classes, curriculum, campus)` — Luật ghép lớp: nhóm của phạm vi (cả trường, khối, cơ sở) -> các (lớp, môn) có tiết, theo thứ tự lớp.
+- `_merge_problems(items, curriculum, campus, label)` — Vì sao các (lớp, môn) không ghép thành một nhóm được (trống: ghép được).
+- `merges(classes, curriculum, campus)` — Các nhóm ghép lớp (luật bắt buộc Cùng giờ, so sánh Cùng một người; kiểu luật Ghép lớp): mỗi nhóm là các (lớp,
 - `_who_rules(hard)`
 - `refusing(t, class_name, grade, subject, curriculum)` — Tầng phân công: các luật bắt buộc "Người dạy: Do" không xét ô không cho GV t nhận tiết môn này của lớp.
 - `allowed(t, class_name, grade, subject, curriculum)` — Tầng phân công: GV t được nhận tiết môn này của lớp theo các luật bắt buộc "Người dạy: Do" không xét ô.
@@ -172,7 +181,7 @@ Hằng số: `SECONDS`
 ## tkb/checker.py — Kiểm tra độc lập mọi luật cứng trên TKB đã xếp (không dựa vào mô hình solver).
 - `check(problem, lessons, student_rules)`
   · Lớp: mỗi slot đúng 1 tiết, đủ số tiết từng môn. Môn học cùng giờ với môn chính (luật Học cùng giờ) không tính thêm giờ của lớp; luật đó (luat_rieng.check) kiểm các môn có cùng giờ.
-  · GV: không trùng giờ, không vượt định mức.
+  · GV: không trùng giờ (trừ các lớp của một nhóm ghép lớp: một giờ dạy), không vượt định mức (đếm giờ dạy).
   · Quyền dạy.
   · GVCN dạy đủ phần đã phân; phần dạy thêm chỉ là tiết bù hợp lệ (chế độ bù giờ).
   · Bù giờ: GVCN được ưu tiên bù lớp mình. Bộ môn đang dạy bù mà còn dạy ở lớp X một môn GVCN lớp X được dạy, trong khi GVCN lớp X chưa bù hết mức và đứng trước bộ môn đó trong thứ tự dạy bù (cột Thứ Tự Bù; mặc định GVCN luôn trước), thì chuyển tiết đó cho GVCN luôn làm được (GVCN chỉ dạy lớp mình nên giờ đó rảnh) và bớt tiết bù của bộ môn: phân công chưa đúng thứ tự ưu tiên.
@@ -253,6 +262,7 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGE
   - `.view(grid)` — TKB đã xếp để vẽ trên trang: {days, sessions, classes, teachers, cells, errors, ok, code, rules_changed}.
   - `.swaps(grid, day, period)` — Thử đổi ô (cls, day, period) với từng ô khác của lớp (trừ ô cùng môn, cùng người dạy): [{d, p, new,
 - `timetable(scenario, mode, overtime_max, student_rules)` — Grid(...).view của TKB đã xếp trong kịch bản (một lần, không giữ lại).
+- `_mates(problem)` — Ghép lớp: (lớp, môn như ghi trong TKB, chuẩn hóa) -> các lớp khác của nhóm.
 - `_choices(problem)` — "lớp|môn như ghi trong TKB" -> {subject: tên môn để ghi luật, codes: Mã GV các người có thể dạy}, cho các môn
 - `_cells(saved, staff)` — Mọi ô của lưới TKB đã xếp cho trang: {cls, d, p, r, c, subject, code, name, codes, subjects, overtime,
 - `_teachers(staff)`
@@ -300,7 +310,7 @@ Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS
 - `_when(text)` — "≥ 6, chẵn", "<= số ngày" -> ((">=", 6), ("chan", 0)) / (("<=", -1),); None nếu sai.
 - `parse(values, row, error)` — Một dòng của sheet LUẬT RIÊNG ({khóa cột: ô}) -> CustomRule; lỗi gọi error(chữ). Dòng trống: None.
 - `_check_composed(out, place, error)` — Cột nào phải ghi, cột nào để trống theo phép đo của luật tự ghép.
-- `_check_together(out, place, error)` — Học cùng giờ (phép đo Cùng giờ): một môn ở cột Môn, các môn khác ở cột Môn thứ hai, mỗi lớp, mọi tiết của môn
+- `_check_together(out, place, error, merge)` — Học cùng giờ (phép đo Cùng giờ): một môn ở cột Môn, các môn khác ở cột Môn thứ hai, mỗi lớp, mọi tiết của môn
 - `_role_label(role)`
 - `_when_text(when)` — Ô Áp dụng khi, vd ">= 6, chẵn", "<= số ngày" (ngược với `_when`).
 - `_when_say(when)` — Áp dụng khi bằng lời, vd "số tiết/tuần của môn từ 6 trở lên và là số chẵn".
@@ -315,6 +325,7 @@ Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS
 - `describe(rule)` — Luật bằng lời, vd "Thể dục khối 3, 4 không xếp vào tiết 1 (bắt buộc)". Dòng đúng dạng gốc của một luật có sẵn
 - `level_text(rule)`
 - `composed(rule)` — Câu của luật tự ghép, vd "Mỗi lớp, mỗi ngày: học tối đa 1 tiết Toán".
+- `_merged(rule)` — Câu của luật ghép lớp, vd "Thể dục lớp 3/1, 3/2 học chung (ghép lớp): cùng giờ, một người dạy, tính một tiết".
 - `label(rule)` — Tên luật khi báo lỗi: sheet và dòng của luật (dòng mặc định của file không có sheet LUẬT: Luật có sẵn).
 - `banned(subject, grade, class_name, curriculum)` — Ô mà môn của khối (lớp) không được học theo các luật bắt buộc (dùng trong solver.allowed_slots).
 - `forced_pairs(grade, totals)` — Nhóm môn của khối phải học 2 tiết liền theo luật bắt buộc (số tiết chẵn; lẻ thì precheck báo lỗi).
@@ -438,7 +449,7 @@ Hằng số: `RELAXED`
 - `ortools_version()`
 - `class Lesson`
 - `class Solution`
-  - `.teacher_load()`
+  - `.teacher_load()` — GV -> số giờ dạy (tiết ghép lớp tính một lần, Problem.taught).
   - `.used_supplements()`
   - `.rooms()` — (lớp, ngày, tiết, môn) -> tên phòng của tiết (sheet PHÒNG, tkb/phong_hoc.py); tiết học ở lớp không có.
   - `.fingerprint()` — Mã kết quả: băm toàn bộ TKB (lớp, ngày, tiết, môn, GV). Hai lần chạy cùng mã là cùng TKB.
@@ -592,13 +603,15 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `_sheet_title(text)` — Tên sheet Excel hợp lệ: bỏ các ký tự Excel không cho dùng ([ ] : * ? / \), tối đa 31 ký tự.
 - `_merge(ws, style, r1, c1, r2, c2, value)`
 - `cell_lessons(solution)` — (lớp, ngày, tiết) -> các tiết ở ô đó: một tiết, hoặc các môn học cùng giờ (luật Học cùng giờ, môn chính
-- `_class_cell(problem, items, names, rooms)` — Ô TKB lớp: môn, xuống dòng tên giáo viên (with_codes: thêm dòng Mã GV), thêm dòng phòng nếu học ở phòng dùng
+- `merged_with(problem)` — Ghép lớp: course -> các lớp khác của nhóm (theo thứ tự lớp).
+- `_class_cell(problem, items, names, rooms, mates)` — Ô TKB lớp: môn, xuống dòng tên giáo viên (with_codes: thêm dòng Mã GV), thêm dòng phòng nếu học ở phòng dùng
 - `_grade_sheets(wb, solution, style, with_codes, classes)`
 - `staff_rows(solution)` — GV thật theo thứ tự file gốc, sau đó GV bổ sung được dùng.
 - `campus_paths(path, problem)` — Các file TKB cần ghi: (đường dẫn, các lớp; None = cả trường). Trường có nhiều cơ sở thì mỗi cơ sở một file:
 - `write_timetable(solution, path, style, with_codes, classes)` — File TKB: chỉ các sheet Khối. Nhân sự và thống kê ghi ở file thống kê (write_statistics).
 - `_print_setup(ws)` — In: khổ ngang, co vừa 1 trang theo chiều rộng (thiết lập in, không phải định dạng ô).
-- `_teacher_cell(solution, les, room)` — Ô TKB giáo viên: lớp (lớp không ở cơ sở đầu ghi thêm cơ sở: "(CS2)" với Cơ sở 2, tên cơ sở với cơ sở khác),
+- `_teacher_cell(solution, items, room)` — Ô TKB giáo viên: lớp (lớp không ở cơ sở đầu ghi thêm cơ sở: "(CS2)" với Cơ sở 2, tên cơ sở với cơ sở khác),
+- `teacher_cells(solution)` — (GV, ngày, tiết) -> các tiết GV dạy ở giờ đó: một tiết, hoặc các lớp của một nhóm ghép lớp.
 - `_class_label(problem)` — Tên lớp trong ô TKB giáo viên, TKB phòng: lớp không ở cơ sở đầu ghi thêm cơ sở ("(CS2)" với Cơ sở 2).
 - `_teacher_blocks(ws, solution, style, teachers)` — Sheet TEACHER_SHEET: mỗi giáo viên một bảng BUỔI | TIẾT | các ngày, dòng tựa ghi tên, Mã GV, số tiết; ngắt
 - `_week_blocks(ws, style, blocks, texts)` — Mỗi khối một bảng BUỔI | TIẾT | các ngày: dòng tựa, rồi ô (ngày, tiết) ghi chữ của khối; ngắt trang sau mỗi
@@ -611,7 +624,7 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `subject_table(solution, style)` — Họ và Tên | Chức Vụ (Mã GV) | số tiết từng môn | Tổng Tiết | Số Tiết/Tuần | Số Tiết Bù | (Môn Dạy Bù) |
 - `_fill(color)`
 - `row_marks(solution, spare)` — GV -> (màu nền, số tiết): người dạy bù (số tiết bù) và người cần tuyển thêm (số tiết thực dạy); spare: thêm
-- `overtime_cells(solution)` — (GV, môn) -> số tiết dạy bù (vượt định mức) của GV đó trong môn đó (chế độ bù giờ).
+- `overtime_cells(solution)` — (GV, môn) -> số tiết dạy bù (vượt định mức) của GV đó trong môn đó (chế độ bù giờ); tiết ghép lớp tính một
 - `_mark_rows(ws, solution, header, top, style)` — Tô nền dòng người dạy bù, người cần tuyển và người còn dư tiết (bảng bắt đầu ở dòng 1); trong dòng người
 - `quality_rows(solution, student_rules)` — Chất lượng của TKB: mỗi dòng luật đang dùng (sheet LUẬT, luat_co_san.rows()) một dòng Nhóm | Luật (câu đọc
 - `solution_cells(solution)` — Các ô (lớp, ngày, tiết) có tiết học của TKB.
@@ -737,6 +750,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_co_so.py`: test_three_campuses_end_to_end, test_checker_and_campus_rule_with_three_campuses, test_old_campus_column_and_errors
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_cung_gio.py`: test_split_group_and_assistant_end_to_end, test_rule_errors, test_checker_and_rules_off, test_saved_cell_with_two_subjects
+- `tests/test_ghep_lop.py`: test_merge_end_to_end, test_rule_errors, test_checker_and_integrated_model, test_merge_in_one_room, test_merge_per_grade_on_sample_school
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
@@ -755,5 +769,5 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_overtime_lessons_keep_the_leave_of_the_teacher, test_overtime_of_a_general_teacher_never_clashes, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_is_plain, test_saved_input_template_is_up_to_date, test_blank_template, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
 - `tests/test_thu_tu_bu.py`: test_parse_order, test_default_order_keeps_the_old_prices, test_general_teacher_first, test_general_teacher_first_end_to_end, test_order_only_matters_for_overtime
-- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog, test_rooms_step, test_split_group_cells
+- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog, test_rooms_step, test_split_group_cells, test_merged_cells
 - `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_teacher_timetable, test_quality_sheet, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style

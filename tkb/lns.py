@@ -59,7 +59,14 @@ class _Search:
             self.cells[courses[cid].class_name, s[0]].append(v.Index())
         for (cid, g, s), v in tm.z.items():
             self.cells[courses[cid].class_name, s[0]].append(v.Index())
-        self.decision = sorted(i for idx in self.cells.values() for i in idx)
+        # Ghép lớp: các lớp của nhóm dùng chung biến nên một biến có thể ở nhiều lớp; mở vùng có một lớp của nhóm thì
+        # mở cả các lớp kia (`free`).
+        self.decision = sorted({i for idx in self.cells.values() for i in idx})
+        self.mates: dict[str, set[str]] = defaultdict(set)
+        for members in tm.problem.merge_groups().values():
+            names = {courses[cid].class_name for cid in members}
+            for cls in names:
+                self.mates[cls] |= names
 
     # --- Giải -----------------------------------------------------------------
     def solve(self, model: cp_model.CpModel, seconds: float | None, hint: list[int] | None = None):
@@ -113,7 +120,7 @@ class _Search:
             over = max(0, k - math.ceil(total[cls, subject] / days))
             cost[cls, d] += over * (w.core_spread if subject in config.MORNING_SUBJECTS else w.subject_spread)
         by_teacher_day = defaultdict(list)
-        for les in lessons:  # tiết bù của người mới cũng thuộc lịch người bù (problem.covers, như mô hình)
+        for les in problem.taught(lessons):  # tiết bù của người mới cũng thuộc lịch người bù (problem.covers)
             for who in (les.teacher, problem.covers.get((les.course_id, les.teacher))):
                 if who:
                     by_teacher_day[who, les.day].append(les)
@@ -139,6 +146,7 @@ class _Search:
 
     # --- Các vùng -------------------------------------------------------------
     def free(self, classes, days) -> set[int]:
+        classes = set(classes).union(*(self.mates.get(c, ()) for c in classes))
         return {i for c in classes for d in days for i in self.cells.get((c, d), ())}
 
     def regions(self, cost: Counter, lessons) -> list[tuple[str, str, set[int], float]]:
