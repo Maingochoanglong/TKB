@@ -3,10 +3,10 @@
 Mọi luật nằm trong file Excel: file mẫu ghi sẵn mỗi luật có sẵn thành một dòng (`default_rows`); nhà trường sửa số,
 điểm, đổi Bắt buộc/Ưu tiên, xóa dòng (hoặc ghi Tạm tắt = Có) để tắt luật, thêm dòng để có luật mới. Khi đọc
 (`apply`, chỉ các dòng không tạm tắt) mọi dòng xếp bằng bộ ghép (config.CUSTOM_RULES), cả dòng ở **dạng gốc** của một
-luật có sẵn (`NATIVES`, chỉ khác số hay điểm): mỗi luật chỉ còn một cách cài (docs/Thiet_Ke_Gop_Luat.md). Mã hóa riêng
-cũ của các luật có sẵn tắt hết (config.OFF, điểm 0 trong config.WEIGHTS), trừ hai luật chỉ có dạng gốc vì đọc cột
-của sheet NHÂN SỰ (`NATIVE_ONLY`: Buổi nghỉ, Cơ sở 2), bật khi có dòng. Dạng gốc còn dùng để đọc tên dễ đọc của dòng
-(`title`) và nhận ra luật bảo vệ học sinh (`student`, tắt bằng --no-student-rules).
+luật có sẵn (`NATIVES`, chỉ khác số hay điểm): mỗi luật chỉ có một cách cài (docs/Thiet_Ke_Gop_Luat.md). Riêng hai
+luật chỉ có dạng gốc vì đọc cột của sheet NHÂN SỰ (`NATIVE_ONLY`: Buổi nghỉ, Cơ sở 2) có mã riêng, bật khi có dòng
+(config.OFF). Dạng gốc còn dùng để đọc tên dễ đọc của dòng (`title`) và nhận ra luật bảo vệ học sinh (`student`, tắt
+bằng --no-student-rules).
 
 File không có sheet LUẬT (file cũ) dùng các dòng mặc định, lấy số từ các cột quy định cũ (Số tiết tối đa một nhóm môn
 mỗi buổi, Ghép cặp khi nhóm môn có từ, Tối đa tiết mỗi ngày), cộng các dòng của sheet LUẬT RIÊNG.
@@ -40,15 +40,10 @@ class Native:
     group: str
     rows: object  # () -> list[CustomRule]
     free: tuple[str, ...] = ()  # cột tham số: khác giá trị vẫn là dạng gốc
-    weight: str = ""  # luật ưu tiên: trường của config.Weights nhận điểm của dòng
     student: bool = False  # luật bảo vệ học sinh (tắt cả nhóm bằng --no-student-rules)
     # Tên dễ đọc của từng dòng (theo thứ tự `rows`), điền {number}, {subject}, {min} (số ở cột Áp dụng khi) của dòng;
     # dòng đúng dạng gốc đọc bằng tên này (`title`), dòng đã sửa khác dạng gốc đọc bằng câu của bộ ghép.
     titles: tuple[str, ...] = ()
-
-
-def _w() -> config.Weights:
-    return config.Weights()
 
 
 def _daily(subject: str, n: int) -> CustomRule:
@@ -87,8 +82,8 @@ NATIVES = (
         titles=("Tiết HĐTN chỉ xếp vào giờ có nhãn Tiết HĐTN cố định hoặc Xếp tiết HĐTN còn lại",)),
     Native("hdtn_cuoi_buoi", "HĐTN và GVCN", lambda: [_r(
         tags=("Môn HĐTN", "Xếp tiết HĐTN còn lại"), exclude=("Tiết HĐTN cố định",), scope=("lop",),
-        measure="khoang_cach", op="cuoi_buoi", number=0, points=_w().hdtn_flex_distance)],
-        free=("points",), weight="hdtn_flex_distance",
+        measure="khoang_cach", op="cuoi_buoi", number=0, points=200)],  # mỗi tiết cách cuối buổi
+        free=("points",),
         titles=("Tiết HĐTN còn lại, ngoài giờ cố định, xếp ở tiết cuối buổi",)),
     Native("tiet_gvcn", "HĐTN và GVCN", lambda: [_r(
         tags=("Luôn do GVCN dạy",), measure="nguoi_day", op="do", role=config.ROLE_HOMEROOM, hard=True)],
@@ -109,46 +104,49 @@ NATIVES = (
     Native("co_so", "Lịch giáo viên", lambda: [_r(
         scope=("gv", "buoi"), measure="so_khac", op="<=", number=1, count_by="co_so", hard=True)],
         titles=("Mỗi buổi, một giáo viên chỉ dạy ở một cơ sở",)),
+    # Ưu tiên, không bắt buộc: bắt buộc cả ngày một cơ sở thì file của trường không xếp được.
     Native("doi_co_so", "Lịch giáo viên", lambda: [_r(
         scope=("gv", "ngay"), measure="so_khac", op="<=", number=1, count_by="co_so",
-        points=_w().campus_day_switch)], free=("points",), weight="campus_day_switch",
+        points=10_000)], free=("points",),
         titles=("Hạn chế để một giáo viên đổi cơ sở trong cùng một ngày (dạy ở hai cơ sở trở lên)",)),
     Native("co_so_2", "Lịch giáo viên", lambda: [CustomRule("co_so_2", hard=True)],
         titles=("Giáo viên không chủ nhiệm ghi Cơ sở 2 hoặc Thai Sản chỉ dạy các lớp ở cơ sở 2",)),
+    # Điểm 1200: 400 thì file của trường còn 8 tiết môn nặng ở tiết 7 (Windows); 1200: 6; 3000 cũng 6 mà tiết
+    # TV/Toán buổi chiều tăng.
     Native("mon_nang", "Ưu tiên khi xếp giờ", lambda: [_r(
-        tags=("Môn nặng", "Hạn chế môn nặng"), measure="vi_tri", op="ngoai", points=_w().heavy_late)],
-        free=("points",), weight="heavy_late",
+        tags=("Môn nặng", "Hạn chế môn nặng"), measure="vi_tri", op="ngoai", points=1_200)],
+        free=("points",),
         titles=("Tránh xếp môn có nhãn Môn nặng vào giờ có nhãn Hạn chế môn nặng",)),
     Native("buoi_sang", "Ưu tiên khi xếp giờ", lambda: [_r(
         tags=("Ưu tiên buổi sáng",), sessions=(khung_gio.first_session_name(),), measure="vi_tri", op="trong",
-        points=_w().morning_core)], free=("points",), weight="morning_core",
+        points=300)], free=("points",),
         titles=("Môn có nhãn Ưu tiên buổi sáng xếp vào buổi sáng",)),
     Native("tai_ngay", "Ưu tiên khi xếp giờ", lambda: [_r(
-        scope=("gv", "ngay"), measure="so_tiet", op="<=", derived="tai_ngay", points=_w().day_over_preferred)],
-        free=("points",), weight="day_over_preferred",
+        scope=("gv", "ngay"), measure="so_tiet", op="<=", derived="tai_ngay", points=100)],
+        free=("points",),
         titles=("Số tiết mỗi ngày của giáo viên không quá tải ngày, tức số tiết/tuần chia đều cho các ngày",)),
     Native("tai_ngay_1", "Ưu tiên khi xếp giờ", lambda: [_r(
-        scope=("gv", "ngay"), measure="so_tiet", op="<=", derived="tai_ngay_1", points=_w().day_over_buffer)],
-        free=("points",), weight="day_over_buffer",
+        scope=("gv", "ngay"), measure="so_tiet", op="<=", derived="tai_ngay_1", points=300)],
+        free=("points",),
         titles=("Số tiết mỗi ngày của giáo viên không quá tải ngày + 1 tiết",)),
     Native("rai_deu", "Ưu tiên khi xếp giờ", lambda: [_r(
         exclude=("Môn HĐTN", "Ưu tiên buổi sáng"), scope=("lop", "mon", "ngay"), measure="so_tiet", op="<=",
-        derived="tran_ngay", points=_w().subject_spread)], free=("points",), weight="subject_spread",
+        derived="tran_ngay", points=40)], free=("points",),
         titles=("Mỗi môn, trừ HĐTN và môn ưu tiên buổi sáng, rải đều trong tuần: một ngày không quá số tiết/tuần "
                 "chia số ngày",)),
     Native("rai_deu_sang", "Ưu tiên khi xếp giờ", lambda: [_r(
         tags=("Ưu tiên buổi sáng",), exclude=("Môn HĐTN",), scope=("lop", "mon", "ngay"), measure="so_tiet",
-        op="<=", derived="tran_ngay", points=_w().core_spread)], free=("points",), weight="core_spread",
+        op="<=", derived="tran_ngay", points=120)], free=("points",),
         titles=("Môn ưu tiên buổi sáng rải đều trong tuần: một ngày không quá số tiết/tuần chia số ngày",)),
     Native("tiet_trong", "Ưu tiên khi xếp giờ", lambda: [_r(
         scope=("gv", "buoi"), role="trừ " + config.ROLE_HOMEROOM, measure="khoang_cach", op="trong_tiet", number=0,
-        points=_w().teacher_gap)], free=("points",), weight="teacher_gap",
+        points=10)], free=("points",),
         titles=("Giáo viên, trừ GV chủ nhiệm, không có tiết trống xen giữa các tiết trong buổi",)),
 )
 BY_KEY = {n.key: n for n in NATIVES}
-# Luật chỉ có dạng gốc (đọc cột của sheet NHÂN SỰ, không có câu bộ ghép): checker kiểm bằng mã riêng.
+# Luật chỉ có dạng gốc (đọc cột của sheet NHÂN SỰ, không có câu bộ ghép): solver, checker, phân công dùng mã riêng,
+# bật khi có dòng (config.OFF).
 NATIVE_ONLY = ("buoi_nghi", "co_so_2")
-# Khóa của luật có sẵn dùng chung với cờ chẩn đoán solver.RELAXED.
 STUDENT = frozenset(n.key for n in NATIVES if n.student)
 
 
@@ -180,13 +178,9 @@ def without_student(rules: list[CustomRule]) -> list[CustomRule]:
 
 
 def hard_rows(student_rules: bool = True) -> list[CustomRule]:
-    """Các dòng bắt buộc đang có hiệu lực, cho bộ kiểm tra (checker.check kiểm bằng bộ ghép): dòng ở dạng gốc của luật
-    có sẵn còn xếp bằng mã riêng (trừ NATIVE_ONLY), rồi các dòng xếp bằng bộ ghép (config.CUSTOM_RULES); trừ luật bảo
-    vệ học sinh khi student_rules False, như mô hình."""
-    custom = [r for r in config.CUSTOM_RULES if r.hard]
-    natives = [r for r in rows() if r.hard and not r.off and r not in custom and (n := native_of(r)) is not None
-               and n.key not in NATIVE_ONLY and config.on(n.key)]
-    return [r for r in natives + custom if student_rules or not student(r)]
+    """Các dòng bắt buộc đang có hiệu lực (config.CUSTOM_RULES), cho bộ kiểm tra (checker.check kiểm bằng bộ ghép);
+    trừ luật bảo vệ học sinh khi student_rules False, như mô hình."""
+    return [r for r in config.CUSTOM_RULES if r.hard and (student_rules or not student(r))]
 
 
 def title(r: CustomRule) -> str | None:
@@ -238,28 +232,34 @@ def native_of(r: CustomRule) -> Native | None:
 
 def apply(all_rows: list[CustomRule]) -> dict:
     """Các dòng luật -> giá trị config: mọi dòng xếp bằng bộ ghép (CUSTOM_RULES), trừ dòng của luật chỉ có dạng gốc
-    (NATIVE_ONLY, bật khi có dòng); mã riêng của các luật có sẵn khác tắt (OFF, điểm 0 trong WEIGHTS). Tham số của
-    dòng ở dạng gốc (SESSION_GROUP_LIMIT, PAIR_MIN_LESSONS, DAILY_LIMITS) vẫn đọc ra (mã riêng tắt nên không dùng):
-    để báo cột quy định cũ khác dòng luật (rules._rules_rows). Gọi trong rules.applied của các quy định khác."""
-    from .program import canonical_subject
-    values: dict = {"DAILY_LIMITS": {}}
-    native_only, custom = set(), []
+    (NATIVE_ONLY: bật khi có dòng, không thì vào OFF). Gọi trong rules.applied của các quy định khác."""
+    present, custom = set(), []
     for r in all_rows:
         native = native_of(r)
         if native is not None and native.key in NATIVE_ONLY:
-            native_only.add(native.key)
-            continue
-        custom.append(r)
+            present.add(native.key)
+        else:
+            custom.append(r)
+    return {"OFF": frozenset(k for k in NATIVE_ONLY if k not in present), "CUSTOM_RULES": custom}
+
+
+def numbers(all_rows: list[CustomRule]) -> dict:
+    """Số ở các dòng dạng gốc "tối đa n tiết một nhóm môn mỗi buổi", "ghép cặp khi nhóm môn có từ n tiết", "tối đa n
+    tiết môn X mỗi ngày", theo tên cột cũ (config.SESSION_GROUP_LIMIT, PAIR_MIN_LESSONS, DAILY_LIMITS): để báo khi
+    file có cả sheet LUẬT lẫn cột cũ ghi số khác (rules._rules_rows)."""
+    from .program import canonical_subject
+    out: dict = {"DAILY_LIMITS": {}}
+    for r in all_rows:
+        native = native_of(r)
         if native is None:
             continue
         if native.key == "toi_da_ngay":
-            values["DAILY_LIMITS"][canonical_subject(_names(r.subject)[0])] = r.number
+            out["DAILY_LIMITS"][canonical_subject(_names(r.subject)[0])] = r.number
         elif native.key == "nhom_buoi":
-            values.setdefault("SESSION_GROUP_LIMIT", r.number)
+            out.setdefault("SESSION_GROUP_LIMIT", r.number)
         elif native.key == "ghep_cap":
-            values.setdefault("PAIR_MIN_LESSONS", r.when[0][1])
-    return {**values, "OFF": frozenset(n.key for n in NATIVES if n.key not in native_only),
-            "WEIGHTS": {n.weight: 0 for n in NATIVES if n.weight}, "CUSTOM_RULES": custom}
+            out.setdefault("PAIR_MIN_LESSONS", r.when[0][1])
+    return out
 
 
 def notes() -> list[tuple[str, str]]:

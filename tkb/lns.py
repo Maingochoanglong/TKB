@@ -2,8 +2,9 @@
 
 1. Khởi đầu: CP-SAT trên toàn mô hình với LNS_START_SHARE ngân sách, tối đa LNS_START_MAX.
 2. Mỗi vòng:
-   - QA: chi phí mềm của từng lớp-ngày theo đúng trọng số mục tiêu (config.Weights); phạt tải ngày và tiết trống
-     của một GV chia đều cho các lớp GV đó dạy hôm ấy. QA chỉ dùng để xếp thứ tự các vùng, không đổi luật.
+   - QA: chi phí mềm của từng lớp-ngày theo các dòng luật ưu tiên (bo_ghep.qa, cùng điểm với mục tiêu); luật theo
+     GV (tải ngày, tiết trống, đổi cơ sở) chia đều cho các lớp GV đó dạy hôm ấy. QA chỉ dùng để xếp thứ tự các vùng,
+     không đổi luật.
    - Xếp lại lần lượt các vùng: từng lớp -> điểm nóng (lớp-ngày xấu nhất cùng các lớp chung GV không chủ nhiệm
      hôm ấy, mở thêm ngày tốt nhất của lớp) -> nhóm lớp của một GV dùng chung -> từng khối -> từng cặp ngày.
      Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT xếp lại trong vùng xuất phát từ nghiệm đang có, chỉ nhận
@@ -27,7 +28,7 @@ from dataclasses import dataclass, field
 from ortools.sat.python import cp_model
 
 from . import config, khung_gio
-from .solver import TimetableModel, _configure, day_targets, distance_to_session_end, session_of
+from .solver import TimetableModel, _configure
 from .staff import class_sort_key, grade_key, grade_of
 
 
@@ -99,49 +100,15 @@ class _Search:
 
     # --- QA -------------------------------------------------------------------
     def qa(self, values: list[int]):
-        """Chi phí mềm theo (lớp, ngày), theo trọng số mục tiêu; và các tiết của nghiệm."""
-        tm, w = self.tm, config.rule_weights(self.settings.weights)
-        problem = tm.problem
-        sess, first = session_of(), khung_gio.first_session_name()
+        """Chi phí mềm theo (lớp, ngày) của các dòng luật ưu tiên (bo_ghep.qa, cùng điểm với mục tiêu), và các tiết của
+        nghiệm. Mọi (lớp, ngày) có tiết đều có mặt (chi phí 0 nếu không vi phạm gì): các điểm nóng chọn theo thứ tự đó
+        khi ít lớp-ngày có chi phí."""
+        tm = self.tm
         lessons = tm.lessons(lambda v: values[v.Index()])
-        cost: Counter = Counter()
-        for les in lessons:
-            key = les.class_name, les.day
-            if les.subject in config.HEAVY_SUBJECTS and les.period in config.HEAVY_LATE_PERIODS:
-                cost[key] += w.heavy_late
-            if les.subject in config.MORNING_SUBJECTS and sess[les.day, les.period].name != first:
-                cost[key] += w.morning_core
-            if problem.courses[les.course_id].flex_hdtn:
-                cost[key] += w.hdtn_flex_distance * distance_to_session_end((les.day, les.period))
-        days = len(config.DAY_SESSIONS)
-        per_day = Counter((l.class_name, l.subject, l.day) for l in lessons if l.subject != config.HDTN)
-        total = Counter((l.class_name, l.subject) for l in lessons if l.subject != config.HDTN)
-        for (cls, subject, d), k in per_day.items():
-            over = max(0, k - math.ceil(total[cls, subject] / days))
-            cost[cls, d] += over * (w.core_spread if subject in config.MORNING_SUBJECTS else w.subject_spread)
-        by_teacher_day = defaultdict(list)
-        for les in problem.taught(lessons):  # tiết bù của người mới cũng thuộc lịch người bù (problem.covers)
-            for who in (les.teacher, problem.covers.get((les.course_id, les.teacher))):
-                if who:
-                    by_teacher_day[who, les.day].append(les)
-        for (g, d), items in sorted(by_teacher_day.items()):
-            t = problem.teachers[g]
-            over = len(items) - day_targets(t.max_lessons, problem.slots)[d]
-            pen = w.day_over_preferred * max(0, over) + w.day_over_buffer * max(0, over - 1)
-            places = len({problem.campus.get(l.class_name, 0) for l in items})
-            if places > 1:  # như solver._campus_day_switch: mỗi lần đổi cơ sở trong ngày
-                pen += w.campus_day_switch * (places - 1)
-            if not t.class_name:
-                for name in khung_gio.session_names():
-                    ps = [l.period for l in items if sess[l.day, l.period].name == name]
-                    if ps:
-                        pen += w.teacher_gap * ((max(ps) - min(ps) + 1) - len(ps))
-            classes = sorted({l.class_name for l in items})
-            for cls in classes:
-                cost[cls, d] += pen / len(classes)
-        if config.CUSTOM_RULES:  # luật riêng ưu tiên (tkb/luat_rieng.py)
+        cost: Counter = Counter({(les.class_name, les.day): 0 for les in lessons})
+        if config.CUSTOM_RULES:
             from .luat_rieng import qa
-            cost.update(qa(problem, lessons, w))
+            cost.update(qa(tm.problem, lessons, self.settings.weights))
         return cost, lessons
 
     # --- Các vùng -------------------------------------------------------------
@@ -171,7 +138,8 @@ class _Search:
             # Mở các lớp GV dùng chung dạy ở cả hai ngày được xếp lại: tiết của một GV đổi được giữa hai ngày (vd
             # chuyển hết tiết ở một cơ sở sang ngày khác để không phải đổi cơ sở trong ngày).
             group = {c} | {l.class_name for l in lessons if l.day in (d, other) and l.teacher in shared}
-            out.append(("điểm nóng", f"lớp {c} {khung_gio.day_name(d).lower()}", self.free(group, [d, other]), limits["điểm nóng"]))
+            out.append(("điểm nóng", f"lớp {c} {khung_gio.day_name(d).lower()}", self.free(group, [d, other]),
+                        limits["điểm nóng"]))
         teacher_classes = defaultdict(set)
         for cid, cand in tm.teachers_of.items():
             for g in cand:

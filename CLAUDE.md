@@ -176,10 +176,10 @@ time) live in the UI, not in the Excel file.
 Conflicting rules (`tkb/chan_doan.py`): `precheck` (sound counting checks only, called in `solver._assignment` and by the
 UI check) raises `solver.ConflictError` before solving; when no timetable is found, `solver._unsolvable` →
 `chan_doan.diagnose` re-runs `solver.feasible` (fixed assignment, first solution, 30 units) with rule families relaxed via
-`rules.applied` or the diagnosis-only flags `solver.RELAXED` (always empty in a real solve, so the model and codes are
-unchanged): not proven → "add time"; all relaxed still infeasible → staff/quota; else a deletion filter gives the
-minimal conflicting families and which single relaxation fixes it. A new hard rule should get a family in
-`chan_doan._rules` (and a count in `precheck` if one is sound).
+`rules.applied` (each hard LUẬT row dropped from `CUSTOM_RULES`; native-only rows and room capacity via `config.OFF`;
+a real solve relaxes nothing, so the model and codes are unchanged): not proven → "add time"; all relaxed still
+infeasible → staff/quota; else a deletion filter gives the minimal conflicting families and which single relaxation
+fixes it. Every hard row is a family by itself; a sound count for a new measure goes in `bo_ghep.precheck`.
 
 Specialist roles (sheet `CHỨC VỤ`, `config.CUSTOM_ROLES` of `config.Role(name, subjects)`, read in `rules._Reader.roles`):
 `Problem.specialists` is role → tuple of subjects (`allocation.resolve_roles`: a sheet role, else a role named like a
@@ -206,13 +206,15 @@ scope has one]", hard or soft (Điểm points, else Mức Thấp/Vừa/Cao/Rất
 **Built-in rules** are the default rows of `tkb/luat_co_san.py` (`NATIVES`, `default_rows`, written by the template):
 `rules.read_rules` → `luat_co_san.apply(rows)`: **every row goes to `config.CUSTOM_RULES` (composer)**, built-in rows
 too (one encoding per rule, `docs/Thiet_Ke_Gop_Luat.md` PR D), except the two native-only rules `NATIVE_ONLY`
-(`nghi_gv`, `co_so_2`: they read NHÂN SỰ columns; on when their row is present). The old native encodings are all off
-(`config.OFF` = every other native key, `config.WEIGHTS` = 0 for their weights; code checks `config.on(key)`, the solver
-`solver.on(key)` which also honours `RELAXED`) until PR E deletes them; `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`,
-`PAIR_MIN_LESSONS` are still read from native-shaped rows only for the old-column warning. `tkb/__init__.py` sets the
-config defaults to `apply(default_rows())`, so no file and a file with the default rows build the same model and codes
-(tests that add a rule use `[*config.CUSTOM_RULES, rule]`; `NATIVE = {"OFF": frozenset(), "WEIGHTS": {},
-"CUSTOM_RULES": []}` turns the old encodings back on for comparisons). A row in a native's exact shape (only
+(`nghi_gv`, `co_so_2`: they read NHÂN SỰ columns and keep their own code in `solver._teacher_leave`,
+`allocation.build_problem`, `phan_cong.teacher_slots`, `checker._check_teacher_sessions`; off = key in `config.OFF`
+when their row is absent, `config.on(key)`; `config.OFF` also holds "phong" while diagnosing). The other natives have
+no code of their own any more (PR E): default points are literals in `NATIVES` (not `config.Weights`);
+`SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS` are only the numbers of the default rows (old files: the old
+columns), not in `rules.ATTRS`; `luat_co_san.numbers(rows)` reads them back only for the old-column warning.
+`tkb/__init__.py` sets the config defaults to `apply(default_rows())`, so no file and a file with the default rows build
+the same model and codes (tests that add a rule use `[*config.CUSTOM_RULES, rule]`; `tests/kiem_tra_cu.py` is the
+independent hand-written check of the built-in rules). A row in a native's exact shape (only
 number/points differ, `fits`, `native_of`) still matters for its title and `luat_co_san.student` (rows of the
 "Bảo vệ học sinh" natives): `--no-student-rules` drops them from `CUSTOM_RULES` in `solver.solve`,
 `chan_doan.precheck`, `luat_co_san.hard_rows` (checker) and marks them "tắt" in the quality sheet. No sheet `LUẬT` (old
@@ -259,7 +261,7 @@ with a native's meaning (so natives can be replaced): `fixed_slots`
 (HĐTN fixed course, `allocation.hdtn_fixed_slots`), `homeroom_slots` (`allocation.homeroom_periods_slots`, domain cut in
 `allowed_slots`, GVCN leave check), `homeroom_subjects` (`homeroom_only`), `paired_by_group` (the assignment's
 `paired_groups(..., assignment=True)`; the model lowers that row itself). Diagnosis (`chan_doan._rules`) tries
-dropping each hard row (native: `OFF`; daily: drop the subject; composer: drop from `CUSTOM_RULES`) and names rows as
+dropping each hard row (composer: drop from `CUSTOM_RULES`; native-only: `OFF`) and names rows as
 `LUẬT dòng n: <sentence>` (`luat_rieng.label`). Sentences show Mã GV, never names: `bo_ghep.know_staff(staff)` fills
 `config.PEOPLE` (name/code → Mã GV; not a rule, restored by `rules.applied`) after the staff is read in `__main__._run`
 and `kich_ban.check`/`describe`; `bo_ghep.person` treats any name with a digit as a Mã GV. A new measure = one `Measure` + one function in `LOWER`; a new tag = a
@@ -286,19 +288,19 @@ Friday afternoon off). Never assume two sessions, a session's periods or day nam
 `AFTERNOON` only keep the rules code of old frames. LUẬT rows are parsed under the file's frame (`_Reader.frame`). Subject names in config match file names loosely via
 `staff.subject_key` → `program.canonical_subject`.
 
-Each rule below (except who-may-teach and the assignment/LNS rows) is a default row of sheet `LUẬT` (`luat_co_san.NATIVES`; deleting the row turns it off, its number/points come from the row). They are all lowered and checked by the composer (except leave and campus 2); the native solver/LNS blocks named below are off (`config.OFF`, weights 0) and only kept for comparisons until PR E removes them.
+Each rule below (except who-may-teach and the assignment/LNS rows) is a default row of sheet `LUẬT` (`luat_co_san.NATIVES`; deleting the row turns it off, its number/points come from the row). They are all lowered by the composer (`bo_ghep.build`), scored in `lns._Search.qa` by `bo_ghep.qa` and checked by `bo_ghep.violations` (except leave and campus 2); the config values below are tag data or default numbers of the rows.
 
 | Rule | `tkb/config.py` default (the file's rules override) | Implemented in |
 |---|---|---|
-| Subject group (TV+TV TC, Toán+Toán TC) ≤ 2 per session; Toán ≤ 1 per day; groups ≥ 6 lessons with even total in consecutive pairs; same subject contiguous in a session; TC lesson after every main lesson of its group that day, and the day has one (hard) | `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `solver.timetable` "Luật bảo vệ học sinh" block; `allocation.paired_groups`; checker via composer rows |
-| Consecutive lessons of a group by one teacher; homeroom priority group: GVCN's lesson first in the week (hard, always) | `SUBJECT_GROUPS`, `HOMEROOM_PRIORITY` | `solver.timetable` "Liên tiết", "GVCN trước"; checker via composer rows |
-| HĐTN Mon p1 + Fri p4 fixed, rest Tue–Thu near session end | `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS` | `allocation.build_problem`, `solver.allowed_slots`, objective `hdtn_flex_distance` |
-| Period 1 always the homeroom teacher | `HOMEROOM_PERIODS` | `solver.allowed_slots` |
+| Subject group (TV+TV TC, Toán+Toán TC) ≤ 2 per session; Toán ≤ 1 per day; groups ≥ 6 lessons with even total in consecutive pairs; same subject contiguous in a session; TC lesson after every main lesson of its group that day, and the day has one (hard) | `SUBJECT_GROUPS`, `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | composer rows; `allocation.paired_groups` (assignment: `bo_ghep.paired_by_group`; a school's own whole-class pair rows `bo_ghep.forced` are lowered in `build_timetable`) |
+| Consecutive lessons of a group by one teacher; homeroom priority group: GVCN's lesson first in the week (hard, always) | `SUBJECT_GROUPS`, `HOMEROOM_PRIORITY` | composer rows (`nguoi_day` `lien_cung_nguoi`, `dau_tuan`) |
+| HĐTN Mon p1 + Fri p4 fixed, rest Tue–Thu near session end | `HDTN_FIXED_SLOTS`, `HDTN_FLEX_DAYS` (tags) | composer rows; `allocation.hdtn_fixed_slots` (fixed course), `solver.allowed_slots` (`banned`) |
+| Period 1 always the homeroom teacher | `HOMEROOM_PERIODS` (tag) | composer row; `allocation.homeroom_periods_slots` → `solver.allowed_slots` |
 | Who may teach what | `HOMEROOM_ONLY_SUBJECTS`, `GENERAL_FORBIDDEN_SUBJECTS`, `MANAGER_RULES`, `CUSTOM_ROLES` (sheet CHỨC VỤ) | `allocation.resolve_roles`, `roles_for_subject`, `manager_allowed`; `checker.check` "Quyền dạy" |
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 (`main.py` `SO_TIET_BU_TOI_DA` = 3 for the school file); GVCN overtime never in specialist subjects except Âm nhạc/Mỹ thuật, capped by the flow estimate | `OVERTIME_ROLES`, `OVERTIME_MAX`, `HOMEROOM_OVERTIME_SPECIALIST`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
-| Soft: heavy subjects at p7, TV/Toán mornings, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS`, `Weights` | `solver.build_timetable` objective blocks; `lns._Search.qa` mirrors them to rank regions (keep in sync) |
-| Campuses (any number; two campuses keep the old encoding and codes): a teacher teaches at one campus per session (hard), soft penalty per campus change in a day (whole-day hard was infeasible); maternity/`Cơ sở 2` non-homeroom teach only campus-2 classes; `Buổi Nghỉ` fixed and "n buổi" leave (hard) | columns → `Teacher.campus2/maternity/off_sessions/off_any`, `Problem.campus2`; `Weights.campus_day_switch` | `allocation.build_problem` (eligibility), `phan_cong.teacher_slots`, `solver._teacher_sessions`, `solver._campus_day_switch` (+ `lns._Search.qa`); `checker._check_teacher_sessions` (campus 2, leave), campus per session via composer rows |
+| Soft: heavy subjects at p7, TV/Toán mornings, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS` (tags); points in the rows | composer rows (objective in `bo_ghep.build`, `bo_ghep.qa` for LNS regions) |
+| Campuses (any number; two campuses keep the old encoding and codes): a teacher teaches at one campus per session (hard), soft penalty per campus change in a day (whole-day hard was infeasible); maternity/`Cơ sở 2` non-homeroom teach only campus-2 classes; `Buổi Nghỉ` fixed and "n buổi" leave (hard) | columns → `Teacher.campus2/maternity/off_sessions/off_any`, `Problem.campus2` | campus per session and per day: composer rows (Số khác nhau by `co_so`); campus 2 and leave (native-only): `allocation.build_problem` (eligibility), `phan_cong.teacher_slots`, `solver._teacher_leave`, `checker._check_teacher_sessions` |
 | Overtime order: column `Thứ Tự Bù` (`Teacher.overtime_order`, `allocation.overtime_rank` → `Problem.overtime_order`; blank = homeroom contract 1 → homeroom 2 → general contract 3 → general 4, the four `Weights.overtime_*` prices; other numbers spread over that range); the checker's "homeroom first in own class" only when the homeroom teacher ranks first; maternity no overtime; keep old grade then class (`Lớp Đang Dạy`) | `Weights.overtime_*`, `keep_grade`, `keep_class` | `allocation.overtime_cost`, `keep_cost`, `overtime_allowance`; used in `phan_cong._flow`, `_Local._part`, `solver._Allocation` |
 | Timetabling loop: start share (≤ `LNS_START_MAX`), region limits, stop rules | `LNS_*`, `Settings.time_limit` (1200) | `lns.improve`, `lns._Search.regions` |
 

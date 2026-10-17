@@ -7,7 +7,7 @@ from tkb import bo_mau, config
 from tkb.allocation import build_problem
 from tkb.checker import check
 from tkb.phan_cong import phan_cong, tach_tiet_bu
-from tkb.solver import ShortageError, distance_to_session_end, solve
+from tkb.solver import ShortageError, session_of, solve
 
 from .conftest import CURRICULUM, small_staff, teacher
 
@@ -34,7 +34,7 @@ def test_hdtn_fixed_and_flex(small_solution):
         assert (0, 1) in slots and (4, 4) in slots and len(slots) == 3
         flex = [s for s in slots if s not in config.HDTN_FIXED_SLOTS][0]
         assert flex[0] in config.HDTN_FLEX_DAYS
-        assert distance_to_session_end(flex) == 0  # cuối buổi
+        assert session_of()[flex].periods[-1] == flex[1]  # cuối buổi
 
 
 def test_missing_general_teacher_becomes_supplement():

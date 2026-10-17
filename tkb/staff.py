@@ -526,8 +526,7 @@ def _check_extras(teachers: list[Teacher]) -> list[str]:
     classes = set(class_list(teachers))
     homeroom = set(homeroom_periods_slots([(d, p) for d, ss in config.DAY_SESSIONS.items() for s in ss
                                            for p in s.periods]))
-    hours = (f"tiết {', '.join(map(str, sorted(config.HOMEROOM_PERIODS)))}" if config.on("tiet_gvcn")
-             else "các giờ")
+    hours = f"tiết {', '.join(map(str, sorted({p for _, p in homeroom})))}"
     for t in teachers:
         unknown = sorted(t.history - classes, key=class_sort_key)
         if unknown:
@@ -537,7 +536,7 @@ def _check_extras(teachers: list[Teacher]) -> list[str]:
             errors.append(f"Dòng {t.row}: GVCN thai sản chỉ dạy ở cơ sở 2 nhưng lớp {t.class_name} không đánh dấu "
                           f"Cơ sở 2")
         if t.class_name:
-            # Buổi có tiết luôn do GVCN dạy (luật có sẵn "tiết GVCN" hay câu bộ ghép cùng nghĩa): GVCN không nghỉ được.
+            # Buổi có tiết luôn do GVCN dạy (dòng luật "Ở giờ có nhãn Luôn do GVCN dạy…"): GVCN không nghỉ được.
             held = lambda d, name: any(s.name == name and any((d, p) in homeroom for p in s.periods)  # noqa: E731
                                        for s in config.DAY_SESSIONS.get(d, ()))
             fixed = sorted((d, name) for d, name in t.off_sessions if held(d, name))

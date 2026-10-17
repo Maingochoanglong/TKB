@@ -380,28 +380,6 @@ def test_teacher_names_are_checked():
             build_problem(staff, CURRICULUM, {}, overtime_max=4)
 
 
-def _points(sol, rows) -> int:
-    w = config.Weights()
-    return sum(bo_ghep.weight(L, w) * n for L, n, _, _ in bo_ghep.violations(sol.problem, sol.lessons, rules=rows))
-
-
-def test_soft_teacher_rules_count_covered_lessons(plain):
-    """Chế độ bù giờ: tiết bù là tiết của người mới trong mô hình, của người bù khi xong. Luật ưu tiên theo GV xếp bằng
-    bộ ghép tính tiết đó cho cả người bù, như lịch GV của mã riêng, nên TKB tối ưu cùng điểm với luật gốc (trước đây bộ
-    ghép bỏ qua tiết bù: mô hình 0 điểm mà TKB xong vượt tải ngày hơn)."""
-    from dataclasses import replace
-    from tkb import luat_co_san
-    keys = ("tai_ngay", "tai_ngay_1")
-    rows = [replace(r, row=i + 2) for i, r in enumerate(luat_co_san.default_rows())
-            if luat_co_san.native_of(r).key in keys]
-    off = {"OFF": frozenset(keys), "WEIGHTS": {luat_co_san.BY_KEY[k].weight: 0 for k in keys}}
-    with applied({**off, "CUSTOM_RULES": rows}):
-        sol = solve(small_staff(general=False), CURRICULUM, config.Settings(mode=config.MODE_OVERTIME, **SETTINGS),
-                    log=lambda *_: None)
-    assert sol.status == plain.status == "OPTIMAL"
-    assert _points(sol, rows) == _points(plain, rows) > 0
-
-
 def _model_size(**values) -> tuple[int, int]:
     from tkb.solver import _assignment, build_timetable
     settings = config.Settings(mode=config.MODE_OVERTIME, **SETTINGS)

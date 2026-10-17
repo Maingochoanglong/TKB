@@ -1,5 +1,6 @@
-"""Mọi luật là dòng của sheet LUẬT (tkb/luat_co_san.py): dòng mặc định cho đúng mô hình cũ (mã không đổi); sửa số,
-điểm, xóa dòng, đổi Bắt buộc có tác dụng; bộ ghép kiểm chéo với bộ kiểm tra độc lập và hạ thay được luật gốc."""
+"""Mọi luật là dòng của sheet LUẬT (tkb/luat_co_san.py), xếp bằng bộ ghép: dòng mặc định là giá trị mặc định; sửa số,
+điểm, xóa dòng, đổi Bắt buộc có tác dụng; bộ ghép kiểm chéo với bộ kiểm tra độc lập viết tay (tests/kiem_tra_cu.py);
+các đường tắt đọc câu bộ ghép ra đúng nghĩa của luật."""
 import random
 from collections import Counter
 from dataclasses import replace
@@ -33,10 +34,6 @@ def plain():
     return _solve()[0]
 
 
-# Mã riêng cũ của các luật có sẵn (còn đến khi dọn code, docs/Thiet_Ke_Gop_Luat.md PR E): bật lại để so với bộ ghép.
-NATIVE = {"OFF": frozenset(), "WEIGHTS": {}, "CUSTOM_RULES": []}
-
-
 def _hard_rows():
     return [r for r in luat_co_san.default_rows() if r.hard and r.kind == "tu_ghep"]
 
@@ -47,19 +44,20 @@ def _keys(rows) -> set[str]:
 
 
 def test_default_rows_are_the_defaults():
-    """Mọi dòng mặc định xếp bằng bộ ghép, trừ hai luật chỉ có dạng gốc; mã riêng tắt hết, điểm 0. Đó cũng là giá trị
-    mặc định của config (tkb/__init__.py): không có file và file ghi các dòng mặc định cùng một mã quy định."""
+    """Mọi dòng mặc định xếp bằng bộ ghép, trừ hai luật chỉ có dạng gốc (bật vì có dòng). Đó cũng là giá trị mặc định
+    của config (tkb/__init__.py): không có file và file ghi các dòng mặc định cùng một mã quy định."""
     rows = luat_co_san.default_rows()
     assert {r.group_label for r in rows} == set(luat_co_san.GROUPS)
     assert all(luat_co_san.native_of(r) is not None for r in rows)
     values = luat_co_san.apply(rows)
-    assert values["OFF"] == {n.key for n in luat_co_san.NATIVES} - set(luat_co_san.NATIVE_ONLY)
-    assert set(values["WEIGHTS"].values()) == {0}
-    assert values["CUSTOM_RULES"] == [r for r in rows if luat_co_san.native_of(r).key not in luat_co_san.NATIVE_ONLY]
+    assert values == {"OFF": frozenset(), "CUSTOM_RULES": [r for r in rows if luat_co_san.native_of(r).key
+                                                            not in luat_co_san.NATIVE_ONLY]}
     assert values["CUSTOM_RULES"] == config.CUSTOM_RULES and values["OFF"] == config.OFF
-    assert values["DAILY_LIMITS"] == config.DAILY_LIMITS
-    assert values["SESSION_GROUP_LIMIT"] == config.SESSION_GROUP_LIMIT
-    assert values["PAIR_MIN_LESSONS"] == config.PAIR_MIN_LESSONS
+    assert luat_co_san.numbers(rows) == {"DAILY_LIMITS": config.DAILY_LIMITS,
+                                         "SESSION_GROUP_LIMIT": config.SESSION_GROUP_LIMIT,
+                                         "PAIR_MIN_LESSONS": config.PAIR_MIN_LESSONS}
+    without = [r for r in rows if luat_co_san.native_of(r).key != "co_so_2"]
+    assert luat_co_san.apply(without)["OFF"] == {"co_so_2"}  # xóa dòng luật chỉ có dạng gốc: tắt
     with applied(values):
         assert code() == NO_FILE_CODE
 
@@ -107,8 +105,8 @@ def test_edit_number_points_delete_and_soften(tmp_path):
         ws.cell(r, col["Mức"], 3)
 
     rules = _edit(tmp_path, change)
-    assert rules["SESSION_GROUP_LIMIT"] == 3
     custom = rules["CUSTOM_RULES"]
+    assert next(r for r in custom if luat_co_san.native_of(r).key == "nhom_buoi").number == 3
     assert _keys(custom) == _keys(config.CUSTOM_RULES) - {"tiet_gvcn", "lien_nhau"}  # dòng xóa: luật tắt
     assert next(r for r in custom if r.measure == "vi_tri" and r.points).points == 2000
     (soft,) = [r for r in custom if luat_co_san.native_of(r) is None]  # đổi thành ưu tiên: khác dạng gốc
@@ -152,19 +150,19 @@ def test_rule_switched_off_is_kept_but_not_used(tmp_path, plain):
 
 
 def test_soft_rule_off_drops_its_points(tmp_path):
-    """Xóa hay tạm tắt dòng một luật ưu tiên có sẵn thì điểm của nó ra khỏi mục tiêu xếp giờ (solver và lns đọc điểm
-    qua config.rule_weights), không chỉ đánh dấu tắt; các luật ưu tiên khác giữ điểm."""
+    """Xóa hay tạm tắt dòng một luật ưu tiên có sẵn thì nó ra khỏi mục tiêu xếp giờ, không chỉ đánh dấu tắt; các luật
+    ưu tiên khác giữ điểm ghi ở dòng."""
     def change(ws, head):
         ws.delete_rows(_row_of(ws, head, "Giáo viên, trừ GV chủ nhiệm, không có tiết trống"))
         ws.cell(_row_of(ws, head, "Tránh xếp môn có nhãn Môn nặng"), head.index("Tạm tắt") + 1, "Có")
+        ws.cell(_row_of(ws, head, "Môn có nhãn Ưu tiên buổi sáng xếp vào"), head.index("Điểm") + 1, 700)
 
     rules = _edit(tmp_path, change)
     assert _keys(rules["CUSTOM_RULES"]) == _keys(config.CUSTOM_RULES) - {"tiet_trong", "mon_nang"}
-    with applied(rules):  # mã riêng: mọi điểm 0; bộ ghép: các luật ưu tiên còn lại giữ điểm của dòng
-        w = config.rule_weights(config.Weights())
-        assert all(getattr(w, n.weight) == 0 for n in luat_co_san.NATIVES if n.weight)
+    with applied(rules):
+        assert {luat_co_san.native_of(L.rule).key for L in bo_ghep.compiled()} == _keys(rules["CUSTOM_RULES"])
         morning = next(L for L in bo_ghep.compiled() if luat_co_san.native_of(L.rule).key == "buoi_sang")
-        assert bo_ghep.weight(morning, w) == config.Weights().morning_core > 0
+        assert bo_ghep.weight(morning, config.Weights()) == 700
 
 
 def test_built_in_rules_read_as_plain_sentences():
@@ -189,7 +187,7 @@ def test_deleted_rule_is_off_when_solving():
     rows = [r for r in luat_co_san.default_rows() if luat_co_san.native_of(r).key != "tiet_gvcn"]
     sol, errors = _solve(**luat_co_san.apply(rows))
     assert errors == []
-    with applied({}):  # luật gốc đầy đủ: tiết 1 có thể không do GVCN dạy
+    with applied({}):  # đủ các dòng mặc định: tiết 1 có thể không do GVCN dạy
         found = checker.check(sol.problem, sol.lessons)
     assert all("lớp học với GV chủ nhiệm" in e for e in found)
 
@@ -285,57 +283,49 @@ def test_composer_matches_the_old_checker(school, plain, campuses):
     assert len(hits) >= (10 if school == "nho" else 12), hits  # mọi luật có sẵn bắt buộc (một cơ sở: trừ co_so)
 
 
-@pytest.mark.parametrize("keys", [("lien_nhau", "tang_cuong", "lien_tiet", "gvcn_truoc"), ("nhom_buoi", "tiet_gvcn"),
-                                  ("hdtn_co_dinh", "hdtn_ngay", "hdtn_cuoi_buoi", "chi_gvcn", "ghep_cap")])
-def test_generic_lowering_replaces_the_native_one(keys):
-    """Tắt luật gốc và xếp chính các dòng đó bằng bộ ghép: TKB vẫn đúng mọi luật gốc."""
-    rows = [replace(r, row=i + 2) for i, r in enumerate(luat_co_san.default_rows())
-            if luat_co_san.native_of(r).key in keys]
-    sol, errors = _solve(OFF=frozenset(keys), CUSTOM_RULES=rows)
-    assert errors == []
-    with applied({"OFF": frozenset(), "CUSTOM_RULES": []}):
-        assert checker.check(sol.problem, sol.lessons) == []
+@pytest.mark.parametrize("school", ["nho", "co_so"])
+def test_solved_timetable_passes_the_hand_written_checks(school, plain, campuses):
+    """TKB xếp bằng bộ ghép đúng mọi luật có sẵn bắt buộc theo bộ kiểm tra viết tay (tests/kiem_tra_cu.py)."""
+    values, sol = ({}, plain) if school == "nho" else campuses
+    with applied(values):
+        assert {k: v for k, v in kiem_tra_cu.errors(sol.problem, sol.lessons).items() if v} == {}
 
 
-SHORTCUT_KEYS = ("hdtn_co_dinh", "hdtn_ngay", "hdtn_cuoi_buoi", "tiet_gvcn", "chi_gvcn", "ghep_cap")
-
-
-def _as_composer(keys, **changes):
-    """Tắt các luật gốc `keys` và ghi chính các dòng đó (sửa bằng `changes`) bằng câu bộ ghép."""
-    rows = [replace(r, row=i + 2, **changes) for i, r in enumerate(luat_co_san.default_rows())
-            if luat_co_san.native_of(r).key in keys]
-    return {"OFF": frozenset(keys), "CUSTOM_RULES": rows}
+def _with(key, **changes):
+    """Giá trị config: các dòng mặc định, dòng của luật có sẵn `key` sửa bằng `changes`."""
+    rows = [replace(r, row=i + 2, **(changes if luat_co_san.native_of(r).key == key else {}))
+            for i, r in enumerate(luat_co_san.default_rows())]
+    return luat_co_san.apply(rows)
 
 
 @pytest.mark.parametrize("school", ["nho", "mau"])
 def test_shortcuts_read_composer_rows(school):
-    """Luật HĐTN, GVCN, ghép cặp ghi bằng câu bộ ghép (luật gốc tắt): các đường tắt đọc câu đó nên bài toán như luật
-    gốc: course và ô cố định, ô được xếp của từng course, môn chỉ GVCN dạy, nhóm ghép cặp khi phân công."""
+    """Các đường tắt đọc câu bộ ghép của dòng HĐTN, GVCN, ghép cặp ra đúng nghĩa của luật (như bộ kiểm tra viết tay):
+    course và ô HĐTN cố định, ô lớp chỉ học với GVCN (cắt khỏi course không do GVCN dạy), môn chỉ GVCN dạy, nhóm ghép
+    cặp khi phân công."""
     staff, curriculum = (small_staff(), CURRICULUM) if school == "nho" else \
         (truong_mau.sample_staff(), truong_mau.CURRICULUM)
+    problem = allocation.build_problem(staff, curriculum, {})
+    hdtn = [c for c in problem.courses if c.subject == config.HDTN and c.fixed_slots]
+    assert hdtn and all(c.fixed_slots == tuple(sorted(config.HDTN_FIXED_SLOTS)) for c in hdtn)
+    first = [s for s in problem.slots if s[1] in config.HOMEROOM_PERIODS]
+    assert allocation.homeroom_periods_slots(problem.slots) == first
+    for c in problem.courses:  # không ai trong số người dạy được là GVCN của lớp
+        if all(problem.teachers[g].class_name != c.class_name for g in c.teachers):
+            assert not set(solver.allowed_slots(c, problem)) & set(first)
+    assert allocation.homeroom_only() == set(config.HOMEROOM_ONLY_SUBJECTS) != set()
+    pairs = {g: allocation.paired_groups(req, g, assignment=True) for g, req in curriculum.items()}
+    assert pairs == {g: kiem_tra_cu._pairs(req) for g, req in curriculum.items()} and any(pairs.values())
+    with applied({"CUSTOM_RULES": [r for r in config.CUSTOM_RULES if luat_co_san.native_of(r).key != "tiet_gvcn"]}):
+        assert allocation.homeroom_periods_slots(problem.slots) == []  # xóa dòng: không còn ô nào
 
-    def view():
-        problem = allocation.build_problem(staff, curriculum, {})
-        return ([(c.class_name, c.subject, c.lessons, c.homeroom, c.fixed_slots) for c in problem.courses],
-                [solver.allowed_slots(c, problem) for c in problem.courses], allocation.homeroom_only(),
-                {g: allocation.paired_groups(req, g, assignment=True) for g, req in curriculum.items()})
 
-    with applied(NATIVE):
-        native = view()
-    assert any(c[4] for c in native[0]) and native[2] and any(native[3].values())  # có HĐTN cố định, môn chỉ GVCN
-    with applied(_as_composer(SHORTCUT_KEYS)):
-        assert view() == native
-    assert view() == native  # mặc định: mọi luật xếp bằng bộ ghép
-
-
-def test_composer_precheck_counts_like_the_native_one():
-    """Phép đếm trước khi xếp: dòng "tối đa n tiết mỗi nhóm môn mỗi buổi" ghi bằng câu bộ ghép báo như luật gốc; dòng
-    Theo cặp mỗi buổi báo khi số cặp quá số buổi (trường mẫu: 32 tiết mỗi lớp, 16 cặp, 9 buổi)."""
+def test_composer_precheck_counts():
+    """Phép đếm trước khi xếp: dòng "tối đa n tiết mỗi nhóm môn mỗi buổi" báo khi số tiết quá sức chứa; dòng Theo cặp
+    mỗi buổi báo khi số cặp quá số buổi (trường mẫu: 32 tiết mỗi lớp, 16 cặp, 9 buổi)."""
     problem = allocation.build_problem(truong_mau.sample_staff(), truong_mau.CURRICULUM, {})
     assert chan_doan.precheck(problem) == []
-    with applied({**NATIVE, "SESSION_GROUP_LIMIT": 1}):
-        assert any("tối đa 1 × 9 buổi" in e for e in chan_doan.precheck(problem))
-    with applied(_as_composer(("nhom_buoi",), number=1)):
+    with applied(_with("nhom_buoi", number=1)):
         assert any("tối đa 1 × 9 buổi" in e for e in chan_doan.precheck(problem))
     pair = CustomRule("tu_ghep", scope=("lop", "buoi"), measure="cap", hard=True, row=2)  # mọi môn
     with applied({"CUSTOM_RULES": [pair]}):
@@ -344,13 +334,9 @@ def test_composer_precheck_counts_like_the_native_one():
 
 
 def test_homeroom_leave_follows_the_rule_row():
-    """GVCN không nghỉ được buổi có giờ luôn do GVCN dạy: theo luật gốc, theo câu bộ ghép cùng nghĩa; luật tắt thì
+    """GVCN không nghỉ được buổi có giờ luôn do GVCN dạy (dòng luật "Ở giờ có nhãn Luôn do GVCN dạy…"); xóa dòng thì
     nghỉ được."""
     cn = replace(small_staff(general=False)[0], off_sessions={(0, khung_gio.first_session_name())})
-    with applied(NATIVE):
-        assert any("không nghỉ buổi" in e for e in _check_extras([cn]))
-    with applied(_as_composer(("tiet_gvcn",))):
-        assert any("không nghỉ buổi" in e for e in _check_extras([cn]))
-    assert any("không nghỉ buổi" in e for e in _check_extras([cn]))  # mặc định
+    assert any("không nghỉ buổi sáng được vì tiết 1 luôn do GVCN dạy" in e for e in _check_extras([cn]))
     with applied({"CUSTOM_RULES": [r for r in config.CUSTOM_RULES if luat_co_san.native_of(r).key != "tiet_gvcn"]}):
         assert _check_extras([cn]) == []

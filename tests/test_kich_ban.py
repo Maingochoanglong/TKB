@@ -57,6 +57,12 @@ def test_new_scenario_is_the_blank_template(tmp_path):
     assert _values(tmp_path / "moi.xlsx") == _values(tmp_path / "mau.xlsx")
 
 
+def _native_key(rule) -> str | None:
+    """Khóa của luật có sẵn mà dòng là dạng gốc (None: dòng tự ghép)."""
+    native = luat_co_san.native_of(rule)
+    return native.key if native is not None else None
+
+
 def _row(scenario, native):
     """Dòng luật của kịch bản là dạng gốc của luật có sẵn `native`."""
     keys = [r["native"] for r in kich_ban.describe(scenario)["rules"]]
@@ -88,7 +94,7 @@ def test_rules_edited_in_the_scenario_reach_the_file(tmp_path):
     out = tmp_path / "ra.xlsx"
     kich_ban.to_excel(scenario, out)
     rules = read_rules(out)
-    assert rules["SESSION_GROUP_LIMIT"] == 3
+    assert next(r for r in rules["CUSTOM_RULES"] if _native_key(r) == "nhom_buoi").number == 3
     assert rules["DAYS"][-1] == "Thứ 7" and len(rules["DAY_SESSIONS"]) == 6
     assert bo_mau.TIENG_ANH in rules["MORNING_SUBJECTS"] and rules["DISPLAY_NAMES"][bo_mau.TIENG_ANH] == "TA"
 
@@ -245,8 +251,9 @@ def test_rules_only_file(tmp_path):
         {**{k: "" for k in kich_ban.RULE_KEYS}, "kind": "Không xếp vào", "subject": "Tin học", "days": "Thứ 2",
          "hard": True, "number": None, "level": None, "points": None, "off": False}]
     rules = read_rules(path)
-    keys = {n.key for r in rules["CUSTOM_RULES"] if (n := luat_co_san.native_of(r)) is not None}
-    assert rules["SESSION_GROUP_LIMIT"] == 3 and "tiet_trong" not in keys and len(keys) == len(config.OFF) - 1
+    keys = {_native_key(r) for r in rules["CUSTOM_RULES"]} - {None}
+    assert next(r for r in rules["CUSTOM_RULES"] if _native_key(r) == "nhom_buoi").number == 3
+    assert "tiet_trong" not in keys and len(keys) == len(luat_co_san.NATIVES) - len(luat_co_san.NATIVE_ONLY) - 1
 
 def test_rule_switched_off_on_the_page(tmp_path):
     """Ô Dùng của bước Luật: luật tạm tắt ghi Tạm tắt = Có ở sheet LUẬT, chương trình bỏ qua mà vẫn đọc lại được,
