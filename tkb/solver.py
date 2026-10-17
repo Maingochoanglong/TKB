@@ -23,6 +23,7 @@ from . import config
 from .allocation import (Course, Problem, as_specialist, build_problem, keep_cost, overtime_cost, paired_groups,
                          previous_cost, roles_for_subject, subject_group)
 from .bo_ghep import assign_cost
+from .lich_co_so import away
 from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
 from .staff import InputError, Teacher, grade_of, normalize
 
@@ -358,17 +359,35 @@ def timetable(problem: Problem, settings: config.Settings,
     """Xếp giờ. Phân công cố định: CP-SAT khởi đầu rồi xếp lại từng vùng (tkb/lns.py). Mô hình tích hợp (vừa
     phân công vừa xếp giờ, chỉ dùng dự phòng): một lần CP-SAT trong time_limit. keep: TKB cũ (xếp lại ít xáo
     trộn, _keep_previous)."""
-    tm = build_timetable(problem, settings, fixed, hint, keep)
     if fixed is not None:
-        from .lns import improve
+        from .lich_co_so import plan
+        from .lns import carry, improve
         start = time.time()
-        res = improve(tm, settings, log)
+        days = plan(problem, fixed, settings, log)
+        tm = build_timetable(problem, settings, fixed, hint, keep, campus_days=days or None)
+        res = improve(tm, settings, log, give_up=bool(days))
+        # Thời gian còn lại (không giới hạn: 0 như THOI_GIAN_TOI_DA)
+        rest = settings.time_limit - res.used if days and res is not None and settings.time_limit else 0
+        if days and res is not None and res.values is None:  # lịch không xếp được: xếp như thường, thời gian còn lại
+            log("  Không xếp được theo lịch cơ sở; xếp không theo lịch...")
+            tm = build_timetable(problem, settings, fixed, hint, keep)
+            res = improve(tm, replace(settings, time_limit=max(rest, 1) if settings.time_limit else 0), log)
+        elif (days and res is not None and res.stop not in ("Ctrl+C", "hết thời gian")
+              and (not settings.time_limit or rest >= 1)):
+            # Xếp tiếp từ TKB đó, bỏ lịch cơ sở: các vùng xếp lại được dời tiết qua ngày khác miễn không đổi cơ sở.
+            log("  Xếp tiếp không theo lịch cơ sở...")
+            free = build_timetable(problem, settings, fixed, hint, keep)
+            more = improve(free, replace(settings, time_limit=rest), log, initial=carry(tm, res.values, free))
+            if more is not None and more.objective <= res.objective:
+                more.history = res.history + more.history[1:]
+                tm, res = free, more
         if res is None:
             return None
         return Solution(problem=problem, status=res.status, lessons=tm.lessons(lambda v: res.values[v.Index()]),
                         objective=res.objective, best_bound=res.bound, wall_time=time.time() - start,
                         stage="phân công cố định, xếp lại từng vùng",
                         notes=[f"Xếp giờ: chi phí {' -> '.join(map(str, res.history))}; dừng: {res.stop}"])
+    tm = build_timetable(problem, settings, fixed, hint, keep)
     solver = cp_model.CpSolver()
     _configure(solver, settings, settings.time_limit)
     start = time.time()
@@ -409,20 +428,16 @@ def _teacher_leave(m: cp_model.CpModel, problem: Problem, occ_terms: dict) -> No
                 m.Add(sum(pool) >= need)
 
 
-def build_timetable(problem: Problem, settings: config.Settings,
-                    fixed: dict[tuple[int, str], int] | None = None,
-                    hint: dict[tuple[int, str], int] | None = None,
-                    keep: Previous | None = None) -> TimetableModel:
-    """Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights); keep: TKB cũ để xếp lại ít xáo trộn
-    (ô khóa cứng, mỗi ô đổi môn bị trừ điểm). Không có keep thì mô hình như cũ."""
-    w = settings.weights
-    m = cp_model.CpModel()
-    slots = problem.slots
-    alloc = _Allocation(m, problem, w, fixed)
-    objective = list(alloc.objective)
-
-    x: dict[tuple[int, tuple[int, int]], cp_model.IntVar] = {}
-    dom: dict[int, list[tuple[int, int]]] = {c.id: allowed_slots(c, problem) for c in problem.courses}
+def course_domains(problem: Problem, teachers_of: dict[int, list[str]] | None = None,
+                   campus_days: dict[str, dict[int, int]] | None = None) -> dict[int, list[tuple[int, int]]]:
+    """Course -> các giờ được xếp (allowed_slots; các lớp của nhóm ghép lớp: giờ chung của cả nhóm). campus_days
+    (lịch cơ sở, tkb/lich_co_so.py; teachers_of: người dạy của từng course): bỏ ngày người dạy duy nhất của course ở
+    cơ sở khác."""
+    dom = {c.id: allowed_slots(c, problem) for c in problem.courses}
+    for c in problem.courses if campus_days else ():
+        cand = teachers_of[c.id]
+        if len(cand) == 1 and not c.fixed_slots:
+            dom[c.id] = [s for s in dom[c.id] if not away(problem, campus_days, c.id, cand[0], s[0])]
     for lead, members in problem.merge_groups().items():  # ghép lớp: các lớp của nhóm học ở giờ chung của cả nhóm
         common = [s for s in dom[lead] if all(s in dom[cid] for cid in members)]
         if len(common) < problem.courses[lead].lessons:
@@ -431,6 +446,25 @@ def build_timetable(problem: Problem, settings: config.Settings,
                              f"{len(common)} giờ học hợp lệ")
         for cid in members:
             dom[cid] = common
+    return dom
+
+
+def build_timetable(problem: Problem, settings: config.Settings,
+                    fixed: dict[tuple[int, str], int] | None = None,
+                    hint: dict[tuple[int, str], int] | None = None,
+                    keep: Previous | None = None,
+                    campus_days: dict[str, dict[int, int]] | None = None) -> TimetableModel:
+    """Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights); keep: TKB cũ để xếp lại ít xáo trộn
+    (ô khóa cứng, mỗi ô đổi môn bị trừ điểm); campus_days: lịch cơ sở (tkb/lich_co_so.py), GV không dạy ở cơ sở khác
+    trong ngày. Không có keep, campus_days thì mô hình như cũ."""
+    w = settings.weights
+    m = cp_model.CpModel()
+    slots = problem.slots
+    alloc = _Allocation(m, problem, w, fixed)
+    objective = list(alloc.objective)
+
+    x: dict[tuple[int, tuple[int, int]], cp_model.IntVar] = {}
+    dom = course_domains(problem, alloc.teachers_of, campus_days)
     for c in problem.courses:
         if c.lead is not None:  # lớp theo dùng chung biến với lớp chính
             for s in dom[c.id]:
@@ -489,6 +523,8 @@ def build_timetable(problem: Problem, settings: config.Settings,
                 z[c.id, g, s] = v
                 zs.append(v)
                 occupy(c.id, g, s, v)
+                if campus_days and away(problem, campus_days, c.id, g, s[0]):  # lịch cơ sở: ngày đó ở cơ sở khác
+                    m.Add(v == 0)
             m.Add(sum(zs) == x[c.id, s])
         for g in cand:
             m.Add(sum(z[c.id, g, s] for s in dom[c.id]) == alloc.a[c.id, g])

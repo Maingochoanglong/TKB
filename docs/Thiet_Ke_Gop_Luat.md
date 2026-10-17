@@ -316,6 +316,62 @@ Mọi lần xếp đều 0 lỗi luật bắt buộc.
 - **Đo:** mô hình CP-SAT (băm toàn bộ mô hình, số biến, số ràng buộc) và mã kết quả trùng PR D trên trường nhỏ (hai
   chế độ), trường mẫu (bù giờ, 60), trường ba cơ sở của test và file của trường (bù giờ, 60). Mã kết quả không đổi.
 
+### 3.8 Lịch cơ sở theo ngày (sau PR E)
+
+- **Vấn đề còn lại (mục 3.6):** vòng xếp lại không gỡ được lần đổi cơ sở của người gần kín tuần. Muốn gỡ thì phải sắp
+  lại cả tuần của người đó cùng lúc, mà bước nhỏ nào cũng chưa giảm điểm.
+- **Anh/chị quyết (17/10):** GV dạy ở hai cơ sở là tất yếu. Không đổi phân công, chỉ không cho chuyển cơ sở trong buổi
+  (đã là luật bắt buộc) hay trong ngày. Chọn cách thêm một bước lập lịch cơ sở trước khi xếp giờ.
+- **Cách làm** (`tkb/lich_co_so.py`):
+  - **Bài toán đếm** (CP-SAT, không xếp vào giờ cụ thể, 5 đơn vị thời gian tất định, khoảng 6 giây):
+    - biến: số tiết của mỗi (course, người dạy) mỗi ngày; với mỗi GV dạy ở từ hai cơ sở trở lên, mỗi ngày ở cơ sở
+      nào. Mỗi ngày tối đa một cơ sở là ràng buộc cứng.
+    - ràng buộc: đủ tiết; số tiết mỗi ngày của course, của lớp không quá số giờ được xếp; các luật bắt buộc "tối đa n
+      tiết mỗi ngày (buổi)" của lớp (`bo_ghep.day_caps`, vd tối đa 1 tiết Toán mỗi ngày); số tiết mỗi ngày của GV không
+      quá số giờ người đó dạy được (trừ buổi nghỉ cố định). Tiết bù tính cho cả người mới và người bù.
+    - mục tiêu: rải đều tiết của từng course và tải ngày của GV, như các luật ưu tiên. Kế hoạch dồn lệch ngày thường
+      không xếp được thành giờ.
+  - **Xếp giờ theo kế hoạch:** ngày người dạy ở cơ sở khác bị bỏ khỏi miền của course có một người dạy
+    (`solver.course_domains`); course nhiều người dạy thì cấm biến người–giờ đó (`build_timetable`). Vòng xếp lại giữ
+    nguyên các ràng buộc này.
+  - **Khi nào không dùng:** trường một cơ sở; sheet LUẬT không có dòng "hạn chế đổi cơ sở trong ngày"; bài toán đếm
+    không có nghiệm (đã chứng minh phải có ngày đổi cơ sở, vd trường ba cơ sở của test). Khi đó xếp như trước, luật
+    ưu tiên lo phần còn lại.
+  - **Kế hoạch không xếp được thành giờ** (bước khởi đầu không ra nghiệm, `lns.improve(give_up=True)`): xếp lại không
+    theo kế hoạch với phần thời gian còn lại.
+  - **Xếp tiếp không theo kế hoạch:** vòng xếp lại theo kế hoạch dừng (một vòng giảm chưa tới 0,3 %) mà còn thời gian
+    thì dựng lại mô hình không có kế hoạch, bắt đầu từ chính TKB đó (`lns.carry`, `improve(initial=)`: giữ mọi biến
+    x, z, CP-SAT chỉ tính các biến của mục tiêu) và xếp lại tiếp với phần thời gian còn lại. Vòng xếp lại chỉ nhận
+    nghiệm tốt hơn, nên không thêm lần đổi cơ sở nào trừ khi lợi hơn 10 000 điểm; nó dời được tiết sang ngày mà kế
+    hoạch cấm, miễn không đổi cơ sở.
+- **Đã thử và bỏ:**
+  - Đổi cơ sở là mục tiêu mềm của bài toán đếm (thay vì cứng): cần khoảng 60 đơn vị mới tốt.
+  - Lấy nghiệm đầu tiên, không mục tiêu: kế hoạch dồn lệch ngày, xếp giờ không có nghiệm.
+  - Thiếu luật "tối đa 1 tiết Toán mỗi ngày" trong bài đếm: kế hoạch không xếp được. Nên thêm `bo_ghep.day_caps`.
+  - Cho một số ngày đổi cơ sở khi không thể mỗi ngày một cơ sở: ngày đó vẫn phải theo luật "mỗi buổi một cơ sở", mà
+    bài đếm theo ngày không bảo đảm được, nên kế hoạch thường không xếp được. Bỏ: không lập kế hoạch.
+- **Đo** (như mục 3.6: hằng số `main.py`, 10 hạt giống, file của trường; mọi lần 0 lỗi luật bắt buộc):
+
+  | | PR E | Theo kế hoạch | Theo kế hoạch rồi xếp tiếp không theo (giữ) |
+  |---|---|---|---|
+  | Điểm trừ trung bình | 40 805 | 37 122 | **35 771** |
+  | Thấp nhất – cao nhất | 34 110 – 54 080 | 35 640 – 39 000 | 33 840 – 36 740 |
+  | Số lần đổi cơ sở (số lần xếp có) | 6 (5/10) | 0 | **0** |
+  | Trung bình không tính đổi cơ sở | 34 805 | 37 122 | 35 771 (+2,8 %) |
+
+  - Điểm của từng lần (hạt giống 0–9):
+    - theo kế hoạch: 37 440, 37 780, 37 480, 39 000, 37 180, 37 360, 35 780, 35 640, 36 880, 36 680;
+    - rồi xếp tiếp: 35 520, 36 740, 36 080, 35 880, 35 580, 36 110, 35 780, 33 840, 35 500, 36 680.
+  - **Theo kế hoạch:** bước khởi đầu tốt hơn nhiều (49 000–60 000 thay vì 140 000–200 000), nhưng các vòng xếp lại dừng
+    sớm (vòng giảm chưa tới 0,3 %), còn thừa thời gian. Phần điểm của các luật khác cao hơn 6,7 %: kế hoạch chọn ngày
+    cho GV dạy nhiều cơ sở mà chưa biết các luật khác (môn buổi sáng, tải ngày).
+  - **Xếp tiếp không theo kế hoạch** dùng phần thời gian còn thừa, kéo phần đó về +2,8 % so với các lần của PR E (các lần
+    đó có đổi cơ sở, nên nhẹ hơn ở các luật khác). Cả 10 lần vẫn không đổi cơ sở. Thời gian như PR E (dừng vì hết
+    thời gian).
+  - So với cách cũ (mã riêng, 38 541 điểm, 4 lần đổi cơ sở): thấp hơn 7,2 %.
+- **Mã kết quả:** đổi với trường nhiều cơ sở có dòng luật này (file của trường). Trường một cơ sở (trường nhỏ, trường
+  mẫu) giữ mã: không có kế hoạch thì mô hình như cũ.
+
 ## 4. Thiết kế
 
 ### 4.1 Luật có sẵn chỉ là dòng mẫu
@@ -413,6 +469,7 @@ Các việc ngoài mô hình hiện đọc `config` sẽ đọc dòng luật qua
 | **C. Bộ kiểm tra theo bộ ghép** | Mục 4.4; test đối chiếu với hàm cũ | Giữ |
 | **D. Chuyển mô hình** | Tìm và sửa chỗ yếu "đổi cơ sở" (mục 3.5); `luat_co_san.apply` đưa mọi dòng vào `CUSTOM_RULES`; tắt mọi khối mã riêng; `lns.qa`; chẩn đoán; `--no-student-rules`; đo đủ ngưỡng mục 5.2 (ba hạt giống) | **Đổi** |
 | **E. Dọn code** | Xóa khối mã riêng, `config.OFF`/`WEIGHTS`/tham số luật; tài liệu (README, đặc tả, CLAUDE.md), CODE_MAP, file mẫu | Giữ (như D) |
+| **F. Lịch cơ sở theo ngày** | Mục 3.8: `tkb/lich_co_so.py`, xếp giờ theo kế hoạch rồi xếp tiếp không theo; đo 10 hạt giống | **Đổi** (trường nhiều cơ sở) |
 
 Công cụ đo đi cùng PR này. Mỗi PR B–E chạy lại công cụ trên ba trường và ghi số vào mô tả PR.
 

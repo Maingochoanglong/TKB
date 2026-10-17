@@ -34,7 +34,7 @@ from .staff import class_sort_key, grade_key, grade_of
 
 @dataclass
 class LnsResult:
-    values: list[int]  # giá trị mọi biến của nghiệm tốt nhất (theo chỉ số biến)
+    values: list[int] | None  # giá trị mọi biến của nghiệm tốt nhất (theo chỉ số biến); None: bỏ (improve give_up)
     objective: float
     bound: float  # cận dưới của bước khởi đầu
     status: str  # "OPTIMAL" nếu bước khởi đầu đã chứng minh tối ưu, không thì "FEASIBLE"
@@ -162,8 +162,22 @@ class _Search:
         return out
 
 
-def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) -> LnsResult | None:
-    """Khởi đầu + các vòng QA -> LNS (xem đầu module). None nếu không tìm được TKB nào."""
+def carry(old: TimetableModel, values: list[int], new: TimetableModel) -> dict[int, int]:
+    """Nghiệm của mô hình `old` thành giá trị các biến quyết định (x, z) của mô hình `new` dựng trên cùng bài toán, miền
+    rộng hơn (vd bỏ lịch cơ sở): biến không có ở `old` là 0."""
+    out = {}
+    for name in ("x", "z"):
+        before = getattr(old, name)
+        for key, v in getattr(new, name).items():
+            out[v.Index()] = values[before[key].Index()] if key in before else 0
+    return out
+
+
+def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None,
+            give_up: bool = False, initial: dict[int, int] | None = None) -> LnsResult | None:
+    """Khởi đầu + các vòng QA -> LNS (xem đầu module). None nếu không tìm được TKB nào. give_up: bước khởi đầu không
+    ra nghiệm thì dừng luôn, trả kết quả values None, used = ngân sách đã dùng (mô hình theo lịch cơ sở,
+    solver.timetable xếp lại không theo lịch). initial (`carry`): khởi đầu từ TKB này thay cho CP-SAT khởi đầu."""
     search = _Search(tm, settings, log)
     total = settings.time_limit if settings.time_limit else math.inf
     unlimited = math.isinf(total)
@@ -177,7 +191,17 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None) 
     main_thread = threading.current_thread() is threading.main_thread()
     old_handlers = {sig: signal.signal(sig, on_sigint) for sig in signals} if main_thread else {}
     try:
-        status, best, values, bound, solver = search.solve(tm.model, start)
+        if initial is not None:  # TKB có sẵn: giữ mọi biến quyết định, chỉ tính các biến của mục tiêu
+            m = tm.model.clone()
+            for i, v in initial.items():  # x, z là biến 0/1: miền [0, 1]
+                dom = m.proto.variables[i].domain
+                dom[0] = dom[1] = v
+            status, best, values, bound, solver = search.solve(m, start)
+            status = cp_model.FEASIBLE
+        else:
+            status, best, values, bound, solver = search.solve(tm.model, start)
+        if values is None and give_up:
+            return LnsResult(None, math.inf, math.inf, "", used=search.used, stop="khởi đầu không ra nghiệm")
         if values is None:
             # Khởi đầu chưa ra nghiệm: giải tiếp toàn mô hình với phần ngân sách còn lại, như cách cũ.
             status, best, values, bound, solver = search.solve(tm.model, None if unlimited else total - search.used)
