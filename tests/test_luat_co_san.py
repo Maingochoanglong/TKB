@@ -6,8 +6,11 @@ from dataclasses import replace
 import openpyxl
 import pytest
 
-from tkb import bo_ghep, bo_mau, checker, config, luat_co_san, luat_rieng, solver
+from tkb import allocation, bo_ghep, bo_mau, chan_doan, checker, config, khung_gio, luat_co_san, luat_rieng, solver
+from tkb import truong_mau
+from tkb.config import CustomRule
 from tkb.rules import DEFAULTS, applied, code, read_rules
+from tkb.staff import _check_extras
 from tkb.template import write_staff_template
 
 from .conftest import CURRICULUM, small_staff
@@ -229,7 +232,8 @@ def test_cross_check_with_the_checker(plain):
     assert hits >= 5
 
 
-@pytest.mark.parametrize("keys", [("lien_nhau", "tang_cuong", "lien_tiet", "gvcn_truoc"), ("nhom_buoi", "tiet_gvcn")])
+@pytest.mark.parametrize("keys", [("lien_nhau", "tang_cuong", "lien_tiet", "gvcn_truoc"), ("nhom_buoi", "tiet_gvcn"),
+                                  ("hdtn_co_dinh", "hdtn_ngay", "hdtn_cuoi_buoi", "chi_gvcn", "ghep_cap")])
 def test_generic_lowering_replaces_the_native_one(keys):
     """Tắt luật gốc và xếp chính các dòng đó bằng bộ ghép: TKB vẫn đúng mọi luật gốc."""
     rows = [replace(r, row=i + 2) for i, r in enumerate(luat_co_san.default_rows())
@@ -238,3 +242,58 @@ def test_generic_lowering_replaces_the_native_one(keys):
     assert errors == []
     with applied({"OFF": frozenset(), "CUSTOM_RULES": []}):
         assert checker.check(sol.problem, sol.lessons) == []
+
+
+SHORTCUT_KEYS = ("hdtn_co_dinh", "hdtn_ngay", "hdtn_cuoi_buoi", "tiet_gvcn", "chi_gvcn", "ghep_cap")
+
+
+def _as_composer(keys, **changes):
+    """Tắt các luật gốc `keys` và ghi chính các dòng đó (sửa bằng `changes`) bằng câu bộ ghép."""
+    rows = [replace(r, row=i + 2, **changes) for i, r in enumerate(luat_co_san.default_rows())
+            if luat_co_san.native_of(r).key in keys]
+    return {"OFF": frozenset(keys), "CUSTOM_RULES": rows}
+
+
+@pytest.mark.parametrize("school", ["nho", "mau"])
+def test_shortcuts_read_composer_rows(school):
+    """Luật HĐTN, GVCN, ghép cặp ghi bằng câu bộ ghép (luật gốc tắt): các đường tắt đọc câu đó nên bài toán như luật
+    gốc: course và ô cố định, ô được xếp của từng course, môn chỉ GVCN dạy, nhóm ghép cặp khi phân công."""
+    staff, curriculum = (small_staff(), CURRICULUM) if school == "nho" else \
+        (truong_mau.sample_staff(), truong_mau.CURRICULUM)
+
+    def view():
+        problem = allocation.build_problem(staff, curriculum, {})
+        return ([(c.class_name, c.subject, c.lessons, c.homeroom, c.fixed_slots) for c in problem.courses],
+                [solver.allowed_slots(c, problem) for c in problem.courses], allocation.homeroom_only(),
+                {g: allocation.paired_groups(req, g, assignment=True) for g, req in curriculum.items()})
+
+    native = view()
+    assert any(c[4] for c in native[0]) and native[2] and any(native[3].values())  # có HĐTN cố định, môn chỉ GVCN
+    with applied(_as_composer(SHORTCUT_KEYS)):
+        assert view() == native
+
+
+def test_composer_precheck_counts_like_the_native_one():
+    """Phép đếm trước khi xếp: dòng "tối đa n tiết mỗi nhóm môn mỗi buổi" ghi bằng câu bộ ghép báo như luật gốc; dòng
+    Theo cặp mỗi buổi báo khi số cặp quá số buổi (trường mẫu: 32 tiết mỗi lớp, 16 cặp, 9 buổi)."""
+    problem = allocation.build_problem(truong_mau.sample_staff(), truong_mau.CURRICULUM, {})
+    assert chan_doan.precheck(problem) == []
+    with applied({"SESSION_GROUP_LIMIT": 1}):
+        assert any("tối đa 1 × 9 buổi" in e for e in chan_doan.precheck(problem))
+    with applied(_as_composer(("nhom_buoi",), number=1)):
+        assert any("tối đa 1 × 9 buổi" in e for e in chan_doan.precheck(problem))
+    pair = CustomRule("tu_ghep", scope=("lop", "buoi"), measure="cap", hard=True, row=2)  # mọi môn
+    with applied({"CUSTOM_RULES": [pair]}):
+        found = chan_doan.precheck(problem)
+    assert any("lớp 1/1 có 32 tiết/tuần, cần 16 buổi có từ 2 tiết nhưng khung giờ chỉ có 9 buổi" in e for e in found)
+
+
+def test_homeroom_leave_follows_the_rule_row():
+    """GVCN không nghỉ được buổi có giờ luôn do GVCN dạy: theo luật gốc, theo câu bộ ghép cùng nghĩa; luật tắt thì
+    nghỉ được."""
+    cn = replace(small_staff(general=False)[0], off_sessions={(0, khung_gio.first_session_name())})
+    assert any("không nghỉ buổi" in e for e in _check_extras([cn]))
+    with applied(_as_composer(("tiet_gvcn",))):
+        assert any("không nghỉ buổi" in e for e in _check_extras([cn]))
+    with applied({"OFF": frozenset({"tiet_gvcn"})}):
+        assert _check_extras([cn]) == []

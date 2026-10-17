@@ -242,7 +242,11 @@ together; TKB cell "Thể dục (ghép 3/2)", teacher cell "3/1, 3/2"; UI cells 
 "Không xếp vào" with a teacher and no subject; both in `phan_cong.teacher_slots`), `allowed`/`refusing` (hard
 "Người dạy: Do" without slots filters eligible teachers in `allocation.build_problem`; one Mã GV + class = forced
 assignment), `assign_cost` (soft one:
-`phan_cong._flow`, `_Local._part`, `solver._Allocation`), `validate`/`precheck`. Diagnosis (`chan_doan._rules`) tries
+`phan_cong._flow`, `_Local._part`, `solver._Allocation`), `validate`/`precheck` (also capacity per class and
+day/session, pairs per session), and composer rows with a native's meaning (so natives can be replaced): `fixed_slots`
+(HĐTN fixed course, `allocation.hdtn_fixed_slots`), `homeroom_slots` (`allocation.homeroom_periods_slots`, domain cut in
+`allowed_slots`, GVCN leave check), `homeroom_subjects` (`homeroom_only`), `paired_by_group` (the assignment's
+`paired_groups(..., assignment=True)`; the model lowers that row itself). Diagnosis (`chan_doan._rules`) tries
 dropping each hard row (native: `OFF`; daily: drop the subject; composer: drop from `CUSTOM_RULES`) and names rows as
 `LUẬT dòng n: <sentence>` (`luat_rieng.label`). Sentences show Mã GV, never names: `bo_ghep.know_staff(staff)` fills
 `config.PEOPLE` (name/code → Mã GV; not a rule, restored by `rules.applied`) after the staff is read in `__main__._run`

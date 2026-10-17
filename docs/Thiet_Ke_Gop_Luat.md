@@ -284,7 +284,7 @@ Các việc ngoài mô hình hiện đọc `config` sẽ đọc dòng luật qua
 | Ngày HĐTN linh hoạt | `HDTN_FLEX_DAYS` | `banned` (đã có): luật Vị trí bắt buộc không xét GV |
 | Tiết luôn do GVCN (`allowed_slots`, `homeroom_slots`, `staff`) | `HOMEROOM_PERIODS` khi `on("tiet_gvcn")` | `bo_ghep.homeroom_slots()`: luật Người dạy "Do" Chủ Nhiệm bắt buộc có ô, không môn |
 | Môn chỉ GVCN dạy (`homeroom_only`) | `HOMEROOM_ONLY_SUBJECTS` khi `on("chi_gvcn")` | `allowed` (đã có) + môn có nhãn Chỉ GVCN dạy của dòng |
-| Nhóm ghép cặp (`paired_groups`, phân công giữ số tiết chẵn) | `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `forced_pairs` mở rộng: phạm vi có Nhóm môn, cột Áp dụng khi, nhãn trừ (thiếu thì file của trường không xếp được, mục 3.2) |
+| Nhóm ghép cặp (`paired_groups`, phân công giữ số tiết chẵn) | `PAIR_MIN_LESSONS`, `PAIR_EXCLUDED` | `bo_ghep.paired_by_group`: luật Theo cặp bắt buộc phạm vi (lớp, nhóm môn, buổi), tính cột Áp dụng khi theo nhóm, bỏ nhóm có môn bị trừ; chỉ cho phân công, mô hình tự hạ dòng này (thiếu thì file của trường không xếp được, mục 3.2) |
 | Phép đếm trước khi xếp (`precheck`) | `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, nhóm ghép cặp | `bo_ghep.precheck` mở rộng: Số tiết "Tối đa n" theo (lớp, đơn vị thời gian) → sức chứa cả tuần; ghép cặp cần buổi ≥ 2 tiết |
 
 ### 4.4 Bộ kiểm tra
@@ -333,7 +333,7 @@ Các việc ngoài mô hình hiện đọc `config` sẽ đọc dòng luật qua
 | PR | Nội dung | Mã kết quả |
 |---|---|---|
 | **A. Bộ ghép đúng nghĩa, gọn** | Mục 4.2: tiết bù cho luật theo GV, nhóm không thể vi phạm, `any` một ràng buộc, lưu bản dịch luật; test | Giữ, trừ file có luật tự ghép theo GV có tiết bù, hoặc có luật Số khác nhau / Khoảng cách |
-| **B. Đường tắt đọc câu bộ ghép** | Mục 4.3: `fixed_slots`, `homeroom_slots`, `forced_pairs` mở rộng, `precheck` mở rộng; dòng có sẵn vẫn xếp bằng mã riêng | Giữ |
+| **B. Đường tắt đọc câu bộ ghép** | Mục 4.3: `fixed_slots`, `homeroom_slots`, `homeroom_subjects`, `paired_by_group`, `precheck` mở rộng; dòng có sẵn vẫn xếp bằng mã riêng | Giữ |
 | **C. Bộ kiểm tra theo bộ ghép** | Mục 4.4; test đối chiếu với hàm cũ | Giữ |
 | **D. Chuyển mô hình** | Tìm và sửa chỗ yếu "đổi cơ sở" (mục 3.5); `luat_co_san.apply` đưa mọi dòng vào `CUSTOM_RULES`; tắt mọi khối mã riêng; `lns.qa`; chẩn đoán; `--no-student-rules`; đo đủ ngưỡng mục 5.2 (ba hạt giống) | **Đổi** |
 | **E. Dọn code** | Xóa khối mã riêng, `config.OFF`/`WEIGHTS`/tham số luật; tài liệu (README, đặc tả, CLAUDE.md), CODE_MAP, file mẫu | Giữ (như D) |
