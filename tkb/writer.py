@@ -24,6 +24,7 @@ from .solver import Solution, session_of
 from .staff import (CAMPUS1, CAMPUS2, Teacher, _find_columns, _fold, class_sort_key, clean_name, find_sheet, grade_key,
                     grade_of, is_total_row, normalize, staff_sheet)
 from .style import CellStyle, Style
+from .program import is_subject_head
 from .rules import code as rules_code, subject_columns
 from . import luat_rieng
 from .template import (GUIDE_SHEET, write_classes_sheet, write_guide, write_luat_sheet, write_roles_sheet,
@@ -750,7 +751,7 @@ def _add_subject_rules(wb) -> None:
     if ws is None:
         return
     found = next(((r, c) for r in range(1, min(ws.max_row, 20) + 1) for c in range(1, ws.max_column + 1)
-                  if normalize(ws.cell(r, c).value or "") == "môn học"), None)
+                  if is_subject_head(ws.cell(r, c).value)), None)
     if found is None:
         return
     header_row, key_col = found
