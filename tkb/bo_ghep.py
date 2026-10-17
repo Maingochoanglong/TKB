@@ -368,8 +368,20 @@ def _classes(written: tuple[str, ...]) -> frozenset[str] | None:
     return frozenset(c for name in written for c in tags.get(_fold(name), (name,))) or None
 
 
+_compiled: tuple = ((), [])  # (giá trị config lúc dịch, các luật đã dịch)
+
+
 def compiled() -> list[Luat]:
-    return [make(r) for r in config.CUSTOM_RULES]
+    """config.CUSTOM_RULES đã dịch (make). Dịch lại chỉ khi một giá trị của config đã đổi: rules.applied luôn thay cả
+    đối tượng, nên so theo đối tượng là đủ (như staff.class_tags). Tầng phân công hỏi hàng chục nghìn lần mỗi lần
+    xếp."""
+    global _compiled
+    now = tuple(v for k, v in vars(config).items() if k.isupper())
+    seen, rules = _compiled
+    if len(now) != len(seen) or any(a is not b for a, b in zip(now, seen)):
+        rules = [make(r) for r in config.CUSTOM_RULES]
+        _compiled = (now, rules)
+    return rules
 
 
 def weight(L: Luat, w: config.Weights) -> int:
@@ -445,10 +457,11 @@ def _key(dim: str, a: Atom, problem):
 class _Source:
     """Các tiết có thể có (mỗi course × ô trong miền × GV): từ biến của mô hình, hoặc từ một TKB."""
 
-    def __init__(self, problem, dom: dict[int, list], lit, teachers_of, extra=(), relabel=None):
+    def __init__(self, problem, dom: dict[int, list], lit, teachers_of, extra=(), relabel=None, both=False):
         from .solver import session_of
         self.problem, self.dom, self.lit, self.teachers_of, self.extra = problem, dom, lit, teachers_of, extra
         self.relabel = relabel or {}  # (course, GV trong mô hình) -> GV tính cho luật (người bù, Problem.covers)
+        self.both = both  # True: tiết bù tính cho cả người mới và người bù (như occ_terms của solver)
         self.sess = session_of()
 
     def atoms(self, L: Luat, subjects=_ALL, skip=None) -> list[Atom]:
@@ -471,20 +484,20 @@ class _Source:
                                     copy=copy))
                     continue
                 for g in self.teachers_of(c.id):
-                    t = self.relabel.get((c.id, g), g)
-                    if not ok[t]:
-                        continue
-                    out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name, t,
-                                    copy=copy))
+                    cover = self.relabel.get((c.id, g))
+                    for t in (g, cover) if self.both and cover else (cover or g,):
+                        if ok[t]:
+                            out.append(Atom(self.lit(c.id, g, s), c.class_name, c.grade, c.subject, s[0], s[1], name,
+                                            t, copy=copy))
         return out
 
 
-def _cp_source(problem, x, z, dom, teachers_of, relabel=None) -> _Source:
+def _cp_source(problem, x, z, dom, teachers_of, relabel=None, both=False) -> _Source:
     def lit(cid, g, s):
         if g is None or len(teachers_of[cid]) == 1:
             return x[cid, s]
         return z[cid, g, s]
-    return _Source(problem, dom, lit, lambda cid: teachers_of[cid], relabel=relabel)
+    return _Source(problem, dom, lit, lambda cid: teachers_of[cid], relabel=relabel, both=both)
 
 
 def _domains(problem) -> dict[int, list]:
@@ -498,7 +511,7 @@ def _domains(problem) -> dict[int, list]:
     return out
 
 
-def _eval_source(problem, lessons, dom=None) -> _Source:
+def _eval_source(problem, lessons, dom=None, relabel=None, both=False) -> _Source:
     dom = _domains(problem) if dom is None else dom
     placed = {(les.course_id, (les.day, les.period)) for les in lessons}
     taught = {(les.course_id, (les.day, les.period), les.teacher) for les in lessons}
@@ -510,7 +523,7 @@ def _eval_source(problem, lessons, dom=None) -> _Source:
 
     def lit(cid, g, s):
         return int((cid, s) in placed) if g is None else int((cid, s, g) in taught)
-    return _Source(problem, dom, lit, lambda cid: sorted(by_course.get(cid, ())), extra)
+    return _Source(problem, dom, lit, lambda cid: sorted(by_course.get(cid, ())), extra, relabel, both)
 
 
 def _groups(L: Luat, atoms: list[Atom], problem, all_keys: bool) -> list[tuple[tuple, list[Atom]]]:
@@ -616,9 +629,7 @@ class _Cp:
         if len(lits) == 1:
             return Atom(lits[0])
         b = self.m.NewBoolVar(f"luat{self.i}_co")
-        for v in lits:
-            self.m.AddImplication(v, b)
-        self.m.Add(b <= sum(lits))
+        self.m.AddMaxEquality(b, lits)
         return Atom(b)
 
     def excess(self, pos: list[Atom], n: int, neg: list[Atom] = ()) -> Atom:
@@ -735,6 +746,8 @@ def _so_khac(ctx, L, problem, src):
         by: dict = defaultdict(list)
         for a in group:
             by[_key(L.count_by, a, problem)].append(a)
+        if L.op == "<=" and len(by) <= L.number:
+            continue  # nhóm không thể có quá L.number giá trị khác nhau (vd trường chỉ có một cơ sở)
         terms = [ctx.any(by[v]) for v in sorted(by, key=repr)]
         text = (lambda v, key=key: f"{_where(L, key, problem)}: {v} {unit} khác nhau ({OPS[L.op].lower()} "
                                    f"{L.number})")
@@ -1160,40 +1173,50 @@ def build(m, problem, x: dict, z: dict, dom: dict, teachers_of: dict, w: config.
     if not rules:
         return []
     ctx, src = _Cp(m, w), _cp_source(problem, x, z, dom, teachers_of)
-    # Tiết bù do người mới dạy (Problem.covers) ở chế độ bù giờ là tiết của người bù, cùng ô: luật bắt buộc theo GV
-    # phải đúng cả khi tính các tiết đó cho người bù.
+    # Tiết bù do người mới dạy (Problem.covers) cùng ô với tiết của người bù: chế độ tuyển thêm người mới dạy, chế độ
+    # bù giờ người bù dạy. Luật bắt buộc theo GV phải đúng cả hai cách tính (hạ hai lần); luật ưu tiên đếm theo từng GV
+    # tính tiết đó cho cả hai người một lần, như lịch GV của solver (occ_terms), nên hai chế độ cùng một mục tiêu.
     covered = _cp_source(problem, x, z, dom, teachers_of, relabel=problem.covers) if problem.covers else None
+    both = _cp_source(problem, x, z, dom, teachers_of, relabel=problem.covers, both=True) if problem.covers else src
     for i, L in enumerate(rules):
         if forced(L) or (_ban(L) is not None and L.measure == "vi_tri") or L.merge:
             continue  # ghép lớp: các lớp của nhóm dùng chung biến (solver.build_timetable)
         ctx.use(L, i)
-        LOWER[L.measure](ctx, L, problem, src)
+        LOWER[L.measure](ctx, L, problem, both if not L.hard and _per_teacher(L) else src)
         if covered is not None and L.hard and L.teacher() and L.measure != "nguoi_day":
             LOWER[L.measure](ctx, L, problem, covered)
     return ctx.objective
 
 
+def _per_teacher(L: Luat) -> bool:
+    """Luật đếm theo từng GV (phạm vi hay cột Đếm theo có GV), trừ phép đo Người dạy."""
+    return L.measure != "nguoi_day" and ("gv" in L.scope or L.count_by == "gv")
+
+
 def violations(problem, lessons, hard: bool | None = None, dom=None, rules: list[CustomRule] | None = None,
-               skip_forced: bool = True) -> list[tuple[Luat, int, list, str]]:
+               skip_forced: bool = True, covers: bool = False) -> list[tuple[Luat, int, list, str]]:
     """Các lần không theo luật (mặc định: config.CUSTOM_RULES) của một TKB: (luật, số lần, các (lớp, ngày) liên
-    quan, mô tả). Luật theo cặp bắt buộc của cả lớp do checker kiểm như các nhóm ghép cặp khác (skip_forced)."""
+    quan, mô tả). Luật theo cặp bắt buộc của cả lớp do checker kiểm như các nhóm ghép cặp khác (skip_forced).
+    covers: TKB của mô hình (tiết bù còn ghi người mới): luật ưu tiên đếm theo GV tính tiết bù cho cả người bù, như
+    mục tiêu trong `build`; TKB đã xong thì không (mỗi tiết đếm cho người thật sự dạy)."""
     luats = [make(r) for r in (config.CUSTOM_RULES if rules is None else rules)]
     luats = [L for L in luats if hard is None or L.hard == hard]
     if not luats:
         return []
     ctx, src = _Eval(), _eval_source(problem, lessons, dom)
+    both = _eval_source(problem, lessons, dom, problem.covers, both=True) if covers and problem.covers else src
     for i, L in enumerate(luats):
         if skip_forced and forced(L):
             continue
         ctx.use(L, i)
-        LOWER[L.measure](ctx, L, problem, src)
+        LOWER[L.measure](ctx, L, problem, both if not L.hard and _per_teacher(L) else src)
     return ctx.found
 
 
 def qa(problem, lessons, w: config.Weights) -> Counter:
     """Chi phí của các luật ưu tiên theo (lớp, ngày), như mục tiêu trong `build` (lns._Search.qa)."""
     cost: Counter = Counter()
-    for L, n, cells, _ in violations(problem, lessons, hard=False):
+    for L, n, cells, _ in violations(problem, lessons, hard=False, covers=True):
         for key in cells:
             cost[key] += weight(L, w) * n / len(cells)
     return cost

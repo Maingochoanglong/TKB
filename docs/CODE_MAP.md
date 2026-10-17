@@ -84,7 +84,7 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `person(name)` — Mã GV nếu tên ở cột Giáo viên (chuẩn hóa) là một người: Mã GV, hoặc họ tên có trong config.PEOPLE; None: chức
 - `make(rule)` — Một luật (mẫu hoặc tự ghép) -> luật chuẩn hóa theo config hiện tại.
 - `_classes(written)` — Cột Lớp -> các lớp: tên lớp, hoặc nhãn lớp của sheet LỚP (mọi lớp có nhãn đó, staff.class_tags); trống: None.
-- `compiled()`
+- `compiled()` — config.CUSTOM_RULES đã dịch (make). Dịch lại chỉ khi một giá trị của config đã đổi: rules.applied luôn thay cả
 - `weight(L, w)` — Điểm trừ mỗi lần không theo luật ưu tiên: cột Điểm, không ghi thì theo Mức.
 - `_when_ok(L, curriculum, grade, subject)` — Cột Áp dụng khi: điều kiện trên số tiết/tuần của các môn của luật ở khối này; phạm vi có Môn (Nhóm môn) thì
 - `_class_ok(L, grade, curriculum)`
@@ -94,9 +94,9 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `_key(dim, a, problem)`
 - `class _Source` — Các tiết có thể có (mỗi course × ô trong miền × GV): từ biến của mô hình, hoặc từ một TKB.
   - `.atoms(L, subjects, skip)` — Các tiết của luật; subjects/skip: thay bộ lọc môn của luật (Môn thứ hai).
-- `_cp_source(problem, x, z, dom, teachers_of, relabel)`
+- `_cp_source(problem, x, z, dom, teachers_of, relabel, both)`
 - `_domains(problem)`
-- `_eval_source(problem, lessons, dom)`
+- `_eval_source(problem, lessons, dom, relabel, both)`
 - `_groups(L, atoms, problem, all_keys)` — Chia các tiết theo phạm vi. all_keys: có cả nhóm không có tiết nào (cho so sánh Tối thiểu, Đúng). Phạm vi theo
 - `_universe(L, problem)` — Mọi nhóm của phạm vi (chiều GV, môn, nhóm môn, cơ sở: chỉ các giá trị có tiết).
 - `_periods(a)`
@@ -156,7 +156,8 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `allowed(t, class_name, grade, subject, curriculum)` — Tầng phân công: GV t được nhận tiết môn này của lớp theo các luật bắt buộc "Người dạy: Do" không xét ô.
 - `assign_cost(t, course, curriculum, w)` — Tầng phân công: giá mỗi tiết GV t dạy course khi trái luật ưu tiên "Người dạy: Do" không xét ô.
 - `build(m, problem, x, z, dom, teachers_of, w)` — Ràng buộc và mục tiêu của các luật trong mô hình CP-SAT (solver.build_timetable); trả về các số hạng mục tiêu.
-- `violations(problem, lessons, hard, dom, rules, skip_forced)` — Các lần không theo luật (mặc định: config.CUSTOM_RULES) của một TKB: (luật, số lần, các (lớp, ngày) liên
+- `_per_teacher(L)` — Luật đếm theo từng GV (phạm vi hay cột Đếm theo có GV), trừ phép đo Người dạy.
+- `violations(problem, lessons, hard, dom, rules, skip_forced, covers)` — Các lần không theo luật (mặc định: config.CUSTOM_RULES) của một TKB: (luật, số lần, các (lớp, ngày) liên
 - `qa(problem, lessons, w)` — Chi phí của các luật ưu tiên theo (lớp, ngày), như mục tiêu trong `build` (lns._Search.qa).
 - `soft_counts(problem, lessons)` — Luật ưu tiên -> số lần không theo.
 - `precheck(problem, label, skip)` — Mâu thuẫn chắc chắn của luật bắt buộc, tìm bằng phép đếm; label(luật) là tên luật khi báo; bỏ qua các luật ở
@@ -751,7 +752,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 
 ## tests
 - `tests/test_allocation.py`: test_homeroom_split_sample, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
-- `tests/test_bo_ghep.py`: test_parse_composed_rule, test_parse_errors, test_each_measure_counts_like_a_hand_count, test_composed_hard_rules_hold, test_soft_composed_rule_is_preferred, test_new_presets, test_teacher_rule_filters_the_assignment, test_precheck_finds_impossible_counts, test_extensions_count_like_a_hand_count, test_parse_busy_and_teacher_names, test_rules_for_one_teacher, test_teacher_names_are_checked
+- `tests/test_bo_ghep.py`: test_parse_composed_rule, test_parse_errors, test_each_measure_counts_like_a_hand_count, test_composed_hard_rules_hold, test_soft_composed_rule_is_preferred, test_new_presets, test_teacher_rule_filters_the_assignment, test_precheck_finds_impossible_counts, test_extensions_count_like_a_hand_count, test_parse_busy_and_teacher_names, test_rules_for_one_teacher, test_teacher_names_are_checked, test_soft_teacher_rules_count_covered_lessons, test_groups_that_cannot_break_the_rule_add_nothing, test_rules_are_compiled_once_per_config
 - `tests/test_bo_mau.py`: test_defaults_are_the_vietnamese_preset, test_empty_preset_template, test_school_from_the_empty_preset
 - `tests/test_chan_doan.py`: test_no_conflict_with_default_rules, test_session_limit_too_small_for_the_lessons, test_pairs_against_daily_limit, test_student_rules_off_skips_the_count, test_solve_stops_before_solving_on_a_counted_conflict, test_diagnosis_names_the_rules_in_conflict, test_diagnosis_of_a_solvable_school_blames_the_time, test_relaxing_rules_changes_nothing_by_default
 - `tests/test_chuc_vu.py`: test_read_sheet_and_rules_code, test_sheet_errors_all_at_once, test_role_with_many_subjects, test_role_subject_errors, test_unknown_role_is_still_an_error, test_role_without_teacher_is_hired_for_forbidden_subjects, test_solve_with_a_role_of_many_subjects, test_custom_rule_for_a_role_of_many_subjects, test_checker_finds_a_subject_outside_the_role, test_scenario_roles_round_trip
