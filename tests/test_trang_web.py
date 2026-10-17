@@ -240,3 +240,32 @@ def test_extra_roles_picker(page):
     page.keyboard.press("Escape")
     _wait_text(page, f'#staff-table tr[data-row="{row + 2}"]', "Chức Vụ Thêm: Bộ Môn, Tiếng Anh")
     _wait_mark(page, "gv", "✓")
+
+
+def test_tags_in_rule_dialog(page):
+    """Cột Nhãn: nhãn lớp ghi ở bước Lớp, nhãn giáo viên ghi trong hộp thoại giáo viên hiện trong gợi ý cột Lớp, cột
+    Giáo viên của hộp thoại luật; kiểm tra vẫn ✓."""
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    _wait_mark(page, "lop", "✓")
+    page.click('.tabs [data-tab="lop"]')
+    page.click('[data-act="classes-from-homeroom"]')
+    tags = page.locator('#class-table [data-f="class"][data-i="0"][data-k="tags"]')
+    tags.fill("Song ngữ")
+    tags.press("Tab")
+    page.click('.tabs [data-tab="gv"]')
+    page.click('[data-act="edit-staff"][data-i="0"]')
+    field = page.locator('#detail-body [data-f="staff"][data-i="0"][data-k="tags"]')
+    field.fill("Tổ Một, Bán thời gian")
+    field.press("Tab")
+    page.keyboard.press("Escape")
+    _wait_text(page, '#staff-table tr[data-row="2"]', "Nhãn: Tổ Một, Bán thời gian")
+    page.click('.tabs [data-tab="luat"]')
+    page.click("#btn-add-rule")
+    options = lambda sel: page.evaluate(  # noqa: E731
+        f"[...document.querySelectorAll('{sel} option')].map((o) => o.value)")
+    assert "Song ngữ" in options("#rule-class-list") and "1/1" in options("#rule-class-list")
+    assert {"Tổ Một", "Bán thời gian", "Bộ Môn"} <= set(options("#teacher-list"))
+    page.keyboard.press("Escape")
+    _wait_mark(page, "lop", "✓")
+    _wait_mark(page, "gv", "✓")

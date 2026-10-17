@@ -47,6 +47,18 @@ class Teacher:
     # Cột Chức Vụ Thêm: các chức vụ khác người này giữ (Bộ Môn hoặc GV chuyên biệt, chữ thường), vd GVCN dạy thêm Tiếng
     # Anh ở các lớp khác. Quyền dạy là hợp các chức vụ; Mã GV, số thứ tự theo chức vụ chính (cột Chức Vụ).
     extra_roles: tuple[str, ...] = ()
+    # Cột Nhãn: nhãn tự đặt (vd "Bán thời gian", "Tổ Toán"), như ghi trong file; cột Giáo viên của sheet LUẬT ghi nhãn là
+    # các GV có nhãn đó (bo_ghep.picks).
+    tags: tuple[str, ...] = ()
+
+    @property
+    def tag_keys(self) -> frozenset[str]:
+        """Các nhãn của GV (chuẩn hóa) để khớp cột Giáo viên của sheet LUẬT: cột Nhãn, và tên các cột Có/Không ghi Có
+        (Thai Sản, Hợp Đồng, Cơ sở 2; GVCN có lớp ở cơ sở 2 cũng có nhãn Cơ sở 2)."""
+        flags = [k for k in ("maternity", "contract", "campus2") if getattr(self, k)]
+        if self.class_name and "campus2" not in flags and class_campus2(self.class_name):
+            flags.append("campus2")
+        return frozenset({normalize(t) for t in self.tags} | {normalize(OPTIONAL_COLUMNS[k]) for k in flags})
 
     @property
     def grade(self) -> int | str | None:
@@ -211,6 +223,33 @@ def grade_of(class_name: str) -> int | str:
     if m is None:
         raise InputError(f"không biết lớp {class_name!r} thuộc khối nào (ghi lớp này ở sheet {config.CLASSES_SHEET})")
     return int(m.group())
+
+
+_tags_cache: tuple = (None, {})
+
+
+def class_tags() -> dict[str, tuple[str, ...]]:
+    """Nhãn lớp của sheet LỚP: {nhãn viết thường bỏ dấu: các lớp có nhãn đó}. Lớp ghi Có ở cột Cơ sở 2 có nhãn Cơ sở 2.
+    File không có sheet LỚP: không có nhãn lớp."""
+    global _tags_cache
+    if _tags_cache[0] is not config.CLASSES:
+        out: dict[str, list[str]] = {}
+        for c in config.CLASSES:
+            for tag in (*c.tags, *((OPTIONAL_COLUMNS["campus2"],) if c.campus2 else ())):
+                out.setdefault(_fold(tag), []).append(c.name)
+        _tags_cache = (config.CLASSES, {k: tuple(dict.fromkeys(v)) for k, v in out.items()})
+    return _tags_cache[1]
+
+
+def parse_tags(value) -> tuple[str, ...]:
+    """Cột Nhãn (NHÂN SỰ, LỚP): các nhãn tự đặt cách nhau bằng dấu phẩy hoặc chấm phẩy, giữ như ghi (bỏ nhãn trùng)."""
+    if _blank(value):
+        return ()
+    tags: dict[str, str] = {}
+    for part in re.split(r"[,;]", str(value)):
+        if part.strip():
+            tags.setdefault(normalize(part), clean_name(part))
+    return tuple(tags.values())
 
 
 def class_campus2(class_name: str) -> bool:
@@ -395,7 +434,7 @@ def _blank(value) -> bool:
 
 # Cột không bắt buộc: khóa -> tiêu đề trong file.
 OPTIONAL_COLUMNS = {"maternity": "Thai Sản", "contract": "Hợp Đồng", "campus2": "Cơ sở 2",
-                    "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ", "extra_roles": "Chức Vụ Thêm"}
+                    "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ", "extra_roles": "Chức Vụ Thêm", "tags": "Nhãn"}
 
 
 def _find_columns(ws) -> tuple[int, dict[str, int]]:
@@ -430,7 +469,8 @@ def _to_lessons(value, title: str) -> int:
 
 def make_teacher(name, role: str, index: int | None, class_name: str | None, lessons,
                  row: int | None = None, label: str = "", **extra) -> Teacher:
-    """`extra`: các trường không bắt buộc của Teacher (maternity, contract, campus2, history, off_sessions, off_any)."""
+    """`extra`: các trường không bắt buộc của Teacher (maternity, contract, campus2, history, off_sessions, off_any,
+    extra_roles, tags)."""
     title = canonical_title(role, index, class_name)
     return Teacher(
         name=str(name).strip() if name is not None else "",
@@ -529,7 +569,7 @@ def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
             off_sessions, off_any = parse_off(cell(r, "off"))
             extra = {key: parse_yes(cell(r, key), OPTIONAL_COLUMNS[key]) for key in ("maternity", "contract", "campus2")}
             extra.update(history=parse_classes(cell(r, "history")), off_sessions=off_sessions, off_any=off_any,
-                         extra_roles=parse_extra_roles(cell(r, "extra_roles"), role))
+                         extra_roles=parse_extra_roles(cell(r, "extra_roles"), role), tags=parse_tags(cell(r, "tags")))
             rows.append([r, name, role, index, class_name, lessons, label, extra])
         except InputError as exc:
             errors.append(f"Dòng {r}: {exc}")

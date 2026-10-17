@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from . import config
 from .config import CustomRule
-from .staff import grade_key, grade_of
+from .staff import _fold, class_tags, grade_key, grade_of
 
 
 # --------------------------------------------------------------------------
@@ -288,8 +288,10 @@ def _person_keys(title: str, code: str, name: str) -> frozenset[str]:
 
 
 def picks(names: frozenset[str], t) -> bool:
-    """GV t khớp một tên ở cột Giáo viên: chức vụ của t (cả chức vụ ở cột Chức Vụ Thêm), Mã GV hoặc họ tên của t."""
-    return t.role in names or not names.isdisjoint(t.extra_roles) or not names.isdisjoint(person_keys(t))
+    """GV t khớp một tên ở cột Giáo viên: chức vụ của t (cả chức vụ ở cột Chức Vụ Thêm), nhãn (Teacher.tag_keys), Mã GV
+    hoặc họ tên của t."""
+    return (t.role in names or not names.isdisjoint(t.extra_roles) or not names.isdisjoint(t.tag_keys)
+            or not names.isdisjoint(person_keys(t)))
 
 
 def know_staff(teachers) -> None:
@@ -338,10 +340,16 @@ def make(rule: CustomRule) -> Luat:
     skip = frozenset(s for t in rule.exclude for s in tags.get(t, ()))
     return Luat(rule=rule, scope=tuple(scope), measure=measure, op=op, number=number,
                 subjects=_subjects(rule, rule.subject, group), grades=frozenset(rule.grades) or None,
-                classes=frozenset(rule.classes) or None, slots=frozenset(slots) if slots is not None else None,
+                classes=_classes(rule.classes), slots=frozenset(slots) if slots is not None else None,
                 roles=roles, place=place,
                 other=frozenset(_subject(n) for n in names(rule.other)) or None, who=who, count_by=count_by,
                 when=rule.when, skip=skip, roles_not=frozenset(drop), derived=rule.derived)
+
+
+def _classes(written: tuple[str, ...]) -> frozenset[str] | None:
+    """Cột Lớp -> các lớp: tên lớp, hoặc nhãn lớp của sheet LỚP (mọi lớp có nhãn đó, staff.class_tags); trống: None."""
+    tags = class_tags()
+    return frozenset(c for name in written for c in tags.get(_fold(name), (name,))) or None
 
 
 def compiled() -> list[Luat]:
@@ -815,8 +823,8 @@ def _di_kem(ctx, L, problem, src):
 
 def teacher_ok(L: Luat, t, class_name: str) -> bool:
     """Phép đo Người dạy "Do": GV t được dạy tiết của lớp class_name: t có tên (Mã GV, họ tên) ở cột Giáo viên, hoặc
-    có chức vụ ở đó (chủ nhiệm: GVCN của chính lớp đó; cả chức vụ ở cột Chức Vụ Thêm)."""
-    if not L.who.isdisjoint(person_keys(t)) or not L.who.isdisjoint(t.extra_roles):
+    có chức vụ ở đó (chủ nhiệm: GVCN của chính lớp đó; cả chức vụ ở cột Chức Vụ Thêm), hoặc có nhãn ở đó."""
+    if not L.who.isdisjoint(person_keys(t)) or not L.who.isdisjoint(t.extra_roles) or not L.who.isdisjoint(t.tag_keys):
         return True
     if t.role == config.ROLE_HOMEROOM:
         return config.ROLE_HOMEROOM in L.who and t.class_name == class_name
@@ -1112,10 +1120,10 @@ def _precheck_at_least(L: Luat, problem, label) -> list[str]:
 
 
 def validate(problem, sheet: str, role_label) -> list[str]:
-    """Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp không có; tên ở cột Giáo viên không phải chức vụ,
-    Mã GV hay họ tên của ai, hoặc là họ tên của nhiều người."""
+    """Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp (hay nhãn lớp) không có; tên ở cột Giáo viên không
+    phải chức vụ, nhãn, Mã GV hay họ tên của ai, hoặc là họ tên của nhiều người."""
     subjects = {s for req in problem.curriculum.values() for s, n in req.items() if n > 0}
-    roles = {r for t in problem.teachers.values() for r in (t.role, *t.extra_roles)}
+    roles = {r for t in problem.teachers.values() for r in (t.role, *t.extra_roles, *t.tag_keys)}
     found = Counter(k for t in problem.teachers.values() for k in person_keys(t))
     out = []
     for r in config.CUSTOM_RULES:
@@ -1129,11 +1137,13 @@ def validate(problem, sheet: str, role_label) -> list[str]:
                 out.append(f"{sheet} dòng {r.row}: có {found[role]} giáo viên tên '{role_label(role)}', ghi Mã GV để "
                            f"chỉ rõ người")
             elif not found[role] and role not in roles:
-                out.append(f"{sheet} dòng {r.row}: không có giáo viên nào có chức vụ, Mã GV hay họ tên "
+                out.append(f"{sheet} dòng {r.row}: không có giáo viên nào có chức vụ, nhãn, Mã GV hay họ tên "
                            f"'{role_label(role)}'")
         for c in r.classes:
-            if c not in problem.classes:
-                out.append(f"{sheet} dòng {r.row}: không có lớp '{c}'")
+            if c not in problem.classes and _fold(c) not in class_tags():
+                out.append(f"{sheet} dòng {r.row}: không có lớp '{c}'" +
+                           (f" (cũng không có nhãn lớp nào tên đó ở sheet {config.CLASSES_SHEET})" if config.CLASSES
+                            else ""))
         for g in r.grades:
             if isinstance(g, str) and g not in problem.curriculum:
                 out.append(f"{sheet} dòng {r.row}: không có khối '{g}' (các khối: "

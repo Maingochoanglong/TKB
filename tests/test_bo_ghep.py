@@ -370,9 +370,9 @@ def test_teacher_names_are_checked():
     with applied({"CUSTOM_RULES": rules}):
         p = build_problem(staff, CURRICULUM, {}, overtime_max=4)
         assert luat_rieng.validate(p) == [
-            "LUẬT RIÊNG dòng 5: không có giáo viên nào có chức vụ, Mã GV hay họ tên 'Cô Hoa'",
+            "LUẬT RIÊNG dòng 5: không có giáo viên nào có chức vụ, nhãn, Mã GV hay họ tên 'Cô Hoa'",
             "LUẬT RIÊNG dòng 6: có 2 giáo viên tên 'Ta', ghi Mã GV để chỉ rõ người",
-            "LUẬT RIÊNG dòng 7: không có giáo viên nào có chức vụ, Mã GV hay họ tên 'Tiếng Anh 9'"]
+            "LUẬT RIÊNG dòng 7: không có giáo viên nào có chức vụ, nhãn, Mã GV hay họ tên 'Tiếng Anh 9'"]
     rule = CustomRule("chi_gv", "Tin học", classes=("3/1",), role="tiếng anh 2", hard=True, row=9)
     with applied({"CUSTOM_RULES": [rule]}):
         with pytest.raises(InputError, match="Lớp 3/1: không GV nào được dạy Tin học theo LUẬT RIÊNG dòng 9: Tin học "

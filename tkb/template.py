@@ -3,7 +3,7 @@ viền mảnh). Không cố định dòng/cột, không danh sách thả xuống
 cột nằm ở sheet HƯỚNG DẪN.
 
 - Sheet "NHÂN SỰ": Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy |
-  Buổi Nghỉ | Chức Vụ Thêm (6 cột sau không bắt buộc)
+  Buổi Nghỉ | Chức Vụ Thêm | Nhãn (7 cột sau không bắt buộc)
   - Chức Vụ: Chủ Nhiệm, Bộ Môn, Quản Lý, một chức vụ của sheet CHỨC VỤ hoặc tên một môn (GV chuyên biệt, vd
     "Tiếng Anh"); không ghi số thứ tự (chương trình tự đánh số theo thứ tự dòng).
   - Lớp chỉ ghi cho Chủ Nhiệm: một lớp của sheet LỚP, hoặc (sheet LỚP trống) khối/số thứ tự, vd 1/1, hay khối
@@ -36,14 +36,14 @@ from openpyxl.utils import get_column_letter
 
 from . import bo_mau, config
 from . import luat_rieng
-from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, ROLE_NAME, ROLE_SUBJECTS, applied, class_rows,
+from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, CLASS_TAGS, ROLE_NAME, ROLE_SUBJECTS, applied, class_rows,
                     default_subjects, luat_headers, luat_rows, mau as preset, notes as rule_notes, role_rows,
                     rule_tables, subject_columns)
 from .staff import Teacher, class_sort_key, grade_key, off_text
 
 STAFF_HEADERS = ["Họ và Tên", "Chức Vụ", "Lớp", "Số Tiết/Tuần", "Thai Sản", "Hợp Đồng", "Cơ sở 2", "Lớp Đang Dạy",
-                 "Buổi Nghỉ", "Chức Vụ Thêm"]
-STAFF_WIDTHS = (34, 16, 8, 17, 12, 12, 11, 26, 24, 22)
+                 "Buổi Nghỉ", "Chức Vụ Thêm", "Nhãn"]
+STAFF_WIDTHS = (34, 16, 8, 17, 12, 12, 11, 26, 24, 22, 22)
 RULES_WIDTHS = (40, 16, 16, 20, 24)  # sheet QUY ĐỊNH: cột đầu (Quy định, Ngày, Tiết) và các cột giá trị
 GUIDE_SHEET = "HƯỚNG DẪN"
 GUIDE_HEADERS = ("Mục", "Cách ghi")
@@ -84,11 +84,13 @@ NOTES = {
                     "Chủ Nhiệm ghi Bộ Môn thì dạy được cả các lớp khác. Chủ Nhiệm có chức vụ thêm dạy phần GVCN nhận "
                     "trọn của lớp mình (không nhận thêm cho đủ định mức), phần định mức còn lại dùng cho chức vụ thêm. "
                     "Mã GV theo chức vụ chính (cột Chức Vụ).",
+    "Nhãn": "Các nhãn tự đặt, cách nhau bằng dấu phẩy (vd Bán thời gian, Tổ Toán). Cột Giáo viên của sheet LUẬT ghi "
+            "một nhãn là mọi GV có nhãn đó, vd luật Bán thời gian không dạy buổi chiều. Thai Sản, Hợp Đồng, Cơ sở 2 "
+            "ghi Có cũng là nhãn cùng tên.",
 }
 GUIDE = [
-    (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Sáu cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ, "
-                         "Chức Vụ Thêm "
-                         "không bắt buộc (để trống hoặc xóa cột)."),
+    (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Bảy cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ, "
+                         "Chức Vụ Thêm, Nhãn không bắt buộc (để trống hoặc xóa cột)."),
     *((f"{config.STAFF_SHEET}: {head}", note) for head, note in NOTES.items()),
     (config.PROGRAM_SHEET, "Mỗi môn một dòng: cột Môn học ghi tên môn (dùng đúng tên này ở sheet CHỨC VỤ, hoặc ở cột "
                            "Chức Vụ của GV chuyên biệt chỉ dạy môn này), cột Khối <tên> ghi số tiết/tuần của môn ở "
@@ -116,7 +118,7 @@ def staff_row(t: Teacher) -> list:
     history = ", ".join(sorted(t.history, key=class_sort_key)) or None
     extra = ", ".join(config.ROLE_LABELS.get(r) or r.title() for r in t.extra_roles) or None
     return [t.name or None, role_label(t), t.class_name, t.max_lessons, flag(t.maternity), flag(t.contract),
-            flag(t.campus2), history, off_text(t) or None, extra]
+            flag(t.campus2), history, off_text(t) or None, extra, ", ".join(t.tags) or None]
 
 
 def _style_rows(ws, first: int, last: int, n_cols: int, header: bool = False, left: tuple[int, ...] = ()) -> None:
@@ -206,18 +208,18 @@ def write_roles_sheet(wb, rows: list[list] | None = None, index: int | None = No
 
 
 def write_classes_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
-    """Sheet LỚP ở vị trí `index`: Lớp | Khối | Cơ sở 2, các dòng `rows` (không có thì theo các lớp của sheet LỚP
-    đang dùng; trống: lớp lấy từ các dòng Chủ Nhiệm), kẻ sẵn vài dòng trống để nhà trường điền."""
+    """Sheet LỚP ở vị trí `index`: Lớp | Khối | Cơ sở 2 | Nhãn, các dòng `rows` (không có thì theo các lớp của sheet
+    LỚP đang dùng; trống: lớp lấy từ các dòng Chủ Nhiệm), kẻ sẵn vài dòng trống để nhà trường điền."""
     rows = class_rows() if rows is None else rows
     ws = wb.create_sheet(config.CLASSES_SHEET, index)
-    ws.append([CLASS_NAME, CLASS_GRADE, CLASS_CAMPUS2])
+    ws.append([CLASS_NAME, CLASS_GRADE, CLASS_CAMPUS2, CLASS_TAGS])
     for row in rows:
         ws.append(row)
-    _style_rows(ws, 1, 1, 3, header=True)
-    _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, 3, left=(1,))
+    _style_rows(ws, 1, 1, 4, header=True)
+    _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, 4, left=(1,))
     for r in range(2, LAST_ROW + 1):
         ws.cell(r, 1).number_format = "@"  # tên lớp là chữ, để Excel không đổi "1/1" thành ngày tháng
-    _widths(ws, (16, 12, 11))
+    _widths(ws, (16, 12, 11, 24))
 
 
 def write_luat_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:

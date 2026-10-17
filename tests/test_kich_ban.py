@@ -33,7 +33,7 @@ def test_round_trip_keeps_the_file(tmp_path):
     assert len(scenario["staff"]) == 45 and scenario["grades"] == [1, 2, 3, 4, 5]
     assert scenario["staff"][0] == {"name": "Giáo viên CN 1", "role": "Chủ Nhiệm", "class": "1/1", "lessons": 19,
                                     "maternity": False, "contract": False, "campus2": False, "history": "", "off": "",
-                                    "extra_roles": ""}
+                                    "extra_roles": "", "tags": ""}
     # Chức vụ trùng tên môn nhân sự đang dùng thành các dòng của sheet CHỨC VỤ (để giao diện chọn từ danh sách).
     assert [(r["name"], r["subjects"]) for r in scenario["roles"]] == [
         ("Tiếng Anh", ["Tiếng Anh"]), ("Thể Dục", ["Thể dục"]), ("Âm Nhạc", ["Âm nhạc"]), ("Mỹ Thuật", ["Mỹ thuật"]),
@@ -223,7 +223,7 @@ def test_teacher_rules_read_with_codes():
     found = kich_ban.describe(scenario, [busy])["rules"][0]
     assert found["errors"] == [] and found["text"] == "Tiếng Anh 1 không dạy vào Thứ 2 tiết 2 (bắt buộc)"
     scenario["rules"].append({**busy, "role": "Không Có Ai"})
-    assert any("không có giáo viên nào có chức vụ, Mã GV hay họ tên 'Không Có Ai'" in e
+    assert any("không có giáo viên nào có chức vụ, nhãn, Mã GV hay họ tên 'Không Có Ai'" in e
                for e in kich_ban.check(scenario, config.MODE_OVERTIME, 2)["errors"])
     assert config.PEOPLE == {}
 

@@ -20,12 +20,16 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 ## Working rules
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
-  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm`; optional
+  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB` (and `Quản lý dạy
   khối`: a grade name): per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |
   periods); school-defined specialist roles teaching several subjects are rows of sheet `CHỨC VỤ`; optional sheet `LỚP`
-  (`Lớp | Khối | Cơ sở 2`, `rules._Reader.classes` → `config.CLASSES` of `config.SchoolClass`; empty sheet = none);
+  (`Lớp | Khối | Cơ sở 2 | Nhãn`, `rules._Reader.classes` → `config.CLASSES` of `config.SchoolClass`; empty sheet =
+  none); column `Nhãn` of NHÂN SỰ (`Teacher.tags`; `Teacher.tag_keys` adds the Có columns' headers) and of LỚP
+  (`SchoolClass.tags`, `staff.class_tags`; campus-2 classes get tag `Cơ sở 2`) are free tags with no meaning of their
+  own: LUẬT's Giáo viên column matches staff tags (`bo_ghep.picks`, `teacher_ok`), its Lớp column expands class tags
+  (`bo_ghep._classes` in `make`); class tags enter `rules.code()` only when written;
   **every scheduling
   rule, built-in ones included, is a row of sheet `LUẬT`** (old files: sheet `LUẬT RIÊNG`; see Architecture).
   `python -m tkb.template` writes a plain template (black text, no fill/freeze/dropdowns/comments/hidden sheets) with

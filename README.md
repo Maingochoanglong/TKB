@@ -62,7 +62,7 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      bấm **Sửa** để mở trang chi tiết của môn, các quy định chia nhóm (hiển thị, GVCN, ai được dạy, luật bảo vệ học sinh,
      ưu tiên khi xếp), mỗi ô có giải thích. **Bảng đầy đủ** hiện mọi cột cùng lúc như sheet Excel.
    - **Lớp** (sheet `LỚP`, không bắt buộc): tên các khối (tùy ý, vd `Lá`; đổi tên thì số tiết của môn, lớp, luật đổi
-     theo) và danh sách lớp: tên lớp tùy ý, khối, Cơ sở 2, cột Chủ Nhiệm cho thấy lớp nào chưa có GVCN. **Lấy từ các Chủ
+     theo) và danh sách lớp: tên lớp tùy ý, khối, Cơ sở 2, Nhãn, cột Chủ Nhiệm cho thấy lớp nào chưa có GVCN. **Lấy từ các Chủ
      Nhiệm** chép các lớp đang có. Để trống thì lớp là cột Lớp của các Chủ Nhiệm như trước.
    - **Chức vụ**: ba chức vụ có sẵn và các chức vụ GV chuyên biệt của trường. Chủ Nhiệm: đánh dấu môn nhận trọn, môn chỉ
      GVCN dạy; Bộ Môn: đánh dấu môn được dạy; Quản Lý: chọn khối cạnh môn được dạy (đây là các cột quy định của môn).
@@ -234,17 +234,17 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 
 ## Đầu vào
 
-**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet bắt buộc `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (kèm các cột quy định của môn) và các sheet không bắt buộc `LỚP` (danh sách lớp: tên lớp, tên khối tùy ý, lớp có thể chưa có GVCN), `CHỨC VỤ` (chức vụ GV chuyên biệt tự đặt), `QUY ĐỊNH` (khung giờ, ai được bù, nhãn của ngày và tiết), `LUẬT` (mọi luật xếp TKB, mỗi dòng một câu ghép; không có thì dùng các luật có sẵn). Chương trình tìm sheet theo tên, không phân biệt hoa thường; các sheet khác (ví dụ `HƯỚNG DẪN`) được bỏ qua. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 6 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm`.
+**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet bắt buộc `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (kèm các cột quy định của môn) và các sheet không bắt buộc `LỚP` (danh sách lớp: tên lớp, tên khối tùy ý, lớp có thể chưa có GVCN), `CHỨC VỤ` (chức vụ GV chuyên biệt tự đặt), `QUY ĐỊNH` (khung giờ, ai được bù, nhãn của ngày và tiết), `LUẬT` (mọi luật xếp TKB, mỗi dòng một câu ghép; không có thì dùng các luật có sẵn). Chương trình tìm sheet theo tên, không phân biệt hoa thường; các sheet khác (ví dụ `HƯỚNG DẪN`) được bỏ qua. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 7 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn`.
 
 **Sheet `NHÂN SỰ`:**
 
-| Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm |
-|---|---|---|---|---|---|---|---|---|---|
-| Nguyễn Văn A | Chủ Nhiệm | 1D15 | 19 | | Có | | | | |
-| Trần Thị B | Chủ Nhiệm | 3D23 | 15 | Có | | Có | | 2 buổi chiều | |
-| Lê Văn C | Bộ Môn | | 19 | Có | | | | Chiều T5, Sáng T6 | |
-| Phạm D | Tiếng Anh | | 23 | | | | 3D17, 3D18 | | |
-| Hoàng E | Chủ Nhiệm | 2A | 23 | | | | | | Tiếng Anh |
+| Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Nguyễn Văn A | Chủ Nhiệm | 1D15 | 19 | | Có | | | | | |
+| Trần Thị B | Chủ Nhiệm | 3D23 | 15 | Có | | Có | | 2 buổi chiều | | |
+| Lê Văn C | Bộ Môn | | 19 | Có | | | | Chiều T5, Sáng T6 | | |
+| Phạm D | Tiếng Anh | | 23 | | | | 3D17, 3D18 | | | Bán thời gian |
+| Hoàng E | Chủ Nhiệm | 2A | 23 | | | | | | Tiếng Anh | |
 
 - **Họ và Tên** có thể để trống (vì bảo mật). Khi đó TKB ghi **Mã GV**, ví dụ `Chủ Nhiệm 1/1`, `Tiếng Anh 2`, `Bộ Môn 3`.
 - **Chức Vụ**:
@@ -265,6 +265,10 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
   - **Chủ Nhiệm ghi `Bộ Môn`** thì dạy được các môn của bộ môn ở cả lớp khác: đó là cách bỏ "GVCN chỉ dạy lớp mình" cho từng người.
   - Chủ Nhiệm có chức vụ thêm chỉ nhận trọn các môn GVCN nhận trọn của lớp mình (và môn cùng nhóm, vd Tiếng Việt tăng cường đi với Tiếng Việt), không nhận thêm môn cho đủ định mức: phần định mức còn lại dùng cho chức vụ thêm. Khi phải bù, người đó bù như bộ môn (bù các tiết theo chức vụ thêm); ở chế độ tuyển thêm, người mới dạy các tiết đó có chức vụ dạy được môn đó.
   - `Chủ Nhiệm`, `Quản Lý` chỉ là chức vụ chính; Quản Lý không ghi chức vụ thêm.
+- **Nhãn**: các nhãn tự đặt, cách nhau bằng dấu phẩy (vd `Bán thời gian`, `Tổ Toán`). Nhãn không tự có nghĩa gì; cột
+  Giáo viên của sheet `LUẬT` ghi một nhãn là mọi giáo viên có nhãn đó, vd luật `Không xếp vào`, Giáo viên
+  `Bán thời gian`, Buổi `Chiều`. Thai Sản, Hợp Đồng, Cơ sở 2 ghi `Có` cũng là nhãn cùng tên (Chủ Nhiệm có lớp ở cơ sở 2
+  có nhãn `Cơ sở 2`), vd luật cho mọi giáo viên `Hợp Đồng`.
 - Các cột khác (ví dụ cột STT, cột ghi chú) được bỏ qua, ghi gì cũng được.
 - Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN. Nếu dãy lớp của một khối bị hụt (ví dụ có 1/3, 1/5 mà không có 1/4) thì chương trình cảnh báo.
 - Khi file có lỗi, chương trình **liệt kê tất cả lỗi một lần** kèm số dòng (ví dụ `Lớp 1/1 có hai Chủ Nhiệm (dòng 11 và 26)`).
@@ -327,11 +331,13 @@ dòng luật dùng (vd luật "Tránh xếp môn có nhãn Môn nặng vào gi�
 | Luôn do GVCN dạy | Có: tiết 1 | Luật cứng: tiết này ở mọi ngày do GVCN của lớp dạy. |
 | Hạn chế môn nặng | Có: tiết 7 | Mục tiêu mềm: mỗi tiết môn nặng ở tiết này bị trừ điểm. |
 
-**Sheet `LỚP`** (không bắt buộc): danh sách lớp, **mỗi dòng một lớp**: `Lớp | Khối | Cơ sở 2` (thêm cột `Ghi chú` tùy ý), vd
-`Lá 1 | Lá | Có`.
+**Sheet `LỚP`** (không bắt buộc): danh sách lớp, **mỗi dòng một lớp**: `Lớp | Khối | Cơ sở 2 | Nhãn` (thêm cột `Ghi chú`
+tùy ý), vd `Lá 1 | Lá | Có | Song ngữ`.
 - **Lớp**: tên tùy ý, không trùng nhau (không phân biệt hoa thường). **Khối**: tên khối như ở các cột `Khối <tên>` của
   sheet `CHƯƠNG TRÌNH HỌC`; để trống thì là các chữ số đầu tên lớp (`3/1` là khối 3). **Cơ sở 2**: `Có` nếu lớp học ở cơ
-  sở 2 (hoặc đánh dấu ở dòng Chủ Nhiệm như trước).
+  sở 2 (hoặc đánh dấu ở dòng Chủ Nhiệm như trước). **Nhãn**: các nhãn tự đặt, cách nhau bằng dấu phẩy, không trùng tên
+  lớp; cột Lớp của sheet `LUẬT` ghi một nhãn là mọi lớp có nhãn đó (lớp ghi Cơ sở 2 = `Có` có nhãn `Cơ sở 2`), vd luật
+  `Không xếp vào`, Môn `Tiếng Anh`, Lớp `Song ngữ`, Ngày `Thứ 6`.
 - Có sheet này thì Chủ Nhiệm ghi Lớp là một lớp của sheet, cột Lớp Đang Dạy và cột Lớp của sheet `LUẬT` cũng theo tên
   này. **Lớp chưa có Chủ Nhiệm** vẫn được xếp: mọi môn của lớp chia cho giáo viên khác; tiết **Luôn do GVCN dạy**, luật
   "GVCN dạy tiết đầu tuần" không áp dụng cho lớp đó; tiết HĐTN vẫn cố định như các lớp khác; môn **Chỉ GVCN dạy** thì
@@ -428,8 +434,10 @@ trở lên").
   màn hình in số lần không theo từng luật ưu tiên của luật thêm vào.
 - Môn, Lớp, Khối, Ngày, Tiết ghi danh sách: `3, 4`, `3-5`; `Thứ 2, Thứ 4`, `T2-T4`; `1`, `5-7`. Buổi: `Sáng` hoặc
   `Chiều`.
-  Giáo viên: chức vụ như cột Chức Vụ (`Chủ Nhiệm`, `Bộ Môn`, `Quản Lý` hoặc chức vụ GV chuyên biệt, vd `Tiếng Anh`),
-  hoặc một người: Mã GV (`Bộ Môn 3`: người thứ 3 có chức vụ Bộ Môn theo thứ tự dòng của sheet NHÂN SỰ; `Chủ Nhiệm 1/1`)
+  Lớp: tên lớp, hoặc một nhãn lớp của sheet `LỚP` (mọi lớp có nhãn đó).
+  Giáo viên: chức vụ như cột Chức Vụ (`Chủ Nhiệm`, `Bộ Môn`, `Quản Lý` hoặc chức vụ GV chuyên biệt, vd `Tiếng Anh`;
+  khớp cả người ghi chức vụ đó ở cột Chức Vụ Thêm), một nhãn ở cột Nhãn của sheet NHÂN SỰ (mọi giáo viên có nhãn đó; khác
+  cột Nhãn của sheet `LUẬT` là nhãn của môn, của giờ), hoặc một người: Mã GV (`Bộ Môn 3`: người thứ 3 có chức vụ Bộ Môn theo thứ tự dòng của sheet NHÂN SỰ; `Chủ Nhiệm 1/1`)
   hay họ tên (hai người trùng tên thì phải ghi Mã GV). Câu đọc lại, thông báo lỗi và file ra luôn ghi **Mã GV**, không
   ghi họ tên. Thêm hay xóa một dòng nhân sự làm đổi số thứ tự trong Mã GV của những người sau đó. **Trên giao diện**,
   luật tự đi theo đúng người: xóa, dời, đổi chức vụ, đổi lớp hay đổi tên một người thì cột Giáo viên của các luật đổi

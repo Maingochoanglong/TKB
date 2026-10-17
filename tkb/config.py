@@ -93,6 +93,7 @@ class SchoolClass:
     grade: int | str  # khối: số nếu ghi toàn chữ số, không thì tên khối như ghi (vd "Lá")
     campus2: bool = False  # lớp ở cơ sở 2
     row: int = 0  # dòng trong sheet LỚP (để báo lỗi)
+    tags: tuple[str, ...] = ()  # cột Nhãn: nhãn tự đặt (vd "Song ngữ"); cột Lớp của sheet LUẬT ghi nhãn là các lớp đó
 
 
 CLASSES_SHEET = "LỚP"

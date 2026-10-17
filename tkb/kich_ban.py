@@ -7,10 +7,11 @@ kịch bản = xuất ra file tạm rồi đọc lại bằng chính các hàm �
 file vào như nhau.
 
 Kịch bản:
-    staff    : [{name, role, class, lessons, maternity, contract, campus2, history, off, extra_roles}] theo thứ tự dòng
+    staff    : [{name, role, class, lessons, maternity, contract, campus2, history, off, extra_roles, tags}] theo thứ
+               tự dòng
     grades   : [1, 2, "Lá", ...] các cột Khối <tên> (tên khối toàn chữ số là số)
     subjects : [{name, lessons: {"1": số tiết hoặc None, ...}, rules: {khóa Col: giá trị}}]
-    classes  : [{name, grade, campus2}] sheet LỚP (trống: lớp là lớp của các dòng Chủ Nhiệm)
+    classes  : [{name, grade, campus2, tags}] sheet LỚP (trống: lớp là lớp của các dòng Chủ Nhiệm)
     roles    : [{name, subjects: [tên môn]}] chức vụ GV chuyên biệt (sheet CHỨC VỤ); đọc file thì thêm các chức vụ
                trùng tên môn nhân sự đang dùng (ghi ra sheet CHỨC VỤ thì như không ghi)
     general  : {khóa Col: giá trị} (bảng Quy định | Giá trị)
@@ -36,8 +37,8 @@ import openpyxl
 
 from . import bo_ghep, bo_mau, config, khung_gio, luat_co_san, luat_rieng
 from .program import grade_columns, read_program
-from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, NO, PERIOD_COLS,
-                    PERIOD_KEY, SESSION_PREFIX, VALUE, YES, applied, luat_row, mau as rules_mau, read_rules,
+from .rules import (CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, CLASS_TAGS, DAY_COLS, DAY_KEY, GENERAL, GENERAL_KEY, NO,
+                    PERIOD_COLS, PERIOD_KEY, SESSION_PREFIX, VALUE, YES, applied, luat_row, mau as rules_mau, read_rules,
                     rule_tables, subject_columns, visible)
 from .rules import SUBJECT_COLS as _ALL_SUBJECT_COLS
 from .staff import (InputError, _find_columns, _fold, _NO, _YES, class_list, class_sort_key, clean_name, find_sheet,
@@ -55,7 +56,7 @@ RULE_KEYS = (luat_rieng.GROUP[0], *(k for k, _ in luat_rieng.COLUMNS))
 STAFF_COLS = (("name", "name", "text"), ("role", "title", "role"), ("class", "class", "text"),
               ("lessons", "lessons", "int"), ("maternity", "maternity", "yes"), ("contract", "contract", "yes"),
               ("campus2", "campus2", "yes"), ("history", "history", "text"), ("off", "off", "text"),
-              ("extra_roles", "extra_roles", "text"))
+              ("extra_roles", "extra_roles", "text"), ("tags", "tags", "text"))
 _HEADERS = {key: head for (key, _, _), head in zip(STAFF_COLS, STAFF_HEADERS)}
 ROLES = [config.ROLE_LABELS[r] for r in (config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER)]
 # Trang chi tiết môn của giao diện chia các cột quy định của môn thành nhóm; cột chưa có nhóm hiện ở nhóm "Khác", nên
@@ -101,6 +102,7 @@ def schema() -> dict:
                    "sessions": khung_gio.session_names(),  # mặc định; trang dùng các buổi của kịch bản
                    "groups": [*luat_co_san.GROUPS, luat_co_san.CUSTOM_GROUP],
                    "custom_group": luat_co_san.CUSTOM_GROUP,
+                   "class_campus2": CLASS_CAMPUS2,  # lớp ghi Có ở cột này có nhãn cùng tên (staff.class_tags)
                    "structure": luat_co_san.STRUCTURE,
                    "composer": composer()},
         "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "classes": config.CLASSES_SHEET,
@@ -221,12 +223,14 @@ def _read_class_rows(wb) -> list[dict]:
     get = lambda r, h: ws.cell(r, heads[normalize(h)]).value if normalize(h) in heads else None  # noqa: E731
     rows = []
     for r in range(top + 1, ws.max_row + 1):
-        name, grade, campus2 = get(r, CLASS_NAME), get(r, CLASS_GRADE), get(r, CLASS_CAMPUS2)
+        name, grade, campus2, tags = get(r, CLASS_NAME), get(r, CLASS_GRADE), get(r, CLASS_CAMPUS2), get(r, CLASS_TAGS)
         if isinstance(name, (datetime.date, datetime.datetime)):
             name = f"{name.day}/{name.month}"
         rows.append({"name": _text(name), "grade": _grade(grade),
-                     "campus2": campus2 is True or (not _blank(campus2) and _fold(campus2) in _YES)})
-    while rows and not rows[-1]["name"] and rows[-1]["grade"] is None and not rows[-1]["campus2"]:
+                     "campus2": campus2 is True or (not _blank(campus2) and _fold(campus2) in _YES),
+                     "tags": _text(tags)})
+    while rows and not rows[-1]["name"] and rows[-1]["grade"] is None and not rows[-1]["campus2"] \
+            and not rows[-1]["tags"]:
         rows.pop()
     return rows
 
@@ -450,8 +454,8 @@ def to_excel(scenario: dict, path: str | Path) -> None:
               ", ".join(t for t in map(_text, role.get("subjects") or []) if t) or None]
              for role in scenario.get("roles") or []]
     # Cả dòng trống: lớp i là dòng i + 2 của sheet LỚP.
-    classes = [[_text(c.get("name")) or None, _grade(c.get("grade")), YES if c.get("campus2") is True else None]
-               for c in scenario.get("classes") or []]
+    classes = [[_text(c.get("name")) or None, _grade(c.get("grade")), YES if c.get("campus2") is True else None,
+                _text(c.get("tags")) or None] for c in scenario.get("classes") or []]
     write_input(path, staff, (grades, [c.header for c in SUBJECT_COLS], rows), tables,
                 extra=write_saved if saved else None, rules=luat_sheet_rows(scenario.get("rules") or []),
                 roles=roles, classes=classes)

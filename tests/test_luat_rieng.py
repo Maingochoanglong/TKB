@@ -174,7 +174,7 @@ def test_precheck_and_validate():
     assert run(CustomRule("truoc", "Bơi lội", other="Toán", row=3))[0] == [
         "LUẬT RIÊNG dòng 3: môn 'Bơi lội' không có trong chương trình học (hoặc không có tiết nào)"]
     assert run(CustomRule("gv_ngay", role="bảo vệ", number=3, row=4))[0] == [
-        "LUẬT RIÊNG dòng 4: không có giáo viên nào có chức vụ, Mã GV hay họ tên 'Bảo Vệ'"]
+        "LUẬT RIÊNG dòng 4: không có giáo viên nào có chức vụ, nhãn, Mã GV hay họ tên 'Bảo Vệ'"]
     _, found = run(CustomRule("chi_xep", "Toán", days=(0,), sessions=("Chiều",), hard=True, row=5))
     assert found == ["LUẬT RIÊNG dòng 5: Toán chỉ xếp vào buổi chiều Thứ 2 (bắt buộc): khối 3 có 5 tiết Toán nhưng "
                      "các luật vị trí bắt buộc chỉ để lại 3 tiết trong tuần"]
