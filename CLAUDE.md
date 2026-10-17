@@ -164,7 +164,13 @@ time) live in the UI, not in the Excel file.
    class grouping → `PhanCong`. Printed as "Dự toán"/"Bù:". `bu_gio` with missing lessons → `ShortageError`.
 3. `tach_tiet_bu`: overtime lessons (+ missing ones in `tuyen_them`) go to hired "bộ môn n+1…" supplements,
    heaviest first (the `_Allocation` symmetry rule), ≤ one pair per session each.
-4. `timetable(fixed=...)`: `build_timetable` makes ONE global CP-SAT model over all lessons (`x[course, (day,
+4. `timetable(fixed=...)`: first `lich_co_so.plan` (campus-day plan, only with ≥ 2 campuses and the LUẬT row "Số
+   khác nhau by co_so, per gv+ngay ≤ 1" (`applies`)): a small counting CP-SAT (5 units; lessons per course/teacher/day,
+   class/course/teacher day caps, hard per-day caps `bo_ghep.day_caps`, ≤ 1 campus a day hard, spread + day load
+   objective) picks each multi-campus teacher's campus per day; no solution = `{}` (old model). `build_timetable(...,
+   campus_days=)` cuts those days (`course_domains`, `away`; z = 0 for multi-teacher courses); if the LNS start finds
+   nothing (`improve(give_up=True)` → `values None`) it rebuilds without the plan for the remaining budget.
+   `build_timetable` makes ONE global CP-SAT model over all lessons (`x[course, (day,
    period)]`, `z[course, teacher, slot]` booleans, hard constraints + soft objective weighted by `config.Weights`),
    then `lns.improve`: CP-SAT start with 20% of the budget (≤ 120), then rounds of QA (cost per class-day) and re-solving
    regions (class, hot spot, shared-teacher classes, grade, day pair) with everything else fixed; stops on budget,
@@ -300,7 +306,7 @@ Each rule below (except who-may-teach and the assignment/LNS rows) is a default 
 | Homeroom share: keep / cut / fill order | `HOMEROOM_PRIORITY`, `HOMEROOM_CUT_ORDER`, `HOMEROOM_FILL_ORDER` | `allocation.split_homeroom` |
 | Estimate + assignment, overtime homeroom first, max +2 (`main.py` `SO_TIET_BU_TOI_DA` = 3 for the school file); GVCN overtime never in specialist subjects except Âm nhạc/Mỹ thuật, capped by the flow estimate | `OVERTIME_ROLES`, `OVERTIME_MAX`, `HOMEROOM_OVERTIME_SPECIALIST`, `Weights.overtime_*`, `Weights.group_*` | `phan_cong.phan_cong` (`_flow`, `_homeroom_extra`, `_Local`); `solver._Allocation._overtime` in the fallback |
 | Soft: heavy subjects at p7, TV/Toán mornings, spread, day load, teacher gaps | `HEAVY_*`, `MORNING_SUBJECTS` (tags); points in the rows | composer rows (objective in `bo_ghep.build`, `bo_ghep.qa` for LNS regions) |
-| Campuses (any number; two campuses keep the old encoding and codes): a teacher teaches at one campus per session (hard), soft penalty per campus change in a day (whole-day hard was infeasible); maternity/`Cơ sở 2` non-homeroom teach only campus-2 classes; `Buổi Nghỉ` fixed and "n buổi" leave (hard) | columns → `Teacher.campus2/maternity/off_sessions/off_any`, `Problem.campus2` | campus per session and per day: composer rows (Số khác nhau by `co_so`); campus 2 and leave (native-only): `allocation.build_problem` (eligibility), `phan_cong.teacher_slots`, `solver._teacher_leave`, `checker._check_teacher_sessions` |
+| Campuses (any number; two campuses keep the old encoding and codes): a teacher teaches at one campus per session (hard), soft penalty per campus change in a day (whole-day hard was infeasible), made nearly always 0 by the campus-day plan (`tkb/lich_co_so.py`, step 4 above); maternity/`Cơ sở 2` non-homeroom teach only campus-2 classes; `Buổi Nghỉ` fixed and "n buổi" leave (hard) | columns → `Teacher.campus2/maternity/off_sessions/off_any`, `Problem.campus2` | campus per session and per day: composer rows (Số khác nhau by `co_so`); campus 2 and leave (native-only): `allocation.build_problem` (eligibility), `phan_cong.teacher_slots`, `solver._teacher_leave`, `checker._check_teacher_sessions` |
 | Overtime order: column `Thứ Tự Bù` (`Teacher.overtime_order`, `allocation.overtime_rank` → `Problem.overtime_order`; blank = homeroom contract 1 → homeroom 2 → general contract 3 → general 4, the four `Weights.overtime_*` prices; other numbers spread over that range); the checker's "homeroom first in own class" only when the homeroom teacher ranks first; maternity no overtime; keep old grade then class (`Lớp Đang Dạy`) | `Weights.overtime_*`, `keep_grade`, `keep_class` | `allocation.overtime_cost`, `keep_cost`, `overtime_allowance`; used in `phan_cong._flow`, `_Local._part`, `solver._Allocation` |
 | Timetabling loop: start share (≤ `LNS_START_MAX`), region limits, stop rules | `LNS_*`, `Settings.time_limit` (1200) | `lns.improve`, `lns._Search.regions` |
 

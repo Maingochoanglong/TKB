@@ -173,6 +173,7 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `precheck(problem, label, skip)` — Mâu thuẫn chắc chắn của luật bắt buộc, tìm bằng phép đếm; label(luật) là tên luật khi báo; bỏ qua các luật ở
 - `_per_unit(L)` — Luật bắt buộc theo lớp và ngày (buổi), không lọc ô hay GV: Số tiết Tối đa, Đúng n; Theo cặp.
 - `_precheck_per_unit(L, problem, label)` — Số tiết Tối đa (Đúng) n mỗi lớp mỗi ngày (buổi): số tiết/tuần của lớp quá n × số ngày (buổi). Theo cặp: số
+- `day_caps(problem)` — Luật bắt buộc Số tiết Tối đa (Đúng) n theo lớp và ngày hay buổi, không lọc ô, GV (`_per_unit`): [(các course của
 - `_units(L)` — Số buổi (phạm vi có Buổi) hay số ngày của khung giờ: đơn vị thời gian của luật `_per_unit`.
 - `_precheck_pair_caps(problem, label, skip)` — Luật Theo cặp bắt buộc (mỗi buổi 0 hoặc 2 tiết) gặp luật Số tiết Tối đa (Đúng) n < 2 theo lớp và buổi (ngày)
 - `_precheck_at_least(L, problem, label)` — So sánh Tối thiểu, Đúng: nhóm không đủ tiết có thể có (vd ô cố định mà môn không được xếp vào ô đó), hoặc
@@ -279,6 +280,17 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGE
 - `_teachers(staff)`
 - `_marked(text, problem, cells)` — Một lỗi của checker kèm các ô nó nói tới (tô viền đỏ trên trang), tìm theo chữ: lớp, Mã GV, Thứ, tiết, buổi,
 
+## tkb/lich_co_so.py — Lịch cơ sở theo ngày: giáo viên dạy ở nhiều cơ sở, mỗi ngày chỉ ở một cơ sở.
+Hằng số: `SECONDS`
+- `applies()` — Sheet LUẬT có dòng "mỗi GV mỗi ngày dạy tối đa 1 cơ sở" (bắt buộc hay ưu tiên) áp cho mọi GV, mọi tiết.
+- `away(problem, days, cid, g, day)` — Tiết của GV g ở course cid vào ngày `day` trái kế hoạch: người dạy (hay người bù tiết đó) ngày đó ở cơ sở
+- `plan(problem, fixed, settings, log)` — GV -> ngày -> chỉ số cơ sở (Problem.campuses) của ngày đó, cho các GV dạy ở từ hai cơ sở trở lên; rỗng: không
+- `_solve(problem, dom, at, lessons, parts, planned, settings)` — (GV, ngày) -> cơ sở người đó dạy ngày đó (ngày không có tiết: không có); None: không lập được.
+  · Luật bắt buộc "tối đa n tiết mỗi ngày (buổi)" của lớp (vd tối đa 1 tiết Toán mỗi ngày): kế hoạch dồn quá số đó vào ít ngày thì không xếp được.
+  · Lớp: mỗi ngày không quá số giờ học của ngày đó (lớp theo của nhóm ghép lớp học cùng giờ với lớp chính).
+  · GV dạy ở nhiều cơ sở: mỗi ngày không quá số giờ dạy được; mỗi ngày một cơ sở.
+  · Rải đều tiết của từng course: số tiết mỗi ngày quá số tiết/tuần chia số ngày (làm tròn lên).
+
 ## tkb/lns.py — Xếp giờ với phân công cố định: CP-SAT khởi đầu, rồi lặp QA -> xếp lại từng vùng (LNS) đến khi dừng.
 - `class LnsResult`
 - `_class_key()`
@@ -288,7 +300,7 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGE
   - `.qa(values)` — Chi phí mềm theo (lớp, ngày) của các dòng luật ưu tiên (bo_ghep.qa, cùng điểm với mục tiêu), và các tiết của
   - `.free(classes, days)`
   - `.regions(cost, lessons)` — (loại, tên, biến được mở, giới hạn) theo thứ tự thử của một vòng.
-- `improve(tm, settings, log)` — Khởi đầu + các vòng QA -> LNS (xem đầu module). None nếu không tìm được TKB nào.
+- `improve(tm, settings, log, give_up)` — Khởi đầu + các vòng QA -> LNS (xem đầu module). None nếu không tìm được TKB nào. give_up: bước khởi đầu không
   · Ctrl+C; trên Windows giao diện (tkb/giao_dien) dừng sớm tiến trình xếp TKB bằng Ctrl+Break (SIGBREAK).
 
 ## tkb/luat_co_san.py — Luật có sẵn của chương trình là các dòng của sheet LUẬT, viết bằng câu của bộ ghép luật (tkb/bo_ghep.py).
@@ -479,7 +491,8 @@ Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY
   - `.lessons(value)` — Các tiết của nghiệm; value(biến) -> giá trị (vd CpSolver.Value).
 - `timetable(problem, settings, fixed, hint, log, keep)` — Xếp giờ. Phân công cố định: CP-SAT khởi đầu rồi xếp lại từng vùng (tkb/lns.py). Mô hình tích hợp (vừa
 - `_teacher_leave(m, problem, occ_terms)` — Luật Buổi nghỉ (luật chỉ có dạng gốc, luat_co_san.NATIVE_ONLY): GV không dạy buổi nghỉ cố định ở cột Buổi Nghỉ,
-- `build_timetable(problem, settings, fixed, hint, keep)` — Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights); keep: TKB cũ để xếp lại ít xáo trộn
+- `course_domains(problem, teachers_of, campus_days)` — Course -> các giờ được xếp (allowed_slots; các lớp của nhóm ghép lớp: giờ chung của cả nhóm). campus_days
+- `build_timetable(problem, settings, fixed, hint, keep, campus_days)` — Dựng mô hình CP-SAT xếp giờ: luật cứng + mục tiêu mềm (config.Weights); keep: TKB cũ để xếp lại ít xáo trộn
   · Mỗi lớp mỗi slot đúng 1 tiết (hoặc tối đa 1 nếu chương trình ít hơn số slot). Môn học cùng giờ với môn chính (luật Học cùng giờ, problem.links) không tính: luật đó (bo_ghep) buộc nó cùng giờ với môn chính.
   · GV dạy course tại slot nào. Tiết của người mới mà là tiết bù của một người (problem.covers) chiếm lịch của cả hai: chế độ tuyển người mới dạy, chế độ bù giờ người bù dạy đúng ô đó.
   · Luật Theo cặp bắt buộc của các nhóm môn cả lớp (bo_ghep.forced, allocation.paired_groups): mỗi buổi 0 hoặc 2 tiết của nhóm, đứng liền nhau. Bộ ghép không hạ các dòng này (bo_ghep.build).
@@ -761,6 +774,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
+- `tests/test_lich_co_so.py`: test_each_teacher_is_at_one_campus_a_day, test_no_plan_when_one_campus_a_day_is_impossible, test_no_plan_for_one_campus_or_without_the_rule, test_unrealisable_plan_falls_back
 - `tests/test_lns.py`: test_rounds_never_worsen_and_respect_the_budget, test_region_moves_only_the_open_cells, test_ctrl_c_stops_after_the_current_region, test_same_timetable_in_new_processes
 - `tests/test_lop.py`: test_grade_names_and_order, test_class_sheet_is_read, test_class_sheet_errors, test_homeroom_only_subject_needs_a_homeroom_teacher, test_empty_or_same_class_sheet_keeps_the_timetable, test_class_without_homeroom_end_to_end, test_scenario_keeps_classes_and_grade_names
 - `tests/test_luat_co_san.py`: test_default_rows_are_the_defaults, test_template_sheet_reads_back_to_defaults, test_edit_number_points_delete_and_soften, test_rule_switched_off_is_kept_but_not_used, test_soft_rule_off_drops_its_points, test_built_in_rules_read_as_plain_sentences, test_deleted_rule_is_off_when_solving, test_legacy_file_rows, test_solved_timetable_keeps_every_hard_row, test_composer_matches_the_old_checker, test_solved_timetable_passes_the_hand_written_checks, test_shortcuts_read_composer_rows, test_composer_precheck_counts, test_homeroom_leave_follows_the_rule_row
