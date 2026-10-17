@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from dataclasses import dataclass, field, replace
 
 from . import config
@@ -390,6 +391,18 @@ def _merge_courses(courses: list[Course], merged: list[tuple[tuple[str, str], ..
             c.lead = lead.id
 
 
+def _same_names(staff: list[Teacher]) -> list[str]:
+    """Cảnh báo các dòng cùng họ tên (thường là dòng chép trùng; hai người trùng tên thì bỏ qua). Ghi Mã GV, không ghi
+    họ tên."""
+    rows: dict[str, list[Teacher]] = defaultdict(list)
+    for t in staff:
+        if t.name.strip() and normalize(t.name) != normalize(config.SUPPLEMENT_NAME):
+            rows[normalize(t.name)].append(t)
+    return [f"Các dòng {', '.join(str(t.row) for t in same)} cùng họ tên ({', '.join(t.code for t in same)}): nếu là "
+            f"một người bị chép trùng thì xóa bớt dòng; hai người trùng tên thì bỏ qua cảnh báo này"
+            for same in rows.values() if len(same) > 1]
+
+
 def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                   supplement_counts: dict[str, int] | None = None, overtime_max: int = 0) -> Problem:
     """Dựng bài toán.
@@ -406,7 +419,7 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     warnings: list[str] = []
     missing = missing_rule_subjects(curriculum)
     if missing:
-        warnings.append(f"Các môn có quy định mặc định trong tkb/config.py nhưng không có trong chương trình học: "
+        warnings.append(f"Các môn có quy định mặc định (bộ luật mẫu) nhưng không có trong chương trình học: "
                         f"{', '.join(missing)} (nếu trường có dạy, kiểm tra lại tên môn)")
     # Sắp môn theo tên: đổi thứ tự dòng trong file chương trình học không làm đổi TKB.
     curriculum = {g: dict(sorted(((canonical_subject(s), n) for s, n in req.items()),
@@ -416,6 +429,11 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     staff = [replace(t, label=role_labels[t.role]) for t in staff]
     specialist = {s for subjects in specialists.values() for s in subjects}
     slots = all_slots()
+    too_many = [f"Dòng {t.row}: {t.code} ghi Số Tiết/Tuần {t.max_lessons}, nhiều hơn số tiết cả tuần ({len(slots)}): "
+                f"ghi nhầm?" for t in staff if t.max_lessons > len(slots)]
+    if too_many:
+        raise InputError("\n".join(too_many))
+    warnings += _same_names(staff)
     classes = class_list(staff)
     homeroom = {t.class_name: t for t in staff if t.class_name}
     managers = [t for t in staff if t.role == config.ROLE_MANAGER]

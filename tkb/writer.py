@@ -22,7 +22,7 @@ from . import config, khung_gio
 from .allocation import campus_label
 from .solver import Solution, session_of
 from .staff import (CAMPUS1, CAMPUS2, Teacher, _find_columns, _fold, class_sort_key, clean_name, find_sheet, grade_key,
-                    grade_of, normalize, staff_sheet)
+                    grade_of, is_total_row, normalize, staff_sheet)
 from .style import CellStyle, Style
 from .rules import code as rules_code, subject_columns
 from . import luat_rieng
@@ -756,7 +756,7 @@ def _add_subject_rules(wb) -> None:
     header_row, key_col = found
     rows = {r: str(ws.cell(r, key_col).value) for r in range(header_row + 1, ws.max_row + 1)
             if ws.cell(r, key_col).value not in (None, "")
-            and normalize(ws.cell(r, key_col).value) not in ("tổng", "tổng cộng")}
+            and not is_total_row(ws.cell(r, key_col).value)}
     heads, values, rest = subject_columns(list(rows.values()))
     existing = {normalize(ws.cell(header_row, c).value): c for c in range(1, ws.max_column + 1)
                 if ws.cell(header_row, c).value not in (None, "")}

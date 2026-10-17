@@ -113,6 +113,7 @@ def test_timetable_view_swap_and_undo(page, small_updated):
     page.wait_for_selector("#start:not([hidden])")
     page.set_input_files("#file-open", str(small_updated))
     page.wait_for_selector("#import-dialog[open]")
+    assert "5 ngày học" in page.text_content("#import-dialog")  # bảng Ngày của khung giờ tự do (trước: 0 ngày học)
     page.click("#import-apply")
     page.click('.tabs [data-tab="tkb"]')
     page.wait_for_selector("#tkb-grid table.tkb")

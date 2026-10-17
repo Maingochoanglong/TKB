@@ -10,6 +10,7 @@ biệt của môn đó). Danh sách môn lấy từ file vào nên không có da
 from __future__ import annotations
 
 import datetime
+import difflib
 import re
 import unicodedata
 from collections import defaultdict
@@ -107,7 +108,9 @@ def role_errors(teachers: list[Teacher], subjects) -> list[str]:
             if role not in SPECIAL_ROLES and subject_key(role) not in keys:
                 bad.setdefault(label, []).append(str(t.row) if t.row else "?")
     valid = ", ".join(config.ROLE_LABELS[r] for r in SPECIAL_ROLES)
-    return [f"Dòng {', '.join(rows)}: chức vụ '{label}' không xác định (hợp lệ: {valid}, một chức vụ của sheet "
+    known = [*config.ROLE_LABELS.values(), *(r.name for r in config.CUSTOM_ROLES), *subjects]
+    return [f"Dòng {', '.join(rows)}: chức vụ '{label}' không xác định{suggest(label, known)} (hợp lệ: {valid}, một "
+            f"chức vụ của sheet "
             f"{config.ROLES_SHEET} hoặc đúng tên một môn trong sheet {config.PROGRAM_SHEET}"
             + ("; mỗi người một chức vụ chính, chức vụ khác ghi ở cột " + OPTIONAL_COLUMNS["extra_roles"]
                if re.search(r"[,;+]", label) else "") + ")"
@@ -287,8 +290,46 @@ def _fold(text) -> str:
     return "".join(ch for ch in text if not unicodedata.combining(ch))
 
 
-_YES = {"co", "x", "1", "true", "yes", "c"}
-_NO = {"khong", "0", "false", "no", "k"}
+_YES = {"co", "x", "1", "true", "yes", "c", "v", "✓", "✔", "☑", "dung", "ok"}
+_NO = {"khong", "0", "false", "no", "k", "ko", "-"}
+
+
+def fold_key(text) -> str:
+    """Khóa so khớp tên sheet, tiêu đề cột: bỏ dấu tiếng Việt, hoa thường, khoảng trắng và dấu câu ("Quy dinh" là
+    "QUY ĐỊNH", "Số Tiết/ Tuần" là "Số Tiết/Tuần")."""
+    return re.sub(r"[^0-9a-z]", "", _fold(text))
+
+
+def suggest(name, choices) -> str:
+    """Gợi ý tên đúng cho tên gõ khác (khác dấu, hoa thường, sai một hai chữ): " (ý là 'Toán'?)", hoặc "" nếu không có
+    tên nào gần giống."""
+    by_key = {fold_key(c): clean_name(c) for c in choices if not _blank(c)}
+    key = fold_key(name)
+    found = by_key.get(key) or next(iter(difflib.get_close_matches(key, list(by_key), n=1, cutoff=0.75)), None)
+    found = by_key.get(found, found)
+    return f" (ý là '{found}'?)" if found and found != clean_name(name) else ""
+
+
+def is_total_row(name) -> bool:
+    """Dòng cộng tổng của bảng (vd "Tổng", "Tổng số tiết", "Cộng"): không phải một môn, bỏ qua khi đọc."""
+    return fold_key(name) in {"tong", "tongcong", "tongso", "tongsotiet", "tongtiet", "cong"}
+
+
+# Cách ghi khác của ba chức vụ có sẵn (khóa fold_key): "GVCN" là Chủ Nhiệm, "GV bộ môn" là Bộ Môn...
+_ROLE_ALIASES = {
+    **dict.fromkeys(("chunhiem", "gvcn", "gvchunhiem", "giaovienchunhiem"), config.ROLE_HOMEROOM),
+    **dict.fromkeys(("bomon", "gvbm", "gvbomon", "giaovienbomon"), config.ROLE_GENERAL),
+    **dict.fromkeys(("quanly", "cbql", "canboquanly"), config.ROLE_MANAGER),
+}
+
+
+def role_text(title) -> str:
+    """Chữ cột Chức Vụ: cách ghi khác của Chủ Nhiệm, Bộ Môn, Quản Lý (vd "GVCN", "Chu nhiem") thành tên chuẩn; chữ
+    khác giữ nguyên (bỏ khoảng trắng thừa)."""
+    if normalize(title) in config.ROLE_LABELS:  # đã đúng tên (giữ nguyên chữ như trong file)
+        return clean_name(title)
+    role = _ROLE_ALIASES.get(fold_key(title))
+    return config.ROLE_LABELS[role] if role else clean_name(title)
 
 
 def parse_yes(value, column: str) -> bool:
@@ -306,10 +347,18 @@ def parse_yes(value, column: str) -> bool:
 
 
 def parse_classes(value) -> frozenset[str]:
-    """Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy hoặc chấm phẩy."""
+    """Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy, chấm phẩy, "+", "&" hoặc chữ "và"."""
     if _blank(value):
         return frozenset()
-    return frozenset(parse_class(part) for part in re.split(r"[,;]", str(value)) if part.strip())
+    out = set()
+    for part in re.split(r"[,;+&]|\s+và\s+", str(value)):
+        if part.strip():
+            try:
+                out.add(parse_class(part))
+            except InputError:
+                raise InputError(f"cột {OPTIONAL_COLUMNS['history']} ghi các lớp cách nhau bằng dấu phẩy (vd 3/1, "
+                                 f"3/2), không đọc được {part.strip()!r}") from None
+    return frozenset(out)
 
 
 _ANY_OFF_RE = re.compile(r"^(\d+)\s*buoi(?:\s+(.+?))?(?:\s+bat k[yi])?$")  # "2 buoi chieu", "1 buoi"
@@ -357,8 +406,31 @@ def parse_off(value) -> tuple[frozenset[tuple[int, str]], tuple[tuple[str | None
 
 
 def find_sheet(wb, name: str):
-    """Sheet có tên `name` (không phân biệt hoa thường), hoặc None."""
-    return next((ws for ws in wb.worksheets if normalize(ws.title) == normalize(name)), None)
+    """Sheet có tên `name` (không phân biệt hoa thường; không có thì so cả khi bỏ dấu, khoảng trắng: "Quy dinh" là
+    "QUY ĐỊNH"), hoặc None."""
+    return (next((ws for ws in wb.worksheets if normalize(ws.title) == normalize(name)), None)
+            or next((ws for ws in wb.worksheets if fold_key(ws.title) == fold_key(name)), None))
+
+
+def near_sheets(wb, names) -> list[str]:
+    """Cảnh báo cho các sheet không được đọc mà tên gần giống một sheet của mẫu `names` (vd "NHÂN SỰ (2)", "Luat
+    cu"): người dùng tưởng chương trình đọc sheet đó."""
+    names = list(names)
+    used = {id(ws) for n in names if (ws := find_sheet(wb, n)) is not None}
+    out = []
+    for ws in wb.worksheets:
+        if id(ws) in used:
+            continue
+        key = fold_key(ws.title)
+        for name in names:
+            target = fold_key(name)
+            similar = difflib.SequenceMatcher(None, key, target).ratio() >= 0.8
+            if (len(target) >= 3 and key.startswith(target)) or similar:
+                read = find_sheet(wb, name)
+                out.append(f"Sheet '{ws.title}' không được đọc" + (f" (chương trình đọc sheet '{read.title}')" if read
+                           else f": nếu đây là sheet {name} thì đổi tên sheet thành '{name}'"))
+                break
+    return out
 
 
 def staff_sheet(wb):
@@ -457,22 +529,85 @@ OPTIONAL_COLUMNS = {"maternity": "Thai Sản", "contract": "Hợp Đồng", "cam
                     "overtime_order": "Thứ Tự Bù"}
 
 
+_REQUIRED_HEADERS = {"name": "Họ và Tên", "title": "Chức Vụ", "lessons": "Số Tiết/Tuần"}
+# Tiêu đề cột của sheet nhân sự (khóa fold_key) -> trường; cả vài cách ghi hay gặp ("Họ tên", "Số tiết", "Định mức").
+_STAFF_HEADERS = {
+    **{fold_key(label): key for key, label in (*_REQUIRED_HEADERS.items(), *OPTIONAL_COLUMNS.items())},
+    "hoten": "name", "hotengiaovien": "name", "sotiet": "lessons", "dinhmuc": "lessons", "dinhmuctiet": "lessons",
+    "lop": "class", "lopchunhiem": "class", "stt": "stt", "tt": "stt",
+}
+
+
+def header_end(ws, header_row: int) -> int:
+    """Dòng cuối của khối tiêu đề bắt đầu ở dòng `header_row`: tiêu đề hai tầng có ô gộp dọc (vd "Họ và Tên" gộp
+    A1:A2, dòng 2 ghi "Số Tiết/Tuần" dưới "Định mức") thì là dòng 2; dữ liệu bắt đầu ở dòng sau đó."""
+    return max([header_row] + [rng.max_row for rng in ws.merged_cells.ranges
+                               if rng.min_row == header_row and header_row < rng.max_row <= header_row + 2
+                               and not _blank(ws.cell(header_row, rng.min_col).value)])
+
+
 def _find_columns(ws) -> tuple[int, dict[str, int]]:
     """Dòng tiêu đề và vị trí các cột (mẫu V8). Bắt buộc: Họ và Tên, Chức Vụ, Số Tiết/Tuần; không bắt buộc: Lớp,
-    STT, Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ."""
-    wanted = {"họ và tên": "name", "chức vụ": "title", "số tiết/tuần": "lessons", "số tiết / tuần": "lessons",
-              "lớp": "class", "stt": "stt", **{normalize(label): key for key, label in OPTIONAL_COLUMNS.items()}}
-    for row in ws.iter_rows(min_row=1, max_row=min(ws.max_row, 20)):
-        found = {}
-        for cell in row:
-            if cell.value is None:
-                continue
-            key = normalize(cell.value)
-            if key in wanted:
-                found[wanted[key]] = cell.column
-        if {"name", "title", "lessons"} <= found.keys():
-            return row[0].row, found
-    raise InputError("Không tìm thấy dòng tiêu đề có đủ các cột 'Họ và Tên', 'Chức Vụ', 'Số Tiết/Tuần' (mẫu V8)")
+    STT, Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ... Tiêu đề so khi bỏ dấu, hoa thường, khoảng trắng;
+    tiêu đề hai tầng (header_end) đọc cả các dòng của khối, ô của dòng trên trước."""
+    best: tuple[int, dict[str, int]] = (0, {})
+    for r in range(1, min(ws.max_row, 20) + 1):
+        found: dict[str, int] = {}
+        for row in ws.iter_rows(min_row=r, max_row=header_end(ws, r)):
+            for cell in row:
+                if cell.value is None:
+                    continue
+                key = _STAFF_HEADERS.get(fold_key(cell.value))
+                if key and key not in found:
+                    found[key] = cell.column
+        if _REQUIRED_HEADERS.keys() <= found.keys():
+            return r, found
+        if len(found) > len(best[1]):
+            best = (r, found)
+    where = ""
+    if best[1]:
+        missing = [label for key, label in _REQUIRED_HEADERS.items() if key not in best[1]]
+        where = f"; dòng {best[0]} thiếu cột {', '.join(repr(m) for m in missing)}"
+    raise InputError(f"Sheet {ws.title}: không tìm thấy dòng tiêu đề có đủ các cột 'Họ và Tên', 'Chức Vụ', "
+                     f"'Số Tiết/Tuần' (mẫu V8){where}")
+
+
+def sheet_notes(ws, header_row: int, cols: dict[str, int]) -> list[str]:
+    """Đọc sheet nhân sự `ws` (đã có dòng tiêu đề): tách các ô gộp ở phần dữ liệu, dưới khối tiêu đề (mỗi ô của vùng
+    gộp lấy chữ của ô đầu, như người gộp muốn) và trả về các cảnh báo: ô gộp, dòng đang ẩn mà vẫn được tính, cột có
+    tiêu đề gần giống một cột của mẫu nhưng không đọc được."""
+    notes: list[str] = []
+    end = header_end(ws, header_row)
+    for rng in sorted(ws.merged_cells.ranges, key=lambda r: (r.min_row, r.min_col)):
+        if rng.min_row <= end:
+            continue
+        value = ws.cell(rng.min_row, rng.min_col).value
+        bounds = (rng.min_row, rng.min_col, rng.max_row, rng.max_col)
+        ws.unmerge_cells(str(rng))
+        for r in range(bounds[0], bounds[2] + 1):
+            for c in range(bounds[1], bounds[3] + 1):
+                ws.cell(r, c).value = value
+        if value is not None:
+            notes.append(f"{ws.title}, ô gộp {rng.coord}: đã hiểu là mọi dòng {bounds[0]}–{bounds[2]} đều ghi "
+                         f"{clean_name(value)!r}")
+    names = {**{key: label for key, label in OPTIONAL_COLUMNS.items()}, **_REQUIRED_HEADERS}
+    used = set(cols.values())
+    for cell in (c for row in ws.iter_rows(min_row=header_row, max_row=end) for c in row):
+        if cell.value is None or cell.column in used:
+            continue
+        key = fold_key(cell.value)
+        close = [k for k in _STAFF_HEADERS
+                 if len(k) >= 4 and (key.startswith(k) or k.startswith(key) and len(key) >= 4)]
+        close += difflib.get_close_matches(key, list(_STAFF_HEADERS), n=1, cutoff=0.8)
+        target = next((_STAFF_HEADERS[k] for k in close if _STAFF_HEADERS[k] not in cols), None)
+        if target in names:
+            notes.append(f"{ws.title}: cột {clean_name(cell.value)!r} không được đọc; nếu là cột {names[target]} thì "
+                         f"đặt tiêu đề đúng là '{names[target]}'")
+    for r in range(end + 1, ws.max_row + 1):
+        if ws.row_dimensions[r].hidden and any(not _blank(ws.cell(r, c).value) for c in cols.values()):
+            notes.append(f"{ws.title}, dòng {r}: dòng đang ẩn trong Excel nhưng vẫn được tính (người đã nghỉ thì xóa "
+                         f"hẳn dòng)")
+    return notes
 
 
 def parse_order(value) -> int | None:
@@ -575,11 +710,15 @@ def validate(teachers: list[Teacher]) -> None:
         raise InputError("\n".join(errors))
 
 
-def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
-    """Đọc sheet nhân sự; `subjects`: các môn của chương trình học để kiểm tra chức vụ (None = không kiểm)."""
+def read_staff(path: str | Path, subjects=None, warn=lambda text: None) -> list[Teacher]:
+    """Đọc sheet nhân sự; `subjects`: các môn của chương trình học để kiểm tra chức vụ (None = không kiểm); `warn`
+    nhận các cảnh báo (ô gộp, dòng ẩn, cột không đọc được: sheet_notes)."""
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = staff_sheet(wb)
     header_row, cols = _find_columns(ws)
+    for note in sheet_notes(ws, header_row, cols):
+        warn(note)
+    header_row = header_end(ws, header_row)  # tiêu đề hai tầng: dữ liệu sau dòng cuối của khối
 
     def cell(r: int, key: str):
         return ws.cell(r, cols[key]).value if key in cols else None
@@ -595,7 +734,8 @@ def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
         try:
             if re.search(r"\d", str(title)):
                 raise InputError(f"Chức Vụ không ghi số thứ tự (chương trình tự đánh số theo thứ tự dòng): {title!r}")
-            role, label = normalize(title), clean_name(title)
+            label = role_text(title)
+            role = normalize(label)
             index = class_name = None
             if role == config.ROLE_HOMEROOM:
                 if _blank(cls):

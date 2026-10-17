@@ -12,7 +12,8 @@ from pathlib import Path
 import openpyxl
 
 from . import config
-from .staff import InputError, clean_name, find_sheet, grade_key, normalize, parse_grade, subject_key
+from .staff import (InputError, clean_name, find_sheet, grade_key, is_total_row, normalize, parse_grade,
+                    subject_key)
 
 _GRADE_HEAD = re.compile(r"khối\s+(\S.*)", re.IGNORECASE)
 
@@ -70,7 +71,7 @@ def read_program(path: str | Path) -> dict[int | str, dict[str, int]]:
     seen: dict[str, int] = {}
     for r in range(header_row + 1, ws.max_row + 1):
         subject = ws.cell(r, subject_col).value
-        if subject is None or str(subject).strip() == "" or normalize(subject) in ("tổng", "tổng cộng"):
+        if subject is None or str(subject).strip() == "" or is_total_row(subject):
             continue
         name = clean_name(subject)
         key = canonical_subject(subject)

@@ -260,6 +260,10 @@ class App:
         except InputError as exc:
             raise InputError(f"Không đọc được file {name}: {exc}") from None
         except Exception as exc:  # không phải file Excel (.xlsx) hợp lệ
+            from ..__main__ import _not_xlsx, not_xlsx_message
+            if _not_xlsx(exc):
+                text = not_xlsx_message(name)
+                raise InputError(text[0].upper() + text[1:]) from None
             raise InputError(f"Không đọc được file {name} (cần file Excel .xlsx): {exc}") from None
         # File cập nhật "x_cap_nhat.xlsx": xếp lại vẫn ghi x.xlsx, x_cap_nhat.xlsx (không thành x_cap_nhat_cap_nhat).
         stem = re.sub(r"(_cap_nhat)+$", "", Path(name).stem, flags=re.IGNORECASE) or Path(name).stem

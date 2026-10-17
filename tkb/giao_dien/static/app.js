@@ -1432,7 +1432,7 @@ function renderStepChecks(res) {
 }
 function renderCheck(res) {
   const items = [];
-  if (!res.errors.length) items.push(`<li class="ok">Kịch bản hợp lệ, xếp TKB được.</li>`);
+  if (!res.errors.length) items.push(`<li class="ok">Dữ liệu hợp lệ, xếp TKB được.</li>`);
   items.push(...res.errors.map((t) => msgItem(t, "err")));
   items.push(...res.warnings.map((t) => msgItem(t, "warn")));
   items.push(...res.info.map((t) => `<li class="info">${esc(t)}</li>`));
@@ -1459,7 +1459,7 @@ function setRunning(on) {
 async function startRun() {
   const res = await check();
   if (res.errors.length) {
-    notify("Kịch bản còn lỗi (xem phần Kiểm tra): sửa rồi bấm Xếp TKB lại.", "error");
+    notify("Dữ liệu còn lỗi (xem phần Kiểm tra): sửa rồi bấm Xếp TKB lại.", "error");
     return;
   }
   await api("POST", "/api/run", { scenario: st.scenario, run: st.run });
@@ -1992,7 +1992,7 @@ function renderAll() {
   renderStaff();
   renderRules();
   renderRun();
-  $("#file-label").textContent = st.label || "Kịch bản mới";
+  $("#file-label").textContent = st.label || "Dữ liệu mới";
   updateCounts();
   if (!st.scenario.saved) tkb = null;
   if (st.scenario.saved) refreshTkb(); else renderTkb();
@@ -2014,7 +2014,7 @@ function showTab(name) {
 async function newScenario(mau = "") {
   const data = await api("GET", `/api/new${mau ? `?mau=${encodeURIComponent(mau)}` : ""}`);
   staffBaseline = null;
-  st = { scenario: data.scenario, run: { ...S.run_defaults }, label: "Kịch bản mới" };
+  st = { scenario: data.scenario, run: { ...S.run_defaults }, label: "Dữ liệu mới" };
   renderAll();
   changed();
 }
@@ -2082,9 +2082,9 @@ async function startWith(how, mau = "") {
     const name = (S.presets.find((p) => p.key === mau) || S.presets[0]).name;
     showTab(mau === "trong" ? "khung" : "mon");
     notify(mau === "trong"
-      ? `Kịch bản mới, bộ mẫu ${esc(name)}: đặt khung giờ ở bước này, rồi thêm môn, khối, lớp, giáo viên; các luật có sẵn
+      ? `Dữ liệu mới, bộ mẫu ${esc(name)}: đặt khung giờ ở bước này, rồi thêm môn, khối, lớp, giáo viên; các luật có sẵn
         đang Tạm tắt, bật luật cần dùng ở bước Luật.`
-      : `Kịch bản mới, bộ mẫu ${esc(name)}: nhập số tiết ở bước Môn học, danh sách ở bước Giáo viên.`, "ok",
+      : `Dữ liệu mới, bộ mẫu ${esc(name)}: nhập số tiết ở bước Môn học, danh sách ở bước Giáo viên.`, "ok",
     back ? UNDO : null);
   } else if (how === "sample") {
     const data = await api("GET", "/api/sample");
@@ -2107,7 +2107,8 @@ const PARTS = [
     sum: (x) => `${(x.rooms || []).filter(named).length} phòng` },
   { key: "roles", label: "Chức vụ", sheet: "roles", sum: (x) => `${x.roles.filter(named).length} chức vụ GV chuyên biệt` },
   { key: "frame", label: "Khung giờ và quy định chung", sheet: "rules",
-    sum: (x) => `${(x.days || []).filter((d) => d.morning_days).length} ngày học, ${(x.periods || []).length} tiết mỗi ngày` },
+    sum: (x) => `${(x.days || []).filter((d) => Object.values(d.periods || {}).some((n) => Number(n) > 0)).length} ngày học, `
+      + `tối đa ${(x.periods || []).length} tiết mỗi ngày` },
   { key: "rules", label: "Luật", sheet: "luat", sum: (x) => `${(x.rules || []).length} luật` },
   { key: "saved", label: "TKB đã xếp", sheet: "saved", sum: () => "giữ TKB nếu vẫn đúng luật" },
 ];
@@ -2797,7 +2798,7 @@ async function init() {
     if (!st.scenario.roles) { st.scenario.roles = []; addImplicitRoles(); } // bản nháp trước khi có bước Chức vụ
     renderAll();
     if (st.fresh) showStart(false); // lần trước mở trang mà chưa chọn cách bắt đầu
-    else notify("Đã mở lại kịch bản đang soạn lần trước (lưu tự động trên máy này).", "",
+    else notify("Đã mở lại dữ liệu đang soạn lần trước (lưu tự động trên máy này).", "",
       { label: "Bắt đầu lại", fn: () => showStart(true) });
   } else {
     await newScenario().catch(fail); // kịch bản trống để các bước có dữ liệu; trang bắt đầu che đi

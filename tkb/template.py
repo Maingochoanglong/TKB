@@ -92,7 +92,17 @@ NOTES = {
                  "Để trống: GVCN hợp đồng 1, GVCN 2, bộ môn hợp đồng 3, bộ môn 4. Chỉ có tác dụng với người được "
                  "dạy bù (sheet QUY ĐỊNH, không thai sản).",
 }
+QUICK_START = "BẮT ĐẦU NHANH"
 GUIDE = [
+    (QUICK_START, f"Chỉ cần điền hai sheet: {config.STAFF_SHEET} (bốn cột đầu: Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần) "
+                  f"và {config.PROGRAM_SHEET} (số tiết/tuần của từng môn ở các cột Khối). Các sheet, các cột khác đã có "
+                  f"sẵn giá trị mặc định: để nguyên nếu trường không cần."),
+    (f"{QUICK_START}: Chức Vụ", "Chủ Nhiệm (ghi lớp ở cột Lớp, vd 1/1), Bộ Môn, Quản Lý, hoặc tên môn GV chuyên dạy "
+                                "(vd Tiếng Anh). Không ghi số thứ tự."),
+    (f"{QUICK_START}: lưu ý", "Giữ nguyên tên sheet và tên cột. Người đã nghỉ thì xóa hẳn dòng (dòng ẩn vẫn được "
+                              "tính). Ô Có/Không ghi Có hoặc để trống. Lưu file dạng Excel .xlsx."),
+    (f"{QUICK_START}: không cần Excel", "Mở trang nhập liệu (TKB.exe hoặc giao_dien.py), chọn Soạn mới, rồi dán danh "
+                                        "sách giáo viên chép từ Excel (nút Dán từ Excel… ở bước Giáo viên)."),
     (config.STAFF_SHEET, "Mỗi giáo viên một dòng. Tám cột Thai Sản, Hợp Đồng, Cơ sở 2, Lớp Đang Dạy, Buổi Nghỉ, "
                          "Chức Vụ Thêm, Nhãn, Thứ Tự Bù không bắt buộc (để trống hoặc xóa cột)."),
     *((f"{config.STAFF_SHEET}: {head}", note) for head, note in NOTES.items()),

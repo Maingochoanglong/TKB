@@ -32,6 +32,7 @@ import openpyxl
 from . import bo_ghep, config, luat_rieng
 from .program import grade_columns, grade_head
 from .staff import (_NO, _YES, CAMPUS1, CAMPUS2, InputError, _fold, canonical_class, clean_name, find_sheet,
+                    fold_key, is_total_row, near_sheets,
                     normalize, parse_grade, parse_tags, subject_key)
 
 YES, NO = "Có", "Không"
@@ -287,12 +288,13 @@ class _Reader:
         cột}, [(dòng, ô khóa, {khóa của cột: giá trị})]). `strict`: cột lạ là lỗi; không thì chỉ cảnh báo."""
         sheet = ws.title
         wanted = {normalize(c.header): c for c in cols}
+        folded = {fold_key(c.header): c for c in cols}
         found: dict[str, int] = {}
         for c, value in _row(ws, header_row).items():
             head = normalize(value)
             if c == key_col or head == normalize(NOTE):
                 continue
-            col = wanted.get(head)
+            col = wanted.get(head) or folded.get(fold_key(value))
             if col is not None:
                 found[col.key] = c
             elif strict:
@@ -481,7 +483,7 @@ class _Reader:
         found, rows = self.table(ws, header_row, ws.max_row, key_col, SUBJECT_COLS, strict=False)
         if not found:
             return False
-        rows = [(r, k, v) for r, k, v in rows if normalize(k) not in ("tổng", "tổng cộng")]
+        rows = [(r, k, v) for r, k, v in rows if not is_total_row(k)]
         grades = self.program_grades(ws)
         labels = {subject_key(v["DISPLAY_NAMES"]): clean_name(k) for _, k, v in rows if v.get("DISPLAY_NAMES")}
         names: list[tuple[int, str, dict]] = []
@@ -552,9 +554,9 @@ class _Reader:
         """Bảng có dòng tiêu đề chứa cột Kiểu luật; mỗi dòng sau đó là một luật (dòng trống bỏ qua). Sheet LUẬT
         (attr RULES) có thêm cột Nhóm; cột Ghi chú, Luật đọc là bỏ qua."""
         sheet = ws.title
-        heads = {normalize(h): k for k, h in (luat_rieng.GROUP, *luat_rieng.COLUMNS)}
+        heads = {fold_key(h): k for k, h in (luat_rieng.GROUP, *luat_rieng.COLUMNS)}
         header_row = next((r for r in range(1, min(ws.max_row, 20) + 1)
-                           if any(normalize(v) == normalize(luat_rieng.HEADERS["kind"]) for v in _row(ws, r).values())),
+                           if any(fold_key(v) == fold_key(luat_rieng.HEADERS["kind"]) for v in _row(ws, r).values())),
                           None)
         if header_row is None:
             if ws.max_row > 1 or _row(ws, 1):
@@ -563,10 +565,10 @@ class _Reader:
             return
         cols: dict[str, int] = {}
         for c, value in _row(ws, header_row).items():
-            key = heads.get(normalize(value))
+            key = heads.get(fold_key(value))
             if key is not None:
                 cols[key] = c
-            elif normalize(value) not in (normalize(luat_rieng.NOTE), normalize(luat_rieng.SAY)):
+            elif fold_key(value) not in (fold_key(luat_rieng.NOTE), fold_key(luat_rieng.SAY)):
                 self.error(sheet, header_row, f"không có cột nào tên '{clean_name(value)}' (các cột: "
                                               f"{', '.join(luat_rieng.HEADERS.values())}, {luat_rieng.NOTE})")
         rules = []
@@ -582,9 +584,9 @@ class _Reader:
         """Bảng có dòng tiêu đề chứa cột Chức vụ; các dòng sau là các chức vụ (dòng trống bỏ qua). Tên môn kiểm
         tra khi dựng bài toán (allocation.resolve_roles), vì cần chương trình học."""
         sheet = ws.title
-        heads = {normalize(ROLE_NAME): "name", normalize(ROLE_SUBJECTS): "subjects"}
+        heads = {fold_key(ROLE_NAME): "name", fold_key(ROLE_SUBJECTS): "subjects"}
         header_row = next((r for r in range(1, min(ws.max_row, 20) + 1)
-                           if normalize(ROLE_NAME) in {normalize(v) for v in _row(ws, r).values()}), None)
+                           if fold_key(ROLE_NAME) in {fold_key(v) for v in _row(ws, r).values()}), None)
         self.values["CUSTOM_ROLES"] = roles = []
         if header_row is None:
             if ws.max_row > 1 or _row(ws, 1):
@@ -592,7 +594,7 @@ class _Reader:
             return
         cols: dict[str, int] = {}
         for c, value in _row(ws, header_row).items():
-            key = heads.get(normalize(value))
+            key = heads.get(fold_key(value))
             if key is not None:
                 cols[key] = c
             elif normalize(value) != normalize(NOTE):
@@ -645,17 +647,17 @@ class _Reader:
         không trùng tên lớp. Sheet không có lớp nào: như không có sheet (lớp lấy từ các dòng Chủ Nhiệm)."""
         sheet = ws.title
         self.values["CLASSES"] = ()
-        heads = {normalize(CLASS_NAME): "name", normalize(CLASS_GRADE): "grade", normalize(CLASS_CAMPUS): "campus",
-                 normalize(CLASS_CAMPUS2): "campus2", normalize(CLASS_TAGS): "tags"}
+        heads = {fold_key(CLASS_NAME): "name", fold_key(CLASS_GRADE): "grade", fold_key(CLASS_CAMPUS): "campus",
+                 fold_key(CLASS_CAMPUS2): "campus2", fold_key(CLASS_TAGS): "tags"}
         header_row = next((r for r in range(1, min(ws.max_row, 20) + 1)
-                           if normalize(CLASS_NAME) in {normalize(v) for v in _row(ws, r).values()}), None)
+                           if fold_key(CLASS_NAME) in {fold_key(v) for v in _row(ws, r).values()}), None)
         if header_row is None:
             if ws.max_row > 1 or _row(ws, 1):
                 self.error(sheet, None, f"không có dòng tiêu đề có cột {CLASS_NAME}")
             return
         cols: dict[str, int] = {}
         for c, value in _row(ws, header_row).items():
-            key = heads.get(normalize(value))
+            key = heads.get(fold_key(value))
             if key is not None:
                 cols[key] = c
             elif normalize(value) != normalize(NOTE):
@@ -711,17 +713,17 @@ class _Reader:
         (allocation.build_problem), vì cần chương trình học và các lớp."""
         sheet = ws.title
         self.values["ROOMS"] = ()
-        heads = {normalize(ROOM_NAME): "name", normalize(ROOM_CAMPUS): "campus", normalize(ROOM_SUBJECTS): "subjects",
-                 normalize(ROOM_GRADES): "grades", normalize(ROOM_CAPACITY): "capacity"}
+        heads = {fold_key(ROOM_NAME): "name", fold_key(ROOM_CAMPUS): "campus", fold_key(ROOM_SUBJECTS): "subjects",
+                 fold_key(ROOM_GRADES): "grades", fold_key(ROOM_CAPACITY): "capacity"}
         header_row = next((r for r in range(1, min(ws.max_row, 20) + 1)
-                           if normalize(ROOM_NAME) in {normalize(v) for v in _row(ws, r).values()}), None)
+                           if fold_key(ROOM_NAME) in {fold_key(v) for v in _row(ws, r).values()}), None)
         if header_row is None:
             if ws.max_row > 1 or _row(ws, 1):
                 self.error(sheet, None, f"không có dòng tiêu đề có cột {ROOM_NAME}")
             return
         cols: dict[str, int] = {}
         for c, value in _row(ws, header_row).items():
-            key = heads.get(normalize(value))
+            key = heads.get(fold_key(value))
             if key is not None:
                 cols[key] = c
             elif normalize(value) != normalize(NOTE):
@@ -837,6 +839,10 @@ def read_rules(path: str | Path, warn=lambda text: None) -> dict[str, object] | 
         raise InputError(f"File vào theo mẫu cũ (sheet {', '.join(old)}): nay quy định của môn là các cột của sheet "
                          f"{config.PROGRAM_SHEET}, các quy định khác ở sheet {config.RULES_SHEET}. Tạo file mẫu mới "
                          f"(python -m tkb.template) rồi chép sang, hoặc xóa các sheet đó để dùng giá trị mặc định")
+    for text in near_sheets(wb, (config.STAFF_SHEET, config.PROGRAM_SHEET, config.CLASSES_SHEET, config.ROOMS_SHEET,
+                                 config.ROLES_SHEET, config.RULES_SHEET, luat_rieng.RULES_SHEET, luat_rieng.SHEET,
+                                 config.SAVED_SHEET, "HƯỚNG DẪN")):
+        warn(text)
     reader = _Reader(warn)
     found = False
     program = find_sheet(wb, config.PROGRAM_SHEET)

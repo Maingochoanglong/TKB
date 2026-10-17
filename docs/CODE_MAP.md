@@ -14,6 +14,8 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 ## tkb/__main__.py — Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] ...
 - `use_utf8_output()` — In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252), và in xong dòng nào
 - `main(argv)`
+- `not_xlsx_message(path)` — Câu báo khi file vào không phải file Excel .xlsx đọc được.
+- `_not_xlsx(exc)`
 - `_run(args, settings)`
 - `print_teacher_rules(solution)` — In số liệu các luật về GV: hai cơ sở, thai sản, buổi nghỉ, giữ phân công của TKB cũ (chỉ in khi file vào
 
@@ -53,6 +55,7 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 - `keep_cost(t, class_name, w)` — Giá mỗi tiết GV không chủ nhiệm t dạy lớp `class_name` khi lệch TKB cũ (cột Lớp Đang Dạy): khác mọi khối
 - `previous_cost(t, course, w)` — Xếp lại ít xáo trộn: giá mỗi tiết t dạy (lớp, môn) của course mà TKB cũ không giao cho t (Teacher.previous).
 - `_merge_courses(courses, merged, subject_labels)` — Ghép lớp: các course của mỗi nhóm theo course của lớp chính (Course.lead); ai cũng chỉ được dạy cả nhóm nếu
+- `_same_names(staff)` — Cảnh báo các dòng cùng họ tên (thường là dòng chép trùng; hai người trùng tên thì bỏ qua). Ghi Mã GV, không ghi
 - `build_problem(staff, curriculum, supplement_counts, overtime_max)` — Dựng bài toán.
   · Môn có luật trong config được gọi theo tên trong config; tên như trong file giữ lại để in ra.
   · Sắp môn theo tên: đổi thứ tự dòng trong file chương trình học không làm đổi TKB.
@@ -241,7 +244,7 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGE
 - `_blank(value)`
 - `_number(value)` — Số nguyên nếu ô là số nguyên, ô trống là None, còn lại giữ chữ (kiểm tra sẽ báo lỗi).
 - `_text(value)`
-- `_read_staff_rows(wb, warnings)` — Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua). File không có sheet
+- `_read_staff_rows(wb, warnings)` — Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua), cùng sheet như khi chạy
 - `_read_program_rows(wb)` — Các khối và các dòng (môn, {khối: số tiết}) của sheet CHƯƠNG TRÌNH HỌC đúng như trong file.
 - `_read_room_rows(wb)` — Các phòng của sheet PHÒNG đúng như chữ trong file (dòng trống giữa bảng giữ lại: phòng i là dòng i + 2 của
 - `_read_class_rows(wb)` — Các lớp của sheet LỚP đúng như chữ trong file (dòng trống giữa bảng giữ lại: lớp i là dòng i + 2 của sheet).
@@ -520,7 +523,7 @@ Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY
 - `_mark_locked(solution, keep, log)` — Đánh dấu các tiết ở ô khóa của TKB cũ (giữ được môn) để file vào cập nhật ghi lại " (khóa)"; in các ô khóa
 
 ## tkb/staff.py — Đọc và kiểm tra file Excel danh sách nhân sự.
-Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_ANY_OFF_RE`, `OPTIONAL_COLUMNS`
+Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_ROLE_ALIASES`, `_ANY_OFF_RE`, `OPTIONAL_COLUMNS`, `_REQUIRED_HEADERS`, `_STAFF_HEADERS`
 - `class InputError` — Lỗi dữ liệu đầu vào.
 - `class Teacher`
   - `.tag_keys()` — Các nhãn của GV (chuẩn hóa) để khớp cột Giáo viên của sheet LUẬT: cột Nhãn, tên các cột Có/Không ghi Có
@@ -547,23 +550,30 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_A
 - `class_campus2(class_name)` — Lớp ở cơ sở tên Cơ sở 2 theo sheet LỚP (lớp ở cơ sở 2 còn có thể đánh dấu ở dòng Chủ Nhiệm).
 - `class_sort_key(class_name)` — Sắp lớp theo khối (grade_key), rồi theo tên: "1/2" trước "1/10", "1D9" trước "1D15", "Lá 2" trước "Lá 10".
 - `_fold(text)` — Chữ thường, bỏ dấu tiếng Việt (so khớp "Chiều T5" với "chieu thu 5").
+- `fold_key(text)` — Khóa so khớp tên sheet, tiêu đề cột: bỏ dấu tiếng Việt, hoa thường, khoảng trắng và dấu câu ("Quy dinh" là
+- `suggest(name, choices)` — Gợi ý tên đúng cho tên gõ khác (khác dấu, hoa thường, sai một hai chữ): " (ý là 'Toán'?)", hoặc "" nếu không có
+- `is_total_row(name)` — Dòng cộng tổng của bảng (vd "Tổng", "Tổng số tiết", "Cộng"): không phải một môn, bỏ qua khi đọc.
+- `role_text(title)` — Chữ cột Chức Vụ: cách ghi khác của Chủ Nhiệm, Bộ Môn, Quản Lý (vd "GVCN", "Chu nhiem") thành tên chuẩn; chữ
 - `parse_yes(value, column)` — Cột Có/Không: trống hoặc "Không" là không; "Có", "x", "1" là có.
-- `parse_classes(value)` — Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy hoặc chấm phẩy.
+- `parse_classes(value)` — Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy, chấm phẩy, "+", "&" hoặc chữ "và".
 - `off_text(t)` — Cột Buổi Nghỉ viết lại từ dữ liệu đã đọc, vd "Chiều T5, Sáng T6, 2 buổi chiều".
 - `parse_off(value)` — Cột Buổi Nghỉ: các mục cách nhau bằng dấu phẩy/chấm phẩy. Mỗi mục là buổi cố định ("Chiều T5",
-- `find_sheet(wb, name)` — Sheet có tên `name` (không phân biệt hoa thường), hoặc None.
+- `find_sheet(wb, name)` — Sheet có tên `name` (không phân biệt hoa thường; không có thì so cả khi bỏ dấu, khoảng trắng: "Quy dinh" là
+- `near_sheets(wb, names)` — Cảnh báo cho các sheet không được đọc mà tên gần giống một sheet của mẫu `names` (vd "NHÂN SỰ (2)", "Luat
 - `staff_sheet(wb)` — Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có, không thì sheet đầu tiên.
 - `class SavedTimetable` — TKB đã xếp đọc từ file vào cập nhật (sheet config.SAVED_SHEET).
 - `read_saved_timetable(path)` — Sheet config.SAVED_SHEET của file vào (TKB đã xếp, xem parse_saved_grid). File không có sheet này: None.
 - `parse_saved_grid(grid)` — TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
 - `_blank(value)`
+- `header_end(ws, header_row)` — Dòng cuối của khối tiêu đề bắt đầu ở dòng `header_row`: tiêu đề hai tầng có ô gộp dọc (vd "Họ và Tên" gộp
 - `_find_columns(ws)` — Dòng tiêu đề và vị trí các cột (mẫu V8). Bắt buộc: Họ và Tên, Chức Vụ, Số Tiết/Tuần; không bắt buộc: Lớp,
+- `sheet_notes(ws, header_row, cols)` — Đọc sheet nhân sự `ws` (đã có dòng tiêu đề): tách các ô gộp ở phần dữ liệu, dưới khối tiêu đề (mỗi ô của vùng
 - `parse_order(value)` — Cột Thứ Tự Bù: số nguyên dương (1 = dạy bù trước nhất); trống: None.
 - `_to_lessons(value, title)`
 - `make_teacher(name, role, index, class_name, lessons, row, label, **extra)` — `extra`: các trường không bắt buộc của Teacher (maternity, contract, campus2, history, off_sessions, off_any,
 - `_check_extras(teachers)` — Lỗi của các cột không bắt buộc cần cả danh sách mới kiểm được (lớp trong Lớp Đang Dạy, thai sản, buổi nghỉ).
 - `validate(teachers)` — Báo mọi lỗi trùng lặp cùng lúc (mỗi lỗi một dòng).
-- `read_staff(path, subjects)` — Đọc sheet nhân sự; `subjects`: các môn của chương trình học để kiểm tra chức vụ (None = không kiểm).
+- `read_staff(path, subjects, warn)` — Đọc sheet nhân sự; `subjects`: các môn của chương trình học để kiểm tra chức vụ (None = không kiểm); `warn`
   · Đánh số thứ tự trong từng chức vụ theo thứ tự dòng (Chủ Nhiệm dùng lớp thay cho số).
 - `class_list(teachers)` — Các lớp của trường: sheet LỚP (lớp có thể không có GVCN); file không có sheet LỚP thì lớp của các dòng Chủ
 
@@ -585,7 +595,7 @@ Hằng số: `DEFAULT_ROW_HEIGHT`, `MAX_COLUMN_WIDTH`, `STAFF_HEADERS`, `MARK_FI
   - `.fit_columns(ws, first_row, minimum, skip_rows)` — Nới độ rộng cột vừa chữ dài nhất (tối đa MAX_COLUMN_WIDTH, dài hơn thì xuống dòng).
 
 ## tkb/template.py — File vào mẫu V8: một file Excel đơn giản, tiếng Việt, style giống file của nhà trường (chữ đen, không tô nền,
-Hằng số: `STAFF_HEADERS`, `STAFF_WIDTHS`, `RULES_WIDTHS`, `GUIDE_SHEET`, `GUIDE_HEADERS`, `GUIDE_WIDTHS`, `YES`, `LAST_ROW`, `BLANK_ROWS`, `BLANK_GRADES`, `BLACK`, `FONT`, `HEADER_FONT`, `THIN`, `BORDER`, `CENTER`, `LEFT`, `ROW_HEIGHT`, `NOTES`, `GUIDE`
+Hằng số: `STAFF_HEADERS`, `STAFF_WIDTHS`, `RULES_WIDTHS`, `GUIDE_SHEET`, `GUIDE_HEADERS`, `GUIDE_WIDTHS`, `YES`, `LAST_ROW`, `BLANK_ROWS`, `BLANK_GRADES`, `BLACK`, `FONT`, `HEADER_FONT`, `THIN`, `BORDER`, `CENTER`, `LEFT`, `ROW_HEIGHT`, `NOTES`, `QUICK_START`, `GUIDE`
 - `role_label(t)`
 - `staff_row(t)`
 - `_style_rows(ws, first, last, n_cols, header, left)` — Kẻ bảng: chữ đen Times New Roman 14 (tiêu đề in đậm), viền mảnh, không tô nền; cột trong `left` căn trái.
@@ -771,6 +781,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_co_so.py`: test_three_campuses_end_to_end, test_checker_and_campus_rule_with_three_campuses, test_old_campus_column_and_errors
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_cung_gio.py`: test_split_group_and_assistant_end_to_end, test_rule_errors, test_checker_and_rules_off, test_saved_cell_with_two_subjects
+- `tests/test_de_dung.py`: test_sheet_and_column_names_without_accents, test_yes_no_words_roles_and_classes, test_merged_cells_hidden_rows_and_unread_columns, test_two_row_header, test_near_sheet_names, test_same_names_quota_and_total_row, test_suggestions, test_not_xlsx
 - `tests/test_ghep_lop.py`: test_merge_end_to_end, test_rule_errors, test_checker_and_integrated_model, test_merge_in_one_room, test_merge_per_grade_on_sample_school
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end

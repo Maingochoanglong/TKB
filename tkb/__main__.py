@@ -82,6 +82,14 @@ def main(argv: list[str] | None = None) -> int:
     except InputError as exc:
         print(f"LỖI: {exc}", file=sys.stderr)
         return 1
+    except FileNotFoundError:
+        print(f"LỖI: không có file {args.staff}", file=sys.stderr)
+        return 1
+    except Exception as exc:  # không phải file .xlsx (vd .xls, .csv) hoặc file hỏng
+        if not _not_xlsx(exc):
+            raise
+        print(f"LỖI: {not_xlsx_message(args.staff)}", file=sys.stderr)
+        return 1
     if rules is None:
         print(f"Quy định: mặc định của chương trình (file vào không có cột quy định ở sheet {config.PROGRAM_SHEET}, "
               f"không có sheet {config.RULES_SHEET}).")
@@ -90,6 +98,20 @@ def main(argv: list[str] | None = None) -> int:
         print("Quy định: đọc từ file vào" + (f", khác mặc định: {', '.join(diff)}." if diff else ", giống mặc định."))
     with applied(rules):  # quy định trong file vào thay giá trị mặc định trong tkb/config.py
         return _run(args, settings)
+
+
+def not_xlsx_message(path) -> str:
+    """Câu báo khi file vào không phải file Excel .xlsx đọc được."""
+    return (f"không đọc được file {Path(path).name}: chương trình chỉ đọc file Excel .xlsx. Mở file bằng Excel rồi "
+            f"chọn Lưu thành (Save As) › Excel Workbook (*.xlsx)")
+
+
+def _not_xlsx(exc: Exception) -> bool:
+    import zipfile
+
+    from openpyxl.utils.exceptions import InvalidFileException
+    return (isinstance(exc, (InvalidFileException, zipfile.BadZipFile))
+            or isinstance(exc, KeyError) and "no item named" in str(exc))  # file zip không phải Excel
 
 
 def _run(args, settings: config.Settings) -> int:
@@ -101,7 +123,8 @@ def _run(args, settings: config.Settings) -> int:
     rooms_out = Path(args.rooms_out) if args.rooms_out else output.parent / "TKB_phong.xlsx"
     try:
         curriculum = read_program(args.staff)
-        staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req])
+        staff = read_staff(args.staff, subjects=[s for req in curriculum.values() for s in req],
+                           warn=lambda text: print(f"Cảnh báo: {text}"))
         know_staff(staff)  # câu đọc lại của luật ghi Mã GV thay cho họ tên
         n_subjects = len({s for req in curriculum.values() for s in req})
         print(f"Đọc {len(staff)} nhân sự, {len(class_list(staff))} lớp; "
