@@ -20,6 +20,11 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
 
 ## Working rules
 - **Talk to the user in Vietnamese.** Commit messages in English (existing style); PR titles/bodies in Vietnamese.
+- Hand-filled Excel is read leniently: sheet names and headers match by `staff.fold_key` (no accents/case/spaces;
+  `find_sheet`, `_find_columns` aliases, rules/LUẬT headers), `staff.near_sheets` warns on look-alike unread sheets,
+  `staff.sheet_notes` spreads merged cells and warns on hidden rows / near-miss headers, `role_text` maps `GVCN`…,
+  `_YES`/`_NO` take ✓/Đúng/ko, `is_total_row` skips total rows, `suggest` adds "ý là …?"; `build_problem` errors on a
+  quota above the week's slots and warns on same names (rows + Mã GV, never names). The page reads staff like the CLI.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
   sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB` (and `Quản lý dạy

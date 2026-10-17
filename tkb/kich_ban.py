@@ -46,8 +46,8 @@ from .rules import (CLASS_CAMPUS, CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, CLASS_
                     rule_tables, subject_columns, visible)
 from .rules import SUBJECT_COLS as _ALL_SUBJECT_COLS
 from .staff import (CAMPUS1, CAMPUS2, InputError, _find_columns, _fold, _NO, _YES, class_list, class_sort_key,
-                    clean_name, find_sheet, grade_key, grade_of, normalize, parse_grade, read_staff, staff_sheet,
-                    subject_key)
+                    clean_name, find_sheet, grade_key, grade_of, header_end, is_total_row, normalize, parse_grade,
+                    read_staff, role_text, sheet_notes, staff_sheet, subject_key)
 from .template import NOTES, STAFF_HEADERS, program_rows, write_input
 
 VERSION = 3  # 2: mọi luật ở `rules` (sheet LUẬT); 3: khung giờ là `sessions` + số tiết từng buổi của mỗi ngày
@@ -164,14 +164,19 @@ def _text(value) -> str:
 
 
 def _read_staff_rows(wb, warnings: list[str]) -> list[dict]:
-    """Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua). File không có sheet
-    nhân sự (vd file chỉ có sheet LUẬT): không có dòng nào."""
-    if find_sheet(wb, config.STAFF_SHEET) is None:
-        return []
+    """Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua), cùng sheet như khi chạy
+    (staff_sheet: không có sheet NHÂN SỰ thì sheet đầu nếu có dòng tiêu đề nhân sự). File không có sheet nhân sự (vd
+    file chỉ có sheet LUẬT): không có dòng nào. Chức vụ ghi kiểu khác (vd "GVCN") đổi thành tên chuẩn (role_text)."""
     ws = staff_sheet(wb)
-    header_row, cols = _find_columns(ws)
+    try:
+        header_row, cols = _find_columns(ws)
+    except InputError:
+        if find_sheet(wb, config.STAFF_SHEET) is None:
+            return []
+        raise
+    warnings += sheet_notes(ws, header_row, cols)
     rows = []
-    for r in range(header_row + 1, ws.max_row + 1):
+    for r in range(header_end(ws, header_row) + 1, ws.max_row + 1):
         raw = {key: ws.cell(r, cols[col]).value if col in cols else None for key, col, _ in STAFF_COLS}
         if all(_blank(v) for v in raw.values()):
             continue
@@ -185,6 +190,8 @@ def _read_staff_rows(wb, warnings: list[str]) -> list[dict]:
                     warnings.append(f"{ws.title}, dòng {r}: cột {_HEADERS[key]} ghi {value!r}, đã đọc là không")
             elif kind == "int":
                 row[key] = _number(value)
+            elif key == "role" and not _blank(value):
+                row[key] = role_text(value)
             elif isinstance(value, (datetime.date, datetime.datetime)):
                 row[key] = f"{value.day}/{value.month}"
                 warnings.append(f"{ws.title}, dòng {r}: ô {value:%d/%m/%Y} là ngày tháng (Excel tự đổi), đã đọc "
@@ -208,7 +215,7 @@ def _read_program_rows(wb) -> tuple[list[int | str], list[tuple[str, dict]]]:
     rows = []
     for r in range(header_row + 1, ws.max_row + 1):
         name = ws.cell(r, subject_col).value
-        if _blank(name) or normalize(name) in ("tổng", "tổng cộng"):
+        if _blank(name) or is_total_row(name):
             continue
         rows.append((clean_name(name), {str(g): _number(ws.cell(r, grades[g]).value) for g in order}))
     return order, rows

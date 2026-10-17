@@ -34,6 +34,24 @@ Lần đầu mở trang là **trang bắt đầu** với các cách:
 
 ![Trang bắt đầu](hinh/0_bat_dau.jpg)
 
+**Điền file Excel** (mục *Tải file mẫu trống*): chỉ bắt buộc sheet `NHÂN SỰ` (bốn cột đầu: Họ và Tên, Chức Vụ, Lớp,
+Số Tiết/Tuần) và số tiết từng môn ở sheet `CHƯƠNG TRÌNH HỌC`; các sheet khác có sẵn giá trị mặc định (đầu sheet
+`HƯỚNG DẪN` của file mẫu có mục *Bắt đầu nhanh*). Chương trình chịu được các lỗi gõ hay gặp:
+- tên sheet, tên cột viết không dấu hay thừa dấu cách (`Quy dinh`, `Ho va Ten`);
+- ô Có/Không ghi `x`, `✓`, `Đúng`;
+- chức vụ ghi `GVCN`, `GV bộ môn`;
+- ô gộp (mỗi dòng của vùng gộp lấy chữ của vùng);
+- dòng `Tổng số tiết` ở cuối chương trình học.
+
+Những chỗ dễ nhầm thì trang báo khi mở file hoặc khi kiểm tra:
+- dòng đang ẩn trong Excel vẫn được tính (người đã nghỉ thì xóa hẳn dòng);
+- hai dòng cùng họ tên;
+- cột hay sheet có tên gần giống mẫu nhưng không được đọc;
+- định mức lớn hơn số tiết cả tuần (gõ nhầm, vd 230);
+- tên môn, chức vụ gõ khác (kèm gợi ý "ý là …?").
+
+Chỉ đọc file `.xlsx`: file `.xls`, `.csv` thì mở bằng Excel rồi *Lưu thành* Excel Workbook.
+
 Mọi việc với file nằm ở menu **Tệp ▾** góc trên: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (điền trong
 Excel rồi mở lại), Bắt đầu lại…. Mở file thì hộp thoại cho chọn phần nào lấy từ file.
 

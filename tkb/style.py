@@ -13,7 +13,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from .staff import _find_columns, clean_name, staff_sheet
+from .staff import _find_columns, clean_name, header_end, staff_sheet
 
 DEFAULT_ROW_HEIGHT = 25  # file vào không đặt chiều cao dòng
 MAX_COLUMN_WIDTH = 60  # chữ dài hơn thì xuống dòng
@@ -62,10 +62,11 @@ class Style:
         ws = staff_sheet(openpyxl.load_workbook(path))
         header_row, cols = _find_columns(ws)
         col = cols["title"]
-        height = ws.row_dimensions[header_row + 1].height or ws.row_dimensions[header_row].height
+        first = header_end(ws, header_row) + 1  # dòng dữ liệu đầu (tiêu đề hai tầng: sau khối tiêu đề)
+        height = ws.row_dimensions[first].height or ws.row_dimensions[header_row].height
         headers = dict(STAFF_HEADERS)
         headers.update({k: clean_name(ws.cell(header_row, c).value) for k, c in cols.items() if k in headers})
-        body = CellStyle.of(ws.cell(header_row + 1, col))
+        body = CellStyle.of(ws.cell(first, col))
         if body.fill is not None and str(body.fill.start_color.rgb)[-6:] in MARK_FILLS:
             body.fill = None  # màu chương trình tô ở file vào cập nhật, không phải style của trường
         return cls(header=CellStyle.of(ws.cell(header_row, col)), body=body,
