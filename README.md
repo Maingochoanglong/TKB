@@ -72,7 +72,8 @@ rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
      Nhiệm (gợi ý các lớp của bước Lớp); lọc theo chức vụ; **Dán từ Excel…** để dán cả danh sách. **Sửa** mở trang chi tiết: Thai Sản, Hợp Đồng,
      Cơ sở 2; **Lớp Đang Dạy** đánh dấu trong các lớp của trường (nút Khối k chọn cả khối); **Buổi Nghỉ** đánh dấu buổi
      cố định trên bảng ngày × buổi và ghi số buổi nghỉ thêm bất kỳ: buổi sáng, buổi chiều, hoặc sáng hay chiều đều được
-     (GVCN không nghỉ buổi sáng). Trang ghi ra đúng chữ như ghi tay, vd `3/1, 3/2` và `Chiều T5, 2 buổi chiều`.
+     (GVCN không nghỉ buổi sáng); **Chức Vụ Thêm** đánh dấu Bộ Môn hay các chức vụ của bước Chức vụ. Trang ghi ra
+     đúng chữ như ghi tay, vd `3/1, 3/2`, `Chiều T5, 2 buổi chiều` và `Bộ Môn, Tiếng Anh`.
    - **Luật** (bộ ghép luật, sheet LUẬT): mọi luật, kể cả các luật có sẵn, xếp theo nhóm, mỗi luật một câu dễ đọc
      (luật có sẵn có tên riêng, vd "Mỗi buổi, một lớp học tối đa 2 tiết của một môn…") và nhãn **Bắt buộc** hoặc
      **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mặc định** chương trình xếp như trước. **Sửa** mở hộp thoại
@@ -233,16 +234,17 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 
 ## Đầu vào
 
-**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet bắt buộc `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (kèm các cột quy định của môn) và các sheet không bắt buộc `LỚP` (danh sách lớp: tên lớp, tên khối tùy ý, lớp có thể chưa có GVCN), `CHỨC VỤ` (chức vụ GV chuyên biệt tự đặt), `QUY ĐỊNH` (khung giờ, ai được bù, nhãn của ngày và tiết), `LUẬT` (mọi luật xếp TKB, mỗi dòng một câu ghép; không có thì dùng các luật có sẵn). Chương trình tìm sheet theo tên, không phân biệt hoa thường; các sheet khác (ví dụ `HƯỚNG DẪN`) được bỏ qua. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 5 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ`.
+**Một file Excel duy nhất theo mẫu V8** (ví dụ `data/INPUT_V8.xlsx`) gồm 2 sheet bắt buộc `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (kèm các cột quy định của môn) và các sheet không bắt buộc `LỚP` (danh sách lớp: tên lớp, tên khối tùy ý, lớp có thể chưa có GVCN), `CHỨC VỤ` (chức vụ GV chuyên biệt tự đặt), `QUY ĐỊNH` (khung giờ, ai được bù, nhãn của ngày và tiết), `LUẬT` (mọi luật xếp TKB, mỗi dòng một câu ghép; không có thì dùng các luật có sẵn). Chương trình tìm sheet theo tên, không phân biệt hoa thường; các sheet khác (ví dụ `HƯỚNG DẪN`) được bỏ qua. Tiêu đề cột phải đúng mẫu: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, thêm 6 cột không bắt buộc `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm`.
 
 **Sheet `NHÂN SỰ`:**
 
-| Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ |
-|---|---|---|---|---|---|---|---|---|
-| Nguyễn Văn A | Chủ Nhiệm | 1D15 | 19 | | Có | | | |
-| Trần Thị B | Chủ Nhiệm | 3D23 | 15 | Có | | Có | | 2 buổi chiều |
-| Lê Văn C | Bộ Môn | | 19 | Có | | | | Chiều T5, Sáng T6 |
-| Phạm D | Tiếng Anh | | 23 | | | | 3D17, 3D18 | |
+| Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm |
+|---|---|---|---|---|---|---|---|---|---|
+| Nguyễn Văn A | Chủ Nhiệm | 1D15 | 19 | | Có | | | | |
+| Trần Thị B | Chủ Nhiệm | 3D23 | 15 | Có | | Có | | 2 buổi chiều | |
+| Lê Văn C | Bộ Môn | | 19 | Có | | | | Chiều T5, Sáng T6 | |
+| Phạm D | Tiếng Anh | | 23 | | | | 3D17, 3D18 | | |
+| Hoàng E | Chủ Nhiệm | 2A | 23 | | | | | | Tiếng Anh |
 
 - **Họ và Tên** có thể để trống (vì bảo mật). Khi đó TKB ghi **Mã GV**, ví dụ `Chủ Nhiệm 1/1`, `Tiếng Anh 2`, `Bộ Môn 3`.
 - **Chức Vụ**:
@@ -258,6 +260,11 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
   - Cơ sở 2: trên dòng Chủ Nhiệm nghĩa là lớp đó học ở cơ sở 2; trên dòng khác nghĩa là GV đó chỉ dạy ở cơ sở 2.
 - **Lớp Đang Dạy** (GV bộ môn, chuyên biệt): các lớp người đó dạy trong TKB cũ, cách nhau bằng dấu phẩy. TKB mới ưu tiên giữ người đó ở khối cũ, sau đó ở lớp cũ.
 - **Buổi Nghỉ**: buổi cố định (`Chiều T5`, `Sáng thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, có dấu hay không. Chương trình không xếp tiết vào các buổi đó; với "số buổi bất kỳ" thì chương trình tự chọn buổi. GVCN không nghỉ buổi sáng được, vì tiết 1 luôn do GVCN dạy.
+- **Chức Vụ Thêm**: các chức vụ khác người đó cũng giữ, cách nhau bằng dấu phẩy: `Bộ Môn` hoặc một chức vụ GV chuyên biệt (của sheet `CHỨC VỤ` hay trùng tên môn), không ghi số thứ tự. Người đó dạy được cả các môn của các chức vụ này, ở mọi lớp, trong định mức của mình; Mã GV vẫn theo chức vụ chính (cột Chức Vụ).
+  - Ví dụ `Hoàng E` ở bảng trên: GVCN lớp 2A, dạy thêm Tiếng Anh ở các lớp khác.
+  - **Chủ Nhiệm ghi `Bộ Môn`** thì dạy được các môn của bộ môn ở cả lớp khác: đó là cách bỏ "GVCN chỉ dạy lớp mình" cho từng người.
+  - Chủ Nhiệm có chức vụ thêm chỉ nhận trọn các môn GVCN nhận trọn của lớp mình (và môn cùng nhóm, vd Tiếng Việt tăng cường đi với Tiếng Việt), không nhận thêm môn cho đủ định mức: phần định mức còn lại dùng cho chức vụ thêm. Khi phải bù, người đó bù như bộ môn (bù các tiết theo chức vụ thêm); ở chế độ tuyển thêm, người mới dạy các tiết đó có chức vụ dạy được môn đó.
+  - `Chủ Nhiệm`, `Quản Lý` chỉ là chức vụ chính; Quản Lý không ghi chức vụ thêm.
 - Các cột khác (ví dụ cột STT, cột ghi chú) được bỏ qua, ghi gì cũng được.
 - Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN. Nếu dãy lớp của một khối bị hụt (ví dụ có 1/3, 1/5 mà không có 1/4) thì chương trình cảnh báo.
 - Khi file có lỗi, chương trình **liệt kê tất cả lỗi một lần** kèm số dòng (ví dụ `Lớp 1/1 có hai Chủ Nhiệm (dòng 11 và 26)`).

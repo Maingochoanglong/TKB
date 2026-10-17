@@ -54,6 +54,12 @@ def _wait_mark(page, tab, text):
         .textContent?.startsWith("{text}")""", timeout=30000)
 
 
+def _wait_text(page, selector, text):
+    """Chờ phần tử có chữ `text` (vd bảng vẽ lại sau sự kiện close của hộp thoại, sự kiện này chạy sau Escape)."""
+    page.wait_for_function("([sel, text]) => (document.querySelector(sel)?.textContent || '').includes(text)",
+                           arg=[selector, text], timeout=10000)
+
+
 def test_sample_steps_undo_switch_and_search(page):
     page.wait_for_selector("#start:not([hidden])")
     page.click('[data-start="sample"]')
@@ -213,3 +219,24 @@ def test_new_from_empty_preset(page):
     page.click('[data-start="new"][data-mau="tieu_hoc_vn"]')
     page.wait_for_function("document.querySelector('#count-mon').textContent === '15'")
     assert page.evaluate("st.scenario.rules.filter((r) => r.off).length") == 0
+
+
+def test_extra_roles_picker(page):
+    """Hộp thoại giáo viên: cột Chức Vụ Thêm chọn bằng ô đánh dấu (Bộ Môn và các chức vụ của bước Chức vụ, trừ chức vụ
+    chính), ghi theo thứ tự danh sách; bảng nhân sự hiện thành nhãn và kiểm tra vẫn ✓."""
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    _wait_mark(page, "gv", "✓")
+    page.click('.tabs [data-tab="gv"]')
+    roles = page.evaluate("st.scenario.staff.map((t) => t.role)")
+    row = roles.index("Chủ Nhiệm")
+    page.click(f'[data-act="edit-staff"][data-i="{row}"]')
+    boxes = page.locator('#extra-box input[data-f="extra"]')
+    names = [boxes.nth(k).get_attribute("data-r") for k in range(boxes.count())]
+    assert names[0] == "Bộ Môn" and "Tiếng Anh" in names and "Chủ Nhiệm" not in names
+    page.check('#extra-box input[data-r="Tiếng Anh"]')
+    page.check('#extra-box input[data-r="Bộ Môn"]')
+    assert page.evaluate(f"st.scenario.staff[{row}].extra_roles") == "Bộ Môn, Tiếng Anh"
+    page.keyboard.press("Escape")
+    _wait_text(page, f'#staff-table tr[data-row="{row + 2}"]', "Chức Vụ Thêm: Bộ Môn, Tiếng Anh")
+    _wait_mark(page, "gv", "✓")

@@ -20,8 +20,8 @@ from dataclasses import dataclass, field, replace
 from ortools.sat.python import cp_model
 
 from . import config, khung_gio
-from .allocation import (Course, Problem, build_problem, keep_cost, overtime_cost, paired_groups, previous_cost,
-                         roles_for_subject, subject_group)
+from .allocation import (Course, Problem, as_specialist, build_problem, keep_cost, overtime_cost, paired_groups,
+                         previous_cost, roles_for_subject, subject_group)
 from .bo_ghep import assign_cost
 from .phan_cong import PhanCong, phan_cong, tach_tiet_bu
 from .staff import InputError, Teacher, grade_of, normalize
@@ -252,7 +252,7 @@ class _Allocation:
         specialist = problem.specialist_subjects()
         for (cid, g), a in self.a.items():
             c = problem.courses[cid]
-            if c.subject in specialist and problem.teachers[g].role not in problem.specialists:
+            if c.subject in specialist and not as_specialist(problem.teachers[g], c.subject, problem.specialists):
                 secondary.append(w.general_on_specialist * a)
             if not isinstance(a, int) and (keep := keep_cost(problem.teachers[g], c.class_name, w)
                                            + previous_cost(problem.teachers[g], c, w)):
@@ -298,7 +298,8 @@ class _Allocation:
         order.update({s: i + 1 for i, s in enumerate(config.HOMEROOM_FILL_ORDER)})
         for (cid, g), a in self.a.items():
             c = problem.courses[cid]
-            if not c.homeroom and problem.teachers[g].class_name and not isinstance(a, int):
+            if not c.homeroom and problem.teachers[g].class_name and not problem.teachers[g].extra_roles \
+                    and not isinstance(a, int):
                 rank = order.get(c.subject, len(config.HOMEROOM_FILL_ORDER) + 1)
                 if rank:
                     secondary.append(w.overtime_subject_order * rank * a)
@@ -754,11 +755,14 @@ def du_toan_lines(problem: Problem, plan: PhanCong) -> list[str]:
     part = {"gvcn": 0, "spec": 0, "manager": 0, "general": 0, "general_spec": 0}
     for (cid, g), n in plan.lessons.items():
         t, c = teachers[g], problem.courses[cid]
-        if t.class_name:
+        if t.class_name and (c.homeroom or not t.extra_roles):
             part["gvcn"] += n if c.homeroom else 0
-        elif g in problem.manager_load:
+            continue
+        if t.class_name:  # GVCN có chức vụ thêm: tiết bù tính ở "bù", phần còn lại theo chức vụ dạy môn đó
+            n -= plan.extra.get((cid, g), 0)
+        if g in problem.manager_load:
             part["manager"] += n
-        elif t.role in problem.specialists:
+        elif as_specialist(t, c.subject, problem.specialists):
             part["spec"] += n
         else:
             part["general"] += n

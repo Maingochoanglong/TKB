@@ -44,6 +44,9 @@ class Teacher:
     previous: frozenset[tuple[str, str]] = frozenset()
     off_sessions: frozenset[tuple[int, str]] = frozenset()  # buổi nghỉ cố định: (ngày 0–4, tên buổi)
     off_any: tuple[tuple[str | None, int], ...] = ()  # nghỉ thêm n buổi bất kỳ: (tên buổi, None = buổi nào cũng được; n)
+    # Cột Chức Vụ Thêm: các chức vụ khác người này giữ (Bộ Môn hoặc GV chuyên biệt, chữ thường), vd GVCN dạy thêm Tiếng
+    # Anh ở các lớp khác. Quyền dạy là hợp các chức vụ; Mã GV, số thứ tự theo chức vụ chính (cột Chức Vụ).
+    extra_roles: tuple[str, ...] = ()
 
     @property
     def grade(self) -> int | str | None:
@@ -80,17 +83,43 @@ SPECIAL_ROLES = (config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER)
 
 
 def role_errors(teachers: list[Teacher], subjects) -> list[str]:
-    """Chức vụ không phải Chủ Nhiệm/Bộ Môn/Quản Lý, không có trong sheet CHỨC VỤ (config.CUSTOM_ROLES) và không trùng
-    tên môn nào của chương trình học."""
+    """Chức vụ (cột Chức Vụ và Chức Vụ Thêm) không phải Chủ Nhiệm/Bộ Môn/Quản Lý, không có trong sheet CHỨC VỤ
+    (config.CUSTOM_ROLES) và không trùng tên môn nào của chương trình học."""
     keys = {subject_key(s) for s in subjects} | {subject_key(r.name) for r in config.CUSTOM_ROLES}
     bad: dict[str, list[str]] = {}
     for t in teachers:
-        if t.role not in SPECIAL_ROLES and subject_key(t.role) not in keys:
-            bad.setdefault(t.label or t.role, []).append(str(t.row) if t.row else "?")
+        for role, label in ((t.role, t.label or t.role), *((r, r) for r in t.extra_roles)):
+            if role not in SPECIAL_ROLES and subject_key(role) not in keys:
+                bad.setdefault(label, []).append(str(t.row) if t.row else "?")
     valid = ", ".join(config.ROLE_LABELS[r] for r in SPECIAL_ROLES)
     return [f"Dòng {', '.join(rows)}: chức vụ '{label}' không xác định (hợp lệ: {valid}, một chức vụ của sheet "
-            f"{config.ROLES_SHEET} hoặc đúng tên một môn trong sheet {config.PROGRAM_SHEET})"
+            f"{config.ROLES_SHEET} hoặc đúng tên một môn trong sheet {config.PROGRAM_SHEET}"
+            + ("; mỗi người một chức vụ chính, chức vụ khác ghi ở cột " + OPTIONAL_COLUMNS["extra_roles"]
+               if re.search(r"[,;+]", label) else "") + ")"
             for label, rows in bad.items()]
+
+
+def parse_extra_roles(value, main: str) -> tuple[str, ...]:
+    """Cột Chức Vụ Thêm: các chức vụ cách nhau bằng dấu phẩy (Bộ Môn hoặc chức vụ GV chuyên biệt), chữ thường. Kiểm tra
+    tên chức vụ có hay không ở role_errors (cần chương trình học)."""
+    if _blank(value):
+        return ()
+    out: list[str] = []
+    for part in re.split(r"[,;+]", str(value)):
+        role = normalize(part)
+        if not role:
+            continue
+        if re.search(r"\d", role):
+            raise InputError(f"cột {OPTIONAL_COLUMNS['extra_roles']} không ghi số thứ tự: {part.strip()!r}")
+        if role in (config.ROLE_HOMEROOM, config.ROLE_MANAGER):
+            raise InputError(f"cột {OPTIONAL_COLUMNS['extra_roles']}: {config.ROLE_LABELS[role]} chỉ là chức vụ chính "
+                             f"(cột Chức Vụ), chức vụ thêm là Bộ Môn hoặc chức vụ GV chuyên biệt")
+        if subject_key(role) != subject_key(main) and role not in out:
+            out.append(role)
+    if out and main == config.ROLE_MANAGER:
+        raise InputError(f"Quản Lý dạy đúng số tiết của các môn ghi ở cột Quản lý dạy khối, không ghi thêm chức vụ "
+                         f"ở cột {OPTIONAL_COLUMNS['extra_roles']}")
+    return tuple(out)
 
 
 def canonical_title(role: str, index: int | None, class_name: str | None) -> str:
@@ -366,7 +395,7 @@ def _blank(value) -> bool:
 
 # Cột không bắt buộc: khóa -> tiêu đề trong file.
 OPTIONAL_COLUMNS = {"maternity": "Thai Sản", "contract": "Hợp Đồng", "campus2": "Cơ sở 2",
-                    "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ"}
+                    "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ", "extra_roles": "Chức Vụ Thêm"}
 
 
 def _find_columns(ws) -> tuple[int, dict[str, int]]:
@@ -499,7 +528,8 @@ def read_staff(path: str | Path, subjects=None) -> list[Teacher]:
                 raise InputError(f"chỉ Chủ Nhiệm mới ghi Lớp (chức vụ đang là {title!r})")
             off_sessions, off_any = parse_off(cell(r, "off"))
             extra = {key: parse_yes(cell(r, key), OPTIONAL_COLUMNS[key]) for key in ("maternity", "contract", "campus2")}
-            extra.update(history=parse_classes(cell(r, "history")), off_sessions=off_sessions, off_any=off_any)
+            extra.update(history=parse_classes(cell(r, "history")), off_sessions=off_sessions, off_any=off_any,
+                         extra_roles=parse_extra_roles(cell(r, "extra_roles"), role))
             rows.append([r, name, role, index, class_name, lessons, label, extra])
         except InputError as exc:
             errors.append(f"Dòng {r}: {exc}")

@@ -288,8 +288,8 @@ def _person_keys(title: str, code: str, name: str) -> frozenset[str]:
 
 
 def picks(names: frozenset[str], t) -> bool:
-    """GV t khớp một tên ở cột Giáo viên: chức vụ của t, Mã GV hoặc họ tên của t."""
-    return t.role in names or not names.isdisjoint(person_keys(t))
+    """GV t khớp một tên ở cột Giáo viên: chức vụ của t (cả chức vụ ở cột Chức Vụ Thêm), Mã GV hoặc họ tên của t."""
+    return t.role in names or not names.isdisjoint(t.extra_roles) or not names.isdisjoint(person_keys(t))
 
 
 def know_staff(teachers) -> None:
@@ -815,8 +815,8 @@ def _di_kem(ctx, L, problem, src):
 
 def teacher_ok(L: Luat, t, class_name: str) -> bool:
     """Phép đo Người dạy "Do": GV t được dạy tiết của lớp class_name: t có tên (Mã GV, họ tên) ở cột Giáo viên, hoặc
-    có chức vụ ở đó (chủ nhiệm: GVCN của chính lớp đó)."""
-    if not L.who.isdisjoint(person_keys(t)):
+    có chức vụ ở đó (chủ nhiệm: GVCN của chính lớp đó; cả chức vụ ở cột Chức Vụ Thêm)."""
+    if not L.who.isdisjoint(person_keys(t)) or not L.who.isdisjoint(t.extra_roles):
         return True
     if t.role == config.ROLE_HOMEROOM:
         return config.ROLE_HOMEROOM in L.who and t.class_name == class_name
@@ -1115,7 +1115,7 @@ def validate(problem, sheet: str, role_label) -> list[str]:
     """Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp không có; tên ở cột Giáo viên không phải chức vụ,
     Mã GV hay họ tên của ai, hoặc là họ tên của nhiều người."""
     subjects = {s for req in problem.curriculum.values() for s, n in req.items() if n > 0}
-    roles = {t.role for t in problem.teachers.values()}
+    roles = {r for t in problem.teachers.values() for r in (t.role, *t.extra_roles)}
     found = Counter(k for t in problem.teachers.values() for k in person_keys(t))
     out = []
     for r in config.CUSTOM_RULES:

@@ -107,6 +107,20 @@ def roles_for_subject(subject: str, specialists: dict[str, tuple[str, ...]]) -> 
     return roles
 
 
+def may_teach(t: Teacher, subject: str, specialists: dict[str, tuple[str, ...]]) -> bool:
+    """t được dạy môn này theo chức vụ chính (Bộ Môn, GV chuyên biệt) hay một chức vụ ở cột Chức Vụ Thêm."""
+    roles = roles_for_subject(subject, specialists)
+    return any(r in roles for r in (t.role, *t.extra_roles))
+
+
+def as_specialist(t: Teacher, subject: str, specialists: dict[str, tuple[str, ...]]) -> bool:
+    """t dạy môn này với tư cách GV chuyên biệt (không bị tính "bộ môn dạy môn chuyên biệt"): chức vụ chính là GV
+    chuyên biệt; người có chức vụ thêm: một chức vụ GV chuyên biệt của người đó dạy môn này."""
+    if not t.extra_roles:
+        return t.role in specialists
+    return any(subject in specialists.get(r, ()) for r in (t.role, *t.extra_roles))
+
+
 def resolve_roles(staff: list[Teacher], subject_labels: dict[str, str]
                   ) -> tuple[dict[str, tuple[str, ...]], dict[str, str]]:
     """Các GV chuyên biệt: (chức vụ -> các môn được dạy, chức vụ -> cách ghi trong file ra).
@@ -136,10 +150,11 @@ def resolve_roles(staff: list[Teacher], subject_labels: dict[str, str]
     specialists: dict[str, tuple[str, ...]] = {}
     labels = dict(config.ROLE_LABELS)
     for t in staff:
-        if t.role not in SPECIAL_ROLES and t.role not in specialists:
-            name, subjects = custom.get(subject_key(t.role)) or (None, (names[subject_key(t.role)],))
-            specialists[t.role] = subjects
-            labels[t.role] = clean_name(t.label) if t.label else name or subject_labels[subjects[0]]
+        for role, label in ((t.role, t.label), *((r, "") for r in t.extra_roles)):  # cả chức vụ ở cột Chức Vụ Thêm
+            if role not in SPECIAL_ROLES and role not in specialists:
+                name, subjects = custom.get(subject_key(role)) or (None, (names[subject_key(role)],))
+                specialists[role] = subjects
+                labels[role] = clean_name(label) if label else name or subject_labels[subjects[0]]
     covered = {s for subjects in specialists.values() for s in subjects}
     for s, label in subject_labels.items():
         if (s in config.GENERAL_FORBIDDEN_SUBJECTS and s not in homeroom_only()
@@ -158,8 +173,10 @@ def manager_allowed(rule: config.ManagerRule, class_name: str, grade: int, subje
 
 
 def split_homeroom(class_name: str, grade_req: dict[str, int], quota: int,
-                   reserved: set[str], specialist: set[str] = frozenset()) -> dict[str, int]:
-    """Số tiết từng môn GVCN dạy cho lớp của mình."""
+                   reserved: set[str], specialist: set[str] = frozenset(), fill: bool = True) -> dict[str, int]:
+    """Số tiết từng môn GVCN dạy cho lớp của mình. `fill` = False (GVCN có chức vụ thêm, dùng phần định mức còn lại
+    cho chức vụ đó): chỉ nhận thêm các môn cùng nhóm với môn đã nhận trọn (vd Tiếng Việt tăng cường đi cùng Tiếng
+    Việt), để nhóm môn không chia cho hai người."""
     take = {s: grade_req[s] for s in config.HOMEROOM_PRIORITY if grade_req.get(s, 0) > 0}
     only = sum(n for s, n in take.items() if s in config.HOMEROOM_ONLY_SUBJECTS)
     if only > quota:
@@ -181,10 +198,11 @@ def split_homeroom(class_name: str, grade_req: dict[str, int], quota: int,
                              f"còn môn nhiều hơn 1 tiết để cắt")
     else:
         banned = set(specialist) | config.HOMEROOM_ONLY_SUBJECTS | reserved
+        held = {subject_group(s) for s in take}
         for s in config.HOMEROOM_FILL_ORDER:
             if load >= quota:
                 break
-            if s in banned:
+            if s in banned or (not fill and subject_group(s) not in held):
                 continue
             add = min(grade_req.get(s, 0) - take.get(s, 0), quota - load)
             if add > 0:
@@ -320,7 +338,8 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
                 pool.append((cls, grade, subject, n))
             continue
         cn = homeroom[cls]
-        take = split_homeroom(cls, req, cn.max_lessons, reserved_by_grade.get(grade, set()), specialist)
+        take = split_homeroom(cls, req, cn.max_lessons, reserved_by_grade.get(grade, set()), specialist,
+                              fill=not cn.extra_roles)
         homeroom_take[cls] = take
         if sum(take.values()) < len(homeroom_slots):
             raise InputError(f"Lớp {cls}: GVCN chỉ dạy {sum(take.values())} tiết, không đủ "
@@ -372,17 +391,20 @@ def build_problem(staff: list[Teacher], curriculum: dict[int, dict[str, int]],
     teacher_of = {t.title: t for t in all_teachers}
     by_role: dict[str, list[Teacher]] = {}
     for t in all_teachers:
-        by_role.setdefault(t.role, []).append(t)
+        for role in (t.role, *t.extra_roles):  # chức vụ ở cột Chức Vụ Thêm cũng được dạy các môn của chức vụ đó
+            by_role.setdefault(role, []).append(t)
 
     overtime = {t.title: n for t in staff if (n := overtime_allowance(t, overtime_max)) > 0}
     manager_pool_lessons: dict[str, int] = {m.title: 0 for m in managers}
     for cls, grade, subject, n in pool:
         # GV chỉ dạy cơ sở 2 (đánh dấu Cơ sở 2, hoặc thai sản) không dạy lớp ở cơ sở 1.
-        eligible = [t.title for r in roles_for_subject(subject, specialists) for t in by_role.get(r, [])
-                    if cls in campus2 or not t.campus2_only or not config.on("co_so_2")]
+        eligible = list(dict.fromkeys(t.title for r in roles_for_subject(subject, specialists)
+                                      for t in by_role.get(r, [])
+                                      if cls in campus2 or not t.campus2_only or not config.on("co_so_2")))
         # GVCN bù ở lớp mình: không bù môn của GV chuyên biệt, trừ HOMEROOM_OVERTIME_SPECIALIST.
         if cls in homeroom and homeroom[cls].title in overtime and (subject not in specialist
-                                                                    or subject in config.HOMEROOM_OVERTIME_SPECIALIST):
+                                                                    or subject in config.HOMEROOM_OVERTIME_SPECIALIST) \
+                and homeroom[cls].title not in eligible:
             eligible.append(homeroom[cls].title)
         for m in managers:
             if (cls in campus2 or not m.campus2_only or not config.on("co_so_2")) and \

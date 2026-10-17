@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 from itertools import combinations
 
 from . import config
-from .allocation import (Course, Problem, keep_cost, overtime_cost, paired_groups, previous_cost, roles_for_subject,
-                         sessions_per_week, subject_group, supplement_capacity)
+from .allocation import (Course, Problem, as_specialist, keep_cost, overtime_cost, paired_groups, previous_cost,
+                         roles_for_subject, sessions_per_week, subject_group, supplement_capacity)
 from .bo_ghep import assign_cost
 from .staff import Teacher, class_sort_key, grade_of
 
@@ -120,6 +120,12 @@ def teacher_slots(problem: Problem) -> dict[str, int]:
     return out
 
 
+def _homeroom_only(t: Teacher) -> bool:
+    """GVCN không có chức vụ thêm: ngoài phần GVCN chỉ dạy bù ở lớp mình. GVCN có chức vụ thêm (cột Chức Vụ Thêm)
+    dùng phần định mức còn lại như GV của chức vụ đó (phân công cùng bộ môn, chuyên biệt)."""
+    return bool(t.class_name) and not t.extra_roles
+
+
 def _flow(problem: Problem, w: config.Weights, demand: dict[int, int], base_load: Counter,
           homeroom_arcs: bool) -> tuple[dict[Key, int], dict[int, int]]:
     """Giao `demand` (course -> số tiết) cho GV thật; trả về (phân công, tiết thiếu theo course)."""
@@ -138,13 +144,13 @@ def _flow(problem: Problem, w: config.Weights, demand: dict[int, int], base_load
         mcf.add(source, node_c[c.id], demand[c.id], 0)
         for g in c.teachers:
             t = teachers[g]
-            if t.supplementary or (t.class_name and not homeroom_arcs):
+            if t.supplementary or (_homeroom_only(t) and not homeroom_arcs):
                 continue
-            cost = w.overtime_subject_order * subject_rank(c.subject) if t.class_name else 0
+            cost = w.overtime_subject_order * subject_rank(c.subject) if _homeroom_only(t) else 0
             cost += keep_cost(t, c.class_name, w) + previous_cost(t, c, w)
             if config.CUSTOM_RULES:  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
                 cost += assign_cost(t, c, problem.curriculum, w)
-            if c.subject in spec and t.role not in problem.specialists:
+            if c.subject in spec and not as_specialist(t, c.subject, problem.specialists):
                 cost += w.general_on_specialist
             arcs[c.id, g] = mcf.add(node_c[c.id], node_t[g], demand[c.id], cost)
         miss_arcs[c.id] = mcf.add(node_c[c.id], missing, demand[c.id], w.supplement_lesson)
@@ -326,7 +332,8 @@ class _Local:
             cost += w.course_split * max(0, len(sh) - 1)
             if self.p.courses[cid].subject in self.spec:
                 cost += w.general_on_specialist * sum(n for g, n in sh.items()
-                                                      if teachers[g].role not in self.p.specialists)
+                                                      if not as_specialist(teachers[g], self.p.courses[cid].subject,
+                                                                           self.p.specialists))
             if config.CUSTOM_RULES:  # luật riêng ưu tiên "Người dạy" (tkb/bo_ghep.py)
                 c = self.p.courses[cid]
                 cost += sum(assign_cost(teachers[g], c, self.p.curriculum, w) * n for g, n in sh.items())
@@ -494,12 +501,12 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
     first, _ = _flow(problem, w, demand, base, homeroom_arcs=True)
     totals = Counter()
     for (cid, g), n in first.items():
-        if teachers[g].class_name:
+        if _homeroom_only(teachers[g]):
             totals[g] += n
     totals = {g: totals[g] for g in sorted(totals, key=lambda g: class_sort_key(teachers[g].class_name))}
     spec = problem.specialist_subjects()
     spec_cap = {(cid, g): n for (cid, g), n in first.items()
-                if teachers[g].class_name and problem.courses[cid].subject in spec}
+                if _homeroom_only(teachers[g]) and problem.courses[cid].subject in spec}
     _balance_parity(problem, totals, demand, order, spec_cap)
     # 2. GVCN nhận tiết bù ở lớp mình.
     rem = dict(demand)
@@ -522,12 +529,12 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
     overtime = {g: load[g] - teachers[g].max_lessons for g in problem.overtime if load[g] > teachers[g].max_lessons}
     extra: dict[Key, int] = {}
     for (cid, g), n in lessons.items():  # GVCN: mọi tiết ngoài phần định mức là tiết bù
-        if teachers[g].class_name and not problem.courses[cid].homeroom:
+        if _homeroom_only(teachers[g]) and not problem.courses[cid].homeroom:
             extra[cid, g] = n
-    for g, k in overtime.items():  # bộ môn bù: lấy từ các lớp cuối theo thứ tự lớp
-        if teachers[g].class_name:
+    for g, k in overtime.items():  # bộ môn (và GVCN có chức vụ thêm) bù: lấy từ các lớp cuối theo thứ tự lớp
+        if _homeroom_only(teachers[g]):
             continue
-        own = sorted((cid for (cid, h) in lessons if h == g),
+        own = sorted((cid for (cid, h) in lessons if h == g and not problem.courses[cid].homeroom),
                      key=lambda cid: class_sort_key(problem.courses[cid].class_name), reverse=True)
         for cid in own:
             n = min(k, lessons[cid, g])
@@ -536,7 +543,7 @@ def phan_cong(problem: Problem, w: config.Weights) -> PhanCong:
                 k -= n
     cap: dict[str, int] = {}
     for g, allow in problem.overtime.items():
-        if teachers[g].class_name:
+        if _homeroom_only(teachers[g]):
             cap[g] = min(allow, sum(demand[cid] for cid in demand if g in problem.courses[cid].teachers))
         else:
             cap[g] = allow
@@ -561,7 +568,8 @@ def _hire_role(problem: Problem, course: Course) -> str:
     """Chức vụ tuyển cho tiết thiếu: bộ môn nếu được dạy môn này, không thì GV chuyên biệt của môn."""
     roles = roles_for_subject(course.subject, problem.specialists)
     if config.CUSTOM_RULES:  # luật riêng bắt buộc "Người dạy": chỉ chức vụ còn được dạy course này
-        roles = {problem.teachers[g].role for g in course.teachers} & set(roles) or roles
+        roles = {r for g in course.teachers for r in (problem.teachers[g].role, *problem.teachers[g].extra_roles)} \
+            & set(roles) or roles
     return config.ROLE_GENERAL if config.ROLE_GENERAL in roles else sorted(roles)[0]
 
 
@@ -574,7 +582,10 @@ def tach_tiet_bu(problem: Problem, plan: PhanCong, staff: list[Teacher],
     units: dict[str, dict[tuple[str, str], list[tuple[int, str, int]]]] = {}
     for (cid, owner), n in sorted(plan.extra.items()):
         c = problem.courses[cid]
-        units.setdefault(config.ROLE_GENERAL, {}).setdefault((owner, c.class_name), []).append((cid, owner, n))
+        role = config.ROLE_GENERAL
+        if problem.teachers[owner].extra_roles and role not in roles_for_subject(c.subject, problem.specialists):
+            role = _hire_role(problem, c)  # tiết bù theo chức vụ thêm (vd Tiếng Anh): tuyển người dạy được môn đó
+        units.setdefault(role, {}).setdefault((owner, c.class_name), []).append((cid, owner, n))
     if include_missing:
         for cid, n in sorted(plan.missing.items()):
             c = problem.courses[cid]

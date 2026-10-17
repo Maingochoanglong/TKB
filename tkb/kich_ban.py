@@ -7,7 +7,7 @@ kịch bản = xuất ra file tạm rồi đọc lại bằng chính các hàm �
 file vào như nhau.
 
 Kịch bản:
-    staff    : [{name, role, class, lessons, maternity, contract, campus2, history, off}] theo thứ tự dòng
+    staff    : [{name, role, class, lessons, maternity, contract, campus2, history, off, extra_roles}] theo thứ tự dòng
     grades   : [1, 2, "Lá", ...] các cột Khối <tên> (tên khối toàn chữ số là số)
     subjects : [{name, lessons: {"1": số tiết hoặc None, ...}, rules: {khóa Col: giá trị}}]
     classes  : [{name, grade, campus2}] sheet LỚP (trống: lớp là lớp của các dòng Chủ Nhiệm)
@@ -27,6 +27,7 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
+import re
 import tempfile
 from contextlib import ExitStack
 from pathlib import Path
@@ -53,7 +54,8 @@ RULE_KEYS = (luat_rieng.GROUP[0], *(k for k, _ in luat_rieng.COLUMNS))
 # Các cột của sheet NHÂN SỰ: (khóa trong kịch bản, khóa của staff._find_columns, loại ô); tiêu đề là STAFF_HEADERS.
 STAFF_COLS = (("name", "name", "text"), ("role", "title", "role"), ("class", "class", "text"),
               ("lessons", "lessons", "int"), ("maternity", "maternity", "yes"), ("contract", "contract", "yes"),
-              ("campus2", "campus2", "yes"), ("history", "history", "text"), ("off", "off", "text"))
+              ("campus2", "campus2", "yes"), ("history", "history", "text"), ("off", "off", "text"),
+              ("extra_roles", "extra_roles", "text"))
 _HEADERS = {key: head for (key, _, _), head in zip(STAFF_COLS, STAFF_HEADERS)}
 ROLES = [config.ROLE_LABELS[r] for r in (config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER)]
 # Trang chi tiết môn của giao diện chia các cột quy định của môn thành nhóm; cột chưa có nhóm hiện ở nhóm "Khác", nên
@@ -285,7 +287,7 @@ def _rules_rows() -> list[dict]:
 
 def _roles_part(staff: list[dict], subject_names: list[str]) -> list[dict]:
     """Các chức vụ GV chuyên biệt: các dòng sheet CHỨC VỤ (config.CUSTOM_ROLES), rồi các chức vụ trùng tên môn mà
-    nhân sự đang dùng, theo thứ tự dòng (để giao diện chọn chức vụ từ danh sách)."""
+    nhân sự đang dùng (cột Chức Vụ và Chức Vụ Thêm), theo thứ tự dòng (để giao diện chọn chức vụ từ danh sách)."""
     from .program import canonical_subject
 
     roles = [{"name": r.name, "subjects": list(r.subjects)} for r in config.CUSTOM_ROLES]
@@ -293,10 +295,11 @@ def _roles_part(staff: list[dict], subject_names: list[str]) -> list[dict]:
     by_key = {subject_key(canonical_subject(s)): s for s in subject_names}
     by_key.update({subject_key(s): s for s in subject_names})
     for row in staff:
-        key = subject_key(row["role"]) if row["role"] else ""
-        if key and key not in known and key in by_key:
-            roles.append({"name": row["role"], "subjects": [by_key[key]]})
-            known.add(key)
+        for name in (row["role"], *(p.strip() for p in re.split(r"[,;+]", str(row.get("extra_roles") or "")))):
+            key = subject_key(name) if name else ""
+            if key and key not in known and key in by_key:
+                roles.append({"name": name, "subjects": [by_key[key]]})
+                known.add(key)
     return roles
 
 
