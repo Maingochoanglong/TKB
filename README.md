@@ -253,14 +253,14 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
   - Không có danh sách chức vụ cố định trong code, nên trường có môn mới (ví dụ `Múa`) chỉ cần thêm dòng môn và giáo viên `Múa`.
   - **Không ghi số thứ tự**: chương trình tự đánh số theo thứ tự dòng (Bộ Môn thứ nhất là `Bộ Môn 1`, thứ hai là `Bộ Môn 2`…).
   - Chức vụ không khớp môn nào thì báo lỗi kèm số dòng.
-- **Lớp** chỉ ghi cho Chủ Nhiệm: một lớp của sheet `LỚP`; file không có sheet `LỚP` (hoặc sheet trống) thì ghi dạng **khối/số thứ tự** (`1/1`, `5/5`) hoặc **khối rồi tên lớp** (`1D15`, `2A`), khối là các chữ số đầu. Nên định dạng cột là chữ (Text) để Excel không đổi `1/1` thành ngày tháng.
-- **Số Tiết/Tuần** là mức tối đa mỗi tuần của từng người (ai được giảm tiết thì ghi mức đã giảm).
+- **Lớp** chỉ ghi cho Chủ Nhiệm: một lớp của sheet `LỚP`; file không có sheet `LỚP` (hoặc sheet trống) thì ghi dạng **khối/số thứ tự** (`1/1`, `5/5`) hoặc **khối rồi tên lớp** (`1D15`, `2A`), khối là các chữ số đầu (`Lớp 3/2`, `3.2`, `3-2` cũng là `3/2`). Nên định dạng cột là chữ (Text) để Excel không đổi `1/1` thành ngày tháng hay `3.10` thành số 3.1.
+- **Số Tiết/Tuần** là mức tối đa mỗi tuần của từng người (ai được giảm tiết thì ghi mức đã giảm); `23 tiết`, `23,0` cũng là 23. Dòng `Tổng cộng` hay `Ghi chú: …` cuối bảng được bỏ qua.
 - **Thai Sản**, **Hợp Đồng**, **Cơ sở 2**: ghi `Có` hoặc để trống (`x`, `✓`, `v`, `1`, `Đúng` cũng là Có; `Không`, `ko`, `-`, `0` là không).
   - Thai sản: không dạy bù, và chỉ dạy các lớp ở cơ sở 2. GVCN thai sản thì lớp phải ở cơ sở 2.
   - Hợp đồng: khi phải bù, GVCN hợp đồng bù trước GVCN khác, bộ môn hợp đồng bù trước bộ môn khác (khi không ghi cột Thứ Tự Bù).
   - Cơ sở 2: trên dòng Chủ Nhiệm nghĩa là lớp đó học ở cơ sở 2; trên dòng khác nghĩa là GV đó chỉ dạy ở cơ sở 2.
-- **Lớp Đang Dạy** (GV bộ môn, chuyên biệt): các lớp người đó dạy trong TKB cũ, cách nhau bằng dấu phẩy. TKB mới ưu tiên giữ người đó ở khối cũ, sau đó ở lớp cũ.
-- **Buổi Nghỉ**: buổi cố định (`Chiều T5`, `Sáng thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, có dấu hay không. Chương trình không xếp tiết vào các buổi đó; với "số buổi bất kỳ" thì chương trình tự chọn buổi. GVCN không nghỉ buổi sáng được, vì tiết 1 luôn do GVCN dạy.
+- **Lớp Đang Dạy** (GV bộ môn, chuyên biệt): các lớp người đó dạy trong TKB cũ, cách nhau bằng dấu phẩy (hoặc `;`, `+`, `và`, ` - `, dấu cách). TKB mới ưu tiên giữ người đó ở khối cũ, sau đó ở lớp cũ.
+- **Buổi Nghỉ**: buổi cố định (`Chiều T5`, `Sáng thứ 6`, `T5 chiều`, `chiều thứ năm`), cả ngày (`Thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, có dấu hay không. Chương trình không xếp tiết vào các buổi đó; với "số buổi bất kỳ" thì chương trình tự chọn buổi. GVCN không nghỉ buổi sáng được, vì tiết 1 luôn do GVCN dạy.
 - **Chức Vụ Thêm**: các chức vụ khác người đó cũng giữ, cách nhau bằng dấu phẩy: `Bộ Môn` hoặc một chức vụ GV chuyên biệt (của sheet `CHỨC VỤ` hay trùng tên môn), không ghi số thứ tự. Người đó dạy được cả các môn của các chức vụ này, ở mọi lớp, trong định mức của mình; Mã GV vẫn theo chức vụ chính (cột Chức Vụ).
   - Ví dụ `Hoàng E` ở bảng trên: GVCN lớp 2A, dạy thêm Tiếng Anh ở các lớp khác.
   - **Chủ Nhiệm ghi `Bộ Môn`** thì dạy được các môn của bộ môn ở cả lớp khác: đó là cách bỏ "GVCN chỉ dạy lớp mình" cho từng người.
@@ -275,7 +275,7 @@ File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã x�
 - Danh sách lớp lấy từ các dòng Chủ Nhiệm, vì mỗi lớp luôn có một GVCN. Nếu dãy lớp của một khối bị hụt (ví dụ có 1/3, 1/5 mà không có 1/4) thì chương trình cảnh báo.
 - Khi file có lỗi, chương trình **liệt kê tất cả lỗi một lần** kèm số dòng (ví dụ `Lớp 1/1 có hai Chủ Nhiệm (dòng 11 và 26)`).
 
-**Sheet `CHƯƠNG TRÌNH HỌC` (bắt buộc):** Môn học | Khối `<tên>` … (số tiết/tuần; tên khối tùy ý: `Khối 1`, `Khối Lá`, `Khối Year 7`; tên toàn chữ số là khối số) | các cột quy định của môn (không bắt buộc, xem dưới). Dòng `Tổng` (nếu có) được bỏ qua. Các khối sắp theo số rồi theo tên (thứ tự các sheet Khối của file TKB).
+**Sheet `CHƯƠNG TRÌNH HỌC` (bắt buộc):** Môn học | Khối `<tên>` … (số tiết/tuần; tên khối tùy ý: `Khối 1`, `Khối Lá`, `Khối Year 7`; tên toàn chữ số là khối số; bảng không có cột Khối nào thì các cột `Lớp 1`, `Lớp 2`… là các khối) | các cột quy định của môn (không bắt buộc, xem dưới). Cột môn có thể ghi `Môn`, `Tên môn`; ô số tiết ghi `14 tiết` là 14, `-` là 0. Dòng `Tổng` (nếu có) được bỏ qua. Các khối sắp theo số rồi theo tên (thứ tự các sheet Khối của file TKB).
 - Danh sách môn và tên môn lấy nguyên từ file, TKB in đúng tên trong file. Riêng các môn có ghi cột `Tên trong TKB` (mặc định HĐTN, TNXH, TV tăng cường) được viết tắt trong ô TKB.
 - Sheet không có cột quy định thì môn nào trùng tên một môn có quy định mặc định trong `tkb/config.py` nhận luật đó. So khớp không phân biệt hoa thường, dấu câu và chữ "và": `Lịch Sử và Địa Lý` khớp `Lịch sử - Địa lý`. Nếu quy định mặc định nhắc một môn mà chương trình học không có (thường do gõ khác tên), chương trình cảnh báo.
 

@@ -40,8 +40,11 @@ Số Tiết/Tuần) và số tiết từng môn ở sheet `CHƯƠNG TRÌNH HỌC
 - tên sheet, tên cột viết không dấu hay thừa dấu cách (`Quy dinh`, `Ho va Ten`);
 - ô Có/Không ghi `x`, `✓`, `Đúng`;
 - chức vụ ghi `GVCN`, `GV bộ môn`;
-- ô gộp (mỗi dòng của vùng gộp lấy chữ của vùng);
-- dòng `Tổng số tiết` ở cuối chương trình học.
+- ô gộp (mỗi dòng của vùng gộp lấy chữ của vùng), tiêu đề hai tầng;
+- số tiết ghi `23 tiết`, `23,0`, ô chương trình học ghi `-` (là 0);
+- lớp ghi `Lớp 3/2`, `3.2`; buổi nghỉ ghi `T5 chiều`, `chiều thứ năm`, `Thứ 6` (cả ngày);
+- sheet nhân sự đặt tên `Nhân sự 2026`; cột chương trình học `Tên môn`, `Lớp 1` (là Khối 1);
+- dòng `Tổng`, `Ghi chú: …` ở cuối bảng.
 
 Những chỗ dễ nhầm thì trang báo khi mở file hoặc khi kiểm tra:
 - dòng đang ẩn trong Excel vẫn được tính (người đã nghỉ thì xóa hẳn dòng);
@@ -50,7 +53,8 @@ Những chỗ dễ nhầm thì trang báo khi mở file hoặc khi kiểm tra:
 - định mức lớn hơn số tiết cả tuần (gõ nhầm, vd 230);
 - tên môn, chức vụ gõ khác (kèm gợi ý "ý là …?").
 
-Chỉ đọc file `.xlsx`: file `.xls`, `.csv` thì mở bằng Excel rồi *Lưu thành* Excel Workbook.
+Chỉ đọc file `.xlsx`: file `.xls`, `.csv` thì mở bằng Excel rồi *Lưu thành* Excel Workbook (file `.xlsx` bị đổi
+đuôi thì chỉ cần đổi lại tên).
 
 Mọi việc với file nằm ở menu **Tệp ▾** góc trên: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (điền trong
 Excel rồi mở lại), Bắt đầu lại…. Mở file thì hộp thoại cho chọn phần nào lấy từ file.

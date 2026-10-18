@@ -13,7 +13,8 @@ from tkb import config, kich_ban
 from tkb.allocation import build_problem
 from tkb.program import read_program
 from tkb.rules import applied, read_rules
-from tkb.staff import InputError, near_sheets, read_staff, role_text, suggest
+from tkb.staff import (InputError, near_sheets, parse_class, parse_classes, parse_off, read_staff, role_text,
+                       suggest, to_number)
 
 from .conftest import INPUT_FILE
 
@@ -170,3 +171,86 @@ def test_not_xlsx(tmp_path):
                          capture_output=True, text=True, encoding="utf-8")
     assert run.returncode == 1
     assert "chỉ đọc file Excel .xlsx" in run.stderr and "Traceback" not in run.stderr
+
+
+def test_numbers_written_by_hand(tmp_path):
+    """Số tiết ghi "23 tiết", "23,0"; chương trình học ghi "14 tiết", "-" (là 0): đọc được (trước: lỗi)."""
+    assert to_number("23 tiết") == to_number("23,0") == to_number(" 23t ") == 23
+    with pytest.raises(ValueError):
+        to_number("nghỉ ốm")
+    found = {}
+
+    def change(wb):
+        ws = wb["NHÂN SỰ"]
+        col = _header(ws, "Số Tiết/Tuần").column
+        found["row"], found["lessons"] = 31, ws.cell(31, col).value
+        ws.cell(31, col).value = f"{ws.cell(31, col).value} tiết"
+        ws.cell(32, col).value = f"{ws.cell(32, col).value},0"
+        prog = wb["CHƯƠNG TRÌNH HỌC"]
+        found["subject"], found["first"] = prog.cell(2, 1).value, prog.cell(2, 2).value
+        prog.cell(2, 2).value = f"{prog.cell(2, 2).value} tiết"
+        found["zero"] = next(prog.cell(r, 1).value for r in range(2, prog.max_row + 1) if prog.cell(r, 2).value == 0)
+        r = next(r for r in range(2, prog.max_row + 1) if prog.cell(r, 2).value == 0)
+        prog.cell(r, 2).value = "-"
+    path = _copy(tmp_path, change)
+    staff = {t.row: t for t in read_staff(path)}
+    assert staff[found["row"]].max_lessons == found["lessons"]
+    curriculum = read_program(path)
+    assert curriculum[1][found["subject"]] == found["first"] and curriculum[1][found["zero"]] == 0
+    scenario, _ = kich_ban.from_excel(path)
+    assert scenario["staff"][found["row"] - 2]["lessons"] == found["lessons"]
+
+
+def test_footer_rows_and_sheet_names(tmp_path):
+    """Dòng "Tổng cộng", "Ghi chú: ..." cuối bảng nhân sự bỏ qua; sheet nhân sự đổi tên "Nhân sự 2026" và chuyển ra
+    sau vẫn được đọc; tiêu đề chương trình học "Tên môn", "Khối1", hoặc "Lớp 1"... (khối của tiểu học)."""
+    base = len(read_staff(_copy(tmp_path)))
+
+    def change(wb):
+        ws = wb["NHÂN SỰ"]
+        last = ws.max_row
+        ws.cell(last + 1, 1).value, ws.cell(last + 1, _header(ws, "Số Tiết/Tuần").column).value = "Tổng cộng", 893
+        ws.cell(last + 3, 1).value = "Ghi chú: danh sách cập nhật 01/9"
+        ws.title = "Nhân sự 2026"
+        wb.move_sheet(ws, offset=1)
+        prog = wb["CHƯƠNG TRÌNH HỌC"]
+        prog.cell(1, 1).value = "Tên môn"
+        for c in range(2, prog.max_column + 1):
+            if str(prog.cell(1, c).value).startswith("Khối "):
+                prog.cell(1, c).value = prog.cell(1, c).value.replace("Khối ", "Lớp ")
+    (tmp_path / "x").mkdir()
+    path = _copy(tmp_path / "x", change)
+    notes = []
+    values = read_rules(path, warn=notes.append)
+    with applied(values):
+        assert len(read_staff(path)) == base
+        assert sorted(read_program(path)) == [1, 2, 3, 4, 5]
+    assert not any("Lớp 1" in n or "không được đọc" in n for n in notes)
+    scenario, warnings = kich_ban.from_excel(path)
+    assert len(scenario["staff"]) == base and len(scenario["grades"]) == 5
+
+
+def test_class_names_and_leave_written_by_hand():
+    assert parse_class("Lớp 3/2") == "3/2" and parse_class("3.1") == "3/1" and parse_class("3-4") == "3/4"
+    with pytest.raises(InputError, match="Excel bỏ số 0 cuối"):
+        parse_class(3.1)  # ô số: "3.10" đã thành 3.1
+    assert parse_classes("3/1 3/2") == parse_classes("3/1 - 3/2") == {"3/1", "3/2"}
+    afternoon = {(3, "Chiều")}
+    assert parse_off("T5 chiều")[0] == parse_off("chiều thứ năm")[0] == parse_off("Chiều T5")[0] == afternoon
+    assert parse_off("Thứ 6")[0] == {(4, "Sáng")}  # cả ngày: chiều Thứ 6 vốn nghỉ
+    assert parse_off("2 buổi sáng") == (frozenset(), (("Sáng", 2),))  # không phải sáng Thứ 2
+    with pytest.raises(InputError, match="Buổi Nghỉ"):
+        parse_off("2")
+
+
+def test_empty_staff_and_renamed_xlsx(tmp_path):
+    def change(wb):
+        ws = wb["NHÂN SỰ"]
+        ws.delete_rows(2, ws.max_row)
+    with pytest.raises(InputError, match="chưa có giáo viên nào"):
+        read_staff(_copy(tmp_path, change))
+    path = tmp_path / "Truong.xls"
+    shutil.copy(INPUT_FILE, path)
+    run = subprocess.run([sys.executable, "-m", "tkb", str(path), "-o", str(tmp_path / "TKB.xlsx")],
+                         capture_output=True, text=True, encoding="utf-8")
+    assert run.returncode == 1 and "đổi tên file thành Truong.xlsx" in run.stderr

@@ -101,8 +101,17 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def not_xlsx_message(path) -> str:
-    """Câu báo khi file vào không phải file Excel .xlsx đọc được."""
-    return (f"không đọc được file {Path(path).name}: chương trình chỉ đọc file Excel .xlsx. Mở file bằng Excel rồi "
+    """Câu báo khi file vào không phải file Excel .xlsx đọc được (file .xlsx bị đổi đuôi: chỉ cần đổi lại đuôi)."""
+    import zipfile
+    name = Path(path).name
+    try:
+        renamed = Path(path).suffix.lower() not in (".xlsx", ".xlsm") and zipfile.is_zipfile(path)
+    except OSError:
+        renamed = False
+    if renamed:
+        return (f"file {name} thật ra là file Excel .xlsx nhưng mang đuôi {Path(path).suffix}: đổi tên file thành "
+                f"{Path(path).stem}.xlsx rồi chạy lại")
+    return (f"không đọc được file {name}: chương trình chỉ đọc file Excel .xlsx. Mở file bằng Excel rồi "
             f"chọn Lưu thành (Save As) › Excel Workbook (*.xlsx)")
 
 

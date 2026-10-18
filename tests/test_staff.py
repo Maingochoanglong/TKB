@@ -90,7 +90,7 @@ def test_old_headers_are_rejected(tmp_path):
 @pytest.mark.parametrize("row, message", [
     (("A", "Chủ Nhiệm", None, None, 19), "phải ghi Lớp"),
     (("A", "Bộ Môn", "1/1", None, 23), "chỉ Chủ Nhiệm mới ghi Lớp"),
-    (("A", "Chủ Nhiệm", "1-1", None, 19), "khối/số thứ tự"),
+    (("A", "Chủ Nhiệm", "1/1/1", None, 19), "khối/số thứ tự"),
 ])
 def test_class_errors(tmp_path, row, message):
     path = _staff_file(tmp_path / "ns.xlsx", [row])

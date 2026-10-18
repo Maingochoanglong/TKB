@@ -14,7 +14,7 @@ Hằng số: `FILE_VAO`, `THU_MUC_OUT`, `CHE_DO`, `SO_TIET_BU_TOI_DA`, `LUAT_HOC
 ## tkb/__main__.py — Chạy: python -m tkb <file vào.xlsx> [-o TKB.xlsx] ...
 - `use_utf8_output()` — In tiếng Việt không lỗi khi output bị chuyển hướng trên Windows (mặc định bảng mã cp1252), và in xong dòng nào
 - `main(argv)`
-- `not_xlsx_message(path)` — Câu báo khi file vào không phải file Excel .xlsx đọc được.
+- `not_xlsx_message(path)` — Câu báo khi file vào không phải file Excel .xlsx đọc được (file .xlsx bị đổi đuôi: chỉ cần đổi lại đuôi).
 - `_not_xlsx(exc)`
 - `_run(args, settings)`
 - `print_teacher_rules(solution)` — In số liệu các luật về GV: hai cơ sở, thai sản, buổi nghỉ, giữ phân công của TKB cũ (chỉ in khi file vào
@@ -220,6 +220,7 @@ Hằng số: `_MAU`, `DISPLAY_NAMES`, `HDTN`, `DAYS`, `MORNING`, `AFTERNOON`, `D
 - `class Settings`
 
 ## tkb/khung_gio.py — Khung giờ do nhà trường đặt (sheet QUY ĐỊNH, bảng Ngày): tên các ngày học, các buổi của từng ngày và số tiết mỗi
+Hằng số: `_DAY_WORDS`
 - `days()` — Các ngày học (chỉ số trong config.DAYS), theo thứ tự.
 - `sessions(d)`
 - `session_at(d, p)` — Buổi chứa tiết p của ngày d (None: ngày đó không có tiết p).
@@ -229,12 +230,12 @@ Hằng số: `_MAU`, `DISPLAY_NAMES`, `HDTN`, `DAYS`, `MORNING`, `AFTERNOON`, `D
 - `max_periods()` — Số tiết của ngày dài nhất.
 - `day_name(d)` — Tên ngày d; ngày ngoài khung giờ (luật nhắc tới Thứ 7 khi trường học Thứ 2 – Thứ 6): theo cách đặt tên "Thứ n"
 - `short_day(d)` — Tên ngày viết gọn để ghi trong ô chữ, vd "Thứ 5" -> "T5"; tên khác giữ nguyên.
-- `_day_keys(d)` — Các cách viết một ngày: tên ngày (không phân biệt hoa thường, dấu), và với tên dạng "Thứ n": "Tn", "thu n", "n";
+- `_day_keys(d)` — Các cách viết một ngày: tên ngày (không phân biệt hoa thường, dấu), và với tên dạng "Thứ n": "Tn", "thu n", "n",
 - `day_index(text)` — Ngày học ghi bằng chữ (tên ngày hoặc cách viết gọn) -> chỉ số ngày; None nếu không có ngày nào như vậy.
 - `day_list(text)` — Danh sách ngày, cách nhau bằng dấu phẩy; khoảng "Thứ 2-Thứ 4", "T2-T4" theo thứ tự ngày học.
 - `_range_end(start, end)` — "Thứ 2-4", "T2-4": vế sau chỉ ghi số thì mượn chữ của vế trước.
 - `session_name(text)` — Tên buổi ghi bằng chữ ("chiều", "Buổi chiều") -> tên buổi trong khung giờ; None nếu không có buổi nào như vậy.
-- `split_session_day(text)` — "Chiều T5", "Sáng thứ 6", "Tối Mon" -> (buổi, ngày); None nếu không đọc được.
+- `split_session_day(text)` — "Chiều T5", "Sáng thứ 6", "Tối Mon", "T5 chiều" -> (buổi, ngày); None nếu không đọc được.
 
 ## tkb/kich_ban.py — Kịch bản của một trường cho giao diện (tkb/giao_dien): toàn bộ nội dung file vào V8 dưới dạng dữ liệu JSON.
 Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGESTIONS`, `RULE_KEYS`, `STAFF_COLS`, `_HEADERS`, `ROLES`, `SUBJECT_GROUPS`, `ROLE_RULES`
@@ -242,7 +243,7 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGE
 - `schema()` — Mô tả các bảng, cột cho giao diện (sinh ô nhập theo đây).
 - `composer()` — Từ vựng của bộ ghép luật (tkb/bo_ghep.py) cho giao diện: thêm một chiều, phép đo, nhãn ở Python là trang có.
 - `_blank(value)`
-- `_number(value)` — Số nguyên nếu ô là số nguyên, ô trống là None, còn lại giữ chữ (kiểm tra sẽ báo lỗi).
+- `_number(value)` — Số nguyên nếu ô là số nguyên (cả "23 tiết", "23,0": staff.to_number), ô trống là None, còn lại giữ chữ (kiểm
 - `_text(value)`
 - `_read_staff_rows(wb, warnings)` — Các dòng của sheet nhân sự đúng như chữ trong file (không kiểm tra; dòng trống bỏ qua), cùng sheet như khi chạy
 - `_read_program_rows(wb)` — Các khối và các dòng (môn, {khối: số tiết}) của sheet CHƯƠNG TRÌNH HỌC đúng như trong file.
@@ -411,8 +412,10 @@ Hằng số: `MANAGER_BONUS`
 - `errors(problem, lessons)` — Kiểm tra độc lập (checker): giờ học nào có tiết cần phòng mà không xếp được vào phòng hợp (quá sức chứa).
 
 ## tkb/program.py — Đọc chương trình học: cột 'Môn học' và các cột 'Khối <tên>' (tên khối tùy ý, vd "Khối 1", "Khối Lá").
-Hằng số: `_GRADE_HEAD`
-- `grade_head(value)` — Tiêu đề cột "Khối <tên>" -> tên khối (staff.parse_grade); cột khác: None.
+Hằng số: `_GRADE_HEAD`, `_CLASS_HEAD`, `_SUBJECT_HEADS`
+- `is_subject_head(value)` — Tiêu đề cột Môn học của sheet chương trình học (cả "Môn", "Tên môn", "Mon hoc").
+- `grade_head(value)` — Tiêu đề cột "Khối <tên>" (cả "Khoi 1", "Khối1") -> tên khối (staff.parse_grade, tên giữ dấu như ghi); cột
+- `class_head(value)` — Tiêu đề cột "Lớp <số>" (cách gọi khối của tiểu học, vd "Lớp 1" là khối 1) -> khối; cột khác: None.
 - `grade_columns(ws)` — Dòng tiêu đề, cột Môn học và {khối: cột} của sheet chương trình học; None nếu không có dòng tiêu đề có cột Môn
 - `_rule_names()`
 - `canonical_subject(name)` — Tên môn dùng khi dựng bài toán: tên trong config nếu khớp một môn có luật, không thì giữ tên trong file.
@@ -523,7 +526,7 @@ Hằng số: `MAX_DAYS`, `SESSION_PREFIX`, `NOTE`, `OLD_SHEETS`, `GENERAL`, `DAY
 - `_mark_locked(solution, keep, log)` — Đánh dấu các tiết ở ô khóa của TKB cũ (giữ được môn) để file vào cập nhật ghi lại " (khóa)"; in các ô khóa
 
 ## tkb/staff.py — Đọc và kiểm tra file Excel danh sách nhân sự.
-Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_ROLE_ALIASES`, `_ANY_OFF_RE`, `OPTIONAL_COLUMNS`, `_REQUIRED_HEADERS`, `_STAFF_HEADERS`
+Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_CLASS_SEP_RE`, `_YES`, `_NO`, `_NUMBER_RE`, `_NOTE_RE`, `_ROLE_ALIASES`, `_ANY_OFF_RE`, `OPTIONAL_COLUMNS`, `_REQUIRED_HEADERS`, `_STAFF_HEADERS`
 - `class InputError` — Lỗi dữ liệu đầu vào.
 - `class Teacher`
   - `.tag_keys()` — Các nhãn của GV (chuẩn hóa) để khớp cột Giáo viên của sheet LUẬT: cột Nhãn, tên các cột Có/Không ghi Có
@@ -539,6 +542,8 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_R
 - `_numbered_class(text)` — Tên lớp theo cách ghi có khối ở đầu: "1/1", "1 / 1" -> "1/1"; "1d15" -> "1D15"; cách ghi khác: None.
 - `canonical_class(value)` — Tên lớp ở sheet LỚP: "1 / 1" viết thành "1/1", tên khác giữ như ghi (vd "1 Blue", "Lá 2").
 - `_school()` — Các lớp của sheet LỚP (config.CLASSES): ({tên: lớp}, {tên viết thường bỏ dấu: tên}); trống nếu file không có
+- `_without_word_class(text)` — Tên lớp ghi kèm chữ "Lớp" ở đầu ("Lớp 3/2", "lop 3/2") -> phần sau chữ đó; tên khác giữ nguyên.
+- `_loose_class(text)` — _numbered_class, cả khi ghi kèm chữ "Lớp" ở đầu hoặc ngăn khối và số bằng dấu chấm, gạch ngang ("3.1").
 - `parse_class(value)` — Cột Lớp: một lớp của sheet LỚP (tên tùy ý); file không có sheet LỚP thì khối/số thứ tự, vd "1/1", hoặc khối +
 - `parse_grade(value)` — Tên khối (cột Khối <tên> của sheet CHƯƠNG TRÌNH HỌC, cột Khối của sheet LỚP, LUẬT): ghi toàn chữ số thì là số
 - `natural_key(text)` — Thứ tự tự nhiên của chữ: phần số so theo số ("Lá 2" trước "Lá 10"), phần chữ không phân biệt hoa thường, dấu.
@@ -553,14 +558,16 @@ Hằng số: `SPECIAL_ROLES`, `_CLASS_RE`, `_CLASS_NAMED_RE`, `_YES`, `_NO`, `_R
 - `fold_key(text)` — Khóa so khớp tên sheet, tiêu đề cột: bỏ dấu tiếng Việt, hoa thường, khoảng trắng và dấu câu ("Quy dinh" là
 - `suggest(name, choices)` — Gợi ý tên đúng cho tên gõ khác (khác dấu, hoa thường, sai một hai chữ): " (ý là 'Toán'?)", hoặc "" nếu không có
 - `is_total_row(name)` — Dòng cộng tổng của bảng (vd "Tổng", "Tổng số tiết", "Cộng"): không phải một môn, bỏ qua khi đọc.
+- `to_number(value)` — Số trong ô: số, chữ số ("23"), kèm chữ "tiết" ("23 tiết"), dấu phẩy thập phân ("23,0"). Không đọc được thì
+- `is_footer_row(name, title, lessons)` — Dòng cộng tổng ("Tổng cộng", có thể ghi tổng số tiết) hoặc ghi chú ("Ghi chú: ...", không có số tiết) ở bảng
 - `role_text(title)` — Chữ cột Chức Vụ: cách ghi khác của Chủ Nhiệm, Bộ Môn, Quản Lý (vd "GVCN", "Chu nhiem") thành tên chuẩn; chữ
 - `parse_yes(value, column)` — Cột Có/Không: trống hoặc "Không" là không; "Có", "x", "1" là có.
-- `parse_classes(value)` — Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy, chấm phẩy, "+", "&" hoặc chữ "và".
+- `parse_classes(value)` — Cột Lớp Đang Dạy: các lớp cách nhau bằng dấu phẩy, chấm phẩy, "+", "&", " - ", chữ "và" hoặc dấu cách.
 - `off_text(t)` — Cột Buổi Nghỉ viết lại từ dữ liệu đã đọc, vd "Chiều T5, Sáng T6, 2 buổi chiều".
 - `parse_off(value)` — Cột Buổi Nghỉ: các mục cách nhau bằng dấu phẩy/chấm phẩy. Mỗi mục là buổi cố định ("Chiều T5",
 - `find_sheet(wb, name)` — Sheet có tên `name` (không phân biệt hoa thường; không có thì so cả khi bỏ dấu, khoảng trắng: "Quy dinh" là
 - `near_sheets(wb, names)` — Cảnh báo cho các sheet không được đọc mà tên gần giống một sheet của mẫu `names` (vd "NHÂN SỰ (2)", "Luat
-- `staff_sheet(wb)` — Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có, không thì sheet đầu tiên.
+- `staff_sheet(wb)` — Sheet nhân sự: sheet tên "NHÂN SỰ" nếu có (find_sheet), không thì sheet đầu tiên có dòng tiêu đề nhân sự (Họ và
 - `class SavedTimetable` — TKB đã xếp đọc từ file vào cập nhật (sheet config.SAVED_SHEET).
 - `read_saved_timetable(path)` — Sheet config.SAVED_SHEET của file vào (TKB đã xếp, xem parse_saved_grid). File không có sheet này: None.
 - `parse_saved_grid(grid)` — TKB đã xếp dạng lưới (các dòng của sheet config.SAVED_SHEET; giao diện giữ chúng trong kịch bản): bảng Lớp |
@@ -781,7 +788,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_co_so.py`: test_three_campuses_end_to_end, test_checker_and_campus_rule_with_three_campuses, test_old_campus_column_and_errors
 - `tests/test_code_map.py`: test_code_map_is_up_to_date
 - `tests/test_cung_gio.py`: test_split_group_and_assistant_end_to_end, test_rule_errors, test_checker_and_rules_off, test_saved_cell_with_two_subjects
-- `tests/test_de_dung.py`: test_sheet_and_column_names_without_accents, test_yes_no_words_roles_and_classes, test_merged_cells_hidden_rows_and_unread_columns, test_two_row_header, test_near_sheet_names, test_same_names_quota_and_total_row, test_suggestions, test_not_xlsx
+- `tests/test_de_dung.py`: test_sheet_and_column_names_without_accents, test_yes_no_words_roles_and_classes, test_merged_cells_hidden_rows_and_unread_columns, test_two_row_header, test_near_sheet_names, test_same_names_quota_and_total_row, test_suggestions, test_not_xlsx, test_numbers_written_by_hand, test_footer_rows_and_sheet_names, test_class_names_and_leave_written_by_hand, test_empty_staff_and_renamed_xlsx
 - `tests/test_ghep_lop.py`: test_merge_end_to_end, test_rule_errors, test_checker_and_integrated_model, test_merge_in_one_room, test_merge_per_grade_on_sample_school
 - `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end

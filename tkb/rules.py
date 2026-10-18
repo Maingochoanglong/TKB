@@ -30,7 +30,7 @@ from pathlib import Path
 import openpyxl
 
 from . import bo_ghep, config, luat_rieng
-from .program import grade_columns, grade_head
+from .program import class_head, grade_columns, grade_head, is_subject_head
 from .staff import (_NO, _YES, CAMPUS1, CAMPUS2, InputError, _fold, canonical_class, clean_name, find_sheet,
                     fold_key, is_total_row, near_sheets,
                     normalize, parse_grade, parse_tags, subject_key)
@@ -218,7 +218,7 @@ def _row(ws, r: int) -> dict[int, object]:
 
 def _is_grade(head: str) -> bool:
     try:
-        return grade_head(head) is not None
+        return grade_head(head) is not None or class_head(head) is not None
     except InputError:
         return False
 
@@ -473,7 +473,7 @@ class _Reader:
         header_row = key_col = None
         for r in range(1, min(ws.max_row, 20) + 1):
             for c, value in _row(ws, r).items():
-                if normalize(value) == normalize(SUBJECT_KEY):
+                if is_subject_head(value):
                     header_row, key_col = r, c
                     break
             if header_row:

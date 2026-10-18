@@ -46,8 +46,8 @@ from .rules import (CLASS_CAMPUS, CLASS_CAMPUS2, CLASS_GRADE, CLASS_NAME, CLASS_
                     rule_tables, subject_columns, visible)
 from .rules import SUBJECT_COLS as _ALL_SUBJECT_COLS
 from .staff import (CAMPUS1, CAMPUS2, InputError, _find_columns, _fold, _NO, _YES, class_list, class_sort_key,
-                    clean_name, find_sheet, grade_key, grade_of, header_end, is_total_row, normalize, parse_grade,
-                    read_staff, role_text, sheet_notes, staff_sheet, subject_key)
+                    clean_name, find_sheet, grade_key, grade_of, header_end, is_footer_row, is_total_row, normalize,
+                    parse_grade, read_staff, role_text, sheet_notes, staff_sheet, subject_key, to_number)
 from .template import NOTES, STAFF_HEADERS, program_rows, write_input
 
 VERSION = 3  # 2: mọi luật ở `rules` (sheet LUẬT); 3: khung giờ là `sessions` + số tiết từng buổi của mỗi ngày
@@ -144,7 +144,8 @@ def _blank(value) -> bool:
 
 
 def _number(value):
-    """Số nguyên nếu ô là số nguyên, ô trống là None, còn lại giữ chữ (kiểm tra sẽ báo lỗi)."""
+    """Số nguyên nếu ô là số nguyên (cả "23 tiết", "23,0": staff.to_number), ô trống là None, còn lại giữ chữ (kiểm
+    tra sẽ báo lỗi)."""
     if _blank(value) or isinstance(value, bool):
         return None if _blank(value) else str(value)
     if isinstance(value, float) and value == int(value):
@@ -152,7 +153,11 @@ def _number(value):
     if isinstance(value, int):
         return value
     text = clean_name(value)
-    return int(text) if text.isdigit() else text
+    try:
+        number = to_number(text)  # "23 tiết", "23,0" là 23
+    except ValueError:
+        return text
+    return int(number) if number == int(number) else text
 
 
 def _text(value) -> str:
@@ -178,7 +183,8 @@ def _read_staff_rows(wb, warnings: list[str]) -> list[dict]:
     rows = []
     for r in range(header_end(ws, header_row) + 1, ws.max_row + 1):
         raw = {key: ws.cell(r, cols[col]).value if col in cols else None for key, col, _ in STAFF_COLS}
-        if all(_blank(v) for v in raw.values()):
+        if all(_blank(v) for v in raw.values()) or is_footer_row(raw["name"], raw["role"], raw["class"],
+                                                                     raw["lessons"]):
             continue
         row = {}
         for key, _, kind in STAFF_COLS:
