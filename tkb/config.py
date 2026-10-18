@@ -339,6 +339,11 @@ LNS_HOTSPOTS: int = 5  # số lớp-ngày xấu nhất (theo QA) được mở t
 LNS_SHARED_CLASSES: tuple[int, int] = (2, 8)  # vùng "GV dùng chung": GV dạy từ 2 đến 8 lớp
 LNS_MIN_GAIN: float = 0.003  # dừng khi một vòng giảm chưa tới 0,3% chi phí (không giới hạn: khi vòng không giảm)
 LNS_MAX_ROUNDS: int = 10
+# Số vùng "cặp ngày" mỗi vòng (các cặp có chi phí QA cao nhất); None: mọi cặp ngày.
+LNS_DAY_PAIRS: int | None = None
+# Từ vòng 2: chỉ xếp lại các vùng vòng trước có giảm chi phí, cùng các điểm nóng mới (vùng không đổi gì ở vòng trước
+# hiếm khi đổi ở vòng sau). False: vòng nào cũng thử mọi vùng.
+LNS_FOCUS: bool = False
 
 # Phiên bản OR-Tools đã ghim trong requirements.txt. Máy khác phiên bản thì TKB có thể khác.
 ORTOOLS_VERSION = "9.15.6755"

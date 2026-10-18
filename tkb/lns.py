@@ -156,6 +156,7 @@ class _Search:
         out += [("khối", f"khối {g}", self.free([c for c in classes if grade[c] == g], days), limits["khối"])
                 for g in grades]
         pairs = sorted(itertools.combinations(days, 2), key=lambda p: (-round(by_day[p[0]] + by_day[p[1]]), p))
+        pairs = pairs[:config.LNS_DAY_PAIRS] if config.LNS_DAY_PAIRS is not None else pairs
         out += [("cặp ngày", f"{khung_gio.day_name(a).lower()}+{khung_gio.day_name(b).lower()}",
                  self.free(classes, [a, b]), limits["cặp ngày"])
                 for a, b in pairs]
@@ -215,6 +216,7 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None,
         if status == cp_model.OPTIMAL:
             result.stop = "đã tối ưu"
         rnd = 0
+        gained: set[tuple[str, str]] = set()  # (loại, tên) các vùng có giảm chi phí ở vòng trước
         while not result.stop:
             if search.interrupted:
                 result.stop = "Ctrl+C"
@@ -225,8 +227,12 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None,
             rnd += 1
             before = result.objective
             cost, lessons = search.qa(result.values)
+            regions = search.regions(cost, lessons)
+            if config.LNS_FOCUS and rnd > 1:  # chỉ các vùng vòng trước có giảm, cùng các điểm nóng mới
+                regions = [r for r in regions if r[0] == "điểm nóng" or r[:2] in gained]
+            gained = set()
             tried = 0
-            for _, _, free, limit in search.regions(cost, lessons):
+            for kind, name, free, limit in regions:
                 left = total - search.used
                 if left < 1:
                     result.stop = "hết thời gian"
@@ -235,6 +241,7 @@ def improve(tm: TimetableModel, settings: config.Settings, log=lambda *_: None,
                 _, val, new, _, _ = search.region(free, min(limit, left), result.values)
                 if val is not None and val < result.objective - 0.5:
                     result.objective, result.values = val, new
+                    gained.add((kind, name))
                 if search.interrupted:
                     result.stop = "Ctrl+C"
                     break
