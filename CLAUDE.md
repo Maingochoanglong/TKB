@@ -338,7 +338,7 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   (`python tools/mau_dau_ra.py`).
 - Current codes: small school (`tuyen_them`/`bu_gio`) Linux `FF38-5D84-51CD`/`163C-C24E-C838`, Windows
   `55DF-B412-A92E`/`17E8-9D71-CCE4`;
-  `python main.py` (school file as of now) Linux `6EFD-D248-0795`, Windows `4B96-12CB-1846`; fake school of
+  `python main.py` (school file as of now) Linux `6EFD-D248-0795`, Windows `DF12-11D2-8AF5`; fake school of
   `tkb/truong_mau.py` with main.py constants Linux `E246-9BB4-57B6`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
