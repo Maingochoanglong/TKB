@@ -1492,7 +1492,10 @@ async function pollOnce() {
   if (repairing) repairStatus(s, last);
   if (s.running) {
     const what = s.stopping ? "Đang dừng: chờ xếp xong vùng đang xếp rồi ghi TKB tốt nhất…" : "Đang xếp TKB…";
-    $("#run-status").innerHTML = `<span class="spinner"></span><div><b>${what}</b> ${mmss(s.elapsed)}<br><small>${esc(last)}</small></div>`;
+    // Sau vòng xếp lại đầu tiên đã có gần hết mức cải thiện (đo trên trường mẫu: 98%): các vòng sau chỉ tinh chỉnh.
+    const enough = !s.stopping && !repairing && /Vòng \d+: chi phí/.test(log.textContent)
+      ? "<br><small>Đã có TKB dùng được; các vòng sau chỉ tinh chỉnh thêm. Cần gấp thì bấm <b>Dừng sớm</b> để lấy TKB tốt nhất hiện có.</small>" : "";
+    $("#run-status").innerHTML = `<span class="spinner"></span><div><b>${what}</b> ${mmss(s.elapsed)}<br><small>${esc(last)}</small>${enough}</div>`;
     if (s.stopping && stopAt && Date.now() - stopAt > 15000) $("#btn-kill").hidden = false;
     return;
   }

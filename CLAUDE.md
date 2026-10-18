@@ -183,7 +183,8 @@ time) live in the UI, not in the Excel file.
    `build_timetable` makes ONE global CP-SAT model over all lessons (`x[course, (day,
    period)]`, `z[course, teacher, slot]` booleans, hard constraints + soft objective weighted by `config.Weights`),
    then `lns.improve`: CP-SAT start with 20% of the budget (≤ 120), then rounds of QA (cost per class-day) and re-solving
-   regions (class, hot spot, shared-teacher classes, grade, day pair) with everything else fixed; stops on budget,
+   regions (class, hot spot, shared-teacher classes, grade, the `LNS_DAY_PAIRS` = 3 worst day pairs; from round 2
+   `LNS_FOCUS`: only regions that gained last round + new hot spots) with everything else fixed; stops on budget,
    a round gaining < 0.3%, 10 rounds, or Ctrl+C. Budget is deterministic time ⇒ reproducible. `bu_gio` then
    relabels hire lessons back to their owners (`_to_overtime`), so both modes place every lesson in the same cell.
 5. If infeasible (`tuyen_them` only): integrated model (`_Allocation` + timetable, single CP-SAT solve) with +1, then
@@ -337,8 +338,8 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   (`python tools/mau_dau_ra.py`).
 - Current codes: small school (`tuyen_them`/`bu_gio`) Linux `FF38-5D84-51CD`/`163C-C24E-C838`, Windows
   `55DF-B412-A92E`/`17E8-9D71-CCE4`;
-  `python main.py` (school file as of now) Linux `076A-466D-3689`, Windows `4B96-12CB-1846`; fake school of
-  `tkb/truong_mau.py` with main.py constants Linux `4DCC-D5FC-F768`. Editing `INPUT_V8.xlsx` changes the main.py codes.
+  `python main.py` (school file as of now) Linux `6EFD-D248-0795`, Windows `DF12-11D2-8AF5`; fake school of
+  `tkb/truong_mau.py` with main.py constants Linux `E246-9BB4-57B6`. Editing `INPUT_V8.xlsx` changes the main.py codes.
 
 ## CI (`.github/workflows/`, repo is public so minutes are free)
 - `windows.yml`: on PRs and pushes to main; 4 VMs (windows-2022/2025 × Python 3.12/3.14) run pytest and
