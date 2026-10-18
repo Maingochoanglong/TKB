@@ -17,9 +17,11 @@ thiếu, số tiết bù của từng người, số người cần tuyển và 
 
 ## Cài đặt và chạy
 
-**Không cài Python (Windows):** tải `TKB_Windows.zip` ở trang **Releases** của dự án (bản thử của từng lần sửa mã: mục
-Actions → workflow **Đóng gói TKB.exe** → Artifacts), giải nén, bấm đúp `TKB.exe` (Windows báo "Windows protected your
-PC" vì gói chưa ký số thì bấm More info › Run anyway): mở đúng giao diện web ở Cách 0, kết quả ghi vào thư mục `TKB` trong thư mục người dùng.
+**Không cài Python (Windows):** tải
+[`TKB_Windows.zip`](https://github.com/Maingochoanglong/TKB/raw/main/TKB_Windows.zip) ở thư mục gốc của dự án (bản thử
+của từng lần sửa mã: mục Actions → workflow **Đóng gói TKB.exe** → Artifacts), giải nén, bấm đúp `TKB.exe`
+(Windows báo "Windows protected your PC" vì gói chưa ký số thì bấm More info › Run anyway): mở đúng giao diện web ở
+Cách 0, kết quả ghi vào thư mục `TKB` trong thư mục người dùng.
 Gói dựng bằng `python tools/dong_goi.py` (PyInstaller, `pip install -r requirements-build.txt`), cùng OR-Tools ghim
 nên ra cùng mã kết quả như `python -m tkb` trên Windows; gói không chứa file Excel nào của trường.
 
