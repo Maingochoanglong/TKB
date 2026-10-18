@@ -14,7 +14,7 @@
     <span class="logo" aria-hidden="true">TKB</span>
     <div>
       <h1>Xếp thời khóa biểu</h1>
-      <p id="file-label" class="muted">Kịch bản mới</p>
+      <p id="file-label" class="muted">Dữ liệu mới</p>
     </div>
   </div>
   <div class="actions">
@@ -28,7 +28,7 @@
           title="File của trường, file mẫu đã điền, hay file cập nhật *_cap_nhat.xlsx của lần xếp trước: chọn phần nào lấy từ file">
           Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden></label>
         <button type="button" class="menu-item" role="menuitem" id="btn-export"
-          title="Lưu mọi thứ đang soạn thành một file Excel: mở lại được ở đây, dùng được cho main.py, gửi cho trường khác được">
+          title="Lưu mọi thứ đang soạn thành một file Excel: mở lại được ở đây, gửi cho trường khác được">
           Lưu ra file Excel</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-template"
           title="File Excel trống, đủ các sheet và luật mặc định, để điền trong Excel rồi mở lại ở đây">
@@ -63,7 +63,7 @@
     </button>
   </div>
   <p class="start-links"><button type="button" class="link" data-start="template">Tải file mẫu trống để điền trong Excel</button>
-    <span id="start-back"> · <button type="button" class="link" data-start="back">← Quay lại kịch bản đang soạn</button></span></p>
+    <span id="start-back"> · <button type="button" class="link" data-start="back">← Quay lại dữ liệu đang soạn</button></span></p>
 </section>
 
 <nav class="tabs" role="tablist">
@@ -281,8 +281,8 @@
       </div>
       <div class="card">
         <h2>Kiểm tra và xếp</h2>
-        <p class="muted">Kiểm tra đọc lại kịch bản đúng như khi chạy và dự toán số tiết bù, tiết thiếu (vài giây).
-          Xếp TKB lưu file vào rồi chạy như main.py.</p>
+        <p class="muted">Kiểm tra đọc lại dữ liệu đúng như khi xếp và dự toán số tiết bù, tiết thiếu (vài giây).
+          Xếp TKB lưu dữ liệu thành file Excel ở thư mục kết quả rồi xếp.</p>
         <div class="actions">
           <button type="button" id="btn-check" class="ghost">Kiểm tra</button>
           <button type="button" id="btn-run" class="primary">Xếp TKB</button>

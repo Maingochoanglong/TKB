@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from . import config
 from .config import CustomRule
-from .staff import CAMPUS1, _fold, class_tags, grade_key, grade_of
+from .staff import CAMPUS1, _fold, class_tags, grade_key, grade_of, suggest
 
 
 # --------------------------------------------------------------------------
@@ -1509,6 +1509,7 @@ def validate(problem, sheet: str, role_label) -> list[str]:
     """Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp (hay nhãn lớp) không có; tên ở cột Giáo viên không
     phải chức vụ, nhãn, Mã GV hay họ tên của ai, hoặc là họ tên của nhiều người."""
     subjects = {s for req in problem.curriculum.values() for s, n in req.items() if n > 0}
+    labels = [problem.subject_label(s) for s in sorted(subjects)]
     # Chức vụ có sẵn (Chủ Nhiệm, Bộ Môn, Quản Lý) luôn ghi được, kể cả khi trường không ai giữ: luật không áp cho ai
     # (vd luật có sẵn "trừ GV chủ nhiệm" ở trường không có GVCN).
     roles = {r for t in problem.teachers.values() for r in (t.role, *t.extra_roles, *t.tag_keys)} | set(
@@ -1519,7 +1520,7 @@ def validate(problem, sheet: str, role_label) -> list[str]:
         for name in [*names(r.subject), *names(r.other)]:
             if _subject(name) not in subjects:
                 out.append(f"{sheet} dòng {r.row}: môn '{name}' không có trong chương trình học (hoặc không có tiết "
-                           f"nào)")
+                           f"nào){suggest(name, labels)}")
         keep, drop = role_names(r.role)
         for role in [*keep, *drop]:
             if found[role] > 1 and role not in roles:
