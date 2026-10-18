@@ -9,6 +9,8 @@
      hôm ấy, mở thêm ngày tốt nhất của lớp) -> nhóm lớp của một GV dùng chung -> từng khối -> từng cặp ngày.
      Mỗi vùng: giữ nguyên mọi tiết ngoài vùng, CP-SAT xếp lại trong vùng xuất phát từ nghiệm đang có, chỉ nhận
      khi chi phí giảm. Luật cứng luôn đúng vì vẫn giải trên toàn mô hình.
+   - Cặp ngày: chỉ LNS_DAY_PAIRS cặp có chi phí cao nhất. Từ vòng 2 (LNS_FOCUS): chỉ các vùng vòng trước có giảm chi
+     phí, cùng các điểm nóng mới.
 3. Dừng khi: hết ngân sách; một vòng giảm chưa tới LNS_MIN_GAIN chi phí (không giới hạn: vòng không giảm);
    đủ LNS_MAX_ROUNDS vòng; hoặc Ctrl+C / nút Dừng của giao diện (dừng sau lần xếp lại đang chạy, vài giây).
 
