@@ -353,7 +353,10 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   (PyInstaller onedir, `requirements-build.txt` pins it; static pages as data, `--collect-all ortools`; refuses any
   `.xlsx` in the package) → `.github/scripts/thu_goi.py` runs it on the fake school (`--cli`, then the UI: import,
   check, run, Stop) → artifact `TKB_Windows.zip`; on a pushed tag `v*` it is also published as a GitHub Release
-  (`gh release create`, notes `.github/ghi_chu_phat_hanh.md`; never push a tag without the user's go-ahead). The frozen exe re-runs itself with `--cli` for each solve
+  (`gh release create`, notes `.github/ghi_chu_phat_hanh.md`; never push a tag without the user's go-ahead). A manual
+  run on main with input `dua_vao_repo` commits it as `TKB_Windows.zip` at the repo root of main (the download link of
+  README and the guide; this session cannot push tags, so this is how the exe ships; run it only when the user asks,
+  each run adds ~60 MB to the history). The frozen exe re-runs itself with `--cli` for each solve
   (`server.cli_command`) and ignores `PYTHONUNBUFFERED`, so `__main__.use_utf8_output` line-buffers stdout (the UI log
   and Stop depend on it).
 

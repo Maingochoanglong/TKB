@@ -3,11 +3,18 @@
 # diện. Gói tải lên dạng artifact TKB_Windows (giải nén rồi bấm đúp TKB.exe, không cần cài Python). Gói không chứa file
 # Excel nào của trường (tools/dong_goi.py kiểm). Đẩy một tag v* (vd git tag v1.0.0 && git push origin v1.0.0) thì sau
 # khi chạy thử đạt, gói được đăng ở trang Releases của dự án (ai cũng tải được, không hết hạn như artifact), kèm ghi
-# chú .github/ghi_chu_phat_hanh.md.
+# chú .github/ghi_chu_phat_hanh.md. Chạy tay từ main (Actions › Đóng gói TKB.exe › Run workflow) có chọn "Đưa gói vào
+# repo" thì sau khi chạy thử đạt, gói được commit thành TKB_Windows.zip ở thư mục gốc của main (tải thẳng từ trang
+# dự án; mỗi lần thêm khoảng 60 MB vào lịch sử repo).
 name: Đóng gói TKB.exe
 
 on:
   workflow_dispatch:
+    inputs:
+      dua_vao_repo:
+        description: "Đưa gói vào repo: commit TKB_Windows.zip ở thư mục gốc của main sau khi chạy thử đạt"
+        type: boolean
+        default: false
   push:
     tags: ["v*"]
   pull_request:
@@ -45,6 +52,17 @@ jobs:
           name: TKB_Windows
           path: dist/TKB_Windows.zip
           compression-level: 0  # đã nén
+      - name: Đưa gói vào repo (chỉ khi chạy tay từ main có chọn "Đưa gói vào repo")
+        if: inputs.dua_vao_repo && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          cp dist/TKB_Windows.zip TKB_Windows.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add TKB_Windows.zip
+          git commit -m "Add TKB_Windows.zip built and tested from ${GITHUB_SHA::7}"
+          # main đã có commit mới trong lúc dựng thì dừng: gói phải khớp đúng mã nguồn ở main.
+          git push origin HEAD:main
       - name: Đăng ở trang Releases (chỉ khi đẩy tag v*)
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash

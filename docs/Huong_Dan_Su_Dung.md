@@ -7,10 +7,10 @@ Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập li
 ## 1. Cài đặt
 
 **Cách A: TKB.exe (Windows, không cần cài Python).**
-1. Tải `TKB_Windows.zip` ở trang **Releases** của dự án trên GitHub (bản phát hành mới nhất, phần *Assets*). Bản thử
-   của từng lần sửa mã: mục **Actions** → workflow **Đóng gói TKB.exe** → lần chạy → **Artifacts** (cần đăng nhập
-   GitHub, hết hạn sau 90 ngày). Windows báo *"Windows protected your PC"* (gói chưa ký số) thì bấm **More info ›
-   Run anyway**.
+1. Tải [`TKB_Windows.zip`](https://github.com/Maingochoanglong/TKB/raw/main/TKB_Windows.zip) ở thư mục gốc của dự án
+   trên GitHub (trên trang dự án bấm vào file rồi bấm nút tải xuống). Bản thử của từng lần sửa mã: mục **Actions** →
+   workflow **Đóng gói TKB.exe** → lần chạy → **Artifacts** (cần đăng nhập GitHub, hết hạn sau 90 ngày). Windows báo
+   *"Windows protected your PC"* (gói chưa ký số) thì bấm **More info › Run anyway**.
 2. Giải nén, mở thư mục `TKB`, bấm đúp **`TKB.exe`**. Một cửa sổ dòng lệnh mở ra (giữ cửa sổ này mở khi dùng), trình
    duyệt tự mở trang nhập liệu. Trình duyệt không tự mở thì chép đường dẫn in trong cửa sổ (`http://127.0.0.1:...`)
    vào trình duyệt.
