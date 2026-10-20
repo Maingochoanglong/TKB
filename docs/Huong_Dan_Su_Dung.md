@@ -104,7 +104,8 @@ không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (
 
 ## 3. Xếp TKB và đọc kết quả
 
-Bấm **Xếp TKB**. Mặc định chạy khoảng 10–15 phút (đổi ở ô Thời gian); muốn dừng sớm bấm **Dừng**: chương trình xếp
+Bấm **Xếp TKB**. Mặc định chạy khoảng 10–15 phút (đổi ở ô Thời gian; đo trên máy 4 nhân: trường 29 lớp khoảng 5 phút,
+58 lớp khoảng 10 phút và cần khoảng 1,1 GB bộ nhớ); muốn dừng sớm bấm **Dừng**: chương trình xếp
 xong phần đang xếp rồi vẫn ghi TKB tốt nhất có được. Xong thì trang hiện **kết quả tóm tắt**:
 - **mã TKB**, xếp giờ bao lâu và vì sao dừng;
 - **dạy bù** bao nhiêu tiết, bao nhiêu người; **tuyển thêm** mấy người;

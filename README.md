@@ -655,6 +655,8 @@ Dưới đây là các quy tắc với giá trị mặc định. Phần lớn s�
    - Với file của trường bản trước (chưa có hai cơ sở), cách này cho TKB tốt hơn cả khi để một lần CP-SAT chạy 110 phút, ngay với 600 (khoảng 4–6 phút), và mặc định 1200 ra đúng TKB của chế độ không giới hạn. Kết quả là tốt nhất tìm được, không chứng minh là tối ưu.
    - File hiện tại có thêm hai cơ sở, thai sản, buổi nghỉ (44 nhân sự, bù tối đa +3), luật tiết tăng cường sau tiết chính và trọng số mới (môn nặng tiết 7: 1200, đổi cơ sở trong ngày: 10000): chi phí xếp giờ 28.220 (Linux) / 37.340 (Windows). Giáo viên dạy sáng một cơ sở, chiều cơ sở kia: 0 lần (Linux), 1 lần (Windows); trước khi có mục tiêu này: 21 lần. Môn nặng ở tiết 7: 6 tiết (đều là Tiếng Anh, thấp nhất có thể là 4); TV/Toán buổi chiều 38/408.
 
+   - **Trường lớn hơn** (đo trên máy Linux 4 nhân, mặc định 1200, chế độ bù, `tools/truong_lon.py` sinh trường mẫu gấp k lần): trường mẫu 29 lớp, 45 nhân sự xếp giờ 315 giây, bộ nhớ cao nhất khoảng 740 MB; gấp đôi (58 lớp, 89 nhân sự) 556 giây, khoảng 1,1 GB. Cả hai đạt mọi luật bắt buộc và tự dừng trước 1200 vì vòng cuối tốt lên chưa tới 0,3% (tăng thời gian không đổi kết quả). Trường gấp đôi có chi phí mỗi lớp cao hơn khoảng 20%, chủ yếu môn nặng ở tiết 7 (12 tiết, trường mẫu 4) và TV/Toán buổi chiều (86/816, trường mẫu 37/408).
+
    Chế độ tuyển: giữ người mới. Chế độ bù: trả các ô đó về đúng người bù. Hai chế độ cùng vị trí môn.
 4. **Dự phòng** (chỉ chế độ tuyển): nếu bước 3 không xếp được, giải một lần CP-SAT mô hình tích hợp (vừa chọn giáo viên vừa xếp giờ) với thêm giáo viên bổ sung dự phòng.
 
