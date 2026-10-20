@@ -21,7 +21,10 @@ Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập li
 **Cách B: có Python.** `pip install -r requirements.txt` (một lần), rồi mở `giao_dien.py` bấm **Run ▶** (hoặc
 `python giao_dien.py`). Người quen Python có thể bỏ trang web, sửa các hằng số đầu `main.py` rồi chạy (README, Cách 1).
 
-Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên không rời máy.
+Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên không rời máy. Trang tự lưu bản nháp trong trình
+duyệt của máy này. **Máy dùng chung** (phòng máy, máy mượn): xong việc thì bấm **Tệp ▾ › Xóa dữ liệu trên máy
+này…**: trang xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác rồi về trang bắt đầu. Các file đã ghi ra máy (thư
+mục kết quả, thư mục Tải về) trang để nguyên, vì có thể là file cần giữ: hộp thoại chỉ thư mục kết quả để xóa tay.
 
 ## 2. Nhập dữ liệu
 
@@ -59,7 +62,7 @@ Chỉ đọc file `.xlsx`: file `.xls`, `.csv` thì mở bằng Excel rồi *Lư
 đuôi thì chỉ cần đổi lại tên).
 
 Mọi việc với file nằm ở menu **Tệp ▾** góc trên: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (điền trong
-Excel rồi mở lại), Bắt đầu lại…. Mở file thì hộp thoại cho chọn phần nào lấy từ file.
+Excel rồi mở lại), Bắt đầu lại…, Xóa dữ liệu trên máy này…. Mở file thì hộp thoại cho chọn phần nào lấy từ file.
 
 ![Mở file Excel: chọn phần lấy từ file](hinh/1_nhap_excel.jpg)
 

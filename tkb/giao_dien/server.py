@@ -403,6 +403,17 @@ class App:
         self.out_dir = folder.resolve()
         return {"out_dir": str(self.out_dir)}
 
+    def forget(self, _):
+        """Tệp › Xóa dữ liệu trên máy này: bỏ TKB đang xem và nhật ký lần chạy (có tên giáo viên) khỏi bộ nhớ.
+
+        File đã ghi ra thư mục kết quả để nguyên: trang chỉ chỗ cho người dùng tự xóa."""
+        if self.job and self.job.running:
+            raise InputError("Đang xếp TKB: bấm Dừng, chờ dừng hẳn rồi xóa")
+        with self.lock:
+            self.job = None
+            self.grid = None
+        return {"ok": True}
+
     def shutdown(self) -> None:
         if self.job:
             self.job.kill()
@@ -500,7 +511,7 @@ class Handler(BaseHTTPRequestHandler):
                       ("POST", "upgrade"): app.upgrade,
                       ("POST", "swaps"): app.swaps,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
-                      ("POST", "settings"): app.settings}
+                      ("POST", "settings"): app.settings, ("POST", "forget"): app.forget}
             handler = routes.get((method, name))
             if handler is None:
                 return self._json(HTTPStatus.NOT_FOUND, {"error": f"Không có lệnh {name}"})

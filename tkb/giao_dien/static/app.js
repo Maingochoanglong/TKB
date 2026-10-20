@@ -2125,6 +2125,32 @@ async function startWith(how, mau = "") {
   }
 }
 
+// ---------------------------------------------------------------- xóa dữ liệu trên máy dùng chung
+// Tệp › Xóa dữ liệu trên máy này: máy chủ bỏ TKB đang xem và nhật ký lần chạy, trang xóa các mục "tkb-…" của trình
+// duyệt (bản nháp, bước đang mở) rồi tải lại, nên kịch bản, hoàn tác và bảng trong bộ nhớ của trang mất theo. File đã
+// ghi ra máy thì không xóa (thư mục kết quả có thể là thư mục trường tự chọn, có file cần giữ): hộp thoại chỉ chỗ.
+const FORGOT = "#da-xoa"; // dấu trên địa chỉ để trang tải lại báo đã xóa
+const openOutDir = () => api("POST", "/api/open", { path: "" }).catch(fail);
+function askForget() {
+  $("#forget-dir").textContent = S.out_dir;
+  $("#forget-dialog").returnValue = ""; // Esc giữ giá trị lần trước (vd lần Xóa bị máy chủ từ chối): không xóa nhầm
+  $("#forget-dialog").showModal();
+}
+async function forget() {
+  await api("POST", "/api/forget", {}); // đang xếp TKB thì máy chủ báo lỗi, chưa xóa gì
+  for (const t of [saveTimer, snapTimer, checkTimer]) clearTimeout(t);
+  clearInterval(poller);
+  st = null; // pagehide không lưu lại bản nháp
+  undoStack.length = 0;
+  redoStack.length = 0;
+  lastSnap = null;
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith("tkb-")) localStorage.removeItem(k);
+  } catch { /* trình duyệt chặn bộ nhớ trang: không có gì để xóa */ }
+  history.replaceState(null, "", FORGOT);
+  location.reload();
+}
+
 // ---------------------------------------------------------------- nhập từ Excel
 // File vào V8 (mẫu đã điền, file của trường, file cập nhật) đọc ở máy chủ thành kịch bản; hộp thoại cho chọn phần nào
 // lấy vào kịch bản đang soạn. Mỗi phần ứng với một sheet; chọn hết là thay toàn bộ (như Nạp vào giao diện).
@@ -2632,6 +2658,11 @@ function wire() {
   document.addEventListener("click", (e) => onClick(e).catch(fail));
   $$(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
   $("#btn-new").onclick = () => showStart(true);
+  $("#btn-forget").onclick = askForget;
+  $("#forget-open").onclick = openOutDir;
+  $("#forget-dialog").addEventListener("close", () => {
+    if ($("#forget-dialog").returnValue === "forget") forget().catch(fail);
+  });
   $$("[data-start]").forEach((b) => b.addEventListener("click", () => startWith(b.dataset.start, b.dataset.mau).catch(fail)));
   $("#btn-undo").onclick = undo;
   $("#btn-redo").onclick = redo;
@@ -2809,11 +2840,13 @@ function wire() {
       notify(`Thư mục kết quả: ${esc(res.out_dir)}`, "ok");
     } catch (err) { fail(err); }
   };
-  $("#btn-open-dir").onclick = () => api("POST", "/api/open", { path: "" }).catch(fail);
+  $("#btn-open-dir").onclick = openOutDir;
 }
 
 async function init() {
   wire();
+  const forgot = location.hash === FORGOT; // vừa bấm Tệp › Xóa dữ liệu trên máy này
+  if (forgot) history.replaceState(null, "", location.pathname + location.search);
   try { subjectGrid = localStorage.getItem(GRID_KEY) === "1"; } catch { /* bỏ qua */ }
   $("#subject-grid").checked = subjectGrid;
   try {
@@ -2835,6 +2868,9 @@ async function init() {
     if (st) st.fresh = true;
     showStart(false);
   }
+  if (forgot) notify(`Đã xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác khỏi trang. File đã ghi ra máy vẫn còn
+    (thư mục kết quả <code>${esc(S.out_dir)}</code>, thư mục Tải về): xóa tay nếu không cần, rồi đóng cửa sổ đen của
+    chương trình.`, "ok", { label: "Mở thư mục kết quả", fn: openOutDir });
   lastSnap = st ? JSON.stringify(st.scenario) : null; // mốc đầu của hoàn tác
   if (st) trackStaff(); // mốc đầu của Mã GV, họ tên từng người (luật theo người đi theo đúng người)
   undoStack.length = 0;

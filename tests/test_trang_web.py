@@ -133,6 +133,34 @@ def test_banner_when_program_stops_and_restarts(page, tmp_path):
         httpd.server_close()
 
 
+def test_forget_data_on_a_shared_machine(page):
+    """Tệp › Xóa dữ liệu trên máy này: Hủy thì giữ nguyên; Xóa thì mất bản nháp, hoàn tác và TKB máy chủ đang giữ,
+    trang về màn hình Bắt đầu và chỉ thư mục kết quả (file trong đó để nguyên)."""
+    draft = "JSON.parse(localStorage.getItem('tkb-ban-nhap-v1') || 'null')"
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    page.wait_for_function("document.querySelector('#count-gv').textContent === '45'")
+    page.wait_for_function(f"({draft}?.scenario.staff || []).length === 45")
+    page.app.grid = ("cu", None)  # như đã xem TKB ở bước 8
+    page.click("#file-menu summary")
+    page.click("#btn-forget")
+    page.wait_for_selector("#forget-dialog[open]")
+    assert page.text_content("#forget-dir") == str(page.app.out_dir)
+    page.locator("#forget-dialog button", has_text="Hủy").click()
+    assert page.text_content("#count-gv") == "45" and page.app.grid is not None
+    page.click("#file-menu summary")
+    page.click("#btn-forget")
+    page.click("#forget-ok")
+    _wait_text(page, "#notice", "Đã xóa dữ liệu đang soạn")
+    assert page.locator("#start").is_visible()
+    assert "#" not in page.url
+    assert page.locator("#btn-undo").is_disabled()
+    assert page.evaluate(f"({draft}?.scenario.staff || []).length") == 0
+    assert page.app.grid is None and page.app.job is None
+    page.wait_for_timeout(500)  # bản nháp trống của trang mới đã lưu: vẫn không có ai
+    assert page.evaluate(f"({draft}?.scenario.staff || []).length") == 0
+
+
 def test_timetable_view_swap_and_undo(page, small_updated):
     """Bước 7 với TKB đã xếp của trường nhỏ: lưới đúng mọi luật; chọn một ô thì có ô viền xanh / mờ; đổi với ô không
     đổi được thì báo lỗi, viền đỏ; Hoàn tác thì hết lỗi; đổi người dạy ghi luật Chỉ giáo viên dạy."""
