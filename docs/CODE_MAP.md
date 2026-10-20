@@ -778,6 +778,12 @@ Hằng số: `ROOT`, `NAME`, `README`
 Hằng số: `ROOT`, `TEMPLATES`
 - `run()`
 
+## tools/truong_lon.py — Trường mẫu tên giả gấp k lần (tkb/truong_mau.py) để đo tốc độ và bộ nhớ khi trường lớn hơn.
+Hằng số: `ROOT`, `_ROLES`
+- `staff_rows(k)` — Dòng sheet NHÂN SỰ (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần) của trường gấp k lần.
+- `staff(k)` — Nhân sự đánh số trong từng chức vụ theo thứ tự dòng, như khi đọc file vào (truong_mau.sample_staff).
+- `main(argv)`
+
 ## tests
 - `tests/test_allocation.py`: test_homeroom_split_sample, test_fill_order_never_takes_specialist_subjects, test_fill_order_priority, test_cut_only_multi_lesson_subjects, test_permissions, test_supplement_numbering, test_homeroom_needs_enough_lessons_for_locked_periods, test_overtime_allowances_and_eligibility, test_class_gaps_are_warned, test_curriculum_row_order_does_not_change_problem, test_specialists_come_from_subject_names, test_unknown_role_is_rejected, test_rule_subjects_missing_from_file_are_warned
 - `tests/test_bo_ghep.py`: test_parse_composed_rule, test_parse_errors, test_each_measure_counts_like_a_hand_count, test_composed_hard_rules_hold, test_soft_composed_rule_is_preferred, test_new_presets, test_teacher_rule_filters_the_assignment, test_precheck_finds_impossible_counts, test_extensions_count_like_a_hand_count, test_parse_busy_and_teacher_names, test_rules_for_one_teacher, test_teacher_names_are_checked, test_groups_that_cannot_break_the_rule_add_nothing, test_rules_are_compiled_once_per_config, test_fast_evaluation_matches_the_full_one
