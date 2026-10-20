@@ -37,6 +37,7 @@ def page(browser, tmp_path):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.app = app  # _solved giữ khóa của máy chủ
+    page.httpd = httpd  # test tắt chương trình giữa chừng
     page.goto(url)
     yield page
     context.close()
@@ -105,6 +106,31 @@ def test_sample_steps_undo_switch_and_search(page):
     assert int(page.text_content("#count-luat")) == total
     page.fill("#rule-search", "Toán")
     assert 0 < page.locator("#rule-list .rule-item").count() < total
+
+
+def test_banner_when_program_stops_and_restarts(page, tmp_path):
+    """Cửa sổ dòng lệnh bị đóng: trang tự thấy (hỏi /api/ping định kỳ) và hiện dải báo cách mở lại. Mở lại chương
+    trình trên cùng cổng (mã trang mới): dải báo đổi thành nút Tải lại trang, tải lại thì trang chạy bình thường."""
+    page.wait_for_selector("#start:not([hidden])")
+    assert page.locator("#offline").is_hidden()
+    port = page.httpd.server_port
+    page.httpd.shutdown()
+    page.httpd.server_close()
+    page.locator("#offline").wait_for(state="visible", timeout=15000)
+    assert "Chương trình đã tắt" in page.text_content("#offline")
+    httpd, app, _ = make_server(port=port, out_dir=tmp_path / "lan_hai")
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        if httpd.server_port != port:
+            pytest.skip("cổng cũ chưa trả lại, không mở lại được trên cùng cổng")
+        _wait_text(page, "#offline", "vừa được mở lại")
+        page.locator("#offline button", has_text="Tải lại trang").click()
+        page.wait_for_selector("#start:not([hidden])")
+        assert page.locator("#offline").is_hidden()
+    finally:
+        app.shutdown()
+        httpd.shutdown()
+        httpd.server_close()
 
 
 def test_timetable_view_swap_and_undo(page, small_updated):

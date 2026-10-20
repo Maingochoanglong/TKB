@@ -166,6 +166,9 @@ main { padding: 16px 20px 40px; max-width: 1500px; margin: 0 auto; }
 }
 .notice.error { background: var(--danger-soft); color: var(--danger); }
 .notice.ok { background: var(--ok-soft); color: var(--ok); }
+/* Chương trình đã tắt: dải báo đứng yên ở cuối màn hình (đầu màn hình đã có thanh trên cùng) */
+.notice.offline { position: fixed; left: 16px; right: 16px; bottom: 16px; margin: 0; z-index: 30;
+  border-color: var(--danger); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); }
 
 /* Biểu mẫu */
 .form { display: grid; gap: 12px; }

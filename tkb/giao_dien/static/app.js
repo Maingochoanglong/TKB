@@ -29,13 +29,40 @@ async function api(method, path, body, opts = {}) {
   try {
     res = await fetch(path, { method, headers, body: payload });
   } catch {
+    setOffline("down");
     throw new Error("Không kết nối được chương trình: cửa sổ chạy giao diện đã đóng? Mở lại rồi tải lại trang.");
   }
+  // 403 ở /api/ chỉ khi mã của trang không còn đúng: chương trình đã tắt rồi mở lại (mã mới mỗi lần mở).
+  setOffline(res.status === 403 ? "restarted" : null);
   if (opts.blob && res.ok) return res.blob();
   let data;
   try { data = await res.json(); } catch { data = { error: `Lỗi ${res.status}` }; }
   if (!res.ok) throw new Error(data.error || `Lỗi ${res.status}`);
   return data;
+}
+
+// Chương trình (cửa sổ dòng lệnh) tắt giữa chừng: trang hỏi /api/ping mỗi PING_MS mili giây và hiện dải báo cố định
+// ở đầu trang. "down" = không ai trả lời; "restarted" = chương trình đã mở lại (mã trang cũ hết hạn); null = bình thường.
+const PING_MS = 5000;
+let offline = null;
+function setOffline(kind) {
+  if (kind === offline) return;
+  offline = kind;
+  const box = $("#offline");
+  if (!box) return;
+  box.hidden = !kind;
+  if (kind === "down") {
+    box.innerHTML = `<div><b>Chương trình đã tắt.</b> Cửa sổ đen của TKB vừa bị đóng nên trang không kiểm tra, không
+      xếp được. Dữ liệu đang soạn vẫn còn. Bấm đúp <b>TKB.exe</b> để mở lại.</div>`;
+  } else if (kind === "restarted") {
+    box.innerHTML = `<div><b>Chương trình vừa được mở lại.</b> Tải lại trang để làm tiếp; dữ liệu đang soạn vẫn còn.</div>
+      <div class="actions"><button type="button" class="primary">Tải lại trang</button></div>`;
+    $("button", box).onclick = () => { saveDraft(); location.reload(); };
+  }
+}
+function ping() {
+  if (document.hidden) return; // tab đang ẩn: hỏi lại khi người dùng quay lại tab
+  api("GET", "/api/ping").catch(() => { /* setOffline đã hiện dải báo */ });
 }
 
 function saveDraft() {
@@ -2818,6 +2845,8 @@ async function init() {
   try { tab = localStorage.getItem(TAB_KEY) || tab; } catch { /* bỏ qua */ }
   showTab(tab);
   if (S.running) startPolling();
+  setInterval(ping, PING_MS);
+  document.addEventListener("visibilitychange", ping);
 }
 
 init();

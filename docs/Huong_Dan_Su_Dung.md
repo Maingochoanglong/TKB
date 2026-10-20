@@ -15,6 +15,8 @@ Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập li
    duyệt tự mở trang nhập liệu. Trình duyệt không tự mở thì chép đường dẫn in trong cửa sổ (`http://127.0.0.1:...`)
    vào trình duyệt.
 3. Tắt: đóng cửa sổ dòng lệnh. Kết quả ghi vào thư mục `TKB` trong thư mục người dùng (vd `C:\Users\<tên>\TKB`).
+   Lỡ đóng cửa sổ khi còn đang dùng thì trang hiện dải đỏ *Chương trình đã tắt* ở cuối màn hình; dữ liệu đang soạn
+   vẫn còn: bấm đúp lại `TKB.exe` rồi bấm *Tải lại trang* (hoặc dùng trang mới mở ra).
 
 **Cách B: có Python.** `pip install -r requirements.txt` (một lần), rồi mở `giao_dien.py` bấm **Run ▶** (hoặc
 `python giao_dien.py`). Người quen Python có thể bỏ trang web, sửa các hằng số đầu `main.py` rồi chạy (README, Cách 1).

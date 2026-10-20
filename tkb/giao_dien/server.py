@@ -494,7 +494,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(HTTPStatus.OK, app.import_file(self._body(),
                                                                  unquote(self.headers.get("X-File-Name") or "")))
             routes = {("GET", "schema"): app.schema, ("GET", "new"): app.new, ("GET", "sample"): app.sample,
-                      ("GET", "status"): app.status,
+                      ("GET", "status"): app.status, ("GET", "ping"): lambda _: {"ok": True},  # trang hỏi còn chạy
                       ("POST", "import_path"): app.import_path, ("POST", "check"): app.check, ("POST", "run"): app.run,
                       ("POST", "describe"): app.describe, ("POST", "timetable"): app.timetable,
                       ("POST", "upgrade"): app.upgrade,
