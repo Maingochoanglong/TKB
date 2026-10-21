@@ -64,6 +64,18 @@ SPARE_LEGEND = "Dạy ít hơn định mức (còn dư tiết)"
 # Trong dòng người dạy bù: ô môn có tiết bù tô màu riêng; số tiết bù từng môn ghi ở cột OVERTIME_DETAIL_HEADER.
 OVERTIME_CELL_FILL = "F4B183"  # cam
 OVERTIME_CELL_LEGEND = "Môn có tiết dạy bù"
+# TKB toàn trường (write_school_timetable): một sheet, mỗi lớp một cột, mỗi tiết hai dòng (môn, tên GV khác GVCN).
+SCHOOL_SHEET = "TKB toàn trường"
+SCHOOL_DAY_HEADER = "NGÀY"  # tên ngày không cùng chữ đầu (xem _day_labels); "Thứ 2"… thì tiêu đề là "THỨ"
+SCHOOL_SESSION_HEADER = "BUỔI"
+SCHOOL_PERIOD_HEADER = "TIẾT"
+SCHOOL_HOMEROOM_HEADER = "GVCN"  # dòng tên GVCN dưới tên lớp
+CAMPUS_FILL = "FFFF00"  # vàng: tên lớp ở cơ sở khác cơ sở đầu
+# Mỗi giáo viên dạy ở lớp không phải lớp mình chủ nhiệm một màu nền (lặp lại khi nhiều người hơn số màu).
+SCHOOL_TEACHER_FILLS = ("CCFFFF", "CCFFCC", "FFFF99", "FFCC99", "E4CCFF", "99CCFF", "FFCCE5", "D9D9D9", "CCFF99",
+                        "FFD966", "B4C7E7", "F8CBAD", "C9F2E8", "FFE699", "E2EFDA", "D5A6BD")
+SCHOOL_COLOUR_NOTE = ("Ô tô màu: tiết do giáo viên khác GVCN của lớp dạy (mỗi người một màu, tên viết tắt ở dòng "
+                      "dưới); ô không màu: GVCN dạy.")
 # Trường có lớp ở cơ sở 2 (cột Cơ sở 2): TKB tách thành hai file, hậu tố tên file -> lớp ở cơ sở 2?
 CAMPUS_FILES = {_fold(CAMPUS1): "diem_chinh", _fold(CAMPUS2): "diem_phu"}  # đuôi file TKB của hai cơ sở mặc định
 
@@ -426,6 +438,208 @@ def write_room_timetable(solution: Solution, path: str | Path, style: Style | No
     ws = wb.active
     ws.title = ROOM_SHEET
     _week_blocks(ws, style, blocks, [text for _, grid in blocks for text in grid.values()])
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
+
+
+def short_names(teachers: dict[str, Teacher]) -> dict[str, str]:
+    """Mã GV -> tên viết tắt trong TKB toàn trường: cột Tên Viết Tắt của sheet nhân sự nếu có; không thì tên (từ cuối
+    của họ tên). Hai người cùng tên thì thêm chữ đầu của từ đứng trước tên (vd "T.Huyền", "B.Huyền"), vẫn trùng thì
+    thêm chữ đầu của họ ("V.T.Ly", "N.T.Ly"), vẫn trùng thì ghi đủ họ tên; còn trùng nữa (hai người cùng họ tên) hay
+    tên để trống, người cần tuyển thêm: Mã GV."""
+    out: dict[str, str] = {}
+    words: dict[str, list[str]] = {}
+    for title, t in teachers.items():
+        if t.short_name:
+            out[title] = t.short_name
+        elif t.name.strip() and not t.supplementary:
+            words[title] = t.name.split()
+        else:
+            out[title] = t.code
+
+    def label(parts: list[str], level: int) -> str:
+        given = parts[-1]
+        if level == 0 or len(parts) == 1:
+            return given
+        if level == 1:
+            return f"{parts[-2][0]}.{given}"
+        if level == 2 and len(parts) > 2:
+            return f"{parts[0][0]}.{parts[-2][0]}.{given}"
+        return " ".join(parts)
+
+    level = dict.fromkeys(words, 0)
+    taken = Counter(normalize(v) for v in out.values())
+    for _ in range(4):  # mỗi vòng: người còn trùng tên viết tắt dùng cách ghi dài hơn một bậc
+        texts = {title: label(parts, level[title]) for title, parts in words.items()}
+        count = Counter(normalize(v) for v in texts.values()) + taken
+        clash = [title for title, v in texts.items() if count[normalize(v)] > 1 and level[title] < 3]
+        if not clash:
+            break
+        for title in clash:
+            level[title] += 1
+    texts = {title: label(parts, level[title]) for title, parts in words.items()}
+    count = Counter(normalize(v) for v in texts.values()) + taken
+    for title, text in texts.items():
+        out[title] = text if count[normalize(text)] == 1 else teachers[title].code
+    return out
+
+
+def short_subjects(problem) -> dict[str, str]:
+    """Môn -> chữ ghi trong ô TKB toàn trường: Tên trong TKB (không có thì tên môn); tên nhiều từ viết tắt bằng chữ
+    đầu mỗi từ, từ viết hoa cả giữ nguyên (vd "Tiếng Việt" -> "TV", "TV tăng cường" -> "TVTC", "Lịch sử - Địa lý" ->
+    "LSĐL"). Hai môn ra cùng chữ viết tắt thì giữ tên đầy đủ. Muốn chữ khác: ghi Tên trong TKB một từ (vd "T",
+    "GDTC")."""
+    full = {s: problem.subject_label(s) for s in dict.fromkeys(c.subject for c in problem.courses)}
+
+    def abbreviate(text: str) -> str:
+        parts = re.findall(r"[^\W\d_]+|\d+", text)
+        if len(parts) < 2 or " " not in text.strip():
+            return text
+        return "".join(p if p.isdigit() or (len(p) > 1 and p.isupper()) else p[0].upper() for p in parts)
+
+    short = {s: abbreviate(text) for s, text in full.items()}
+    count = Counter(short.values())
+    return {s: text if count[text] == 1 else full[s] for s, text in short.items()}
+
+
+def _day_labels(days: list[int]) -> tuple[str, dict[int, str]]:
+    """Cột ngày của TKB toàn trường: các ngày cùng chữ đầu (vd "Thứ 2" … "Thứ 6") thì tiêu đề là chữ đó viết hoa
+    ("THỨ"), ô ghi phần còn lại ("2"); không thì tiêu đề NGÀY, ô ghi đủ tên ngày."""
+    names = {d: khung_gio.day_name(d).split(maxsplit=1) for d in days}
+    firsts = {normalize(parts[0]) for parts in names.values()}
+    if all(len(parts) == 2 for parts in names.values()) and len(firsts) == 1:
+        return names[days[0]][0].upper(), {d: parts[1] for d, parts in names.items()}
+    return SCHOOL_DAY_HEADER, {d: " ".join(parts) for d, parts in names.items()}
+
+
+def _session_labels() -> dict[str, str]:
+    """Cột BUỔI của TKB toàn trường: chữ cái đầu tên buổi ("S", "C"); hai buổi cùng chữ đầu thì ghi đủ tên."""
+    names = khung_gio.session_names()
+    first = {n: n.strip()[:1].upper() for n in names}
+    return first if len(set(first.values())) == len(names) else {n: n for n in names}
+
+
+def write_school_timetable(solution: Solution, path: str | Path, style: Style | None = None) -> None:
+    """File TKB toàn trường (như TKB nhà trường dán bảng tin): một sheet, mỗi lớp một cột (theo khối), mỗi ngày – buổi
+    – tiết hai dòng: dòng trên tên môn viết tắt (short_subjects), dòng dưới tên viết tắt của giáo viên (short_names)
+    khi người dạy không phải GVCN của lớp; GVCN dạy thì gộp hai dòng, chỉ ghi môn. Dòng GVCN dưới tên lớp. Ô của
+    giáo viên khác GVCN tô màu, mỗi người một màu; tên lớp ở cơ sở khác cơ sở đầu tô vàng. Kẻ đậm giữa các ngày, giữa
+    các khối; kẻ đứt giữa các buổi."""
+    from openpyxl.styles import Border, Side
+    style = style or Style()
+    problem = solution.problem
+    classes = sorted(problem.classes, key=class_sort_key)
+    days = khung_gio.days()
+    names = short_names(problem.teachers)
+    subjects = short_subjects(problem)
+    homeroom = {t.class_name: title for title, t in problem.teachers.items()
+                if t.role == config.ROLE_HOMEROOM and t.class_name}
+    lessons = cell_lessons(solution)
+    outside = {les.teacher for les in solution.lessons if homeroom.get(les.class_name) != les.teacher}
+    colour = {t.title: SCHOOL_TEACHER_FILLS[i % len(SCHOOL_TEACHER_FILLS)]
+              for i, t in enumerate(t for t in staff_rows(solution) if t.title in outside)}
+    day_header, day_label = _day_labels(days)
+    session_label = _session_labels()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = SCHOOL_SHEET
+    first_col = 4
+    last_col = first_col + len(classes) - 1
+    for col, text in enumerate([day_header, SCHOOL_SESSION_HEADER, SCHOOL_PERIOD_HEADER], start=1):
+        style.header_cell(ws, 1, col, text)
+    for i, cls in enumerate(classes):
+        style.header_cell(ws, 1, first_col + i, cls)
+        if problem.campus.get(cls, 0):
+            ws.cell(1, first_col + i).fill = _fill(CAMPUS_FILL)
+    style.header_cell(ws, 2, 1, SCHOOL_HOMEROOM_HEADER)
+    for col in (2, 3):
+        style.header_cell(ws, 2, col, None)
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=3)
+    for i, cls in enumerate(classes):
+        style.header_cell(ws, 2, first_col + i, names[homeroom[cls]] if cls in homeroom else None)
+
+    def merge(r1: int, c: int, r2: int, value, header: bool = False) -> None:
+        for r in range(r1, r2 + 1):
+            (style.header_cell if header else style.body_cell)(ws, r, c, value if r == r1 else None)
+        if r2 > r1:
+            ws.merge_cells(start_row=r1, start_column=c, end_row=r2, end_column=c)
+
+    texts: list[str] = [*classes, *(names[homeroom[c]] for c in classes if c in homeroom)]
+    day_tops, session_tops, split_rows = [], [], set()  # split_rows: dòng môn có dòng tên GV ngay dưới
+    r = 3
+    for d in days:
+        day_tops.append(r)
+        top = r
+        for session in khung_gio.sessions(d):
+            session_tops.append(r)
+            start = r
+            for k, p in enumerate(session.periods, start=1):
+                merge(r, 3, r + 1, k, header=True)
+                for i, cls in enumerate(classes):
+                    c = first_col + i
+                    items = lessons.get((cls, d, p), [])
+                    subject = " / ".join(dict.fromkeys(subjects[les.subject] for les in items)) or None
+                    others = list(dict.fromkeys(les.teacher for les in items if les.teacher != homeroom.get(cls)))
+                    if subject:
+                        texts.append(subject)
+                    if not others:
+                        merge(r, c, r + 1, subject)
+                        continue
+                    who = " / ".join(names[t] for t in others)
+                    texts.append(who)
+                    style.body_cell(ws, r, c, subject)
+                    style.body_cell(ws, r + 1, c, who)
+                    for row in (r, r + 1):
+                        ws.cell(row, c).fill = _fill(colour.get(others[0], SCHOOL_TEACHER_FILLS[0]))
+                    split_rows.add((r, c))
+                r += 2
+            merge(start, 2, r - 1, session_label[session.name], header=True)
+        merge(top, 1, r - 1, day_label[d], header=True)
+    last_row = r - 1
+
+    # Kẻ: viền mỏng như file vào, đậm quanh bảng, giữa hai dòng tiêu đề và phần ngày, giữa các ngày, giữa các khối
+    # (và sau cột TIẾT); đứt giữa các buổi; không kẻ giữa dòng môn và dòng tên GV của một tiết.
+    base = style.body.border
+    thick, dashed = Side(style="medium"), Side(style="mediumDashed")
+    grade_starts = {first_col + i for i, cls in enumerate(classes)
+                    if i == 0 or grade_of(cls) != grade_of(classes[i - 1])}
+    day_starts = set(day_tops) | {3, last_row + 1}
+    session_starts = set(session_tops) - day_starts
+    for row in range(1, last_row + 1):
+        for col in range(1, last_col + 1):
+            left = thick if col == 1 or col in grade_starts else base.left
+            right = thick if col in (3, last_col) or col + 1 in grade_starts else base.right
+            top = thick if row in (1, *day_starts) else dashed if row in session_starts else base.top
+            bottom = thick if row + 1 in day_starts else dashed if row + 1 in session_starts else base.bottom
+            if (row, col) in split_rows:
+                bottom = Side()
+            if (row - 1, col) in split_rows:
+                top = Side()
+            ws.cell(row, col).border = Border(left=left, right=right, top=top, bottom=bottom)
+
+    width = min(MAX_DAY_WIDTH, max(style.text_width(t) for t in texts or [""]))
+    widths = [max(style.text_width(t) for t in [day_header, *day_label.values()]) + LABEL_PAD,
+              max(style.text_width(t) for t in [SCHOOL_SESSION_HEADER, *session_label.values()]) + LABEL_PAD,
+              style.text_width(SCHOOL_PERIOD_HEADER) + LABEL_PAD]
+    for i, w in enumerate(widths + [width] * len(classes), start=1):
+        ws.column_dimensions[get_column_letter(i)].width = round(w, 1)
+    for row in range(1, last_row + 1):
+        ws.row_dimensions[row].height = style.line_height
+    ws.row_dimensions[1].height = ws.row_dimensions[2].height = style.row_height
+
+    notes = [SCHOOL_COLOUR_NOTE]
+    if problem.campuses:
+        others = ", ".join(problem.campuses[1:])
+        notes.append(f"Tên lớp tô vàng: lớp ở {others}.")
+    for k, note in enumerate(notes, start=last_row + 2):
+        ws.cell(k, 1, note).font = copy(style.body.font)
+
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A3
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 

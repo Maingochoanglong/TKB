@@ -28,8 +28,9 @@ def test_run_writes_outputs(tmp_path):
     assert openpyxl.load_workbook(out_dir / "TKB.xlsx").sheetnames == ["Khối 3"]
     assert openpyxl.load_workbook(out_dir / "Thong_Ke.xlsx").sheetnames == ["Thống kê", "Chất lượng"]
     assert openpyxl.load_workbook(out_dir / "TKB_giao_vien.xlsx").sheetnames == ["Giáo viên", "Tổng hợp"]
+    assert openpyxl.load_workbook(out_dir / "TKB_toan_truong.xlsx").sheetnames == ["TKB toàn trường"]
     rows = _rows(out_dir / "nhan_su_cap_nhat.xlsx")
-    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *(None,) * 8, "Bộ Môn 1", 8, 15)  # 8 cột không bắt buộc trống
+    assert rows[-1] == ("chưa có", "Bộ Môn", None, 23, *(None,) * 9, "Bộ Môn 1", 8, 15)  # 9 cột không bắt buộc trống
     stats = _rows(out_dir / "Thong_Ke.xlsx", "Thống kê")
     total = [r[0] for r in stats].index("Tổng")  # dưới dòng Tổng là chú thích màu
     assert stats[total - 1][:2] == ("tuyển thêm", "Bộ Môn 1") and stats[total - 1][-4:] == (8, 23, None, 15)
@@ -312,7 +313,7 @@ def test_reloading_overtime_result_rewrites_the_same_files(tmp_path, capsys):
         ws = wb[sheet] if sheet else wb.active
         return [[(c.value, c.fill.start_color.rgb if c.fill.fill_type else None) for c in row]
                 for row in ws.iter_rows()]
-    for name in ("TKB.xlsx", "TKB_chuc_vu.xlsx", "TKB_giao_vien.xlsx", "Thong_Ke.xlsx"):
+    for name in ("TKB.xlsx", "TKB_chuc_vu.xlsx", "TKB_giao_vien.xlsx", "TKB_toan_truong.xlsx", "Thong_Ke.xlsx"):
         assert cells(tmp_path / "a" / name) == cells(tmp_path / "b" / name), name
     assert cells(tmp_path / "a" / "nhan_su_cap_nhat.xlsx", "NHÂN SỰ") == \
         cells(tmp_path / "b" / "nhan_su_cap_nhat_cap_nhat.xlsx", "NHÂN SỰ")

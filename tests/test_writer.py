@@ -319,3 +319,89 @@ def test_mark_colours_are_not_copied_as_input_style():
     from tkb import style as style_module
     assert {writer.OVERTIME_FILL, writer.HIRE_FILL, writer.SPARE_FILL,
             writer.OVERTIME_CELL_FILL} == style_module.MARK_FILLS
+
+
+def _named(names: dict[str, str]):
+    """GV cho test tên viết tắt: Mã GV -> họ tên (bộ môn 1, 2…)."""
+    return {f"bộ môn {i}": teacher(name, f"bộ môn {i}", 23) for i, name in enumerate(names, start=1)}
+
+
+def test_short_names():
+    """Tên viết tắt của GV (TKB toàn trường): tên; trùng tên thì thêm chữ đầu của từ đứng trước, vẫn trùng thì thêm
+    chữ đầu của họ; trùng cả họ tên, tên trống, người cần tuyển: Mã GV; cột Tên Viết Tắt ghi gì dùng nấy."""
+    from dataclasses import replace
+    teachers = _named(["Nguyễn Thị Huyền", "Bùi Văn Huyền", "Võ Thị Ly", "Nguyễn Thị Ly", "Trần Văn Tâm",
+                       "Lê An", "Lê An", "", "Phạm Thu Hà"])
+    teachers["bộ môn 9"] = replace(teachers["bộ môn 9"], short_name="Hà PT")
+    teachers["bộ môn 10"] = replace(teacher("x", "bộ môn 10", 23), name="chưa có", supplementary=True)
+    names = writer.short_names(teachers)
+    code = {i: teachers[f"bộ môn {i}"].code for i in (6, 7, 8, 10)}
+    assert [names[f"bộ môn {i}"] for i in range(1, 11)] == [
+        "T.Huyền", "V.Huyền", "V.T.Ly", "N.T.Ly", "Tâm", code[6], code[7], code[8], "Hà PT", code[10]]
+    # Tên tự viết tắt trùng tên ai đó tự ghi ở cột Tên Viết Tắt: người tự viết tắt dùng cách ghi dài hơn.
+    teachers = _named(["Trần Văn Tâm", "Lê Tâm"])
+    teachers["bộ môn 2"] = replace(teachers["bộ môn 2"], short_name="Tâm")
+    assert writer.short_names(teachers) == {"bộ môn 1": "V.Tâm", "bộ môn 2": "Tâm"}
+
+
+def test_short_subjects():
+    """Môn trong TKB toàn trường: tên nhiều từ viết tắt bằng chữ đầu (từ viết hoa cả giữ nguyên); một từ giữ nguyên;
+    hai môn ra cùng chữ viết tắt thì giữ tên đầy đủ."""
+    from types import SimpleNamespace
+    from tkb import bo_mau
+    labels = {bo_mau.TV: bo_mau.TV, bo_mau.TOAN: bo_mau.TOAN, bo_mau.TV_TC: "TV tăng cường",
+              bo_mau.LSDL: bo_mau.LSDL, bo_mau.TIN_HOC: bo_mau.TIN_HOC, "Tiếng Hàn": "Tiếng Hàn"}
+    problem = SimpleNamespace(courses=[SimpleNamespace(subject=s) for s in labels], subject_label=labels.get)
+    short = writer.short_subjects(problem)
+    assert short[bo_mau.TV] == "TV" and short[bo_mau.TOAN] == bo_mau.TOAN and short[bo_mau.TV_TC] == "TVTC"
+    assert short[bo_mau.LSDL] == "LSĐL"
+    assert short[bo_mau.TIN_HOC] == bo_mau.TIN_HOC and short["Tiếng Hàn"] == "Tiếng Hàn"  # cùng "TH"
+
+
+def test_school_timetable(tmp_path):
+    """TKB toàn trường: một sheet, mỗi lớp một cột; mỗi tiết hai dòng: môn viết tắt và tên viết tắt của GV khác GVCN
+    (ô tô màu, mỗi người một màu); GVCN dạy thì gộp hai dòng, chỉ ghi môn. Mỗi tiết đúng một lần ở đúng ô."""
+    from tkb import khung_gio
+    sol = _solve_small(general=True)
+    out = tmp_path / "TKB_toan_truong.xlsx"
+    writer.write_school_timetable(sol, out, STYLE)
+    wb = openpyxl.load_workbook(out)
+    assert wb.sheetnames == [writer.SCHOOL_SHEET]
+    ws = wb.active
+    assert [ws.cell(1, c).value for c in range(1, 6)] == ["THỨ", "BUỔI", "TIẾT", "3/1", "3/2"]
+    assert [ws.cell(2, c).value for c in (1, 4, 5)] == ["GVCN", "A", "B"]  # GVCN "CN A", "CN B": tên là từ cuối
+    assert (ws["A3"].value, ws["B3"].value, ws["C3"].value) == ("2", "S", 1)  # "Thứ 2" dưới tiêu đề THỨ; Sáng -> S
+    merged = {str(r) for r in ws.merged_cells.ranges}
+    names = writer.short_names(sol.problem.teachers)
+    subjects = writer.short_subjects(sol.problem)
+    homeroom = {"3/1": "chủ nhiệm 3/1", "3/2": "chủ nhiệm 3/2"}
+    seen, fills = [], {}
+    r = 3
+    for d in khung_gio.days():
+        for session in khung_gio.sessions(d):
+            for p in session.periods:
+                assert f"C{r}:C{r + 1}" in merged
+                for c, cls in ((4, "3/1"), (5, "3/2")):
+                    top, below = ws.cell(r, c), ws.cell(r + 1, c)
+                    if top.value is None:
+                        continue
+                    if f"{top.coordinate}:{below.coordinate}" in merged:
+                        assert not top.fill.fill_type
+                        seen.append((d, p, cls, top.value, None))
+                    else:
+                        assert top.fill.start_color.rgb == below.fill.start_color.rgb
+                        assert top.border.bottom.style is None and below.border.top.style is None
+                        fills.setdefault(below.value, set()).add(top.fill.start_color.rgb)
+                        seen.append((d, p, cls, top.value, below.value))
+                r += 2
+    want = [(les.day, les.period, les.class_name, subjects[les.subject],
+             None if les.teacher == homeroom[les.class_name] else names[les.teacher]) for les in sol.lessons]
+    assert sorted(seen) == sorted(want)
+    assert all(len(colours) == 1 for colours in fills.values())  # mỗi người một màu
+    assert len({next(iter(c)) for c in fills.values()}) == len(fills)  # người khác nhau màu khác nhau
+    # Kẻ đậm giữa các ngày, đứt giữa buổi sáng và chiều.
+    assert ws["D3"].border.top.style == "medium"
+    afternoon = 3 + 2 * len(khung_gio.sessions(0)[0].periods)
+    assert ws.cell(afternoon, 4).border.top.style == "mediumDashed"
+    assert ws.cell(r + 1, 1).value == writer.SCHOOL_COLOUR_NOTE  # chú thích màu dưới bảng
+    assert ws.page_setup.orientation == "landscape" and ws.page_setup.fitToHeight == 1

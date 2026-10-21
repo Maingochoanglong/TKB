@@ -127,6 +127,7 @@ kiểm lại mọi luật bắt buộc: đạt thì có dòng xanh "TKB đạt m
 | `TKB.xlsx` | TKB theo lớp, mỗi khối một sheet; mỗi ô ghi môn và tên giáo viên |
 | `TKB_chuc_vu.xlsx` | Cùng TKB, mỗi ô thêm Mã GV |
 | `TKB_giao_vien.xlsx` | TKB của từng giáo viên, in mỗi người một trang; sheet Tổng hợp: cả trường ai dạy lúc nào |
+| `TKB_toan_truong.xlsx` | TKB cả trường trên một bảng (dán bảng tin): mỗi lớp một cột, ô ghi môn viết tắt và tên viết tắt của giáo viên khác GVCN, mỗi người một màu |
 | `Thong_Ke.xlsx` | Số tiết từng môn của mỗi người, ai dạy bù, ai còn dư; sheet **Chất lượng**: từng luật ưu tiên còn bao nhiêu chỗ chưa theo được |
 | `<tên>_cap_nhat.xlsx` | File vào cập nhật: thêm người cần tuyển, cột kết quả, và **TKB đã xếp** để dùng lại lần sau |
 

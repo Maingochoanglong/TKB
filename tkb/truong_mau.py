@@ -26,6 +26,7 @@ _LESSONS = {  # số tiết từng môn theo thứ tự _SUBJECTS
 CURRICULUM: dict[int, dict[str, int]] = {g: dict(zip(_SUBJECTS, n)) for g, n in _LESSONS.items()}
 
 _CLASSES = [f"{g}/{n}" for g in range(1, 6) for n in range(1, 7 if g < 5 else 6)]
+_NAME_PREFIX = "Giáo viên "  # tên giả "Giáo viên TA 1": cột Tên Viết Tắt ghi "TA 1" (TKB toàn trường)
 # (Họ và Tên, Chức Vụ, Lớp, Số Tiết/Tuần) như sheet NHÂN SỰ; GVCN 5/5 và Bộ Môn 5 có định mức thấp hơn.
 STAFF_ROWS: list[tuple[str, str, str | None, int]] = [
     *((f"Giáo viên CN {i}", "Chủ Nhiệm", c, 16 if c == "5/5" else 19) for i, c in enumerate(_CLASSES, start=1)),
@@ -49,7 +50,8 @@ def sample_staff() -> list[Teacher]:
         if class_name is None:
             count[role] += 1
             index = count[role]
-        teachers.append(make_teacher(name, role, index, class_name, lessons, row=row, label=clean_name(title)))
+        teachers.append(make_teacher(name, role, index, class_name, lessons, row=row, label=clean_name(title),
+                                     short_name=name.removeprefix(_NAME_PREFIX)))
     return teachers
 
 

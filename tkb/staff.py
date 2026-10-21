@@ -53,6 +53,8 @@ class Teacher:
     tags: tuple[str, ...] = ()
     # Cột Thứ Tự Bù: ai dạy bù trước (1 = trước nhất); None = theo chức vụ và cột Hợp Đồng (allocation.overtime_rank).
     overtime_order: int | None = None
+    # Cột Tên Viết Tắt: tên ghi trong TKB toàn trường (writer.short_names); trống = tự viết tắt từ họ tên.
+    short_name: str = ""
 
     @property
     def tag_keys(self) -> frozenset[str]:
@@ -594,7 +596,7 @@ def _blank(value) -> bool:
 # Cột không bắt buộc: khóa -> tiêu đề trong file.
 OPTIONAL_COLUMNS = {"maternity": "Thai Sản", "contract": "Hợp Đồng", "campus2": "Cơ sở 2",
                     "history": "Lớp Đang Dạy", "off": "Buổi Nghỉ", "extra_roles": "Chức Vụ Thêm", "tags": "Nhãn",
-                    "overtime_order": "Thứ Tự Bù"}
+                    "overtime_order": "Thứ Tự Bù", "short_name": "Tên Viết Tắt"}
 
 
 _REQUIRED_HEADERS = {"name": "Họ và Tên", "title": "Chức Vụ", "lessons": "Số Tiết/Tuần"}
@@ -603,6 +605,7 @@ _STAFF_HEADERS = {
     **{fold_key(label): key for key, label in (*_REQUIRED_HEADERS.items(), *OPTIONAL_COLUMNS.items())},
     "hoten": "name", "hotengiaovien": "name", "sotiet": "lessons", "dinhmuc": "lessons", "dinhmuctiet": "lessons",
     "lop": "class", "lopchunhiem": "class", "stt": "stt", "tt": "stt",
+    "tengoitat": "short_name", "tentat": "short_name", "tentrongtkb": "short_name",
 }
 
 
@@ -707,7 +710,7 @@ def _to_lessons(value, title: str) -> int:
 def make_teacher(name, role: str, index: int | None, class_name: str | None, lessons,
                  row: int | None = None, label: str = "", **extra) -> Teacher:
     """`extra`: các trường không bắt buộc của Teacher (maternity, contract, campus2, history, off_sessions, off_any,
-    extra_roles, tags, overtime_order)."""
+    extra_roles, tags, overtime_order, short_name)."""
     title = canonical_title(role, index, class_name)
     return Teacher(
         name=str(name).strip() if name is not None else "",
@@ -823,7 +826,8 @@ def read_staff(path: str | Path, subjects=None, warn=lambda text: None) -> list[
             extra = {key: parse_yes(cell(r, key), OPTIONAL_COLUMNS[key]) for key in ("maternity", "contract", "campus2")}
             extra.update(history=parse_classes(cell(r, "history")), off_sessions=off_sessions, off_any=off_any,
                          extra_roles=parse_extra_roles(cell(r, "extra_roles"), role), tags=parse_tags(cell(r, "tags")),
-                         overtime_order=parse_order(cell(r, "overtime_order")))
+                         overtime_order=parse_order(cell(r, "overtime_order")),
+                         short_name=clean_name(cell(r, "short_name")) if not _blank(cell(r, "short_name")) else "")
             rows.append([r, name, role, index, class_name, lessons, label, extra])
         except InputError as exc:
             errors.append(f"Dòng {r}: {exc}")

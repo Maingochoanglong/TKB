@@ -25,7 +25,8 @@ sys.path.insert(0, str(ROOT))
 
 from tkb.truong_mau import write_sample_input  # noqa: E402
 
-FILES = ("TKB.xlsx", "TKB_chuc_vu.xlsx", "TKB_giao_vien.xlsx", "Thong_Ke.xlsx", "mau_cap_nhat.xlsx")
+FILES = ("TKB.xlsx", "TKB_chuc_vu.xlsx", "TKB_giao_vien.xlsx", "TKB_toan_truong.xlsx", "Thong_Ke.xlsx",
+         "mau_cap_nhat.xlsx")
 
 
 def _env() -> dict:
