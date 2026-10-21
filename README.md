@@ -689,6 +689,6 @@ Sau khi giải, `tkb/checker.py` kiểm tra lại mọi luật bắt buộc trê
 | `tkb/chan_doan.py` | Quy định mâu thuẫn: đếm trước khi xếp; khi không xếp được thì thử nới từng nhóm luật để chỉ ra luật nào gây ra |
 | `tkb/writer.py` | Xuất Excel |
 | `tools/code_map.py` | In bản đồ code (hàm, lớp, `file:dòng`); `--write` sinh lại `docs/CODE_MAP.md` |
-| `tools/mau_dau_ra.py` | Sinh lại các file mẫu đầu ra `data/Output_Template_TKB_V8.xlsx`, `data/Output_Template_TKB_Giao_Vien_V8.xlsx`, `data/Output_Template_Thong_Ke_V8.xlsx` từ trường mẫu tên giả (`tkb/truong_mau.py`) |
+| `tools/mau_dau_ra.py` | Sinh lại các file mẫu đầu ra `data/Output_Template_TKB_V8.xlsx`, `data/Output_Template_TKB_Giao_Vien_V8.xlsx`, `data/Output_Template_TKB_Toan_Truong_V8.xlsx`, `data/Output_Template_Thong_Ke_V8.xlsx` từ trường mẫu tên giả (`tkb/truong_mau.py`) |
 
 Hướng dẫn cho Claude Code (lệnh, kiến trúc, luật bảo mật, mã tham chiếu): [`CLAUDE.md`](CLAUDE.md).
