@@ -158,7 +158,13 @@ staff → counts) and returns `unchecked` sheets, shown as "?" not ✓; `friendl
 teacher/subject/rule name (the Excel position stays in the tooltip). Typing snapshots after 0.6 s, clicks/selects at
 once. `trackStaff()` (in `changed`) keeps rules that name a person (Mã GV or name) on the same person when staff rows
 are deleted, moved, re-roled or renamed; a deleted person's code becomes their name so the check flags the rule.
-Import (`/api/import` → `kich_ban.from_excel` + `sheets_in`) opens a dialog to take only some parts (staff replace/append,
+`Tệp › Nhập TKB đang dùng…` (`/api/board`, base64 file + scenario + `mapping`; `App.board` → `tkb/nhap_tkb.py`
+`read_board(path, problem, mapping)` under the scenario's `Grid`): reads a board-style hand-made TKB (header row = most
+class names, period column = most numbers left of it, 1 opens a session, sessions in frame order or by a day word in
+the left columns, cells matched by subject aliases/initials/prefix and teacher short names/initials, no name = the
+homeroom teacher) into the saved grid (`scenario.saved`, step 8, repair run); unknown words go to the
+`#board-dialog` selects; CLI `python -m tkb.nhap_tkb board input -o out --ghep T=Toán`. Import (`/api/import` →
+`kich_ban.from_excel` + `sheets_in`) opens a dialog to take only some parts (staff replace/append,
 subjects+grades, roles, frame, custom rules, saved grid) into the current scenario; `/api/template` gives the blank template.
 `kich_ban.to_excel` writes it with `template.write_input` (same layout as the template); `from_excel` reads staff/program
 cells as written and rules via `read_rules` + `rule_tables`/`subject_columns` (missing ones = defaults), keeping sheet

@@ -2186,6 +2186,78 @@ function applyImport() {
   notify(`Đã nhập từ ${esc(label)}: ${esc(names.join(", "))}` +
     (parts.includes("staff") && append ? ` (thêm ${src.staff.length} giáo viên vào cuối)` : "") + "." + fit, "ok");
 }
+// ---------------------------------------------------------------- nhập TKB đang dùng (dạng bảng tin)
+// Tệp › Nhập TKB đang dùng…: máy chủ đọc TKB nhà trường đang dùng (mỗi lớp một cột, mỗi tiết môn rồi tên GV; tkb/
+// nhap_tkb.py) theo kịch bản đang soạn thành lưới TKB đã xếp. Chữ chưa hiểu (vd "T" là Toán) chọn tay rồi Đọc lại;
+// Nhập thì lưới thay scenario.saved và sang bước 8 (kiểm luật, Xếp lại phần còn lại sửa ít ô nhất).
+let board = null; // {file (base64), name, mapping: {subjects, teachers}, result}
+const SKIP = "__bo_qua__";
+function toBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let text = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+async function readBoard() {
+  const data = await api("POST", "/api/board", { scenario: st.scenario, run: st.run, file: board.file, name: board.name,
+    mapping: board.mapping });
+  board.result = data;
+  renderBoard();
+  if (!$("#board-dialog").open) $("#board-dialog").showModal();
+}
+function renderBoard() {
+  const { report, lines, subjects, teachers } = board.result;
+  $("#board-file").textContent = board.name;
+  const unknown = report.unknown_subjects.length + report.unknown_teachers.length;
+  $("#board-lines").innerHTML = lines.map((t, i) =>
+    `<li class="${i === 0 ? (report.cells ? "ok" : "err") : /không khớp/.test(t) ? "warn" : "info"}">${esc(t)}</li>`).join("");
+  const opt = (value, label, chosen) => `<option value="${esc(value)}" ${value === chosen ? "selected" : ""}>${esc(label)}</option>`;
+  const row = (kind, item, options) => {
+    const where = item.where.join("; ");
+    return `<div class="board-row"><b>${esc(item.token)}</b><span class="muted">${item.count} ô, vd ${esc(where)}</span>
+      <select data-board="${kind}" data-token="${esc(item.token)}" aria-label="${kind === "subjects" ? "Môn" : "Giáo viên"} của chữ ${esc(item.token)}">
+      ${options}</select></div>`;
+  };
+  const sub = report.unknown_subjects.map((item) => {
+    const chosen = board.mapping.subjects[item.token] ?? item.guess ?? "";
+    const value = chosen === "" && item.token in board.mapping.subjects ? SKIP : chosen;
+    return row("subjects", item, opt("", "— chọn môn —", value) + subjects.map((s) => opt(s, s, value)).join("") +
+      opt(SKIP, "Bỏ qua các ô có chữ này", value));
+  });
+  const tea = report.unknown_teachers.map((item) => {
+    const first = item.candidates.length === 1 ? item.candidates[0] : "";
+    const chosen = board.mapping.teachers[item.token] ?? first;
+    const value = chosen === "" && item.token in board.mapping.teachers ? SKIP : chosen;
+    const near = teachers.filter((t) => item.candidates.includes(t.code));
+    const all = [...near, ...teachers.filter((t) => !item.candidates.includes(t.code))];
+    return row("teachers", item, opt("", "— chọn giáo viên —", value) + opt(SKIP, "Coi như GVCN của lớp dạy", value) +
+      all.map((t) => opt(t.code, t.name ? `${t.name} (${t.code})` : t.code, value)).join(""));
+  });
+  $("#board-map").innerHTML = (sub.length ? `<h3>Chữ chưa khớp môn nào</h3>${sub.join("")}` : "") +
+    (tea.length ? `<h3>Tên chưa khớp đúng một giáo viên</h3>${tea.join("")}` : "");
+  $("#board-again").hidden = !unknown;
+  $("#board-apply").disabled = !report.cells;
+}
+function boardMapping() {
+  for (const el of $$("#board-map select[data-board]")) {
+    const map = board.mapping[el.dataset.board];
+    if (el.value === SKIP) map[el.dataset.token] = "";
+    else if (el.value) map[el.dataset.token] = el.value;
+    else delete map[el.dataset.token];
+  }
+}
+function applyBoard() {
+  const { grid, report } = board.result;
+  st.scenario.saved = grid;
+  hideStart();
+  renderAll();
+  changed();
+  showTab("tkb");
+  notify(`Đã nhập TKB đang dùng từ ${esc(board.name)}: ${report.cells} ô của ${report.classes.length} lớp. Ô sai luật
+    tô đỏ; bấm <b>Xếp lại phần còn lại</b> để chương trình sửa ít ô nhất (ô khóa giữ nguyên).`, "ok", UNDO);
+  board = null;
+}
+
 async function downloadBlob(blob, name) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -2637,6 +2709,18 @@ function wire() {
       openImport(data, file.name, preset);
     } catch (err) { fail(err); }
   };
+  $("#board-open").onchange = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    board = { file: toBase64(await file.arrayBuffer()), name: file.name, mapping: { subjects: {}, teachers: {} } };
+    try { await readBoard(); } catch (err) { board = null; fail(err); }
+  };
+  $("#board-again").onclick = () => { boardMapping(); readBoard().catch(fail); };
+  $("#board-dialog").addEventListener("close", () => {
+    if ($("#board-dialog").returnValue === "apply" && board && board.result) applyBoard();
+    else board = null;
+  });
   $("#import-parts").addEventListener("change", renderImportNotes);
   $("#import-dialog").addEventListener("close", () => {
     if ($("#import-dialog").returnValue === "apply" && imported) applyImport();

@@ -150,6 +150,29 @@ def test_timetable_view_and_swaps(server, small_updated):
     assert app.grid[1] is not grid  # cài đặt chạy đổi: dựng lại
 
 
+def test_board_import(server, small_updated):
+    """Tệp › Nhập TKB đang dùng: /api/board đọc file TKB toàn trường theo kịch bản đang soạn, trả lưới TKB đã xếp
+    (đúng mọi luật như lúc xếp) và báo cáo; file hỏng hay kịch bản còn lỗi thì báo rõ."""
+    import base64
+    app, url = server
+    status, data = _call(url, "/api/import", "POST", small_updated.read_bytes(), app.token,
+                         {"X-File-Name": quote(small_updated.name)})
+    scenario = {**data["scenario"], "saved": None}
+    board = base64.b64encode((small_updated.parent / "TKB_toan_truong.xlsx").read_bytes()).decode()
+    body = {"scenario": scenario, "run": {"overtime_max": 4}, "file": board, "name": "tkb.xlsx"}
+    status, res = _call(url, "/api/board", "POST", body, app.token)
+    assert status == 200 and res["report"]["cells"] > 0 and not res["report"]["unknown_subjects"]
+    assert res["lines"][0].startswith("Đọc ") and res["subjects"] and res["teachers"]
+    status, view = _call(url, "/api/timetable", "POST", {**body, "scenario": {**scenario, "saved": res["grid"]}},
+                         app.token)
+    assert status == 200 and view["ok"]
+    status, err = _call(url, "/api/board", "POST", {**body, "file": base64.b64encode(b"abc").decode()}, app.token)
+    assert status == 400 and "xlsx" in err["error"]
+    broken = {**scenario, "staff": []}
+    status, err = _call(url, "/api/board", "POST", {**body, "scenario": broken}, app.token)
+    assert status == 400 and "còn lỗi" in err["error"]
+
+
 def test_files_only_inside_output_folder(server, tmp_path):
     app, url = server
     (tmp_path / "ngoai.xlsx").write_bytes(b"x")

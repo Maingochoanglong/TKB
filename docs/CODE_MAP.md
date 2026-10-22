@@ -367,6 +367,23 @@ Hằng số: `SHEET`, `RULES_SHEET`, `NOTE`, `SAY`, `GROUP`, `COLUMNS`, `HEADERS
 - `validate(problem)` — Lỗi ghi của luật riêng chỉ thấy khi có chương trình học và nhân sự: môn, chức vụ hay lớp không có.
 - `precheck(problem)` — Mâu thuẫn chắc chắn của luật riêng bắt buộc, tìm bằng phép đếm: luật vị trí để lại ít ô hơn số tiết, môn phải
 
+## tkb/nhap_tkb.py — Nhập TKB nhà trường đang dùng, dạng bảng tin (như file TKB toàn trường: mỗi lớp một cột, mỗi tiết ghi môn và,
+Hằng số: `MAX_HEADER_ROW`, `EXAMPLES`
+- `_class_key(text)` — Khóa so tên lớp: không dấu, không khoảng trắng, bỏ chữ "Lớp" đầu, "." "-" như "/" ("Lớp 3.2" là "3/2").
+- `_initials(text)` — Chữ đầu các từ viết hoa, từ viết hoa cả giữ nguyên: "Lịch Sử và Địa Lý" -> "LSĐL", "TV Tăng Cường" -> "TVTC".
+- `class _Names` — So chữ trong ô với môn và giáo viên của bài toán (khóa staff.fold_key).
+  - `.subject(text)` — Môn của chữ `text`; "" là chữ ghép tay để bỏ qua; None nếu không khớp.
+  - `.candidates(text)` — Các GV có thể là tên `text` ("Khoa", "N.Ly", "Võ Ly", "H. Vi"): tên trùng từ cuối họ tên, chữ đầu ghi trước
+  - `.teacher(text)` — Mã GV (Teacher.title) của tên `text`; "" là chữ ghép tay để coi như GVCN dạy; None nếu không khớp được
+- `_find_header(wb, classes)` — (sheet, dòng tên lớp, {cột: lớp}) có nhiều tên lớp của file vào nhất.
+- `_number(value)`
+- `read_board(path, problem, mapping)` — TKB dạng bảng tin ở `path` -> (lưới TKB đã xếp như sheet config.SAVED_SHEET, báo cáo). Gọi trong
+  · Cột tiết: cột bên trái các lớp có nhiều số nhất (bằng nhau thì cột gần các lớp hơn).
+  · Các buổi: số 1, hay số không lớn hơn số trước, mở buổi mới.
+- `_grid(problem, lessons)` — Lưới TKB đã xếp (như writer._write_saved, không có mã kết quả): Lớp | Tiết | các ngày, ô "môn" xuống dòng
+- `describe(report)` — Các dòng báo cáo để in ra màn hình (dòng lệnh) hay ghi trên trang.
+- `main(argv)`
+
 ## tkb/phan_cong.py — Dự toán và phân công giáo viên, không dùng CP-SAT: Python thuần, số nguyên, duyệt theo thứ tự cố định nên
 Hằng số: `MANAGER_BONUS`
 - `class MinCostFlow`
@@ -704,6 +721,7 @@ Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XL
   - `._import(path, name)`
   - `.import_file(body, name)`
   - `.import_path(data)`
+  - `.board(data)` — Nhập TKB đang dùng (dạng bảng tin, tkb/nhap_tkb.py) theo kịch bản đang soạn: lưới TKB đã xếp (để thay
   - `.upgrade(data)` — Bản nháp kịch bản của bản trước (khung giờ cách cũ) -> bản hiện tại (kich_ban.upgrade).
   - `.describe(data)`
   - `.check(data)`
@@ -796,7 +814,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_cung_gio.py`: test_split_group_and_assistant_end_to_end, test_rule_errors, test_checker_and_rules_off, test_saved_cell_with_two_subjects
 - `tests/test_de_dung.py`: test_sheet_and_column_names_without_accents, test_yes_no_words_roles_and_classes, test_merged_cells_hidden_rows_and_unread_columns, test_two_row_header, test_near_sheet_names, test_same_names_quota_and_total_row, test_suggestions, test_not_xlsx, test_numbers_written_by_hand, test_footer_rows_and_sheet_names, test_class_names_and_leave_written_by_hand, test_empty_staff_and_renamed_xlsx
 - `tests/test_ghep_lop.py`: test_merge_end_to_end, test_rule_errors, test_checker_and_integrated_model, test_merge_in_one_room, test_merge_per_grade_on_sample_school
-- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
+- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_board_import, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_stop_ends_early_and_keeps_the_timetable
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
 - `tests/test_lich_co_so.py`: test_each_teacher_is_at_one_campus_a_day, test_the_model_follows_the_plan, test_no_plan_when_one_campus_a_day_is_impossible, test_no_plan_for_one_campus_or_without_the_rule, test_unrealisable_plan_falls_back
@@ -806,6 +824,7 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_luat_rieng.py`: test_parse_each_kind, test_parse_errors, test_read_sheet_and_rules_code, test_no_custom_rules_change_nothing, test_hard_rules_hold_and_are_checked, test_soft_rules_are_preferred, test_teacher_day_cap_limits_the_assignment, test_precheck_and_validate, test_diagnosis_names_the_custom_rule
 - `tests/test_main.py`: test_run_writes_outputs, test_overtime_shortage_is_an_error_with_a_table, test_run_reports_missing_file, test_relative_paths_resolve_from_script_dir, test_run_rejects_bad_thread_count, test_run_passes_thread_count, test_run_overtime_mode_needs_no_hire, test_run_rejects_bad_mode, test_run_single_input_file_with_program_sheet, test_run_without_program_sheet_fails, test_defaults_are_overtime_student_rules_1200s_reproducible, test_blank_output_folder_means_project_folder, test_blank_time_limit_means_unlimited, test_bad_time_limit_and_blank_input_are_rejected, test_cli_time_limit_zero_is_unlimited, test_reloading_updated_file_keeps_timetable, test_reloading_falls_back_when_saved_timetable_breaks_rules, test_reloading_keeps_locked_cells_and_changes_little, test_reloading_overtime_result_rewrites_the_same_files
 - `tests/test_nhan.py`: test_parse_tags_and_tag_keys, test_rules_by_staff_and_class_tags, test_tag_errors, test_class_tags_in_rules_code
+- `tests/test_nhap_tkb.py`: test_school_timetable_reads_back_the_same, test_hand_made_board, test_command_line_writes_the_saved_sheet, test_board_errors, test_teacher_names_with_initials
 - `tests/test_phan_cong.py`: test_min_cost_flow_prefers_cheap_paths, test_estimate_overtime_then_missing, test_homeroom_overtime_before_general, test_homeroom_overtime_takes_whole_subjects, test_homeroom_overtime_takes_music_and_art, test_assignment_is_deterministic, test_hires_take_overtime_and_missing_lessons, test_hire_split_limits_pairs_and_orders_by_load
 - `tests/test_phong.py`: test_read_rooms_and_rules_code, test_room_errors, test_shared_room_end_to_end, test_rooms_shared_in_part, test_checker_and_precheck, test_rooms_per_campus
 - `tests/test_reproducible.py`: test_same_timetable_across_runs, test_reference_fingerprint, test_ortools_version_is_pinned, test_no_wall_clock_limit_in_reproducible_mode
@@ -815,5 +834,5 @@ Hằng số: `ROOT`, `TEMPLATES`
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_overtime_lessons_keep_the_leave_of_the_teacher, test_overtime_of_a_general_teacher_never_clashes, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_is_plain, test_saved_input_template_is_up_to_date, test_blank_template, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
 - `tests/test_thu_tu_bu.py`: test_parse_order, test_default_order_keeps_the_old_prices, test_general_teacher_first, test_general_teacher_first_end_to_end, test_order_only_matters_for_overtime
-- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog, test_rooms_step, test_split_group_cells, test_merged_cells
+- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_board_import, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog, test_rooms_step, test_split_group_cells, test_merged_cells
 - `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_teacher_timetable, test_quality_sheet, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style, test_short_names, test_short_subjects, test_school_timetable

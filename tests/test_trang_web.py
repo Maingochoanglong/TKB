@@ -107,6 +107,36 @@ def test_sample_steps_undo_switch_and_search(page):
     assert 0 < page.locator("#rule-list .rule-item").count() < total
 
 
+def test_board_import(page, tmp_path):
+    """Tệp › Nhập TKB đang dùng: file TKB toàn trường của trường mẫu (data/Output_Template_TKB_Toan_Truong_V8.xlsx),
+    đổi các ô "Toán" thành "T" như cách viết tắt của trường: hộp thoại hỏi chữ "T", chọn Toán rồi Đọc lại, Nhập thì
+    sang bước 8 với TKB đó, đúng mọi luật bắt buộc."""
+    from pathlib import Path
+    import openpyxl
+    data = Path(__file__).resolve().parents[1] / "data"
+    wb = openpyxl.load_workbook(data / "Output_Template_TKB_Toan_Truong_V8.xlsx")
+    for row in wb.active.iter_rows():
+        for cell in row:
+            if cell.value == "Toán":
+                cell.value = "T"
+    board = tmp_path / "tkb_dang_dung.xlsx"
+    wb.save(board)
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    page.wait_for_function("document.querySelector('#count-gv').textContent === '45'")
+    page.set_input_files("#board-open", str(board))
+    page.wait_for_selector("#board-dialog[open]")
+    assert "'T'" in page.text_content("#board-lines")
+    page.select_option('#board-map select[data-token="T"]', "Toán")
+    page.click("#board-again")
+    page.wait_for_function("!document.querySelector('#board-map select')")
+    assert page.text_content("#board-lines").startswith("Đọc 928 ô của 29 lớp")
+    page.click("#board-apply")
+    page.wait_for_selector("#tkb-grid table.tkb", timeout=60000)
+    _wait_mark(page, "tkb", "✓")
+    assert "Đã nhập TKB đang dùng" in page.text_content("#notice")
+
+
 def test_timetable_view_swap_and_undo(page, small_updated):
     """Bước 7 với TKB đã xếp của trường nhỏ: lưới đúng mọi luật; chọn một ô thì có ô viền xanh / mờ; đổi với ô không
     đổi được thì báo lỗi, viền đỏ; Hoàn tác thì hết lỗi; đổi người dạy ghi luật Chỉ giáo viên dạy."""
