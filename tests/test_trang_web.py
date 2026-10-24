@@ -466,7 +466,8 @@ def test_add_rule_as_a_sentence_and_pick_a_level(page):
     _wait_text(page, "#rule-say", f"{TIN_HOC} không xếp vào tiết 1 (ưu tiên cao)")
     assert page.locator('#rule-body [data-k="points"]').count() == 0
     page.click('#rule-dialog button[value="ok"]')
-    assert page.evaluate("st.scenario.rules.length") == total + 1
+    # luật vào kịch bản ở sự kiện close của hộp thoại, chạy sau cú bấm
+    page.wait_for_function(f"st.scenario.rules.length === {total + 1}", timeout=10000)
     rule = page.evaluate("st.scenario.rules.at(-1)")
     assert (rule["kind"], rule["subject"], rule["periods"], rule["hard"], rule["level"], rule["points"]) == \
         ("Không xếp vào", TIN_HOC, "1", False, "Cao", None)
