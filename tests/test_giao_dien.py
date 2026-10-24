@@ -309,3 +309,52 @@ def test_stop_ends_early_and_keeps_the_timetable(tmp_path):
     assert state["exit"] == 0 and state["stopping"], "\n".join(state["lines"][-20:])
     assert any("Dừng xếp giờ: Ctrl+C" in line for line in state["lines"])
     assert state["summary"]["passed"] is True and (tmp_path / FILE_NAMES["teachers"]).is_file()
+
+
+def test_page_store_lives_in_the_program_folder(server):
+    """Bản nháp và lựa chọn của trang ghi ở file trang.json trong thư mục dữ liệu của chương trình (không ở bộ nhớ
+    trình duyệt); Tệp › Xóa dữ liệu trên máy này xóa file đó."""
+    app, url = server
+    assert _call(url, "/api/store", token=app.token) == (200, {})
+    assert _call(url, "/api/store", "POST", {"items": {"tkb-gon": "1", "tkb-tab": "xep"}}, app.token)[0] == 200
+    path = app.data / server_module.STORE_NAME
+    assert app.out_dir in path.parents and json.loads(path.read_text(encoding="utf-8"))["tkb-tab"] == "xep"
+    assert _call(url, "/api/store", token=app.token)[1] == {"tkb-gon": "1", "tkb-tab": "xep"}
+    # Đóng trang gửi bằng sendBeacon: mã phiên ở địa chỉ (?t=) thay cho tiêu đề.
+    assert _call(url, f"/api/store?t={quote(app.token)}", "POST", {"items": {"tkb-gon": "0"}})[0] == 200
+    assert _call(url, "/api/store", "POST", {"items": {}})[0] == 403  # không có mã phiên
+    assert json.loads(path.read_text(encoding="utf-8")) == {"tkb-gon": "0"}
+    assert _call(url, "/api/forget", "POST", {}, app.token)[0] == 200
+    assert not path.exists() and _call(url, "/api/store", token=app.token)[1] == {}
+
+
+def test_template_saved_in_the_output_folder(server):
+    """Giao diện gọn: file mẫu trống ghi vào thư mục kết quả (rồi trang mở bằng Excel), không tải về chỗ khác."""
+    app, url = server
+    status, res = _call(url, "/api/template_save", "POST", {}, app.token)
+    path = Path(res["path"])
+    assert status == 200 and path.parent == app.out_dir and path.read_bytes()[:2] == b"PK"
+
+
+def test_packaged_app_keeps_everything_in_its_folder(tmp_path, monkeypatch):
+    """Bản đóng gói (TKB.exe): kết quả ở ket_qua/, dữ liệu trang ở du_lieu/ cạnh TKB.exe, không ở thư mục người dùng;
+    trang mở bằng trình duyệt họ Chromium với hồ sơ riêng trong du_lieu/trinh_duyet, file tải về vào ket_qua/."""
+    exe = tmp_path / "TKB" / "TKB.exe"
+    monkeypatch.setattr(server_module.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(server_module.sys, "executable", str(exe))
+    assert server_module.default_out_dir() == exe.parent / "ket_qua"
+    assert server_module.data_dir() == exe.parent / "du_lieu"
+    httpd, app, url = make_server(port=0)
+    try:
+        assert app.out_dir == (exe.parent / "ket_qua").resolve() and app.data == (exe.parent / "du_lieu").resolve()
+        started = []
+        monkeypatch.setattr(server_module, "find_browser", lambda: "msedge")
+        monkeypatch.setattr(server_module.subprocess, "Popen", lambda args, **_: started.append(args))
+        server_module.open_page(url, app)
+        profile = app.data / "trinh_duyet"
+        assert started == [["msedge", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
+                             f"--app={url}"]]
+        prefs = json.loads((profile / "Default" / "Preferences").read_text(encoding="utf-8"))
+        assert prefs["download"]["default_directory"] == str(app.out_dir)
+    finally:
+        httpd.server_close()

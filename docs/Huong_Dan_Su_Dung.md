@@ -14,17 +14,18 @@ Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập li
 2. Giải nén, mở thư mục `TKB`, bấm đúp **`TKB.exe`**. Một cửa sổ dòng lệnh mở ra (giữ cửa sổ này mở khi dùng), trình
    duyệt tự mở trang nhập liệu. Trình duyệt không tự mở thì chép đường dẫn in trong cửa sổ (`http://127.0.0.1:...`)
    vào trình duyệt.
-3. Tắt: đóng cửa sổ dòng lệnh. Kết quả ghi vào thư mục `TKB` trong thư mục người dùng (vd `C:\Users\<tên>\TKB`).
+3. Tắt: đóng cửa sổ dòng lệnh. Mọi thứ nằm trong thư mục `TKB` vừa giải nén: kết quả ở `TKB\ket_qua`, bản nháp của trang, file tạm và dữ liệu trình duyệt ở `TKB\du_lieu`. Không ghi gì ra ngoài: xóa thư mục `TKB` là không còn gì trên máy.
    Lỡ đóng cửa sổ khi còn đang dùng thì trang hiện dải đỏ *Chương trình đã tắt* ở cuối màn hình; dữ liệu đang soạn
    vẫn còn: bấm đúp lại `TKB.exe` rồi bấm *Tải lại trang* (hoặc dùng trang mới mở ra).
 
 **Cách B: có Python.** `pip install -r requirements.txt` (một lần), rồi mở `giao_dien.py` bấm **Run ▶** (hoặc
 `python giao_dien.py`). Người quen Python có thể bỏ trang web, sửa các hằng số đầu `main.py` rồi chạy (README, Cách 1).
 
-Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên không rời máy. Trang tự lưu bản nháp trong trình
-duyệt của máy này. **Máy dùng chung** (phòng máy, máy mượn): xong việc thì bấm **Tệp ▾ › Xóa dữ liệu trên máy
+Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên không rời máy. Trang tự lưu bản nháp vào thư mục
+`TKB\du_lieu` (không vào bộ nhớ trình duyệt) và mở trong một cửa sổ Edge riêng có hồ sơ cũng trong thư mục đó. **Máy dùng chung** (phòng máy, máy mượn): xong việc thì bấm **Tệp ▾ › Xóa dữ liệu trên máy
 này…**: trang xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác rồi về trang bắt đầu. Các file đã ghi ra máy (thư
-mục kết quả, thư mục Tải về) trang để nguyên, vì có thể là file cần giữ: hộp thoại chỉ thư mục kết quả để xóa tay.
+mục kết quả) trang để nguyên, vì có thể là file cần giữ: hộp thoại chỉ thư mục kết quả để xóa tay. Muốn không để
+lại gì: xóa cả thư mục `TKB`.
 
 ## 2. Nhập dữ liệu
 

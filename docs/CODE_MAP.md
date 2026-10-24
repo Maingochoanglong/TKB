@@ -700,8 +700,10 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `main(argv)`
 
 ## tkb/giao_dien/server.py — Máy chủ HTTP của giao diện (chỉ thư viện chuẩn) và việc xếp TKB ở tiến trình con.
-Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XLSX`, `MODES`, `RUN_DEFAULTS`, `FILE_NAMES`, `TEMPLATE_NAME`, `RULES_TEMPLATE_NAME`
-- `default_out_dir()` — Chạy từ mã nguồn: out/giao_dien của dự án (out/ đã bỏ qua trong git vì có tên giáo viên); bản đóng gói: thư
+Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XLSX`, `MODES`, `RUN_DEFAULTS`, `FILE_NAMES`, `TEMPLATE_NAME`, `RULES_TEMPLATE_NAME`, `STORE_NAME`, `BROWSERS`, `BROWSER_NAMES`
+- `app_dir()` — Thư mục của chương trình: bản đóng gói là thư mục có TKB.exe; chạy từ mã nguồn là out/ của dự án (đã bỏ qua
+- `default_out_dir()` — Thư mục kết quả mặc định, trong thư mục của chương trình: bản đóng gói ket_qua/ cạnh TKB.exe; mã nguồn
+- `data_dir(out_dir)` — Chỗ để bản nháp của trang, file tạm và hồ sơ trình duyệt: du_lieu/ của thư mục chương trình; mở với
 - `cli_command(argv)` — Lệnh chạy `python -m tkb`; bản đóng gói (PyInstaller) gọi lại chính nó với --cli (xem __main__.py).
 - `safe_name(name)` — Tên file vào: bỏ ký tự Windows không cho phép, bỏ đuôi .xlsx.
 - `run_argv(source, out, name, run)` — Tham số dòng lệnh `python -m tkb` theo cài đặt chạy (như main.run); báo lỗi nếu cài đặt sai.
@@ -730,6 +732,8 @@ Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XL
   - `.swaps(data)` — Các ô cùng lớp đổi chỗ được với một ô mà không thêm lỗi luật bắt buộc (kich_ban.Grid.swaps).
   - `.export(data)`
   - `.rules_file(data)` — File Excel chỉ có các luật (sheet LUẬT, HƯỚNG DẪN): các luật của kịch bản, hoặc (mẫu) các luật mặc định.
+  - `.store(data)` — Bản nháp và lựa chọn của trang ({khóa: chữ}), ghi ở data/trang.json thay cho bộ nhớ trình duyệt: xóa thư
+  - `.template_save(_)` — Giao diện gọn: ghi file mẫu trống vào thư mục kết quả (không tải về thư mục khác) rồi trang mở nó.
   - `.template()` — File vào mẫu trống (python -m tkb.template): nhà trường điền trong Excel rồi nhập lại.
   - `.run(data)`
   - `.status(query)`
@@ -751,6 +755,8 @@ Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XL
   - `._static(path)`
   - `._api(method, url)`
 - `make_server(port, out_dir)` — Máy chủ trên 127.0.0.1 (cổng bận thì lấy cổng khác): (máy chủ, trạng thái, đường dẫn trang).
+- `find_browser()`
+- `open_page(url, app)` — Mở trang: trình duyệt họ Chromium với --user-data-dir trong data/trinh_duyet (file tải về vào thư mục kết
 - `serve(port, open_browser, out_dir)`
 
 ## .github/scripts/chay_mau.py — Chạy xếp TKB file FILE_VAO với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã.
@@ -821,7 +827,7 @@ Hằng số: `ROOT`, `_ROLES`
 - `tests/test_cung_gio.py`: test_split_group_and_assistant_end_to_end, test_rule_errors, test_checker_and_rules_off, test_saved_cell_with_two_subjects
 - `tests/test_de_dung.py`: test_sheet_and_column_names_without_accents, test_yes_no_words_roles_and_classes, test_merged_cells_hidden_rows_and_unread_columns, test_two_row_header, test_near_sheet_names, test_same_names_quota_and_total_row, test_suggestions, test_not_xlsx, test_numbers_written_by_hand, test_footer_rows_and_sheet_names, test_class_names_and_leave_written_by_hand, test_empty_staff_and_renamed_xlsx
 - `tests/test_ghep_lop.py`: test_merge_end_to_end, test_rule_errors, test_checker_and_integrated_model, test_merge_in_one_room, test_merge_per_grade_on_sample_school
-- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_board_import, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_forget_drops_what_the_server_holds, test_stop_ends_early_and_keeps_the_timetable
+- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_board_import, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_forget_drops_what_the_server_holds, test_stop_ends_early_and_keeps_the_timetable, test_page_store_lives_in_the_program_folder, test_template_saved_in_the_output_folder, test_packaged_app_keeps_everything_in_its_folder
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
 - `tests/test_lich_co_so.py`: test_each_teacher_is_at_one_campus_a_day, test_the_model_follows_the_plan, test_no_plan_when_one_campus_a_day_is_impossible, test_no_plan_for_one_campus_or_without_the_rule, test_unrealisable_plan_falls_back
@@ -841,5 +847,5 @@ Hằng số: `ROOT`, `_ROLES`
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_overtime_lessons_keep_the_leave_of_the_teacher, test_overtime_of_a_general_teacher_never_clashes, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_is_plain, test_saved_input_template_is_up_to_date, test_blank_template, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
 - `tests/test_thu_tu_bu.py`: test_parse_order, test_default_order_keeps_the_old_prices, test_general_teacher_first, test_general_teacher_first_end_to_end, test_order_only_matters_for_overtime
-- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_simple_mode_has_three_steps, test_banner_when_program_stops_and_restarts, test_forget_data_on_a_shared_machine, test_board_import, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog, test_rooms_step, test_split_group_cells, test_merged_cells
+- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_simple_mode_has_three_steps, test_banner_when_program_stops_and_restarts, test_forget_data_on_a_shared_machine, test_page_keeps_nothing_in_the_browser, test_board_import, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog, test_rooms_step, test_split_group_cells, test_merged_cells
 - `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_teacher_timetable, test_quality_sheet, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style, test_short_names, test_short_subjects, test_school_timetable

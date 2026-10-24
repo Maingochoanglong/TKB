@@ -121,7 +121,12 @@ infeasible model), `Lesson.locked` writes the mark back, `writer.change_rows` �
 
 Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 127.0.0.1 (Host check + per-start token
 `X-TKB-Token`, injected into `static/index.html`; files opened/served only inside the output folder, default
-`out/giao_dien`) serving a no-dependency HTML/JS page. Default is the simple mode (`body.gon`, localStorage `tkb-gon`, `setGon`; Tệp ›
+`out/giao_dien`, frozen exe `ket_qua/` next to TKB.exe) serving a no-dependency HTML/JS page. Nothing is written outside the program folder (school's demand: deleting the
+folder leaves nothing): `server.app_dir`/`data_dir` (frozen: TKB.exe's folder, `ket_qua/` + `du_lieu/`; source: `out/`),
+the page's draft and choices live in `du_lieu/trang.json` (`/api/store`; `store` in app.js replaces localStorage,
+beacon on pagehide), `serve` points `tempfile` (and the solve child's TMP) at `du_lieu/tam`, and `open_page` starts
+Edge/Chrome `--app` with `--user-data-dir=du_lieu/trinh_duyet` (downloads into the out folder), else the default
+browser. Default is the simple mode (`body.gon`, store key `tkb-gon`, `setGon`; Tệp ›
 "Hiện đủ các bước soạn" toggles): only tabs `mo` (Mở file Excel: `renderOpened` summary + the quick-check errors of the
 six editing steps `EDIT_TABS`, written as sheet/row, no jump links) → `xep` (auto `check()` after opening a file; only
 the Xếp TKB button, settings card `#run-settings` behind `#btn-settings`, log folded, no estimate lines or soft-rule facts,
@@ -158,7 +163,7 @@ Tệp › Bắt đầu lại) shows a start screen (open file / new / fake sampl
 banner `#offline` "Chương trình đã tắt" (console window closed; `setOffline` from any failed `api` call too); a 403 (new
 token after a restart) → "Tải lại trang". `Tệp › Xóa dữ liệu trên máy này…` (shared machines; `forget`, dialog
 `#forget-dialog`): `/api/forget` drops `App.job`/`App.grid` (refused while a run is going), the page removes every
-`tkb-…` localStorage key and reloads with `#da-xoa` (fresh start screen + notice); files already written (out folder,
+store key (and any old `tkb-…` localStorage key) and reloads with `#da-xoa` (fresh start screen + notice); files already written (out folder,
 downloads) are never deleted, the dialog points to the out folder. Every edit goes through `changed()` in app.js:
 draft save, an undo snapshot 0.6 s after the last edit
 (`snap`/`travel`, 50 steps, Ctrl+Z/Y outside text fields; deletes show "Đã xóa … [Hoàn tác]" instead of confirm), and

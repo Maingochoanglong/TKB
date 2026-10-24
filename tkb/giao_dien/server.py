@@ -5,6 +5,9 @@ An toàn khi chạy trên máy của trường:
 - mọi lệnh /api/ cần mã phiên (X-TKB-Token, sinh mới mỗi lần mở) nên trang web khác không gửi lệnh thay được;
 - chỉ mở, tải các file trong thư mục kết quả.
 
+Không để lại gì ngoài thư mục của chương trình (bản đóng gói: thư mục có TKB.exe): kết quả ở ket_qua/, bản nháp của
+trang, file tạm và hồ sơ trình duyệt ở du_lieu/ (xem data_dir, serve). Xóa thư mục là hết.
+
 Xếp TKB chạy `python -m tkb <file vào> ...` (đúng như main.py) ở tiến trình con: giao diện không treo, in ra từng
 dòng như khi chạy dòng lệnh, và nút Dừng gửi Ctrl+C (Windows: Ctrl+Break) để chương trình dừng sớm mà vẫn ghi TKB tốt
 nhất (tkb/lns.py).
@@ -20,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import shutil
 import time
 import webbrowser
 from http import HTTPStatus
@@ -51,12 +55,29 @@ TEMPLATE_NAME = "Mau_Input_V8.xlsx"  # file mẫu trống (như data/Input_Templ
 RULES_TEMPLATE_NAME = "Mau_Luat.xlsx"  # mẫu luật: chỉ sheet LUẬT với các luật có sẵn (và HƯỚNG DẪN)
 
 
+STORE_NAME = "trang.json"  # bản nháp và lựa chọn của trang (thay cho bộ nhớ trình duyệt), trong data_dir
+
+
+def app_dir() -> Path:
+    """Thư mục của chương trình: bản đóng gói là thư mục có TKB.exe; chạy từ mã nguồn là out/ của dự án (đã bỏ qua
+    trong git vì có tên giáo viên)."""
+    if getattr(sys, "frozen", False) or not (PROJECT / "main.py").is_file():
+        return Path(sys.executable).resolve().parent
+    return PROJECT / "out"
+
+
 def default_out_dir() -> Path:
-    """Chạy từ mã nguồn: out/giao_dien của dự án (out/ đã bỏ qua trong git vì có tên giáo viên); bản đóng gói: thư
-    mục TKB trong thư mục người dùng."""
-    if not getattr(sys, "frozen", False) and (PROJECT / "main.py").is_file():
-        return PROJECT / "out" / "giao_dien"
-    return Path.home() / "TKB"
+    """Thư mục kết quả mặc định, trong thư mục của chương trình: bản đóng gói ket_qua/ cạnh TKB.exe; mã nguồn
+    out/giao_dien."""
+    if getattr(sys, "frozen", False) or not (PROJECT / "main.py").is_file():
+        return app_dir() / "ket_qua"
+    return PROJECT / "out" / "giao_dien"
+
+
+def data_dir(out_dir=None) -> Path:
+    """Chỗ để bản nháp của trang, file tạm và hồ sơ trình duyệt: du_lieu/ của thư mục chương trình; mở với
+    --thu-muc riêng (vd test) thì _du_lieu/ trong thư mục đó."""
+    return Path(out_dir) / "_du_lieu" if out_dir else app_dir() / "du_lieu"
 
 
 def cli_command(argv: list[str]) -> list[str]:
@@ -171,6 +192,8 @@ class Job:
 
     def __init__(self, argv: list[str], cwd: Path):
         env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
+        if tempfile.tempdir:  # file tạm của tiến trình xếp cũng trong thư mục chương trình (serve)
+            env.update(TMP=tempfile.tempdir, TEMP=tempfile.tempdir, TMPDIR=tempfile.tempdir)
         if not getattr(sys, "frozen", False):
             env["PYTHONPATH"] = os.pathsep.join(p for p in (str(PROJECT), env.get("PYTHONPATH")) if p)
         flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
@@ -223,8 +246,9 @@ class Job:
 class App:
     """Trạng thái của giao diện: thư mục kết quả, mã phiên, việc xếp TKB đang chạy."""
 
-    def __init__(self, out_dir: Path, token: str):
+    def __init__(self, out_dir: Path, token: str, data: Path | None = None):
         self.out_dir = Path(out_dir).expanduser().resolve()
+        self.data = Path(data or data_dir(self.out_dir)).resolve()  # bản nháp của trang (store)
         self.token = token
         self.lock = threading.Lock()  # kịch bản <-> Excel đổi tạm config (rules.applied): mỗi lúc một việc
         self.job: Job | None = None
@@ -371,6 +395,33 @@ class App:
                 kich_ban.rules_to_excel(scenario, path)
             return path.read_bytes(), path.name
 
+    def store(self, data=None):
+        """Bản nháp và lựa chọn của trang ({khóa: chữ}), ghi ở data/trang.json thay cho bộ nhớ trình duyệt: xóa thư
+        mục chương trình là hết. GET (data là query): đọc; POST {items}: ghi đè cả bản."""
+        path = self.data / STORE_NAME
+        if not isinstance(data, dict) or "items" not in data:
+            try:
+                return json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return {}
+        items = {str(k): str(v) for k, v in dict(data["items"]).items()}
+        self.data.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, path)
+        return {"ok": True}
+
+    def template_save(self, _):
+        """Giao diện gọn: ghi file mẫu trống vào thư mục kết quả (không tải về thư mục khác) rồi trang mở nó."""
+        body, name = self.template()
+        path = self.out_dir / name
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            path.write_bytes(body)
+        except OSError as exc:
+            raise InputError(f"Không ghi được {name} (file đang mở trong Excel?): {exc}") from None
+        return {"path": str(path)}
+
     def template(self) -> tuple[bytes, str]:
         """File vào mẫu trống (python -m tkb.template): nhà trường điền trong Excel rồi nhập lại."""
         from ..template import write_staff_template
@@ -449,6 +500,7 @@ class App:
         with self.lock:
             self.job = None
             self.grid = None
+        (self.data / STORE_NAME).unlink(missing_ok=True)  # bản nháp có tên giáo viên
         return {"ok": True}
 
     def shutdown(self) -> None:
@@ -548,7 +600,9 @@ class Handler(BaseHTTPRequestHandler):
                       ("POST", "upgrade"): app.upgrade, ("POST", "board"): app.board,
                       ("POST", "swaps"): app.swaps,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
-                      ("POST", "settings"): app.settings, ("POST", "forget"): app.forget}
+                      ("POST", "settings"): app.settings, ("POST", "forget"): app.forget,
+                      ("GET", "store"): app.store, ("POST", "store"): app.store,
+                      ("POST", "template_save"): app.template_save}
             handler = routes.get((method, name))
             if handler is None:
                 return self._json(HTTPStatus.NOT_FOUND, {"error": f"Không có lệnh {name}"})
@@ -562,7 +616,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def make_server(port: int = PORT, out_dir=None) -> tuple[ThreadingHTTPServer, App, str]:
     """Máy chủ trên 127.0.0.1 (cổng bận thì lấy cổng khác): (máy chủ, trạng thái, đường dẫn trang)."""
-    app = App(Path(out_dir) if out_dir else default_out_dir(), secrets.token_urlsafe(16))
+    app = App(Path(out_dir) if out_dir else default_out_dir(), secrets.token_urlsafe(16),
+              None if out_dir else data_dir())
     handler = type("TkbHandler", (Handler,), {"app": app})
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
@@ -571,13 +626,52 @@ def make_server(port: int = PORT, out_dir=None) -> tuple[ThreadingHTTPServer, Ap
     return httpd, app, f"http://127.0.0.1:{httpd.server_port}/"
 
 
+# Trình duyệt mở trang ở cửa sổ riêng với hồ sơ trong thư mục chương trình (lịch sử, bộ nhớ đệm, file tải về đều ở
+# đó). Edge có sẵn trên mọi máy Windows 10/11; không có thì Chrome, Chromium; không có nữa thì trình duyệt mặc định.
+BROWSERS = [r"Microsoft\Edge\Application\msedge.exe", r"Google\Chrome\Application\chrome.exe"]
+BROWSER_NAMES = ["msedge", "microsoft-edge", "google-chrome", "chrome", "chromium", "chromium-browser"]
+
+
+def find_browser() -> str | None:
+    if os.name == "nt":
+        for root in (os.environ.get(k) for k in ("PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA")):
+            for rel in BROWSERS:
+                if root and (Path(root) / rel).is_file():
+                    return str(Path(root) / rel)
+    return next((found for name in BROWSER_NAMES if (found := shutil.which(name))), None)
+
+
+def open_page(url: str, app: App) -> None:
+    """Mở trang: trình duyệt họ Chromium với --user-data-dir trong data/trinh_duyet (file tải về vào thư mục kết
+    quả); không có thì trình duyệt mặc định (khi đó trình duyệt nhớ lịch sử trang như mọi trang web)."""
+    exe = find_browser()
+    if not exe:
+        webbrowser.open(url)
+        return
+    profile = app.data / "trinh_duyet"
+    prefs = profile / "Default" / "Preferences"
+    try:
+        if not prefs.is_file():
+            prefs.parent.mkdir(parents=True, exist_ok=True)
+            prefs.write_text(json.dumps({"download": {"default_directory": str(app.out_dir), "prompt_for_download": False},
+                                         "savefile": {"default_directory": str(app.out_dir)}}), encoding="utf-8")
+        subprocess.Popen([exe, f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
+                          f"--app={url}"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        webbrowser.open(url)
+
+
 def serve(port: int = PORT, open_browser: bool = True, out_dir=None) -> int:
     httpd, app, url = make_server(port, out_dir)
+    tmp = app.data / "tam"  # file tạm (đọc, kiểm tra file Excel) cũng trong thư mục chương trình; tắt thì xóa
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True, exist_ok=True)
+    tempfile.tempdir = str(tmp)
     print(f"Giao diện xếp TKB: {url}")
     print(f"Thư mục kết quả : {app.out_dir}")
     print("Giữ cửa sổ này mở trong khi dùng giao diện; bấm Ctrl+C để tắt.")
     if open_browser:
-        webbrowser.open(url)
+        open_page(url, app)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -585,4 +679,5 @@ def serve(port: int = PORT, open_browser: bool = True, out_dir=None) -> int:
     finally:
         app.shutdown()
         httpd.server_close()
+        shutil.rmtree(tmp, ignore_errors=True)
     return 0
