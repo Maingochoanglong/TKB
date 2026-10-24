@@ -121,7 +121,12 @@ infeasible model), `Lesson.locked` writes the mark back, `writer.change_rows` �
 
 Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 127.0.0.1 (Host check + per-start token
 `X-TKB-Token`, injected into `static/index.html`; files opened/served only inside the output folder, default
-`out/giao_dien`) serving a no-dependency HTML/JS page. The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
+`out/giao_dien`) serving a no-dependency HTML/JS page. Default is the simple mode (`body.gon`, localStorage `tkb-gon`, `setGon`; Tệp ›
+"Hiện đủ các bước soạn" toggles): only tabs `mo` (Mở file Excel: `renderOpened` summary + the quick-check errors of the
+six editing steps `EDIT_TABS`, written as sheet/row, no jump links) → `xep` (auto `check()` after opening a file; only
+the Xếp TKB button, settings card `#run-settings` behind `#btn-settings`, log folded, no estimate lines or soft-rule facts,
+files named by `fileLabel`) → `tkb`, numbered 1–3 (`stepNo`); elements
+`.full-only`/`.gon-only` hide per mode; the browser tests run in full mode (init script sets `tkb-gon` = 0). The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
 JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself
 (subject detail groups `kich_ban.SUBJECT_GROUPS`, ungrouped columns go to "Khác"). Steps: Khung giờ → Môn học (list +
 detail dialog) → Lớp (grade names: rename updates lessons, classes, manager grade, LUẬT Khối; class table
