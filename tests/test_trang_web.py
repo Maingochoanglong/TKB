@@ -434,6 +434,7 @@ def test_tags_in_rule_dialog(page):
     _wait_text(page, '#staff-table tr[data-row="2"]', "Nhãn: Tổ Một, Bán thời gian")
     page.click('.tabs [data-tab="luat"]')
     page.click("#btn-add-rule")
+    page.click('#pick-body [data-pick="0"]')
     options = lambda sel: page.evaluate(  # noqa: E731
         f"[...document.querySelectorAll('{sel} option')].map((o) => o.value)")
     assert {"Song ngữ", "1/1", "Điểm Tân Phú", "Cơ sở 1"} <= set(options("#rule-class-list"))
@@ -441,6 +442,46 @@ def test_tags_in_rule_dialog(page):
     page.keyboard.press("Escape")
     _wait_mark(page, "lop", "✓")
     _wait_mark(page, "gv", "✓")
+
+
+def test_add_rule_as_a_sentence_and_pick_a_level(page):
+    """Thêm luật: chọn một câu (Môn … không học vào …), điền môn ngay trong câu và tiết ở ô Giờ nào, chọn mức độ;
+    không có ô Điểm. Luật ưu tiên có sẵn mở ra chỉ có mức độ (ô Số chỉ khi số là tham số của luật), Sửa chi tiết mở cả
+    câu luật."""
+    from tkb.bo_mau import TIN_HOC
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    page.click('.tabs [data-tab="luat"]')
+    page.wait_for_selector("#rule-list .rule-item .tag")
+    total = page.evaluate("st.scenario.rules.length")
+    assert page.evaluate("st.scenario.rules.every((r) => r.points == null)")  # luật có sẵn ghi bằng mức
+    page.click("#btn-add-rule")
+    page.click('#pick-body [data-pick="0"]')
+    assert page.locator("#rule-errors li").count() == 0  # chưa điền gì: chưa báo thiếu
+    subject = page.locator('#rule-body .sentence [data-k="subject"]')
+    subject.fill(TIN_HOC)
+    page.fill('#rule-body [data-k="periods"]', "1")
+    _wait_text(page, "#rule-time", "tiết 1")
+    page.select_option('#rule-body [data-k="mode"]', "Cao")
+    _wait_text(page, "#rule-say", f"{TIN_HOC} không xếp vào tiết 1 (ưu tiên cao)")
+    assert page.locator('#rule-body [data-k="points"]').count() == 0
+    page.click('#rule-dialog button[value="ok"]')
+    assert page.evaluate("st.scenario.rules.length") == total + 1
+    rule = page.evaluate("st.scenario.rules.at(-1)")
+    assert (rule["kind"], rule["subject"], rule["periods"], rule["hard"], rule["level"], rule["points"]) == \
+        ("Không xếp vào", TIN_HOC, "1", False, "Cao", None)
+    # Luật ưu tiên có sẵn: chỉ mức độ; luật "tối đa n tiết một nhóm môn mỗi buổi": có ô Số.
+    item = page.locator("#rule-list .rule-item", has_text="tiết trống xen giữa")
+    item.locator('[data-act="edit-rule"]').click()
+    assert page.locator('#rule-body [data-k="number"]').count() == 0
+    assert page.locator('#rule-body [data-k="mode"]').input_value() == "Thấp"
+    page.click("#rule-full")
+    assert page.locator('#rule-body [data-k="type"]').count() == 1
+    page.keyboard.press("Escape")
+    item = page.locator("#rule-list .rule-item", has_text="Mỗi buổi, một lớp học tối đa")
+    item.locator('[data-act="edit-rule"]').click()
+    assert page.locator('#rule-body [data-k="number"]').count() == 1
+    page.keyboard.press("Escape")
 
 
 def test_rooms_step(page, tmp_path):
@@ -500,7 +541,7 @@ def test_split_group_cells(page, tmp_path):
     assert texts and set(texts) == {bo_mau.MY_THUAT}
     page.click('.tabs [data-tab="luat"]')
     page.click("#btn-add-rule")
-    assert "Học cùng giờ" in page.text_content("#rule-dialog")
+    assert "học cùng giờ" in page.text_content("#rule-pick")
 
 
 def test_merged_cells(page, tmp_path):

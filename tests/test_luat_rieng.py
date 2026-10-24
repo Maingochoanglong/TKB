@@ -84,7 +84,7 @@ def test_read_sheet_and_rules_code(tmp_path):
     wb = openpyxl.load_workbook(path)
     ws = wb[luat_rieng.RULES_SHEET]
     head = [c.value for c in ws[1]]
-    assert head[1:-1] == HEAD  # Nhóm | các cột câu luật | Luật đọc là
+    assert head[1:-1] == [h for h in HEAD if h != "Điểm"]  # Nhóm | các cột câu luật | Luật đọc là (Điểm: file cũ)
     n = len(luat_co_san.default_rows()) + 2  # dòng trống đầu tiên sau các luật có sẵn
     for r, row in ((n, {"Kiểu luật": "Không xếp vào", "Môn": "Thể dục", "Tiết": "1", "Bắt buộc": "Có"}),
                    (n + 1, {"Kiểu luật": "Học trước", "Môn": "Toán"})):

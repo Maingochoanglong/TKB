@@ -106,6 +106,7 @@
 | 88 | Tốc độ xếp giờ | Đo trên trường mẫu (máy 4 nhân, 1200): khởi đầu ~1 phút, vòng 1 ~3 phút cho 98% mức giảm chi phí, vòng 2–3 ~4 phút cho 2%; vùng cặp ngày chiếm 59% thời gian các vòng nhưng chỉ góp 15% mức giảm; mã Python chỉ ~6 giây | Mỗi vòng chỉ xếp lại 3 cặp ngày có chi phí cao nhất (`LNS_DAY_PAIRS`); từ vòng 2 chỉ các vùng vòng trước có giảm chi phí cùng các điểm nóng mới (`LNS_FOCUS`). Đo (đơn vị tất định, chi phí cuối): trường mẫu 1114 → 645 (−42%), 24.860 → 24.960; hạt giống khác 1207 → 839 (−30%), 24.640 → 24.840; file của trường 1205 → 1168, 35.720 → 35.040 (dư ngân sách cho bước xếp tiếp không theo lịch cơ sở). Trang xếp TKB nhắc có thể Dừng sớm sau vòng 1. **Mã kết quả đổi** (trường nhỏ của test không đổi; file của trường: Linux `6EFD-D248-0795`, Windows `DF12-11D2-8AF5`) |
 | 89 | TKB toàn trường | Chỉ có TKB theo lớp (mỗi khối một sheet, mỗi lớp một bảng) và TKB từng giáo viên: nhà trường muốn một bảng cả trường như TKB dán bảng tin (mỗi lớp một cột, môn viết tắt, tên viết tắt của GV khác GVCN) phải tự kẻ trong Excel | File **`TKB_toan_truong.xlsx`** (`writer.write_school_timetable`, mục 11.7); cột không bắt buộc **Tên Viết Tắt** của sheet NHÂN SỰ (trống: tự viết tắt từ họ tên, `writer.short_names`). Không đổi mô hình, mã kết quả giữ nguyên |
 | 90 | Nhập TKB đang dùng | Trường đang dùng một TKB xếp tay (dạng bảng tin) không đưa được vào chương trình: muốn biết TKB đó sai luật nào, hay sửa ít ô cho đúng luật, phải gõ lại cả TKB vào sheet TKB đã xếp | **Tệp › Nhập TKB đang dùng…** của giao diện, dòng lệnh `python -m tkb.nhap_tkb` (`tkb/nhap_tkb.py`, mục 11.2): đọc TKB dạng bảng tin (mỗi lớp một cột, như `TKB_toan_truong.xlsx`, mục 11.7) thành sheet TKB đã xếp; chữ chưa khớp môn hay giáo viên thì hỏi (`--ghep`). Trang kiểm mọi luật bắt buộc, Xếp lại phần còn lại sửa ít ô nhất. Đọc lại `TKB_toan_truong.xlsx` của chương trình ra đúng TKB đã xếp. TKB nhà trường gửi (29 lớp, 928 tiết): ghép 4 chữ viết tắt (2 chữ có gợi ý sẵn) thì đọc được 927 tiết, 29 ô ngoài khung giờ bỏ qua. Không đổi mô hình, mã kết quả giữ nguyên |
+| 91 | Chọn mức thay cho điểm, luật là câu điền chỗ trống | Luật ưu tiên có sẵn ghi thẳng điểm đã chỉnh (10, 40, 100, 120, 200, 300, 1.200, 10.000) nên người dùng phải hiểu và sửa điểm; thêm luật phải chọn kiểu luật trong một danh sách dài rồi điền một hộp thoại nhiều ô | Mức độ là một ô chọn (Bắt buộc, Ưu tiên rất cao/cao/vừa/thấp), không còn ô và cột Điểm trong file mẫu. Dòng luật có sẵn ghi đúng mức mặc định của nó (mức có điểm gần điểm đã chỉnh nhất) thì vẫn dùng điểm đã chỉnh (`luat_co_san.tuned`/`plain`), đổi mức thì theo điểm chung của mức (100, 400, 1.500, 5.000); file cũ có cột Điểm vẫn đọc được. Thêm luật: chọn một câu hay gặp (13 câu: môn không học/chỉ học/cố định vào giờ, giờ bận và giới hạn của giáo viên, ai dạy, 2 tiết liền, ít nhất n ngày, học trước, số lớp cùng lúc, ghép lớp, học cùng giờ), điền chỗ trống ngay trong câu; Tự ghép ở Nâng cao. Luật có sẵn mở ra chỉ có số (nếu là tham số) và mức độ. Không đổi mô hình, mã kết quả giữ nguyên |
 
 ---
 
@@ -466,7 +467,7 @@ tắt vào `luat_co_san.apply`, nên cùng mã quy định với khi xóa), dòn
 Luật đọc là thêm "(Tạm tắt)") và ghi "tắt" ở sheet Chất lượng; để trống là dùng.
 
 **[Cứng]** khi cột Bắt buộc = Có, không thì **[Mềm]** với Mức Thấp, Vừa, Cao, Rất cao (hoặc 1–4;
-`Weights.custom_levels` = 100, 400, 1.500, 5.000 điểm mỗi lần không theo) hoặc cột Điểm ghi thẳng điểm. Kiểu luật là
+`Weights.custom_levels` = 100, 400, 1.500, 5.000 điểm mỗi lần không theo) hoặc cột Điểm ghi thẳng điểm (file cũ; file mẫu không còn cột này, mục 0 dòng 91). Kiểu luật là
 một **mẫu** (điền sẵn phạm vi, phép đo) hoặc **Tự ghép**. Mỗi mẫu và mỗi phép đo thuộc một trong **bốn câu hỏi** về các
 tiết: **Ở đâu** (Không xếp vào, Chỉ xếp vào, Cố định vào; Vị trí), **Bao nhiêu** (Giáo viên tối đa tiết/lớp mỗi ngày, Số
 lớp học cùng lúc tối đa, Học ít nhất số ngày; Số tiết, Số khác nhau, Khoảng cách), **Đi cùng nhau** (Học 2 tiết liền,
@@ -674,7 +675,7 @@ Viết bằng Python thuần, số nguyên, duyệt theo thứ tự cố định
 | Tiết trống giữa buổi của giáo viên không chủ nhiệm | 10 / tiết trống |
 | Giáo viên dạy sáng ở cơ sở này, chiều ở cơ sở kia (mục 4.1) | 10000 / (GV, ngày) |
 
-Mỗi mục tiêu là một dòng luật ưu tiên của sheet `LUẬT`; trọng số là cột Điểm của dòng (giá trị mặc định ở `tkb/luat_co_san.py`, `NATIVES`), nhà trường sửa được. Dòng không ghi Điểm thì theo cột Mức (Thấp 100, Vừa 400, Cao 1500, Rất cao 5000: `config.Weights.custom_levels`).
+Mỗi mục tiêu là một dòng luật ưu tiên của sheet `LUẬT`; trọng số theo cột Mức của dòng (Thấp 100, Vừa 400, Cao 1500, Rất cao 5000: `config.Weights.custom_levels`), nhà trường đổi được. Luật ưu tiên có sẵn có điểm đã chỉnh riêng (`tkb/luat_co_san.py`, `NATIVES`), ghi ra là mức có điểm gần nhất; dòng để nguyên mức đó thì dùng điểm đã chỉnh (`luat_co_san.tuned`). File cũ ghi cột Điểm thì dùng điểm đó.
 
 Các trọng số chọn qua thử nghiệm trên file của trường (lượng tính toán 480): với mọi luật cứng mới, TV/Toán buổi chiều 39 tiết (như trước khi có luật mới), môn nặng ở tiết 7: 7 tiết, vượt rải đều 19, tiết trống 1.
 

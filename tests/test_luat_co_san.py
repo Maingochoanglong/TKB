@@ -98,7 +98,7 @@ def test_edit_number_points_delete_and_soften(tmp_path):
     def change(ws, head):
         col = {h: i + 1 for i, h in enumerate(head)}
         ws.cell(_row_of(ws, head, "Mỗi buổi, một lớp học tối đa"), col["Số"], 3)
-        ws.cell(_row_of(ws, head, "Tránh xếp môn có nhãn Môn nặng"), col["Điểm"], 2000)
+        ws.cell(_row_of(ws, head, "Tránh xếp môn có nhãn Môn nặng"), col["Mức"], "Rất cao")
         ws.delete_rows(_row_of(ws, head, "Ở giờ có nhãn Luôn do GVCN dạy"))
         r = _row_of(ws, head, "Các tiết của một môn trong cùng buổi")
         ws.cell(r, col["Bắt buộc"], "Không")
@@ -108,13 +108,48 @@ def test_edit_number_points_delete_and_soften(tmp_path):
     custom = rules["CUSTOM_RULES"]
     assert next(r for r in custom if luat_co_san.native_of(r).key == "nhom_buoi").number == 3
     assert _keys(custom) == _keys(config.CUSTOM_RULES) - {"tiet_gvcn", "lien_nhau"}  # dòng xóa: luật tắt
-    assert next(r for r in custom if r.measure == "vi_tri" and r.points).points == 2000
+    heavy = next(r for r in custom if r.measure == "vi_tri" and r.op == "ngoai")
+    assert (heavy.points, heavy.level) == (None, 4)  # đổi mức: điểm chung của mức Rất cao
     (soft,) = [r for r in custom if luat_co_san.native_of(r) is None]  # đổi thành ưu tiên: khác dạng gốc
     assert soft.measure == "lien" and not soft.hard and soft.level == 3
     with applied(rules):
         assert code() != NO_FILE_CODE
         assert luat_rieng.label(soft) == (f"LUẬT dòng {soft.row}: Mỗi lớp, mỗi môn: các tiết trong một buổi đứng "
                                           f"liền nhau (ưu tiên cao)")  # khác dạng gốc: câu của bộ ghép
+
+
+def test_levels_keep_the_tuned_points_of_built_in_rules(tmp_path):
+    """Luật ưu tiên có sẵn ghi Mức bằng chữ, không có cột Điểm: để nguyên mức mặc định thì dùng điểm đã chỉnh sẵn
+    (cùng mã quy định với khi không có file); đổi mức thì theo điểm chung của mức, đổi lại thì về điểm cũ. File cũ có
+    cột Điểm vẫn đọc được, và ghi lại thì giữ cột đó."""
+    path = tmp_path / "mau.xlsx"
+    write_staff_template(path, small_staff(), CURRICULUM)
+    ws = openpyxl.load_workbook(path)[luat_rieng.RULES_SHEET]
+    head = [c.value for c in ws[1]]
+    assert "Điểm" not in head and "Mức" in head
+    gaps = _row_of(ws, head, "Giáo viên, trừ GV chủ nhiệm, không có tiết trống")
+    assert ws.cell(gaps, head.index("Mức") + 1).value == "Thấp"
+    with applied(read_rules(path)):
+        assert code() == NO_FILE_CODE
+
+    def level(word):
+        def change(ws, head):
+            ws.cell(_row_of(ws, head, "Giáo viên, trừ GV chủ nhiệm, không có tiết trống"), head.index("Mức") + 1, word)
+        return next(r for r in _edit(tmp_path, change)["CUSTOM_RULES"] if r.measure == "khoang_cach"
+                    and r.op == "trong_tiet")
+    assert (level("Vừa").points, level("Vừa").level) == (None, 2)
+    assert level("Thấp").points == 10
+
+    def old_points(ws, head):
+        ws.cell(1, len(head) + 1, "Điểm")
+        ws.cell(_row_of(ws, head, "Tránh xếp môn có nhãn Môn nặng"), len(head) + 1, 2000)
+    rules = _edit(tmp_path, old_points)
+    assert next(r for r in rules["CUSTOM_RULES"] if r.measure == "vi_tri" and r.op == "ngoai").points == 2000
+    with applied(rules):
+        out = tmp_path / "ghi_lai.xlsx"
+        write_staff_template(out, small_staff(), CURRICULUM)
+    head = [c.value for c in openpyxl.load_workbook(out)[luat_rieng.RULES_SHEET][1]]
+    assert "Điểm" in head  # có dòng ghi điểm riêng: giữ cột
 
 
 def test_rule_switched_off_is_kept_but_not_used(tmp_path, plain):
@@ -151,18 +186,18 @@ def test_rule_switched_off_is_kept_but_not_used(tmp_path, plain):
 
 def test_soft_rule_off_drops_its_points(tmp_path):
     """Xóa hay tạm tắt dòng một luật ưu tiên có sẵn thì nó ra khỏi mục tiêu xếp giờ, không chỉ đánh dấu tắt; các luật
-    ưu tiên khác giữ điểm ghi ở dòng."""
+    ưu tiên khác giữ mức ghi ở dòng."""
     def change(ws, head):
         ws.delete_rows(_row_of(ws, head, "Giáo viên, trừ GV chủ nhiệm, không có tiết trống"))
         ws.cell(_row_of(ws, head, "Tránh xếp môn có nhãn Môn nặng"), head.index("Tạm tắt") + 1, "Có")
-        ws.cell(_row_of(ws, head, "Môn có nhãn Ưu tiên buổi sáng xếp vào"), head.index("Điểm") + 1, 700)
+        ws.cell(_row_of(ws, head, "Môn có nhãn Ưu tiên buổi sáng xếp vào"), head.index("Mức") + 1, "Cao")
 
     rules = _edit(tmp_path, change)
     assert _keys(rules["CUSTOM_RULES"]) == _keys(config.CUSTOM_RULES) - {"tiet_trong", "mon_nang"}
     with applied(rules):
         assert {luat_co_san.native_of(L.rule).key for L in bo_ghep.compiled()} == _keys(rules["CUSTOM_RULES"])
         morning = next(L for L in bo_ghep.compiled() if luat_co_san.native_of(L.rule).key == "buoi_sang")
-        assert bo_ghep.weight(morning, config.Weights()) == 700
+        assert bo_ghep.weight(morning, config.Weights()) == config.Weights().custom_levels[2]  # mức Cao
 
 
 def test_built_in_rules_read_as_plain_sentences():

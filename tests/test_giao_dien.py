@@ -92,11 +92,17 @@ def test_describe_rules(server):
     status, data = _call(url, "/api/describe", "POST", {"scenario": new["scenario"], "rows": rows}, app.token)
     assert status == 200
     assert data["rules"][0] == {"text": "Mỗi lớp, mỗi ngày: học tối đa 1 tiết Toán (bắt buộc)", "errors": [],
-                                "native": None, "level": None}  # thiếu "khi … <= số ngày": không phải dạng gốc
+                                "native": None, "level": None, "tuned": False}  # thiếu "khi … <= số ngày": không phải dạng gốc
     assert data["rules"][1]["text"] is None and "phải có Lớp hoặc Giáo viên" in data["rules"][1]["errors"][0]
     assert data["rules"][2]["text"] == "Tiếng Việt học trước Toán trong buổi (bắt buộc)"
     status, data = _call(url, "/api/describe", "POST", {"scenario": new["scenario"]}, app.token)
     assert all(r["native"] for r in data["rules"]) and len(data["rules"]) == len(new["scenario"]["rules"])
+    assert not any(r["tuned"] for r in data["rules"])  # luật có sẵn ghi bằng mức, không ghi điểm
+    assert all(r["points"] is None for r in new["scenario"]["rules"])
+    old = [{**r, "points": 10, "level": None} if r["level"] == "Thấp" and "trống" in t["text"] else r
+           for r, t in zip(new["scenario"]["rules"], data["rules"])]  # bản nháp cũ: luật tiết trống ghi 10 điểm
+    status, data = _call(url, "/api/describe", "POST", {"scenario": {**new["scenario"], "rules": old}}, app.token)
+    assert [r["level"] for r in data["rules"] if r["tuned"]] == ["Thấp"]
     status, xlsx = _call(url, "/api/rules_file", "POST", {"template": True}, app.token)
     assert status == 200 and xlsx[:2] == b"PK"
     status, imported = _call(url, "/api/import", "POST", xlsx, app.token)

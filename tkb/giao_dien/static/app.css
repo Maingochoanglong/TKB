@@ -293,7 +293,6 @@ dialog::backdrop { background: #0006; }
 dl.kinds { margin: 8px 0 0; display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 8px 16px; }
 dl.kinds dt { font-weight: 600; font-size: 14px; }
 dl.kinds dd { margin: 0; color: var(--muted); font-size: 15px; }
-#new-kind { width: auto; }
 .rule-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .rule-item { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; padding: 8px 10px;
   border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
@@ -313,6 +312,21 @@ dl.kinds dd { margin: 0; color: var(--muted); font-size: 15px; }
 #rule-errors { margin: 0 0 6px; padding-left: 18px; }
 #rule-errors:empty { display: none; }
 #rule-dialog { width: min(760px, calc(100vw - 32px)); }
+#rule-pick { width: min(720px, calc(100vw - 32px)); }
+#pick-body h3 { margin: 14px 0 6px; font-size: 15px; }
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.choice { display: block; width: 100%; text-align: left; white-space: normal; padding: 10px 12px; font-size: 15px; line-height: 1.5;
+  background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font-weight: 400; }
+.choice:hover, .choice:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
+.choice .gap { display: inline-block; min-width: 2.2em; border-bottom: 2px dashed var(--accent); color: var(--accent); text-align: center; }
+.mode-select { width: min(100%, 260px); font-size: 16px; }
+.mode-note { display: block; margin-top: 6px; }
+.sentence { font-size: 17px; line-height: 2.3; margin: 6px 0 2px; }
+.sentence .blank { font: inherit; padding: 2px 8px; border: none; border-bottom: 2px solid var(--accent); border-radius: 4px 4px 0 0;
+  background: var(--accent-soft); color: var(--text); min-width: 9em; width: auto; }
+.sentence input.blank { width: 13em; max-width: 100%; }
+.sentence input.blank.tiny { width: 4.5em; min-width: 0; }
+.sentence .blank.time { display: inline; font-weight: 600; }
 #rule-dialog details.more { margin: 6px 0 2px; border-top: 1px dashed var(--line); padding-top: 6px; }
 #rule-dialog details.more > summary { cursor: pointer; color: var(--accent); font-size: 14px; margin-bottom: 6px; }
 #rule-dialog .when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; }

@@ -257,15 +257,21 @@ def write_rooms_sheet(wb, rows: list[list] | None = None, index: int | None = No
 def write_luat_sheet(wb, rows: list[list] | None = None, index: int | None = None) -> None:
     """Sheet LUẬT ở vị trí `index`: tiêu đề và các dòng luật (không có thì theo các luật đang dùng, kể cả luật có
     sẵn), kẻ sẵn vài dòng trống để nhà trường thêm luật."""
-    rows = luat_rows() if rows is None else rows
+    rows = luat_rows() if rows is None else [list(r) for r in rows]
     ws = wb.create_sheet(luat_rieng.RULES_SHEET, index)
     headers = luat_headers()
+    widths = [18, 22, 16, 18, 10, 22, 16, 8, 10, 12, 8, 8, 16, 12, 14, 10, 10, 14, 12, 9, 6, 8, 70]
+    # Cột Điểm chỉ ghi khi có dòng ghi điểm riêng (file cũ): luật ưu tiên chọn Mức, kể cả luật có sẵn.
+    i = headers.index(luat_rieng.HEADERS["points"])
+    if all(len(r) <= i or r[i] is None for r in rows):
+        for r in (headers, widths, *rows):
+            del r[i:i + 1]
     ws.append(headers)
     for row in rows:
         ws.append(row)
     _style_rows(ws, 1, 1, len(headers), header=True)
     _style_rows(ws, 2, len(rows) + 1 + BLANK_ROWS, len(headers), left=(1, 2, 3, len(headers)))
-    _widths(ws, (18, 22, 16, 18, 10, 22, 16, 8, 10, 12, 8, 8, 16, 12, 14, 10, 10, 14, 12, 9, 6, 8, 70))
+    _widths(ws, widths)
 
 
 def write_guide(wb, extra=(), index: int | None = None) -> None:

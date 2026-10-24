@@ -109,10 +109,16 @@ không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (
    đưa các luật về mặc định.
    ![Bước 6: danh sách luật](hinh/6_luat.jpg)
 
-   **Thêm luật**: chọn loại luật rồi **+ Thêm luật**; hộp thoại hỏi lần lượt các tiết nào, vào giờ nào, thì sao, mức
-   nào, và đọc lại ngay thành câu. Ví dụ **giờ bận** của một giáo viên: loại "Không xếp vào", Giáo viên `Bộ Môn 3`,
-   Ngày Thứ 2, Tiết 1-2, để trống Môn.
-   ![Ghép luật: giờ bận của một giáo viên](hinh/7_ghep_luat.jpg)
+   **Thêm luật**: bấm **+ Thêm luật**, chọn một câu hay gặp (vd "Môn … không học vào …", "Giáo viên … bận, không dạy
+   vào …", "Giáo viên dạy tối đa … tiết mỗi ngày", "Môn … học 2 tiết liền"), rồi điền vào chỗ trống ngay trong câu;
+   giờ học chọn ở ô **Giờ nào?**, khối, lớp… (nếu cần) trong **Chỉ áp dụng cho**. Câu ít gặp hơn và **Tự ghép** nằm ở
+   **Nâng cao**. **Mức độ** là một ô chọn: Bắt buộc, hoặc Ưu tiên rất cao / cao / vừa / thấp; không phải ghi điểm.
+   Hộp thoại đọc lại ngay thành câu. Ví dụ **giờ bận** của một giáo viên: chọn "Giáo viên … bận, không dạy vào …",
+   ghi `Bộ Môn 3`, đánh dấu Thứ 2, Tiết `1-2`.
+   ![Thêm luật: chọn một câu](hinh/7a_them_luat.jpg)
+   ![Câu điền chỗ trống: giờ bận của một giáo viên](hinh/7_ghep_luat.jpg)
+
+   Sửa một **luật có sẵn** chỉ hiện số (nếu luật có số chỉnh được) và mức độ; **Sửa chi tiết luật** mở cả câu luật.
 7. **Kiểm tra & xếp TKB**: chọn chế độ (bù giờ hay tuyển thêm), số tiết bù tối đa, thời gian; bấm **Kiểm tra** (vài
    giây): lỗi hiện kèm chỗ sửa (bấm vào lỗi để tới đúng dòng), cùng **dự toán** số tiết bù, tiết thiếu.
    ![Bước 7: kiểm tra và dự toán](hinh/8_kiem_tra.jpg)

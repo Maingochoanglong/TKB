@@ -91,12 +91,16 @@ lại. Chọn nào thì trang nhớ trên máy này.
      **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mặc định** là luật có sẵn chưa sửa dạng (đọc bằng tên riêng). **Sửa** mở hộp thoại
      theo thứ tự câu luật: **Loại luật** (một ô chọn chia theo bốn câu hỏi **Ở đâu**, **Bao nhiêu**, **Đi cùng nhau**,
      **Ai dạy**, gồm các mẫu và "Tự ghép · <phép đo>") · **Với mỗi** · **Các tiết nào** (Môn, Khối, Lớp; các ô ít dùng
-     nằm trong **Thêm điều kiện**, nhãn môn và nhãn giờ học tách riêng) · **Vào giờ nào** (họ Ở đâu) · **Thì** (Áp dụng
-     khi chọn bằng ô: từ … tiết/tuần trở lên, không quá …/số ngày học, chẵn/lẻ) · **Mức** (Bắt buộc/Ưu tiên và mức;
-     Điểm, Nhóm trong **Nâng cao**). Hộp thoại hiện ngay **luật đọc là** (cùng câu chương trình in ra), lỗi nếu ghép
+     nằm trong **Thêm điều kiện**, nhãn môn và nhãn giờ học tách riêng) · **Giờ nào?** (họ Ở đâu) · **Thì** (Áp dụng
+     khi chọn bằng ô: từ … tiết/tuần trở lên, không quá …/số ngày học, chẵn/lẻ) · **Mức độ** (một ô chọn: Bắt buộc,
+     Ưu tiên rất cao/cao/vừa/thấp; không ghi điểm; Nhóm trong **Nâng cao**). Luật có sẵn mở ra chỉ có số (nếu là
+     tham số của luật) và mức độ, **Sửa chi tiết luật** mở cả câu. **+ Thêm luật** mở danh sách các câu hay gặp
+     (Môn … không học vào …, Giáo viên … bận, không dạy vào …, Giáo viên dạy tối đa … tiết mỗi ngày, Môn … học 2 tiết
+     liền, Các lớp … học chung môn …): chọn một câu rồi điền chỗ trống ngay trong câu (giờ học ở ô **Giờ nào?**, khối,
+     lớp… ở **Chỉ áp dụng cho**); mẫu khác và Tự ghép ở **Nâng cao** (hoặc dòng cuối danh sách). Hộp thoại hiện ngay **luật đọc là** (cùng câu chương trình in ra), lỗi nếu ghép
      sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (đọc bằng câu ghép, tắt luật bảo vệ học sinh không tắt nó), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
      đa 3 lớp khác nhau (bắt buộc)". Ô **Dùng** ở mỗi luật: bỏ dấu là **tạm tắt** (luật mờ đi, ghi `Có` ở cột Tạm tắt,
-     chương trình bỏ qua; đánh dấu lại là dùng lại); **✕** xóa luật; chọn loại luật rồi **+ Thêm luật**.
+     chương trình bỏ qua; đánh dấu lại là dùng lại); nút thùng rác xóa luật.
      Menu **Tệp luật ▾**: **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (file chỉ có sheet
      LUẬT, HƯỚNG DẪN: sửa trong Excel, chép sang trường khác), **Tải mẫu luật** (các luật có sẵn mặc định), **Về mặc
      định**.
@@ -412,16 +416,16 @@ GV chuyên biệt không dạy hết).
 
 **Sheet `LUẬT`**: **mọi luật xếp TKB**, mỗi dòng một luật, không cần sửa code. File mẫu ghi sẵn **các luật có sẵn**
 của chương trình (23 luật, nhóm Bảo vệ học sinh, HĐTN và GVCN, Người dạy, Lịch giáo viên, Ưu tiên khi xếp giờ): sửa số
-hoặc Điểm để chỉnh, đổi Bắt buộc/Ưu tiên, xóa dòng để bỏ luật, thêm dòng để có luật mới. Muốn **tạm tắt** một luật mà
+hoặc Mức để chỉnh, đổi Bắt buộc/Ưu tiên, xóa dòng để bỏ luật, thêm dòng để có luật mới. Muốn **tạm tắt** một luật mà
 vẫn giữ dòng thì ghi `Có` ở cột **Tạm tắt** (cột cuối): chương trình bỏ qua dòng đó như khi xóa (cùng mã quy định), cột
 Luật đọc là ghi `(Tạm tắt) …`, sheet Chất lượng ghi "tắt"; xóa chữ `Có` là dùng lại. Dòng luật có sẵn chưa sửa dạng
-(chỉ khác số, điểm) thì chương trình xếp như trước, nên để mặc định thì cùng mã kết quả. Không có sheet này (file của
+(chỉ khác số, mức) thì chương trình xếp như trước, nên để mặc định thì cùng mã kết quả. Không có sheet này (file của
 bản trước) thì dùng các luật có sẵn, cộng các luật của sheet `LUẬT RIÊNG` cũ. Phần không phải luật vẫn ở chương trình:
 mỗi lớp mỗi giờ học một tiết, đủ số tiết của chương trình học, giáo viên không dạy hai nơi cùng lúc và không quá định
 mức, chỉ dạy các môn chức vụ được dạy. Mỗi luật là một câu của **bộ ghép luật** (`tkb/bo_ghep.py`):
 
 > **Với mỗi** [phạm vi] · **các tiết** [Môn, Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo viên] · **thì** [Phép đo] [So sánh]
-> [Số] · **khi** [Áp dụng khi] · [Bắt buộc / Mức / Điểm]
+> [Số] · **khi** [Áp dụng khi] · [Bắt buộc / Mức]
 
 Mỗi luật trả lời một trong **bốn câu hỏi** về các tiết, và các mẫu, phép đo xếp theo đó (cột `Kiểu luật`, `Phép đo`
 ghi như cũ; giao diện và sheet HƯỚNG DẪN chia theo bốn câu hỏi):
@@ -434,8 +438,8 @@ ghi như cũ; giao diện và sheet HƯỚNG DẪN chia theo bốn câu hỏi):
 | **Ai dạy** | Chỉ giáo viên dạy, Buổi nghỉ của giáo viên, Giáo viên chỉ dạy cơ sở 2 | Người dạy |
 
 Cột: `Nhóm | Kiểu luật | Với mỗi | Môn | Gồm môn tăng cường | Nhãn | Trừ nhãn | Khối | Lớp | Ngày | Tiết | Buổi |
-Giáo viên | Phép đo | So sánh | Số | Đếm theo | Môn thứ hai | Áp dụng khi | Bắt buộc | Mức | Điểm | Luật đọc là` (cột Nhóm
-và Luật đọc là chỉ để đọc, chương trình ghi lại; thêm cột `Ghi chú` tùy ý; chương trình tìm cột theo tiêu đề). `Kiểu luật` là một **mẫu** (điền sẵn phạm vi, phép đo) hoặc
+Giáo viên | Phép đo | So sánh | Số | Đếm theo | Môn thứ hai | Áp dụng khi | Bắt buộc | Mức | Tạm tắt | Luật đọc là`
+(file cũ có thêm cột `Điểm` vẫn đọc được; cột Nhóm và Luật đọc là chỉ để đọc, chương trình ghi lại; thêm cột `Ghi chú` tùy ý; chương trình tìm cột theo tiêu đề). `Kiểu luật` là một **mẫu** (điền sẵn phạm vi, phép đo) hoặc
 **Tự ghép** (ghi đủ Với mỗi, Phép đo, So sánh). Cột không dùng để trống.
 
 | Mẫu | Cột dùng | Ví dụ |
@@ -511,9 +515,12 @@ có nhãn Môn nặng vào giờ có nhãn Hạn chế môn nặng"), dòng khá
 trở lên").
 
 - **Bắt buộc** `Có`: TKB phải theo đúng (luật cứng, bộ kiểm tra độc lập kiểm lại). `Không` hoặc trống: **ưu tiên**
-  (mục tiêu mềm): **Điểm** là điểm trừ mỗi lần không theo (các luật có sẵn ghi sẵn điểm, vd môn nặng ở tiết hạn chế
-  1.200), hoặc **Mức** `Thấp`, `Vừa`, `Cao`, `Rất cao` (hoặc `1`–`4`; trống là Vừa): 100, 400, 1.500, 5.000 điểm.
-  Câu đọc lại ghi mức bằng chữ, dòng ghi Điểm đọc theo mức gần nhất (vd 1.200 điểm là "ưu tiên cao"). Sau khi xếp,
+  (mục tiêu mềm), chọn **Mức** `Thấp`, `Vừa`, `Cao`, `Rất cao` (hoặc `1`–`4`; trống là Vừa): 100, 400, 1.500, 5.000
+  điểm trừ mỗi lần không theo. Các luật ưu tiên có sẵn đã chỉnh sẵn điểm riêng (vd môn nặng ở tiết hạn chế 1.200 điểm,
+  ghi là mức Cao; tiết trống của giáo viên 10 điểm, mức Thấp): để nguyên mức mặc định thì dùng điểm đó (TKB như
+  trước), đổi sang mức khác thì theo điểm chung của mức. File mẫu và file cập nhật không còn cột **Điểm**; file cũ ghi
+  Điểm (điểm trừ ghi thẳng) vẫn đọc được, dòng ghi điểm riêng thì file cập nhật giữ cột đó. Câu đọc lại ghi mức bằng
+  chữ, dòng ghi Điểm đọc theo mức gần nhất. Sau khi xếp,
   màn hình in số lần không theo từng luật ưu tiên của luật thêm vào.
 - Môn, Lớp, Khối, Ngày, Tiết ghi danh sách: `3, 4`, `3-5`; `Thứ 2, Thứ 4`, `T2-T4`; `1`, `5-7`. Buổi: `Sáng` hoặc
   `Chiều`.
@@ -555,7 +562,7 @@ File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền m�
 | Nằm trong file vào | Nằm trong code |
 |---|---|
 | Danh sách môn, tên môn, số tiết từng khối (`CHƯƠNG TRÌNH HỌC`) | Giá trị mặc định của các quy định (`tkb/config.py`), dùng khi file không ghi; các giá trị gắn tên môn (môn GVCN nhận trọn, môn nặng, HĐTN…) là dữ liệu của bộ luật mẫu Tiểu học Việt Nam (`tkb/bo_mau.py`), code không chứa tên môn nào |
-| Giáo viên, chức vụ, lớp chủ nhiệm, số tiết, thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ (`NHÂN SỰ`) | Trọng số của phân công, điểm của các mức Thấp…Rất cao cho luật ưu tiên không ghi Điểm (`config.Weights`; điểm của từng luật nằm ở dòng luật) và tham số xếp giờ (`LNS_*`) |
+| Giáo viên, chức vụ, lớp chủ nhiệm, số tiết, thai sản, hợp đồng, cơ sở 2, lớp đang dạy, buổi nghỉ (`NHÂN SỰ`) | Trọng số của phân công, điểm của các mức Thấp…Rất cao cho luật ưu tiên (`config.Weights`; điểm đã chỉnh của các luật có sẵn ở `tkb/luat_co_san.py`) và tham số xếp giờ (`LNS_*`) |
 | Danh sách lớp (sheet `LỚP`, không có thì suy ra từ các dòng Chủ Nhiệm), tên khối, GV chuyên biệt (sheet `CHỨC VỤ`, hoặc chức vụ trùng tên môn) | Định mức người cần tuyển (Số tiết lớn nhất của GV cùng chức vụ), thai sản không bù |
 | Khung giờ, HĐTN, tiết của GVCN, môn GVCN nhận/cắt/nhận thêm, quyền dạy, ai được bù, luật bảo vệ học sinh, môn nặng, môn buổi sáng, tên viết tắt (cột quy định của `CHƯƠNG TRÌNH HỌC`, sheet `QUY ĐỊNH`); mọi luật xếp TKB, cả số và điểm (sheet `LUẬT`) | Chế độ, số tiết bù tối đa, thời gian (`main.py`) |
 | Style của các file ra (phông, cỡ chữ, viền, chiều cao dòng) | |
