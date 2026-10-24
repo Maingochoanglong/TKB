@@ -62,7 +62,8 @@ Chỉ đọc file `.xlsx`: file `.xls`, `.csv` thì mở bằng Excel rồi *Lư
 đuôi thì chỉ cần đổi lại tên).
 
 Mọi việc với file nằm ở menu **Tệp ▾** góc trên: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (điền trong
-Excel rồi mở lại), Bắt đầu lại…, Xóa dữ liệu trên máy này…. Mở file thì hộp thoại cho chọn phần nào lấy từ file.
+Excel rồi mở lại), Nhập TKB đang dùng… (mục 4), Bắt đầu lại…, Xóa dữ liệu trên máy này…. Mở file thì hộp thoại
+cho chọn phần nào lấy từ file.
 
 ![Mở file Excel: chọn phần lấy từ file](hinh/1_nhap_excel.jpg)
 
@@ -148,6 +149,15 @@ bảng tiết thiếu (lớp, môn, lý do); tăng số tiết bù tối đa, s�
 
 Luôn làm việc trên file **`<tên>_cap_nhat.xlsx`** của lần chạy trước (**Nạp vào giao diện** ở trang kết quả, hoặc
 **Tệp ▾ › Mở file Excel…**): file này giữ TKB đã xếp.
+
+**Trường đang dùng một TKB xếp tay** (chưa xếp bằng chương trình): mở file Excel của trường (nhân sự, môn) như thường,
+rồi **Tệp ▾ › Nhập TKB đang dùng…** và chọn file TKB dạng bảng tin (mỗi lớp một cột, mỗi tiết ghi môn, dưới là tên
+giáo viên khi không phải GVCN; như file `TKB_toan_truong.xlsx`). Chữ nào chương trình chưa hiểu (vd `T` cho Toán,
+`GDTC` cho Thể dục, tên giáo viên viết tắt khác) thì hộp thoại hỏi: chọn môn hay người rồi bấm **Đọc lại**; tiết
+ngoài khung giờ (vd chiều Thứ 5 có tiết 4 mà khung giờ chỉ 3 tiết) bỏ qua, có báo. Bấm **Nhập vào bước 8**: trang vẽ
+TKB đó, kiểm mọi luật bắt buộc (ô sai tô đỏ, câu lỗi ghi luật nào), rồi **Xếp lại phần còn lại** sửa ít ô nhất để
+đúng luật. Lỗi vì file chưa ghi đúng cách trường đang làm (vd giáo viên Thể dục dạy cả Kỹ năng sống: ghi cột Chức Vụ
+Thêm) thì sửa file trước khi xếp lại.
 
 - **Tuyển được người**: chỉ đổi chữ `chưa có` thành tên người mới (không đổi thứ tự dòng) rồi xếp: TKB giữ nguyên
   từng ô, mã TKB giữ nguyên, chỉ thêm tên.

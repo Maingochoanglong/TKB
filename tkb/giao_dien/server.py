@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from .. import config, kich_ban
+from .. import config, kich_ban, nhap_tkb
 from ..staff import InputError
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -279,6 +279,43 @@ class App:
         path = self.inside(data.get("path", ""))
         return self._import(path, path.name)
 
+    def board(self, data: dict):
+        """Nhập TKB đang dùng (dạng bảng tin, tkb/nhap_tkb.py) theo kịch bản đang soạn: lưới TKB đã xếp (để thay
+        scenario["saved"]), báo cáo và các dòng báo cáo; data: {scenario, run, file (base64), name, mapping}."""
+        import base64
+        import binascii
+        name = str(data.get("name") or "TKB")
+        try:
+            body = base64.b64decode(data["file"], validate=True)
+        except (KeyError, TypeError, binascii.Error):
+            raise InputError("Không đọc được file gửi lên") from None
+        from ..rules import applied
+        with self.lock:
+            grid = self._grid(data)
+            if grid.problem is None:
+                raise InputError("Dữ liệu đang soạn còn lỗi, sửa xong (các bước có dấu ⚠) mới nhập TKB được: "
+                                 + "; ".join(grid.errors[:3]))
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "tkb.xlsx"
+                path.write_bytes(body)
+                try:
+                    with applied(grid.values):
+                        rows, report = nhap_tkb.read_board(path, grid.problem, data.get("mapping"))
+                except InputError as exc:
+                    raise InputError(f"Không đọc được TKB trong file {name}: {exc}") from None
+                except Exception as exc:  # không phải file Excel (.xlsx) hợp lệ
+                    from ..__main__ import _not_xlsx, not_xlsx_message
+                    if _not_xlsx(exc):
+                        text = not_xlsx_message(name)
+                        raise InputError(text[0].upper() + text[1:]) from None
+                    raise
+            problem = grid.problem
+            subjects = list(dict.fromkeys(problem.subject_label(c.subject) for c in problem.courses))
+            teachers = [{"code": t.code, "name": t.name} for t in sorted(
+                (t for t in problem.teachers.values() if not t.supplementary), key=lambda t: t.row or 0)]
+        return {"grid": rows, "report": report, "lines": nhap_tkb.describe(report), "subjects": subjects,
+                "teachers": teachers}
+
     def upgrade(self, data: dict):
         """Bản nháp kịch bản của bản trước (khung giờ cách cũ) -> bản hiện tại (kich_ban.upgrade)."""
         return {"scenario": kich_ban.upgrade(data["scenario"])}
@@ -508,7 +545,7 @@ class Handler(BaseHTTPRequestHandler):
                       ("GET", "status"): app.status, ("GET", "ping"): lambda _: {"ok": True},  # trang hỏi còn chạy
                       ("POST", "import_path"): app.import_path, ("POST", "check"): app.check, ("POST", "run"): app.run,
                       ("POST", "describe"): app.describe, ("POST", "timetable"): app.timetable,
-                      ("POST", "upgrade"): app.upgrade,
+                      ("POST", "upgrade"): app.upgrade, ("POST", "board"): app.board,
                       ("POST", "swaps"): app.swaps,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
                       ("POST", "settings"): app.settings, ("POST", "forget"): app.forget}

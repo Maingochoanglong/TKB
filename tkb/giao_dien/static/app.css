@@ -363,6 +363,11 @@ table.off-grid tbody th { text-align: left; }
 
 /* Nhập từ Excel */
 .import-parts { display: grid; gap: 6px; }
+.board-map { display: grid; gap: 6px; margin-top: 12px; }
+.board-map .board-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; }
+.board-map .board-row b { min-width: 5em; }
+.board-map .board-row select { margin-left: auto; max-width: 100%; }
 .import-part { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 10px;
   border: 1px solid var(--line); border-radius: 8px; }
 .import-part label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }

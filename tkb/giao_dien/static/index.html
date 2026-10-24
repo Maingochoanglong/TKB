@@ -27,6 +27,9 @@
         <label class="menu-item" role="menuitem"
           title="File của trường, file mẫu đã điền, hay file cập nhật *_cap_nhat.xlsx của lần xếp trước: chọn phần nào lấy từ file">
           Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden></label>
+        <label class="menu-item" role="menuitem"
+          title="TKB nhà trường đang dùng, dạng bảng tin (mỗi lớp một cột, mỗi tiết ghi môn và tên giáo viên): đọc vào bước 8 để kiểm luật, rồi sửa ít ô nhất">
+          Nhập TKB đang dùng…<input type="file" id="board-open" accept=".xlsx" hidden></label>
         <button type="button" class="menu-item" role="menuitem" id="btn-export"
           title="Lưu mọi thứ đang soạn thành một file Excel: mở lại được ở đây, gửi cho trường khác được">
           Lưu ra file Excel</button>
@@ -361,6 +364,25 @@
     <div class="actions end">
       <button value="cancel" class="ghost">Hủy</button>
       <button value="apply" id="import-apply" class="primary">Nhập</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="board-dialog">
+  <form method="dialog">
+    <div class="toolbar">
+      <h2>Nhập TKB đang dùng: <span id="board-file"></span></h2>
+      <button value="cancel" class="icon" title="Đóng">✕</button>
+    </div>
+    <p class="muted">TKB dạng bảng tin: mỗi lớp một cột, mỗi tiết ghi môn, dưới là tên giáo viên dạy (ô không có tên:
+      GVCN của lớp dạy). Chữ nào chương trình chưa hiểu thì chọn ở dưới rồi bấm <b>Đọc lại</b>; ô còn chữ chưa chọn
+      thì bỏ qua.</p>
+    <ul id="board-lines" class="msgs"></ul>
+    <div id="board-map" class="board-map"></div>
+    <div class="actions end">
+      <button value="cancel" class="ghost">Hủy</button>
+      <button type="button" id="board-again" class="ghost">Đọc lại</button>
+      <button value="apply" id="board-apply" class="primary">Nhập vào bước 8</button>
     </div>
   </form>
 </dialog>

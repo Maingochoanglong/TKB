@@ -194,6 +194,11 @@ Chạy test: `python -m pytest -q`
 
 ## Tuyển được người, đổi giữa năm: giữ nguyên TKB
 
+**Trường đang dùng một TKB xếp tay:** nhập TKB đó làm TKB đã xếp, chương trình kiểm luật rồi sửa ít ô nhất.
+- Giao diện: mở file vào của trường, rồi **Tệp ▾ › Nhập TKB đang dùng…**, chọn file TKB dạng bảng tin (mỗi lớp một cột, mỗi tiết ghi môn, dưới là tên giáo viên khi không phải GVCN; như `TKB_toan_truong.xlsx`). Chữ chưa khớp môn hay giáo viên nào thì hộp thoại hỏi; nhập xong trang sang bước 8 (ô sai luật tô đỏ), **Xếp lại phần còn lại** sửa ít ô nhất.
+- Dòng lệnh: `python -m tkb.nhap_tkb <TKB đang dùng.xlsx> <file vào.xlsx> [-o <ra.xlsx>] [--ghep T=Toán --ghep GDTC="Thể Dục" --ghep Stem+=] [--max-overtime n]` ghi file vào kèm sheet **TKB đã xếp** (mặc định `<file vào>_tkb_dang_dung.xlsx`), rồi `python -m tkb <ra.xlsx>`: TKB đúng luật thì dùng lại, không thì xếp lại ít xáo trộn như dưới đây.
+- Đọc dễ tính (`tkb/nhap_tkb.py`): dòng tên lớp là dòng có nhiều tên lớp nhất ("Lớp 3/1" cũng được); cột tiết là cột bên trái có nhiều số nhất, số 1 mở một buổi, buổi theo thứ tự khung giờ (có chữ ngày "2", "Thứ 3", "T4" ở cột trái thì theo ngày đó); tiết ngoài khung giờ bỏ qua. Môn khớp tên, `Tên trong TKB`, chữ viết tắt, chữ đầu các từ viết hoa (`LS&ĐL`), vài chữ đầu (`Tin`); giáo viên khớp `Tên Viết Tắt`, tên tự viết tắt, họ tên, Mã GV, dòng GVCN, tên kèm chữ đầu (`N.Ly`, `Võ Ly`). Ô không ghi tên: GVCN dạy. Môn rồi tên một dòng (`TA Phi`) cũng được.
+
 File vào cập nhật (`<tên file vào>_cap_nhat.xlsx`) lưu luôn TKB đã xếp ở sheet **TKB đã xếp**, dạng lưới như TKB: `Lớp | Tiết | Thứ 2 … Thứ 6`, mỗi ô ghi môn, xuống dòng ghi Mã GV (thêm `(bù)` ở tiết dạy bù, `(khóa)` ở ô khóa); dòng đầu ghi mã kết quả và mã các quy định đã dùng.
 
 1. Chạy chế độ tuyển thêm. File vào cập nhật có thêm các dòng `chưa có` (vd Bộ Môn 5–8).

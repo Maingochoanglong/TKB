@@ -105,6 +105,7 @@
 | 87 | File Excel điền tay (2) | Chạy lại 76 lỗi gõ: còn báo lỗi với `23 tiết`, `23,0`, ô chương trình học `-`; dòng `Tổng cộng`/`Ghi chú` cuối bảng nhân sự; sheet `Nhân sự 2026` không ở đầu; tiêu đề `Khối1`, `Lớp 1`; lớp `Lớp 3/2`, `3.1`; buổi nghỉ `T5 chiều`, `chiều thứ năm`, `Thứ 6`; Lớp Đang Dạy `3/1 3/2`; sheet nhân sự trống báo "không có Chủ Nhiệm"; file `.xlsx` đổi đuôi `.xls` | Số trong ô nhận đơn vị `tiết` và dấu phẩy thập phân (`staff.to_number`), ô chương trình học `-` là 0. Dòng tổng, ghi chú cuối bảng nhân sự bỏ qua (`is_footer_row`); dòng chỉ có tên báo "không phải một người thì xóa dòng". Sheet nhân sự/chương trình học: tên ghi thêm chữ sau (duy nhất) vẫn đọc; không có thì sheet đầu tiên có tiêu đề nhân sự. Chương trình học: `Khối1`, `Khoi 1`, cột `Môn`/`Tên môn`, không có cột Khối thì `Lớp <số>` là khối. Lớp: bỏ chữ `Lớp` đầu, `3.1`/`3-1` (ô chữ) là `3/1`, ô số 3.1 báo lỗi (Excel bỏ số 0 cuối). Buổi nghỉ: ngày trước buổi, thứ ghi chữ, cả ngày. Lớp Đang Dạy: ` - `, dấu cách. Lỗi rõ: sheet nhân sự chưa có ai; file `.xlsx` mang đuôi khác thì bảo đổi tên. File đúng mẫu: **cùng mã kết quả** |
 | 88 | Tốc độ xếp giờ | Đo trên trường mẫu (máy 4 nhân, 1200): khởi đầu ~1 phút, vòng 1 ~3 phút cho 98% mức giảm chi phí, vòng 2–3 ~4 phút cho 2%; vùng cặp ngày chiếm 59% thời gian các vòng nhưng chỉ góp 15% mức giảm; mã Python chỉ ~6 giây | Mỗi vòng chỉ xếp lại 3 cặp ngày có chi phí cao nhất (`LNS_DAY_PAIRS`); từ vòng 2 chỉ các vùng vòng trước có giảm chi phí cùng các điểm nóng mới (`LNS_FOCUS`). Đo (đơn vị tất định, chi phí cuối): trường mẫu 1114 → 645 (−42%), 24.860 → 24.960; hạt giống khác 1207 → 839 (−30%), 24.640 → 24.840; file của trường 1205 → 1168, 35.720 → 35.040 (dư ngân sách cho bước xếp tiếp không theo lịch cơ sở). Trang xếp TKB nhắc có thể Dừng sớm sau vòng 1. **Mã kết quả đổi** (trường nhỏ của test không đổi; file của trường: Linux `6EFD-D248-0795`, Windows `DF12-11D2-8AF5`) |
 | 89 | TKB toàn trường | Chỉ có TKB theo lớp (mỗi khối một sheet, mỗi lớp một bảng) và TKB từng giáo viên: nhà trường muốn một bảng cả trường như TKB dán bảng tin (mỗi lớp một cột, môn viết tắt, tên viết tắt của GV khác GVCN) phải tự kẻ trong Excel | File **`TKB_toan_truong.xlsx`** (`writer.write_school_timetable`, mục 11.7); cột không bắt buộc **Tên Viết Tắt** của sheet NHÂN SỰ (trống: tự viết tắt từ họ tên, `writer.short_names`). Không đổi mô hình, mã kết quả giữ nguyên |
+| 90 | Nhập TKB đang dùng | Trường đang dùng một TKB xếp tay (dạng bảng tin) không đưa được vào chương trình: muốn biết TKB đó sai luật nào, hay sửa ít ô cho đúng luật, phải gõ lại cả TKB vào sheet TKB đã xếp | **Tệp › Nhập TKB đang dùng…** của giao diện, dòng lệnh `python -m tkb.nhap_tkb` (`tkb/nhap_tkb.py`, mục 11.2): đọc TKB dạng bảng tin (mỗi lớp một cột, như `TKB_toan_truong.xlsx`, mục 11.7) thành sheet TKB đã xếp; chữ chưa khớp môn hay giáo viên thì hỏi (`--ghep`). Trang kiểm mọi luật bắt buộc, Xếp lại phần còn lại sửa ít ô nhất. Đọc lại `TKB_toan_truong.xlsx` của chương trình ra đúng TKB đã xếp. TKB nhà trường gửi (29 lớp, 928 tiết): ghép 4 chữ viết tắt (2 chữ có gợi ý sẵn) thì đọc được 927 tiết, 29 ô ngoài khung giờ bỏ qua. Không đổi mô hình, mã kết quả giữ nguyên |
 
 ---
 
@@ -812,6 +813,18 @@ Chỉ gồm **các sheet `Khối 1` … `Khối 5`**, bố cục như mẫu `dat
   - Giao diện (bước 7 Thời khóa biểu) đọc lưới này bằng cùng một hàm (`staff.parse_saved_grid`) và kiểm như khi dùng
     lại (`solver.saved_lessons` + `checker.check`); đổi hai tiết cùng lớp là đổi chữ hai ô của lưới và thêm `(khóa)`,
     "Xếp lại phần còn lại" là chạy với TKB đã xếp này (tối đa 120 giây).
+  - **Nhập TKB đang dùng** (`tkb/nhap_tkb.py` `read_board`; giao diện Tệp › Nhập TKB đang dùng…, dòng lệnh
+    `python -m tkb.nhap_tkb <TKB.xlsx> <file vào.xlsx> [-o …] [--ghep CHỮ=TÊN]`): đọc TKB xếp tay dạng bảng tin thành
+    lưới này, để kiểm luật và xếp lại ít xáo trộn như trên. Dòng tên lớp: dòng có nhiều tên lớp của file vào nhất
+    (15 dòng đầu, mọi sheet; bỏ chữ `Lớp`). Cột tiết: cột bên trái có nhiều số nhất; số 1 (hay số không lớn hơn số
+    trước) mở một buổi; các buổi theo thứ tự khung giờ, có chữ ngày ở cột trái (`2`, `Thứ 3`, `T4`) thì theo ngày
+    đó; tiết không có trong khung giờ bỏ qua (đếm, báo). Ô: các dòng từ tiết này đến tiết sau; mẩu chữ khớp môn
+    (tên, `Tên trong TKB`, môn viết tắt của mục 11.7, chữ đầu các từ, vài chữ đầu từ 3 chữ) hay giáo viên (Tên Viết
+    Tắt, tên tự viết tắt, họ tên, Mã GV, dòng GVCN, tên kèm chữ đầu họ `N.Ly`, chữ trong họ tên `Võ Ly`; trùng
+    nhiều người thì ưu tiên người không chủ nhiệm); môn rồi tên một dòng cũng tách được; ô hai môn `A / B`. Không
+    ghi tên: GVCN của lớp. Chữ không khớp gì: hỏi người dùng (chọn môn, người, hay bỏ qua), không đoán; chữ khớp
+    nhiều người cũng hỏi. Ô không đọc được để trống (lưới thiếu tiết thì bộ kiểm tra báo). Đọc lại
+    `TKB_toan_truong.xlsx` ra đúng TKB đã xếp.
   - Giáo viên khớp theo **Mã GV** (chức vụ + số thứ tự, vd `Bộ Môn 5`), nên đổi tên người `chưa có` thành tên người mới tuyển thì TKB và mã kết quả giữ nguyên; không được đổi thứ tự dòng trong cùng chức vụ.
   - Các file ra viết lại giống hệt; style chép từ file vào bỏ qua các màu chương trình tô (`style.MARK_FILLS`).
 
