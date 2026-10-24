@@ -37,6 +37,9 @@
           title="File Excel trống, đủ các sheet và luật mặc định, để điền trong Excel rồi mở lại ở đây">
           Tải file mẫu trống</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-new">Bắt đầu lại…</button>
+        <button type="button" class="menu-item" role="menuitem" id="btn-forget"
+          title="Dùng máy chung: xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác khỏi trang trước khi rời máy">
+          Xóa dữ liệu trên máy này…</button>
       </div>
     </details>
   </div>
@@ -80,6 +83,7 @@
   <button type="button" role="tab" data-tab="tkb">8. Thời khóa biểu</button>
 </nav>
 
+<div id="offline" class="notice error offline" role="alert" hidden></div>
 <div id="notice" class="notice" hidden></div>
 
 <main>
@@ -413,6 +417,23 @@
     </div>
     <div id="detail-body" class="detail"></div>
     <div class="actions end"><button value="close" class="primary">Xong</button></div>
+  </form>
+</dialog>
+
+<dialog id="forget-dialog">
+  <form method="dialog">
+    <h2>Xóa dữ liệu trên máy này</h2>
+    <p>Dùng khi máy dùng chung. Trang sẽ xóa <b>dữ liệu đang soạn</b> (danh sách giáo viên, môn, luật, TKB đang xem),
+      <b>bản nháp tự lưu</b> và <b>lịch sử hoàn tác</b>, rồi về trang Bắt đầu. Không hoàn tác được: cần giữ thì
+      <b>Tệp › Lưu ra file Excel</b> trước.</p>
+    <p class="muted">Trang không xóa các file đã ghi ra máy, vì có thể là file trường cần giữ: file của các lần xếp TKB
+      nằm ở thư mục kết quả <code id="forget-dir"></code>, file đã lưu nằm ở thư mục Tải về của trình duyệt. Xóa tay
+      những file không cần, rồi đóng cửa sổ đen của chương trình.</p>
+    <div class="actions end">
+      <button type="button" class="ghost" id="forget-open">Mở thư mục kết quả</button>
+      <button value="cancel" class="ghost">Hủy</button>
+      <button value="forget" class="danger" id="forget-ok">Xóa dữ liệu</button>
+    </div>
   </form>
 </dialog>
 

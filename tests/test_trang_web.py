@@ -37,6 +37,7 @@ def page(browser, tmp_path):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.app = app  # _solved giữ khóa của máy chủ
+    page.httpd = httpd  # test tắt chương trình giữa chừng
     page.goto(url)
     yield page
     context.close()
@@ -105,6 +106,59 @@ def test_sample_steps_undo_switch_and_search(page):
     assert int(page.text_content("#count-luat")) == total
     page.fill("#rule-search", "Toán")
     assert 0 < page.locator("#rule-list .rule-item").count() < total
+
+
+def test_banner_when_program_stops_and_restarts(page, tmp_path):
+    """Cửa sổ dòng lệnh bị đóng: trang tự thấy (hỏi /api/ping định kỳ) và hiện dải báo cách mở lại. Mở lại chương
+    trình trên cùng cổng (mã trang mới): dải báo đổi thành nút Tải lại trang, tải lại thì trang chạy bình thường."""
+    page.wait_for_selector("#start:not([hidden])")
+    assert page.locator("#offline").is_hidden()
+    port = page.httpd.server_port
+    page.httpd.shutdown()
+    page.httpd.server_close()
+    page.locator("#offline").wait_for(state="visible", timeout=15000)
+    assert "Chương trình đã tắt" in page.text_content("#offline")
+    httpd, app, _ = make_server(port=port, out_dir=tmp_path / "lan_hai")
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        if httpd.server_port != port:
+            pytest.skip("cổng cũ chưa trả lại, không mở lại được trên cùng cổng")
+        _wait_text(page, "#offline", "vừa được mở lại")
+        page.locator("#offline button", has_text="Tải lại trang").click()
+        page.wait_for_selector("#start:not([hidden])")
+        assert page.locator("#offline").is_hidden()
+    finally:
+        app.shutdown()
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_forget_data_on_a_shared_machine(page):
+    """Tệp › Xóa dữ liệu trên máy này: Hủy thì giữ nguyên; Xóa thì mất bản nháp, hoàn tác và TKB máy chủ đang giữ,
+    trang về màn hình Bắt đầu và chỉ thư mục kết quả (file trong đó để nguyên)."""
+    draft = "JSON.parse(localStorage.getItem('tkb-ban-nhap-v1') || 'null')"
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    page.wait_for_function("document.querySelector('#count-gv').textContent === '45'")
+    page.wait_for_function(f"({draft}?.scenario.staff || []).length === 45")
+    page.app.grid = ("cu", None)  # như đã xem TKB ở bước 8
+    page.click("#file-menu summary")
+    page.click("#btn-forget")
+    page.wait_for_selector("#forget-dialog[open]")
+    assert page.text_content("#forget-dir") == str(page.app.out_dir)
+    page.locator("#forget-dialog button", has_text="Hủy").click()
+    assert page.text_content("#count-gv") == "45" and page.app.grid is not None
+    page.click("#file-menu summary")
+    page.click("#btn-forget")
+    page.click("#forget-ok")
+    _wait_text(page, "#notice", "Đã xóa dữ liệu đang soạn")
+    assert page.locator("#start").is_visible()
+    assert "#" not in page.url
+    assert page.locator("#btn-undo").is_disabled()
+    assert page.evaluate(f"({draft}?.scenario.staff || []).length") == 0
+    assert page.app.grid is None and page.app.job is None
+    page.wait_for_timeout(500)  # bản nháp trống của trang mới đã lưu: vẫn không có ai
+    assert page.evaluate(f"({draft}?.scenario.staff || []).length") == 0
 
 
 def test_board_import(page, tmp_path):

@@ -271,6 +271,23 @@ def test_open_only_files_inside_output_folder(server, monkeypatch):
     assert status == 400 and "Không có" in err["error"] and len(opened) == 2
 
 
+def test_forget_drops_what_the_server_holds(server):
+    """Tệp › Xóa dữ liệu trên máy này: máy chủ bỏ TKB đang xem và nhật ký lần chạy; đang xếp thì từ chối, giữ nguyên;
+    file trong thư mục kết quả để nguyên."""
+    app, url = server
+    app.out_dir.mkdir(parents=True, exist_ok=True)
+    kept = app.out_dir / FILE_NAMES["tkb"]
+    kept.write_bytes(b"PK")
+    running = type("Running", (), {"running": True, "kill": lambda self: None})()
+    app.job, app.grid = running, ("khoa", None)
+    status, err = _call(url, "/api/forget", "POST", {}, app.token)
+    assert status == 400 and "Dừng" in err["error"] and app.job is running and app.grid is not None
+    running.running = False
+    assert _call(url, "/api/forget", "POST", {}, app.token) == (200, {"ok": True})
+    assert app.job is None and app.grid is None and kept.is_file()
+    assert _call(url, "/api/status", token=app.token)[1]["lines"] == []
+
+
 def test_stop_ends_early_and_keeps_the_timetable(tmp_path):
     """Nút Dừng (Linux: Ctrl+C, Windows: Ctrl+Break tới nhóm tiến trình con): chương trình xếp xong vùng đang xếp rồi
     ghi TKB tốt nhất, không đợi hết thời gian. Chạy ở cả 4 máy Windows của CI."""
