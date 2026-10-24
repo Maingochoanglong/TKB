@@ -4,12 +4,14 @@ của tkb/giao_dien/static/app.js (trang bắt đầu, dấu từng bước, ho�
 Cần Playwright: pip install -r requirements-test-ui.txt rồi python -m playwright install chromium (CI Linux làm sẵn).
 Máy không có thì bỏ qua."""
 import glob
+import json
 import threading
 
 import pytest
 
 sync_api = pytest.importorskip("playwright.sync_api")
 
+from tkb.giao_dien import server  # noqa: E402
 from tkb.giao_dien.server import make_server  # noqa: E402
 
 
@@ -30,12 +32,13 @@ def browser():
 @pytest.fixture
 def page(browser, tmp_path):
     httpd, app, url = make_server(port=0, out_dir=tmp_path / "ket_qua")
+    # Các test soạn dữ liệu dùng giao diện đầy đủ (lựa chọn của trang lưu ở máy chủ, file trang.json của app.data);
+    # test của giao diện gọn đặt lại "1".
+    app.data.mkdir(parents=True)
+    (app.data / server.STORE_NAME).write_text(json.dumps({"tkb-gon": "0"}), encoding="utf-8")
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     context = browser.new_context(viewport={"width": 1280, "height": 900})
-    # Các test soạn dữ liệu dùng giao diện đầy đủ; test của giao diện gọn đặt lại "1" (khóa có rồi thì giữ nguyên).
-    context.add_init_script("try { if (localStorage.getItem('tkb-gon') === null) localStorage.setItem('tkb-gon', '0') }"
-                            " catch (e) {}")
     page = context.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -115,7 +118,7 @@ def test_simple_mode_has_three_steps(page, tmp_path):
     """Giao diện gọn (mặc định): trang bắt đầu chỉ có Mở file Excel; mở file xong là tới bước Kiểm tra & xếp, chỉ có ba
     bước; lỗi của dữ liệu về bước Mở file Excel. Tệp › Hiện đủ các bước soạn thì có đủ tám bước, tải lại vẫn giữ."""
     from tkb.truong_mau import write_sample_input
-    page.evaluate("localStorage.setItem('tkb-gon', '1')")
+    page.evaluate("async () => { store.setItem('tkb-gon', '1'); await store.flush(); }")
     page.reload()
     page.wait_for_selector("#start:not([hidden])")
     assert page.locator('[data-start="open"]').first.is_visible()
@@ -176,7 +179,7 @@ def test_banner_when_program_stops_and_restarts(page, tmp_path):
 def test_forget_data_on_a_shared_machine(page):
     """Tệp › Xóa dữ liệu trên máy này: Hủy thì giữ nguyên; Xóa thì mất bản nháp, hoàn tác và TKB máy chủ đang giữ,
     trang về màn hình Bắt đầu và chỉ thư mục kết quả (file trong đó để nguyên)."""
-    draft = "JSON.parse(localStorage.getItem('tkb-ban-nhap-v1') || 'null')"
+    draft = "JSON.parse(store.getItem('tkb-ban-nhap-v1') || 'null')"
     page.wait_for_selector("#start:not([hidden])")
     page.click('[data-start="sample"]')
     page.wait_for_function("document.querySelector('#count-gv').textContent === '45'")
@@ -199,6 +202,29 @@ def test_forget_data_on_a_shared_machine(page):
     assert page.app.grid is None and page.app.job is None
     page.wait_for_timeout(500)  # bản nháp trống của trang mới đã lưu: vẫn không có ai
     assert page.evaluate(f"({draft}?.scenario.staff || []).length") == 0
+    saved = json.loads((page.app.data / server.STORE_NAME).read_text(encoding="utf-8"))
+    assert not json.loads(saved.get("tkb-ban-nhap-v1") or "null") or not json.loads(saved["tkb-ban-nhap-v1"])["scenario"]["staff"]
+
+
+def test_page_keeps_nothing_in_the_browser(page):
+    """Bản nháp và lựa chọn của trang ở file trang.json trong thư mục chương trình (app.data), không ở bộ nhớ của
+    trình duyệt: tải lại trang thì đọc lại từ file; xóa thư mục chương trình là không còn gì."""
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    page.wait_for_function("document.querySelector('#count-gv').textContent === '45'")
+    path = page.app.data / server.STORE_NAME
+
+    def staff_in_file():
+        draft = json.loads(path.read_text(encoding="utf-8")).get("tkb-ban-nhap-v1")
+        return len(json.loads(draft)["scenario"]["staff"]) if draft else 0
+    for _ in range(50):  # bản nháp ghi sau 0,3 giây (saveDraft) rồi gửi máy chủ
+        if staff_in_file() == 45:
+            break
+        page.wait_for_timeout(100)
+    assert staff_in_file() == 45
+    assert page.evaluate("localStorage.length + sessionStorage.length") == 0
+    page.reload()
+    page.wait_for_function("document.querySelector('#count-gv').textContent === '45'")
 
 
 def test_board_import(page, tmp_path):

@@ -21,7 +21,7 @@ thiếu, số tiết bù của từng người, số người cần tuyển và 
 [`TKB_Windows.zip`](https://github.com/Maingochoanglong/TKB/raw/main/TKB_Windows.zip) ở thư mục gốc của dự án (bản thử
 của từng lần sửa mã: mục Actions → workflow **Đóng gói TKB.exe** → Artifacts), giải nén, bấm đúp `TKB.exe`
 (Windows báo "Windows protected your PC" vì gói chưa ký số thì bấm More info › Run anyway): mở đúng giao diện web ở
-Cách 0, kết quả ghi vào thư mục `TKB` trong thư mục người dùng.
+Cách 0; mọi thứ nằm trong thư mục `TKB` vừa giải nén: kết quả ở `TKB\ket_qua`, bản nháp của trang, file tạm và dữ liệu trình duyệt ở `TKB\du_lieu`. Không ghi gì ra ngoài: xóa thư mục `TKB` là không còn gì trên máy.
 Gói dựng bằng `python tools/dong_goi.py` (PyInstaller, `pip install -r requirements-build.txt`), cùng OR-Tools ghim
 nên ra cùng mã kết quả như `python -m tkb` trên Windows; gói không chứa file Excel nào của trường.
 
@@ -133,9 +133,12 @@ lại. Chọn nào thì trang nhớ trên máy này.
      vào trang, các ô đã đổi tô vàng. Ô khóa sai luật bắt buộc (vd dời HĐTN khỏi tiết cố định) không giữ được: trang
      báo rõ ô nào. TKB đúng mọi luật thì nút là **Ghi TKB này ra file Excel** (dùng lại nguyên vẹn, mã TKB mới).
 
-- Thư mục kết quả mặc định `out/giao_dien` của dự án (đã bỏ qua trong git; bản `TKB.exe`: thư mục `TKB` trong thư mục
-  người dùng); đổi ở trang Kiểm tra & xếp TKB. Kịch bản đang soạn được lưu
-  tự động trong trình duyệt của máy này.
+- Thư mục kết quả mặc định `out/giao_dien` của dự án (đã bỏ qua trong git; bản `TKB.exe`: `ket_qua` cạnh `TKB.exe`);
+  đổi ở trang Kiểm tra & xếp TKB (giao diện đầy đủ). Kịch bản đang soạn và các lựa chọn của trang được lưu tự động ở
+  file `trang.json` trong thư mục dữ liệu của chương trình (`out/du_lieu`; bản `TKB.exe`: `du_lieu` cạnh `TKB.exe`),
+  không ở bộ nhớ của trình duyệt. File tạm cũng ở đó (`tam`, xóa khi tắt). Trang mở trong cửa sổ riêng của Edge (không
+  có thì Chrome) với hồ sơ trình duyệt ở `du_lieu/trinh_duyet` (lịch sử, bộ nhớ đệm, file tải về vào thư mục kết
+  quả); máy không có hai trình duyệt đó thì mở bằng trình duyệt mặc định. Xóa thư mục chương trình là không còn gì.
 - Cài đặt chạy mặc định như `main.py`, riêng số tiết bù tối đa là mức được duyệt 2 (file của trường hiện cần 3).
   Các cài đặt này không nằm trong file Excel; cùng file vào và cùng cài đặt thì ra cùng mã kết quả như dòng lệnh.
 - Mọi ô quy định sinh từ `tkb/rules.py`: thêm một quy định vào đó là giao diện tự có ô nhập.

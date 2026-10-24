@@ -42,6 +42,36 @@ async function api(method, path, body, opts = {}) {
   return data;
 }
 
+// Bản nháp và các lựa chọn của trang (giao diện gọn hay đầy đủ, bước đang mở…) lưu ở máy chủ, file du_lieu/trang.json
+// trong thư mục chương trình, thay cho bộ nhớ của trình duyệt: xóa thư mục chương trình là không còn gì trên máy.
+// Cách dùng như localStorage (getItem/setItem/removeItem); ghi gộp sau 50 ms, đóng trang thì gửi ngay (beacon).
+const store = {
+  items: {},
+  timer: null,
+  async load() {
+    try { this.items = (await api("GET", "/api/store")) || {}; } catch { this.items = {}; }
+  },
+  getItem(k) { return Object.prototype.hasOwnProperty.call(this.items, k) ? this.items[k] : null; },
+  setItem(k, v) { this.items[k] = String(v); this.later(); },
+  removeItem(k) { delete this.items[k]; this.later(); },
+  later() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.flush().catch(() => { /* máy chủ tắt: dải báo đã hiện */ }), 50);
+  },
+  async flush() {
+    clearTimeout(this.timer);
+    this.timer = null;
+    await api("POST", "/api/store", { items: this.items });
+  },
+  beacon() {
+    if (!this.timer) return;
+    clearTimeout(this.timer);
+    this.timer = null;
+    const body = new Blob([JSON.stringify({ items: this.items })], { type: "application/json" });
+    navigator.sendBeacon(`/api/store?t=${encodeURIComponent(TOKEN)}`, body);
+  },
+};
+
 // Chương trình (cửa sổ dòng lệnh) tắt giữa chừng: trang hỏi /api/ping mỗi PING_MS mili giây và hiện dải báo cố định
 // ở đầu trang. "down" = không ai trả lời; "restarted" = chương trình đã mở lại (mã trang cũ hết hạn); null = bình thường.
 const PING_MS = 5000;
@@ -68,7 +98,7 @@ function ping() {
 
 function saveDraft() {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(st));
+    store.setItem(DRAFT_KEY, JSON.stringify(st));
     const now = new Date();
     $("#draft-info").textContent = `Đã lưu nháp lúc ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
   } catch { /* không lưu được bản nháp: bỏ qua */ }
@@ -88,7 +118,7 @@ function changed(typing = false) {
   checkLater();
 }
 function loadDraft() {
-  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; }
+  try { return JSON.parse(store.getItem(DRAFT_KEY) || "null"); } catch { return null; }
 }
 
 function notify(html, kind = "", action = null) {
@@ -1592,7 +1622,7 @@ function renderResult(s) {
     const name = p.split(/[\\/]/).pop();
     return `<li><span class="file-name">${esc(fileLabel(name))}<small>${esc(name)}</small></span><span class="actions">
       <button type="button" class="ghost" data-act="open" data-path="${esc(p)}">Mở</button>
-      <a class="btn ghost" href="/api/file?path=${encodeURIComponent(p)}&t=${encodeURIComponent(TOKEN)}">Tải</a>
+      <a class="btn ghost full-only" href="/api/file?path=${encodeURIComponent(p)}&t=${encodeURIComponent(TOKEN)}">Tải</a>
       ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost full-only" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">Nạp vào giao diện</button>` : ""}
       </span></li>`;
   }).join("");
@@ -2058,7 +2088,7 @@ function showTab(name) {
   $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   $(`.tabs button[data-tab="${name}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }); // thanh tab hẹp
   $$(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${name}`));
-  try { localStorage.setItem(TAB_KEY, name); } catch { /* bỏ qua */ }
+  store.setItem(TAB_KEY, name);
 }
 
 // ---------------------------------------------------------------- giao diện gọn / đầy đủ
@@ -2069,7 +2099,7 @@ const stepNo = (tab) => (gon ? { mo: 1, xep: 2, tkb: 3 } : { xep: 7, tkb: 8 })[t
 function setGon(on) {
   gon = on;
   document.body.classList.toggle("gon", on);
-  try { localStorage.setItem(GON_KEY, on ? "1" : "0"); } catch { /* bỏ qua */ }
+  store.setItem(GON_KEY, on ? "1" : "0");
   $("#btn-gon").textContent = on ? "Hiện đủ các bước soạn (nâng cao)" : "Về giao diện gọn (3 bước)";
   $("#log-card").open = !on; // giao diện gọn: nhật ký gấp lại, bấm tiêu đề để xem
   if (lastCheck) renderStepChecks(lastCheck); // câu lỗi: liên kết tới bước soạn, hay chỗ trong file Excel
@@ -2194,7 +2224,10 @@ async function forget() {
   undoStack.length = 0;
   redoStack.length = 0;
   lastSnap = null;
-  try {
+  clearTimeout(store.timer); // máy chủ đã xóa file bản nháp (/api/forget)
+  store.timer = null;
+  store.items = {};
+  try { // bản cũ của trang lưu trong bộ nhớ trình duyệt: xóa nốt
     for (const k of Object.keys(localStorage)) if (k.startsWith("tkb-")) localStorage.removeItem(k);
   } catch { /* trình duyệt chặn bộ nhớ trang: không có gì để xóa */ }
   history.replaceState(null, "", FORGOT);
@@ -2773,7 +2806,10 @@ async function onClick(e) {
 }
 
 function wire() {
-  window.addEventListener("pagehide", () => { if (st) saveDraft(); }); // đóng, tải lại trang: lưu ngay bản nháp
+  window.addEventListener("pagehide", () => { // đóng, tải lại trang: lưu ngay bản nháp
+    if (st) saveDraft();
+    store.beacon();
+  });
   document.addEventListener("focusin", onFocus);
   document.addEventListener("input", onEdit);
   document.addEventListener("change", onEdit);
@@ -2842,6 +2878,13 @@ function wire() {
   });
   $("#btn-template").onclick = async () => {
     try {
+      if (gon) { // giao diện gọn: ghi file mẫu vào thư mục kết quả rồi mở bằng Excel, không tải về chỗ khác
+        const { path } = await api("POST", "/api/template_save", {});
+        await api("POST", "/api/open", { path });
+        notify(`Đã mở file mẫu trống <code>${esc(path)}</code>: điền trong Excel, lưu lại, rồi bấm <b>Mở file Excel
+          của trường</b>.`, "ok");
+        return;
+      }
       downloadBlob(await api("GET", "/api/template", undefined, { blob: true }), "Mau_Input_V8.xlsx");
     } catch (err) { fail(err); }
   };
@@ -2860,7 +2903,7 @@ function wire() {
   };
   $("#subject-grid").onchange = (e) => {
     subjectGrid = e.target.checked;
-    try { localStorage.setItem(GRID_KEY, subjectGrid ? "1" : ""); } catch { /* bỏ qua */ }
+    store.setItem(GRID_KEY, subjectGrid ? "1" : "");
     renderSubjects();
   };
   $("#detail-dialog").addEventListener("close", () => {
@@ -2985,12 +3028,11 @@ function wire() {
 
 async function init() {
   wire();
-  let on = true;
-  try { on = localStorage.getItem(GON_KEY) !== "0"; } catch { /* bỏ qua */ }
-  setGon(on);
+  await store.load();
+  setGon(store.getItem(GON_KEY) !== "0");
   const forgot = location.hash === FORGOT; // vừa bấm Tệp › Xóa dữ liệu trên máy này
   if (forgot) history.replaceState(null, "", location.pathname + location.search);
-  try { subjectGrid = localStorage.getItem(GRID_KEY) === "1"; } catch { /* bỏ qua */ }
+  subjectGrid = store.getItem(GRID_KEY) === "1";
   $("#subject-grid").checked = subjectGrid;
   try {
     S = await api("GET", "/api/schema");
@@ -3021,7 +3063,7 @@ async function init() {
   quickCheck().catch(() => {});
   renderHelp();
   let tab = gon ? "mo" : "khung";
-  try { tab = localStorage.getItem(TAB_KEY) || tab; } catch { /* bỏ qua */ }
+  tab = store.getItem(TAB_KEY) || tab;
   showTab(tab);
   if (S.running) startPolling();
   setInterval(ping, PING_MS);

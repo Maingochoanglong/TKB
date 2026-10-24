@@ -6,10 +6,10 @@
    trang nhập liệu. Trình duyệt không tự mở thì chép đường dẫn in trong cửa sổ (`http://127.0.0.1:...`) vào trình duyệt.
 3. Windows có thể báo *"Windows protected your PC"* vì gói chưa ký số: bấm **More info › Run anyway** (Thông tin thêm ›
    Vẫn chạy).
-4. Tắt: đóng cửa sổ dòng lệnh. Kết quả ghi vào thư mục `TKB` trong thư mục người dùng (vd `C:\Users\<tên>\TKB`).
+4. Tắt: đóng cửa sổ dòng lệnh. Mọi thứ nằm trong thư mục `TKB` vừa giải nén: kết quả ở `TKB\ket_qua`, bản nháp của trang, file tạm và dữ liệu trình duyệt ở `TKB\du_lieu`. Không ghi gì ra ngoài: xóa thư mục `TKB` là không còn gì trên máy.
 
-Lần đầu mở trang có ba cách bắt đầu: mở file Excel của trường, soạn mới trên trang, hoặc **xem thử với trường mẫu**
-(tên giả). Hướng dẫn có hình: [docs/Huong_Dan_Su_Dung.md](https://github.com/Maingochoanglong/TKB/blob/main/docs/Huong_Dan_Su_Dung.md).
+Lần đầu mở trang: **Mở file Excel của trường** (hoặc tải file mẫu trống để điền), rồi bấm **Xếp TKB**. Soạn dữ liệu ngay
+trên trang, trường mẫu tên giả: **Tệp ▾ › Hiện đủ các bước soạn**. Hướng dẫn có hình: [docs/Huong_Dan_Su_Dung.md](https://github.com/Maingochoanglong/TKB/blob/main/docs/Huong_Dan_Su_Dung.md).
 
 Gói được dựng và chạy thử tự động (xếp bằng dòng lệnh, xếp và dừng sớm qua giao diện, xem TKB trên trang) trên máy ảo
 Windows của GitHub trước khi đăng. Gói không chứa file Excel nào của trường.
