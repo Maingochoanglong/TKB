@@ -900,7 +900,7 @@ Mẫu `data/Output_Template_TKB_Toan_Truong_V8.xlsx` (`writer.write_school_timet
 - Tên viết tắt GV: cột Tên Viết Tắt (mục 2.1.1), trống thì tự viết tắt (`writer.short_names`). Môn viết tắt
   (`writer.short_subjects`): `Tên trong TKB` của môn, trống thì tên môn; tên nhiều từ lấy chữ đầu mỗi từ, từ viết
   hoa cả giữ nguyên (`Tiếng Việt` → `TV`, `TV tăng cường` → `TVTC`); hai môn ra cùng chữ thì giữ tên đầy đủ.
-- Kẻ đậm quanh bảng, giữa các ngày, giữa các khối; kẻ đứt giữa các buổi; không kẻ giữa dòng môn và dòng tên. Dưới
+- Kẻ đậm quanh mỗi ô (mỗi tiết của mỗi lớp một ô hai dòng, như TKB nhà trường kẻ tay); kẻ đứt giữa các buổi; không kẻ giữa dòng môn và dòng tên; số tiết chữ thường. Dưới
   bảng ghi chú màu. In: A3 ngang, vừa một trang.
 
 ## 12. Cấu hình
