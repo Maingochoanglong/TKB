@@ -15,11 +15,16 @@ Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập li
    duyệt tự mở trang nhập liệu. Trình duyệt không tự mở thì chép đường dẫn in trong cửa sổ (`http://127.0.0.1:...`)
    vào trình duyệt.
 3. Tắt: đóng cửa sổ dòng lệnh. Kết quả ghi vào thư mục `TKB` trong thư mục người dùng (vd `C:\Users\<tên>\TKB`).
+   Lỡ đóng cửa sổ khi còn đang dùng thì trang hiện dải đỏ *Chương trình đã tắt* ở cuối màn hình; dữ liệu đang soạn
+   vẫn còn: bấm đúp lại `TKB.exe` rồi bấm *Tải lại trang* (hoặc dùng trang mới mở ra).
 
 **Cách B: có Python.** `pip install -r requirements.txt` (một lần), rồi mở `giao_dien.py` bấm **Run ▶** (hoặc
 `python giao_dien.py`). Người quen Python có thể bỏ trang web, sửa các hằng số đầu `main.py` rồi chạy (README, Cách 1).
 
-Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên không rời máy.
+Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên không rời máy. Trang tự lưu bản nháp trong trình
+duyệt của máy này. **Máy dùng chung** (phòng máy, máy mượn): xong việc thì bấm **Tệp ▾ › Xóa dữ liệu trên máy
+này…**: trang xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác rồi về trang bắt đầu. Các file đã ghi ra máy (thư
+mục kết quả, thư mục Tải về) trang để nguyên, vì có thể là file cần giữ: hộp thoại chỉ thư mục kết quả để xóa tay.
 
 ## 2. Nhập dữ liệu
 
@@ -57,7 +62,7 @@ Chỉ đọc file `.xlsx`: file `.xls`, `.csv` thì mở bằng Excel rồi *Lư
 đuôi thì chỉ cần đổi lại tên).
 
 Mọi việc với file nằm ở menu **Tệp ▾** góc trên: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (điền trong
-Excel rồi mở lại), Bắt đầu lại…. Mở file thì hộp thoại cho chọn phần nào lấy từ file.
+Excel rồi mở lại), Bắt đầu lại…, Xóa dữ liệu trên máy này…. Mở file thì hộp thoại cho chọn phần nào lấy từ file.
 
 ![Mở file Excel: chọn phần lấy từ file](hinh/1_nhap_excel.jpg)
 

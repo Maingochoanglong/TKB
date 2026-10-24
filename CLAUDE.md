@@ -145,7 +145,13 @@ printed lines (stop reason, seconds, reuse, changed cells, hires, overtime, soft
 `Chất lượng` sheet of the stats file once per job (top 5 soft rules by points). Subjects, staff and rules have search
 boxes (`search`, client-side; `jumpTo` clears the box); renaming a subject/role updates roles, custom rules and staff in the page. First visit (no draft, or
 Tệp › Bắt đầu lại) shows a start screen (open file / new / fake sample `/api/sample`); all file actions are in the
-`Tệp ▾` menu. Every edit goes through `changed()` in app.js: draft save, an undo snapshot 0.6 s after the last edit
+`Tệp ▾` menu. The page asks `/api/ping` every 5 s (`ping`, skipped while the tab is hidden): no answer → the fixed red
+banner `#offline` "Chương trình đã tắt" (console window closed; `setOffline` from any failed `api` call too); a 403 (new
+token after a restart) → "Tải lại trang". `Tệp › Xóa dữ liệu trên máy này…` (shared machines; `forget`, dialog
+`#forget-dialog`): `/api/forget` drops `App.job`/`App.grid` (refused while a run is going), the page removes every
+`tkb-…` localStorage key and reloads with `#da-xoa` (fresh start screen + notice); files already written (out folder,
+downloads) are never deleted, the dialog points to the out folder. Every edit goes through `changed()` in app.js:
+draft save, an undo snapshot 0.6 s after the last edit
 (`snap`/`travel`, 50 steps, Ctrl+Z/Y outside text fields; deletes show "Đã xóa … [Hoàn tác]" instead of confirm), and
 a quick check 1.5 s later (`/api/check` with `quick`: `kich_ban.check(quick=True)` stops before `phan_cong`) whose
 errors are split per step by the sheet named in the message (`sheetOf`/`sheetTab`) into tab marks ✓/⚠ n, a per-step
@@ -347,7 +353,8 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   differs (~35 min).
 - `linux.yml`: on PRs and pushes to main; pytest on ubuntu-24.04 / Python 3.12 (incl. the Linux reference codes and
   the Playwright/Chromium page tests `tests/test_trang_web.py`: start screen, step marks, undo, rule switch, search,
-  timetable swap, frame and class steps; skipped where Playwright is not installed).
+  timetable swap, frame and class steps, the "Chương trình đã tắt" banner, clearing data; skipped where Playwright
+  is not installed).
 - `file_that_windows.yml`: manual (or when the file itself changes); same run once on 2 VMs with Python 3.14.
 - `dong_goi.yml` (manual, tags `v*`, PRs touching packaging/UI entry): `tools/dong_goi.py` builds `dist/TKB/TKB.exe`
   (PyInstaller onedir, `requirements-build.txt` pins it; static pages as data, `--collect-all ortools`; refuses any
