@@ -37,6 +37,15 @@ Mở `giao_dien.py` rồi bấm **Run ▶** (hoặc chạy `python giao_dien.py`
 `http://127.0.0.1:8765/`. Trang này **chạy ngay trên máy**: không cần Internet, không có máy chủ ngoài, tên giáo viên không
 rời máy. Giữ cửa sổ chạy chương trình mở trong khi dùng trang.
 
+**Giao diện gọn (mặc định)** chỉ có ba bước: **1. Mở file Excel** (file của trường; tóm tắt số giáo viên, lớp, môn,
+luật và các lỗi cần sửa trong file, ghi sheet và dòng) → **2. Xếp TKB** (mở file xong trang tự chuyển sang và tự kiểm
+tra dữ liệu; chỉ một nút **Xếp TKB**, cài đặt chạy gấp sau nút **Cài đặt…**, nhật ký gấp lại; kết quả liệt kê các file
+ra bằng tên dễ hiểu, vd "TKB của từng giáo viên", với nút Mở, Tải) → **3. Thời khóa biểu**. Dữ liệu sửa trong Excel rồi
+mở lại; trang bắt đầu chỉ có **Mở file Excel của trường** và **Chưa có file? Tải file mẫu trống**. **Tệp ▾ › Hiện đủ
+các bước soạn (nâng cao)** mở giao diện đầy đủ tám bước mô tả dưới đây (soạn khung giờ, môn, lớp, chức vụ, giáo viên,
+luật ngay trên trang; Soạn mới, trường mẫu, Lưu ra file Excel, Nhập TKB đang dùng); **Tệp ▾ › Về giao diện gọn** trở
+lại. Chọn nào thì trang nhớ trên máy này.
+
 1. Lần đầu mở trang (hoặc **Tệp ▾ › Bắt đầu lại…**) là **trang bắt đầu**: **Mở file Excel của trường**, **Soạn mới**
    theo một **bộ luật mẫu** (`tkb/bo_mau.py`): **Tiểu học Việt Nam** (các môn, luật và quy định mặc định) hoặc **Trống**
    (chưa có môn nào, không theo quy ước của nước nào: các luật có sẵn để Tạm tắt, bật luật cần dùng ở bước Luật), và
