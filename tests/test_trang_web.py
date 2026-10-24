@@ -19,7 +19,7 @@ def browser():
         try:
             found = p.chromium.launch()
         except sync_api.Error:  # trình duyệt của Playwright chưa cài: thử Chromium có sẵn trên máy
-            paths = sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome"))
+            paths = sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux*/chrome"))
             if not paths:
                 pytest.skip("chưa cài trình duyệt cho Playwright (python -m playwright install chromium)")
             found = p.chromium.launch(executable_path=paths[-1])
@@ -33,6 +33,9 @@ def page(browser, tmp_path):
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     context = browser.new_context(viewport={"width": 1280, "height": 900})
+    # Các test soạn dữ liệu dùng giao diện đầy đủ; test của giao diện gọn đặt lại "1" (khóa có rồi thì giữ nguyên).
+    context.add_init_script("try { if (localStorage.getItem('tkb-gon') === null) localStorage.setItem('tkb-gon', '0') }"
+                            " catch (e) {}")
     page = context.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -106,6 +109,37 @@ def test_sample_steps_undo_switch_and_search(page):
     assert int(page.text_content("#count-luat")) == total
     page.fill("#rule-search", "Toán")
     assert 0 < page.locator("#rule-list .rule-item").count() < total
+
+
+def test_simple_mode_has_three_steps(page, tmp_path):
+    """Giao diện gọn (mặc định): trang bắt đầu chỉ có Mở file Excel; mở file xong là tới bước Kiểm tra & xếp, chỉ có ba
+    bước; lỗi của dữ liệu về bước Mở file Excel. Tệp › Hiện đủ các bước soạn thì có đủ tám bước, tải lại vẫn giữ."""
+    from tkb.truong_mau import write_sample_input
+    page.evaluate("localStorage.setItem('tkb-gon', '1')")
+    page.reload()
+    page.wait_for_selector("#start:not([hidden])")
+    assert page.locator('[data-start="open"]').first.is_visible()
+    assert page.locator('[data-start="sample"]').is_hidden()
+    page.set_input_files("#file-open", str(write_sample_input(tmp_path / "Truong_mau.xlsx")))
+    page.wait_for_selector("#import-dialog[open]")
+    page.click("#import-apply")
+    page.wait_for_function("document.querySelector('.tabs button.active')?.dataset.tab === 'xep'")
+    shown = "() => [...document.querySelectorAll('.tabs button')].filter((b) => b.offsetParent).map((b) => b.dataset.tab)"
+    assert page.evaluate(shown) == ["mo", "xep", "tkb"]
+    _wait_mark(page, "mo", "✓")
+    # Một giáo viên sai số tiết: bước Mở file Excel báo lỗi, ghi chỗ trong file thay cho liên kết tới bước soạn.
+    page.evaluate("() => { st.scenario.staff[2].lessons = null; changed(); }")  # như sửa trong Excel rồi mở lại
+    _wait_mark(page, "mo", "⚠")
+    page.click('.tabs [data-tab="mo"]')
+    assert "NHÂN SỰ" in page.text_content("#tab-mo .step-errors")
+    assert page.locator("#tab-mo .step-errors a").count() == 0
+    page.click("#file-menu summary")
+    page.click("#btn-gon")
+    assert len(page.evaluate(shown)) == 8
+    assert page.evaluate("document.querySelector('.tabs button.active').dataset.tab") == "khung"
+    page.reload()
+    page.wait_for_function("!document.body.classList.contains('gon')")
+    assert len(page.evaluate(shown)) == 8
 
 
 def test_banner_when_program_stops_and_restarts(page, tmp_path):

@@ -27,16 +27,18 @@
         <label class="menu-item" role="menuitem"
           title="File của trường, file mẫu đã điền, hay file cập nhật *_cap_nhat.xlsx của lần xếp trước: chọn phần nào lấy từ file">
           Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden></label>
-        <label class="menu-item" role="menuitem"
+        <label class="menu-item full-only" role="menuitem"
           title="TKB nhà trường đang dùng, dạng bảng tin (mỗi lớp một cột, mỗi tiết ghi môn và tên giáo viên): đọc vào bước 8 để kiểm luật, rồi sửa ít ô nhất">
           Nhập TKB đang dùng…<input type="file" id="board-open" accept=".xlsx" hidden></label>
-        <button type="button" class="menu-item" role="menuitem" id="btn-export"
+        <button type="button" class="menu-item full-only" role="menuitem" id="btn-export"
           title="Lưu mọi thứ đang soạn thành một file Excel: mở lại được ở đây, gửi cho trường khác được">
           Lưu ra file Excel</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-template"
           title="File Excel trống, đủ các sheet và luật mặc định, để điền trong Excel rồi mở lại ở đây">
           Tải file mẫu trống</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-new">Bắt đầu lại…</button>
+        <button type="button" class="menu-item" role="menuitem" id="btn-gon"
+          title="Giao diện gọn: chỉ Mở file Excel, Xếp TKB, Thời khóa biểu (sửa dữ liệu trong Excel). Đầy đủ: thêm các bước soạn giáo viên, môn, luật ngay trên trang"></button>
         <button type="button" class="menu-item" role="menuitem" id="btn-forget"
           title="Dùng máy chung: xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác khỏi trang trước khi rời máy">
           Xóa dữ liệu trên máy này…</button>
@@ -47,23 +49,25 @@
 
 <section id="start" class="start" hidden>
   <h2>Bắt đầu</h2>
-  <p class="muted">Chọn một cách để bắt đầu. Mọi thứ chạy ngay trên máy này, trang tự lưu nháp.</p>
+  <p class="muted full-only">Chọn một cách để bắt đầu. Mọi thứ chạy ngay trên máy này, trang tự lưu nháp.</p>
+  <p class="muted gon-only">Mở file Excel của trường (giáo viên, chương trình học, luật), rồi bấm Xếp TKB. Mọi thứ chạy
+    ngay trên máy này.</p>
   <div class="start-cards">
     <button type="button" class="start-card" data-start="open">
       <b>Mở file Excel của trường</b>
       <span>File mẫu đã điền, hoặc file cập nhật <code>_cap_nhat.xlsx</code> của lần xếp trước (giữ TKB đã xếp).</span>
     </button>
-    <button type="button" class="start-card" data-start="new" data-mau="tieu_hoc_vn">
+    <button type="button" class="start-card full-only" data-start="new" data-mau="tieu_hoc_vn">
       <b>Soạn mới: Tiểu học Việt Nam</b>
       <span>Các môn, luật và quy định của trường tiểu học Việt Nam; nhập số tiết ở bước Môn học, danh sách ở bước
         Giáo viên.</span>
     </button>
-    <button type="button" class="start-card" data-start="new" data-mau="trong">
+    <button type="button" class="start-card full-only" data-start="new" data-mau="trong">
       <b>Soạn mới: Trống</b>
       <span>Chưa có môn nào, không theo quy ước của nước nào: tự đặt khung giờ, môn, khối, lớp; các luật có sẵn để
         Tạm tắt, bật luật nào cần ở bước Luật.</span>
     </button>
-    <button type="button" class="start-card" data-start="sample">
+    <button type="button" class="start-card full-only" data-start="sample">
       <b>Xem thử với trường mẫu</b>
       <span>29 lớp, 45 giáo viên tên giả: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì.</span>
     </button>
@@ -73,20 +77,36 @@
 </section>
 
 <nav class="tabs" role="tablist">
-  <button type="button" role="tab" data-tab="khung" class="active">1. Khung giờ &amp; quy định chung</button>
-  <button type="button" role="tab" data-tab="mon">2. Môn học <span class="count" id="count-mon"></span></button>
-  <button type="button" role="tab" data-tab="lop">3. Lớp <span class="count" id="count-lop"></span></button>
-  <button type="button" role="tab" data-tab="chucvu">4. Chức vụ <span class="count" id="count-cv"></span></button>
-  <button type="button" role="tab" data-tab="gv">5. Giáo viên <span class="count" id="count-gv"></span></button>
-  <button type="button" role="tab" data-tab="luat">6. Luật <span class="count" id="count-luat"></span></button>
-  <button type="button" role="tab" data-tab="xep">7. Kiểm tra &amp; xếp TKB</button>
-  <button type="button" role="tab" data-tab="tkb">8. Thời khóa biểu</button>
+  <button type="button" role="tab" data-tab="mo" class="gon-only">1. Mở file Excel</button>
+  <button type="button" role="tab" data-tab="khung" class="active full-only">1. Khung giờ &amp; quy định chung</button>
+  <button type="button" role="tab" data-tab="mon" class="full-only">2. Môn học <span class="count" id="count-mon"></span></button>
+  <button type="button" role="tab" data-tab="lop" class="full-only">3. Lớp <span class="count" id="count-lop"></span></button>
+  <button type="button" role="tab" data-tab="chucvu" class="full-only">4. Chức vụ <span class="count" id="count-cv"></span></button>
+  <button type="button" role="tab" data-tab="gv" class="full-only">5. Giáo viên <span class="count" id="count-gv"></span></button>
+  <button type="button" role="tab" data-tab="luat" class="full-only">6. Luật <span class="count" id="count-luat"></span></button>
+  <button type="button" role="tab" data-tab="xep"><span class="full-only">7.</span><span class="gon-only">2.</span> Kiểm tra &amp; xếp TKB</button>
+  <button type="button" role="tab" data-tab="tkb"><span class="full-only">8.</span><span class="gon-only">3.</span> Thời khóa biểu</button>
 </nav>
 
 <div id="offline" class="notice error offline" role="alert" hidden></div>
 <div id="notice" class="notice" hidden></div>
 
 <main>
+  <section id="tab-mo" class="tab" role="tabpanel">
+    <div class="card">
+      <h2>File đang dùng: <span id="mo-file"></span></h2>
+      <p id="mo-summary" class="muted"></p>
+      <p class="muted">Giáo viên, chương trình học và luật ghi trong file Excel. Muốn sửa: sửa trong Excel, lưu, rồi bấm
+        <b>Mở file Excel khác…</b> để mở lại. File cập nhật <code>_cap_nhat.xlsx</code> của lần xếp trước giữ cả TKB đã
+        xếp.</p>
+      <div class="actions">
+        <button type="button" data-start="open">Mở file Excel khác…</button>
+        <button type="button" class="ghost" data-start="template">Tải file mẫu trống</button>
+      </div>
+    </div>
+    <div class="next"><button type="button" data-go="xep" class="primary">Tiếp: Kiểm tra &amp; xếp TKB →</button></div>
+  </section>
+
   <section id="tab-khung" class="tab active" role="tabpanel">
     <div class="grid2">
       <div class="card">
@@ -252,7 +272,7 @@
       <div class="card">
         <h2>Cài đặt chạy</h2>
         <div class="form" id="run-form">
-          <label class="row"><span>Tên file vào</span>
+          <label class="row full-only"><span>Tên file vào</span>
             <input type="text" data-run="name" spellcheck="false">
             <small>Lưu thành &lt;tên&gt;.xlsx trong thư mục kết quả; file cập nhật là &lt;tên&gt;_cap_nhat.xlsx.</small>
           </label>
@@ -273,7 +293,7 @@
           <label class="check"><input type="checkbox" data-run="student_rules"> Áp dụng luật bảo vệ học sinh</label>
           <label class="check"><input type="checkbox" data-run="keep_saved"> Giữ TKB đã xếp trong file vào: còn đúng
             luật thì dùng lại, không thì chỉ sửa chỗ cần (ô ghi "(khóa)" giữ nguyên) <small id="saved-hint"></small></label>
-          <details class="advanced"><summary>Nâng cao</summary>
+          <details class="advanced full-only"><summary>Nâng cao</summary>
             <label class="check"><input type="checkbox" data-run="reproducible"> Kết quả tái lập (chạy lại ra đúng TKB
               cũ)</label>
             <label class="row"><span>Số luồng</span><input type="number" min="1" step="1" data-run="workers">
@@ -310,9 +330,9 @@
   <section id="tab-tkb" class="tab" role="tabpanel">
     <div class="card" id="tkb-empty">
       <h2>Chưa có thời khóa biểu</h2>
-      <p class="muted">Xếp TKB ở bước 7 rồi bấm <b>Xem TKB trên trang</b>; hoặc mở file <code>_cap_nhat.xlsx</code> của lần
+      <p class="muted">Xếp TKB ở bước <span class="full-only">7</span><span class="gon-only">2</span> rồi bấm <b>Xem TKB trên trang</b>; hoặc mở file <code>_cap_nhat.xlsx</code> của lần
         xếp trước (<b>Tệp ▾ › Mở file Excel…</b>): file đó giữ TKB đã xếp.</p>
-      <div class="actions"><button type="button" data-go="xep">Tới bước 7: Kiểm tra &amp; xếp TKB</button></div>
+      <div class="actions"><button type="button" data-go="xep">Tới bước <span class="full-only">7</span><span class="gon-only">2</span>: Kiểm tra &amp; xếp TKB</button></div>
     </div>
     <div class="card" id="tkb-card" hidden>
       <div class="toolbar">

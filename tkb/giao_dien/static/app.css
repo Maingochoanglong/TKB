@@ -134,6 +134,10 @@ button.link { border: none; background: none; padding: 0; color: var(--accent); 
 
 /* Trang bắt đầu: thay các bước khi chưa chọn cách bắt đầu */
 body.starting .tabs, body.starting main { display: none; }
+/* Giao diện gọn (mặc định): chỉ Mở file Excel, Kiểm tra & xếp, Thời khóa biểu; Tệp › Hiện đủ các bước soạn thì thêm
+   các bước soạn dữ liệu ngay trên trang. */
+body.gon .full-only, body:not(.gon) .gon-only { display: none !important; }
+body.gon .start-cards { grid-template-columns: minmax(0, 480px); }
 .start { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
 .start h2 { font-size: 24px; margin: 0 0 6px; }
 .start-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin: 18px 0; }
