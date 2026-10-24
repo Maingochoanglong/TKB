@@ -9,7 +9,7 @@ file vào như nhau.
 
 Kịch bản:
     staff    : [{name, role, class, lessons, maternity, contract, campus2, history, off, extra_roles, tags,
-               overtime_order}] theo thứ tự dòng
+               overtime_order, short_name}] theo thứ tự dòng
     grades   : [1, 2, "Lá", ...] các cột Khối <tên> (tên khối toàn chữ số là số)
     subjects : [{name, lessons: {"1": số tiết hoặc None, ...}, rules: {khóa Col: giá trị}}]
     classes  : [{name, grade, campus, tags}] sheet LỚP (trống: lớp là lớp của các dòng Chủ Nhiệm); campus: tên cơ sở
@@ -62,7 +62,7 @@ STAFF_COLS = (("name", "name", "text"), ("role", "title", "role"), ("class", "cl
               ("lessons", "lessons", "int"), ("maternity", "maternity", "yes"), ("contract", "contract", "yes"),
               ("campus2", "campus2", "yes"), ("history", "history", "text"), ("off", "off", "text"),
               ("extra_roles", "extra_roles", "text"), ("tags", "tags", "text"),
-              ("overtime_order", "overtime_order", "int"))
+              ("overtime_order", "overtime_order", "int"), ("short_name", "short_name", "text"))
 _HEADERS = {key: head for (key, _, _), head in zip(STAFF_COLS, STAFF_HEADERS)}
 ROLES = [config.ROLE_LABELS[r] for r in (config.ROLE_HOMEROOM, config.ROLE_GENERAL, config.ROLE_MANAGER)]
 # Trang chi tiết môn của giao diện chia các cột quy định của môn thành nhóm; cột chưa có nhóm hiện ở nhóm "Khác", nên

@@ -46,7 +46,7 @@ MODES = [{"key": config.MODE_OVERTIME, "label": "Bù giờ",
 RUN_DEFAULTS = {"name": "kich_ban", "mode": config.MODE_OVERTIME, "overtime_max": config.OVERTIME_MAX,
                 "student_rules": True, "time_limit": 1200, "reproducible": True, "keep_saved": True, "workers": 8}
 FILE_NAMES = {"tkb": "TKB.xlsx", "roles": "TKB_chuc_vu.xlsx", "teachers": "TKB_giao_vien.xlsx",
-              "stats": "Thong_Ke.xlsx"}
+              "school": "TKB_toan_truong.xlsx", "stats": "Thong_Ke.xlsx"}
 TEMPLATE_NAME = "Mau_Input_V8.xlsx"  # file mẫu trống (như data/Input_Template_V8.xlsx)
 RULES_TEMPLATE_NAME = "Mau_Luat.xlsx"  # mẫu luật: chỉ sheet LUẬT với các luật có sẵn (và HƯỚNG DẪN)
 
@@ -92,7 +92,7 @@ def run_argv(source: Path, out: Path, name: str, run: dict) -> list[str]:
                               "workers": "Số luồng phải là số nguyên >= 1"}[key])
         numbers[key] = number
     argv = [str(source), "-o", str(out / FILE_NAMES["tkb"]), "--roles-out", str(out / FILE_NAMES["roles"]),
-            "--teachers-out", str(out / FILE_NAMES["teachers"]),
+            "--teachers-out", str(out / FILE_NAMES["teachers"]), "--school-out", str(out / FILE_NAMES["school"]),
             "--stats-out", str(out / FILE_NAMES["stats"]), "--staff-out", str(out / f"{name}_cap_nhat.xlsx"),
             "--mode", mode, "--max-overtime", str(numbers["overtime_max"]),
             "--time-limit", f"{numbers['time_limit']:g}", "--workers", str(numbers["workers"])]

@@ -236,13 +236,17 @@ def test_cli_splits_timetables_by_campus(tmp_path):
 
     from tkb.__main__ import main
     from tkb.template import write_staff_template
+    from tkb.writer import CAMPUS_FILL
     src = tmp_path / "vao.xlsx"
     write_staff_template(src, _set(small_staff(), "chủ nhiệm 3/2", campus2=True), CURRICULUM)
     out = tmp_path / "out"
     assert main([str(src), "-o", str(out / "TKB.xlsx"), "--time-limit", "10", "--workers", "4"]) == 0
     assert sorted(p.name for p in out.glob("TKB*.xlsx")) == [  # TKB giáo viên không tách theo cơ sở
         "TKB_chuc_vu_diem_chinh.xlsx", "TKB_chuc_vu_diem_phu.xlsx", "TKB_diem_chinh.xlsx", "TKB_diem_phu.xlsx",
-        "TKB_giao_vien.xlsx"]
+        "TKB_giao_vien.xlsx", "TKB_toan_truong.xlsx"]
+    school = openpyxl.load_workbook(out / "TKB_toan_truong.xlsx").active  # cả trường một bảng, lớp cơ sở 2 tô vàng
+    assert [(c.value, c.fill.start_color.rgb[-6:] if c.fill.fill_type else None) for c in school[1]][3:] == [
+        ("3/1", None), ("3/2", CAMPUS_FILL)]
     ws = openpyxl.load_workbook(out / "TKB_giao_vien.xlsx")["Giáo viên"]
     assert any("3/2 (CS2)" in str(c.value) for row in ws.iter_rows() for c in row)  # lớp ở cơ sở 2 ghi rõ
     titles = lambda name: [c.value for c in openpyxl.load_workbook(out / name)["Khối 3"]["A"]  # noqa: E731

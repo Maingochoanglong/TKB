@@ -6,7 +6,11 @@ Timetable (TKB) generator for a Vietnamese primary school, Python + OR-Tools CP-
 sheets `NHÂN SỰ` (staff) and `CHƯƠNG TRÌNH HỌC` (lessons per subject per grade). Output: `TKB.xlsx` (timetable
 only), `TKB_chuc_vu.xlsx` (same timetable, teacher name + role code; both split per campus — `*_diem_chinh`/`*_diem_phu`/`*_<campus slug>` —
 when the school has several campuses, `writer.campus_paths`), `TKB_giao_vien.xlsx` (`writer.write_teacher_timetable`: one
-block per teacher, a page break after each, plus sheet `Tổng hợp` one row per teacher), `TKB_phong.xlsx` (only with sheet
+block per teacher, a page break after each, plus sheet `Tổng hợp` one row per teacher), `TKB_toan_truong.xlsx`
+(`writer.write_school_timetable`, `--school-out`: the whole school on one sheet, one column per class, two rows per
+period = `short_subjects` abbreviation + `short_names` of a teacher other than the homeroom one, one fill per such
+teacher, campus-2 class headers yellow; NHÂN SỰ column `Tên Viết Tắt` = `Teacher.short_name`, display only),
+`TKB_phong.xlsx` (only with sheet
 `PHÒNG`: `writer.write_room_timetable`, one block per shared room; TKB and teacher cells get a room line), `Thong_Ke.xlsx` (sheet
 `Chất lượng` = `writer.quality_rows`: violations/points per row of sheet LUẬT counted with `bo_ghep.violations`; sheet
 `Thống kê`, one table: lessons per subject
@@ -29,7 +33,7 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   `build_problem` errors on a quota above the week's slots and warns on same names (rows + Mã GV, never names). The
   page reads staff like the CLI.
 - Only the V8 input format is read (headers `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần`, titles without numbers,
-  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù`; optional
+  sheet `CHƯƠNG TRÌNH HỌC` required; optional `Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù | Tên Viết Tắt`; optional
   business rules, one rule per column, every cell Có/Không/positive integer except `Tên trong TKB` (and `Quản lý dạy
   khối`: a grade name): per-subject rules
   are extra columns of `CHƯƠNG TRÌNH HỌC`, the rest is sheet `QUY ĐỊNH` with three stacked tables (general | days |

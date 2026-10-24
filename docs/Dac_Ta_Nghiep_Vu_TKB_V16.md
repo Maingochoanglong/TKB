@@ -104,6 +104,7 @@
 | 86 | File Excel điền tay | Đánh giá với người không rành IT (74 lỗi gõ hay gặp trên trường mẫu): đổi tên sheet `QUY ĐỊNH`/`LUẬT` (vd bỏ dấu) thì chương trình lặng lẽ dùng mặc định; tiêu đề cột không bắt buộc gõ sai thì cả cột bị bỏ; ô `✓`, `Đúng` đọc là không; dòng chép trùng, dòng ẩn, định mức gõ nhầm (230) không báo hoặc chạy hết thời gian mới báo; ô gộp báo "thiếu chức vụ"; chức vụ `GVCN` báo lỗi tự mâu thuẫn; file `.csv` ra lỗi Python | Tên sheet, tiêu đề cột so khi bỏ dấu, hoa thường, khoảng trắng (`staff.fold_key`), thêm vài cách ghi (`Họ tên`, `Số tiết`, `Định mức`); sheet tên gần giống mà không được đọc thì cảnh báo. Ô Có/Không nhận thêm `✓`, `v`, `Đúng`, `ok` (có), `ko`, `-` (không). Chức vụ `GVCN`, `GV bộ môn`, `CBQL`… là Chủ Nhiệm, Bộ Môn, Quản Lý. Ô gộp ở phần dữ liệu: mỗi dòng của vùng lấy chữ của vùng (cảnh báo). Cảnh báo: dòng ẩn vẫn được tính, cột có tiêu đề gần giống mẫu nhưng không đọc, các dòng cùng họ tên (ghi Mã GV, không ghi tên). Lỗi: định mức lớn hơn số tiết cả tuần. Dòng `Tổng số tiết`, `Cộng` của bảng bỏ qua. Câu báo lỗi gợi ý tên đúng ("ý là 'Toán'?"); cột Lớp Đang Dạy nhận cả "và", "+". Trang nhập liệu đọc nhân sự đúng như dòng lệnh; file không phải `.xlsx` báo cách lưu lại. File mẫu: mục *Bắt đầu nhanh* đầu sheet HƯỚNG DẪN. File đúng mẫu: **cùng mã kết quả** |
 | 87 | File Excel điền tay (2) | Chạy lại 76 lỗi gõ: còn báo lỗi với `23 tiết`, `23,0`, ô chương trình học `-`; dòng `Tổng cộng`/`Ghi chú` cuối bảng nhân sự; sheet `Nhân sự 2026` không ở đầu; tiêu đề `Khối1`, `Lớp 1`; lớp `Lớp 3/2`, `3.1`; buổi nghỉ `T5 chiều`, `chiều thứ năm`, `Thứ 6`; Lớp Đang Dạy `3/1 3/2`; sheet nhân sự trống báo "không có Chủ Nhiệm"; file `.xlsx` đổi đuôi `.xls` | Số trong ô nhận đơn vị `tiết` và dấu phẩy thập phân (`staff.to_number`), ô chương trình học `-` là 0. Dòng tổng, ghi chú cuối bảng nhân sự bỏ qua (`is_footer_row`); dòng chỉ có tên báo "không phải một người thì xóa dòng". Sheet nhân sự/chương trình học: tên ghi thêm chữ sau (duy nhất) vẫn đọc; không có thì sheet đầu tiên có tiêu đề nhân sự. Chương trình học: `Khối1`, `Khoi 1`, cột `Môn`/`Tên môn`, không có cột Khối thì `Lớp <số>` là khối. Lớp: bỏ chữ `Lớp` đầu, `3.1`/`3-1` (ô chữ) là `3/1`, ô số 3.1 báo lỗi (Excel bỏ số 0 cuối). Buổi nghỉ: ngày trước buổi, thứ ghi chữ, cả ngày. Lớp Đang Dạy: ` - `, dấu cách. Lỗi rõ: sheet nhân sự chưa có ai; file `.xlsx` mang đuôi khác thì bảo đổi tên. File đúng mẫu: **cùng mã kết quả** |
 | 88 | Tốc độ xếp giờ | Đo trên trường mẫu (máy 4 nhân, 1200): khởi đầu ~1 phút, vòng 1 ~3 phút cho 98% mức giảm chi phí, vòng 2–3 ~4 phút cho 2%; vùng cặp ngày chiếm 59% thời gian các vòng nhưng chỉ góp 15% mức giảm; mã Python chỉ ~6 giây | Mỗi vòng chỉ xếp lại 3 cặp ngày có chi phí cao nhất (`LNS_DAY_PAIRS`); từ vòng 2 chỉ các vùng vòng trước có giảm chi phí cùng các điểm nóng mới (`LNS_FOCUS`). Đo (đơn vị tất định, chi phí cuối): trường mẫu 1114 → 645 (−42%), 24.860 → 24.960; hạt giống khác 1207 → 839 (−30%), 24.640 → 24.840; file của trường 1205 → 1168, 35.720 → 35.040 (dư ngân sách cho bước xếp tiếp không theo lịch cơ sở). Trang xếp TKB nhắc có thể Dừng sớm sau vòng 1. **Mã kết quả đổi** (trường nhỏ của test không đổi; file của trường: Linux `6EFD-D248-0795`, Windows `DF12-11D2-8AF5`) |
+| 89 | TKB toàn trường | Chỉ có TKB theo lớp (mỗi khối một sheet, mỗi lớp một bảng) và TKB từng giáo viên: nhà trường muốn một bảng cả trường như TKB dán bảng tin (mỗi lớp một cột, môn viết tắt, tên viết tắt của GV khác GVCN) phải tự kẻ trong Excel | File **`TKB_toan_truong.xlsx`** (`writer.write_school_timetable`, mục 11.7); cột không bắt buộc **Tên Viết Tắt** của sheet NHÂN SỰ (trống: tự viết tắt từ họ tên, `writer.short_names`). Không đổi mô hình, mã kết quả giữ nguyên |
 
 ---
 
@@ -161,6 +162,7 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 | Lớp Đang Dạy | Không | Các lớp GV dạy trong TKB cũ, cách nhau bằng dấu phẩy/chấm phẩy (vd `3D17, 3D18`). Chỉ dùng cho GV không chủ nhiệm (mục 8.1) |
 | Buổi Nghỉ | Không | Buổi cố định (`Chiều T5`, `Sáng thứ 6`) và/hoặc số buổi bất kỳ (`2 buổi chiều`, `1 buổi sáng`, `2 buổi`), cách nhau bằng dấu phẩy; không phân biệt hoa thường, dấu. Buổi vốn nghỉ (chiều Thứ 6) bỏ qua. Số buổi bất kỳ tính thêm ngoài buổi cố định; `n buổi` (không ghi sáng/chiều) là tổng số buổi trống tối thiểu |
 | Chức Vụ Thêm | Không | Các chức vụ khác người đó cũng giữ, cách nhau bằng dấu phẩy: `Bộ Môn` hoặc chức vụ GV chuyên biệt, không ghi số thứ tự (`Chủ Nhiệm`, `Quản Lý` chỉ là chức vụ chính; Quản Lý không có chức vụ thêm). Quyền dạy là hợp các chức vụ (mục 4); Mã GV theo cột Chức Vụ |
+| Tên Viết Tắt | Không | Tên ghi trong TKB toàn trường (vd `B.Huyền`). Trống: tên (từ cuối của họ tên); trùng tên thì thêm chữ đầu của từ đứng trước (`T.Huyền`), vẫn trùng thì thêm chữ đầu của họ (`V.T.Ly`); trùng cả họ tên, tên trống, người cần tuyển: Mã GV (`writer.short_names`). Không ảnh hưởng việc xếp TKB |
 | Thứ Tự Bù | Không | Ai dạy bù trước: số nguyên dương, 1 bù trước nhất, cùng số bù ngang nhau. Trống: GVCN hợp đồng 1, GVCN 2, bộ môn hợp đồng 3, bộ môn 4 (`allocation.overtime_rank`). Chỉ có tác dụng với người được dạy bù; ghi cho người khác thì cảnh báo (mục 7.2) |
 | Nhãn | Không | Các nhãn tự đặt, cách nhau bằng dấu phẩy (vd `Bán thời gian`, `Tổ Toán`). Cột Giáo viên của sheet `LUẬT` ghi một nhãn là mọi GV có nhãn đó (mục 6.1). Thai Sản, Hợp Đồng, Cơ sở 2 ghi Có cũng là nhãn cùng tên; Chủ Nhiệm có lớp ở cơ sở 2 có nhãn Cơ sở 2 (`Teacher.tag_keys`) |
 | STT, cột khác | Không | Không dùng, ghi gì cũng được (ví dụ cột ghi chú) |
@@ -182,7 +184,7 @@ Tên sheet và tên cột không phân biệt hoa thường. Dòng tiêu đề n
 Chương trình **cảnh báo** (vẫn chạy) khi dãy lớp của một khối bị hụt, ví dụ có 1/3, 1/5 mà không có 1/4.
 
 **File mẫu V8** (tạo bằng `python -m tkb.template`), style giống file của nhà trường (Times New Roman 14, tiêu đề in đậm không tô nền, viền mảnh, căn giữa, dòng cao 25):
-- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù`, mỗi cột có chú thích. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải bắt đầu bằng số khối. Ba cột Có/Không có danh sách `Có`. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
+- Sheet NHÂN SỰ: `Họ và Tên | Chức Vụ | Lớp | Số Tiết/Tuần | Thai Sản | Hợp Đồng | Cơ sở 2 | Lớp Đang Dạy | Buổi Nghỉ | Chức Vụ Thêm | Nhãn | Thứ Tự Bù | Tên Viết Tắt`, mỗi cột có chú thích. Chức Vụ có danh sách gợi ý (Chủ Nhiệm, Bộ Môn, Quản Lý; vẫn gõ được tên môn cho GV chuyên biệt). Lớp định dạng chữ và phải bắt đầu bằng số khối. Ba cột Có/Không có danh sách `Có`. Số Tiết/Tuần chỉ nhận số nguyên 0–40. Tô đỏ Lớp trùng, Chủ Nhiệm thiếu Lớp, chức vụ khác ghi Lớp.
 - Sheet CHƯƠNG TRÌNH HỌC: `Môn học | Khối 1 …`. File mẫu trống không có môn nào.
 
 #### 2.1.2. Sheet CHỨC VỤ (không bắt buộc)
@@ -749,13 +751,14 @@ Kết quả (**ĐẠT** / **KHÔNG ĐẠT** kèm danh sách lỗi) in ra màn h�
 
 ## 11. Đầu ra
 
-Năm file (thêm `TKB_phong.xlsx` khi có sheet `PHÒNG`), ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: chỉ `Thong_Ke.xlsx` với sheet `Thiếu tiết`):
+Sáu file (thêm `TKB_phong.xlsx` khi có sheet `PHÒNG`), ghi vào `THU_MUC_OUT` (chế độ bù giờ mà thiếu tiết: chỉ `Thong_Ke.xlsx` với sheet `Thiếu tiết`):
 
 | File | Nội dung |
 |---|---|
 | `TKB.xlsx` | **Chỉ thời khóa biểu**: các sheet Khối (mục 11.1). Trường có nhiều cơ sở: mỗi cơ sở một file, `TKB_diem_chinh.xlsx` (Cơ sở 1), `TKB_diem_phu.xlsx` (Cơ sở 2), cơ sở tên khác `TKB_<tên không dấu>.xlsx` (`writer.campus_paths`) |
 | `TKB_chuc_vu.xlsx` | Cùng TKB, mỗi ô thêm dòng thứ 3 là chức vụ (Mã GV), để theo dõi ai dạy tiết nào. Hai cơ sở: tách như `TKB.xlsx` |
 | `TKB_giao_vien.xlsx` | TKB của từng giáo viên, in mỗi người một trang, và bảng tổng hợp (mục 11.5) |
+| `TKB_toan_truong.xlsx` | TKB cả trường trên một bảng: mỗi lớp một cột, ô ghi môn viết tắt và tên viết tắt của GV khác GVCN (mục 11.7) |
 | `TKB_phong.xlsx` | Chỉ khi có sheet `PHÒNG`: TKB của từng phòng học dùng chung, in mỗi phòng một trang (mục 11.6) |
 | `Thong_Ke.xlsx` | Số tiết từng môn của mỗi giáo viên và chất lượng TKB theo từng dòng luật (mục 11.3) |
 | `<tên file vào>_cap_nhat.xlsx` | File vào cập nhật, dùng lại làm file vào lần sau (mục 11.2) |
@@ -870,6 +873,22 @@ Chỉ khi file vào có sheet `PHÒNG` ghi phòng (`writer.write_room_timetable`
 mỗi phòng (thứ tự sheet `PHÒNG`) một bảng `BUỔI | TIẾT | THỨ 2 …` như TKB giáo viên; dòng tựa `<phòng>: <n> tiết, <sức
 chứa> lớp cùng lúc` (trường có phòng ở nhiều cơ sở: tên phòng kèm cơ sở); ô ghi các lớp học ở phòng giờ đó và môn, mỗi
 lớp một dòng (`3/1 Thể dục`; nhóm ghép lớp một dòng: `3/1, 3/2 Thể dục`). Ngắt trang sau mỗi bảng.
+
+### 11.7. TKB toàn trường `TKB_toan_truong.xlsx`
+
+Mẫu `data/Output_Template_TKB_Toan_Truong_V8.xlsx` (`writer.write_school_timetable`, dòng lệnh `--school-out`,
+`main.py` `FILE_TKB_TOAN_TRUONG`). Một sheet **`TKB toàn trường`**, như TKB nhà trường dán bảng tin:
+- Dòng 1: `THỨ | BUỔI | TIẾT | <các lớp>` (lớp theo khối; tên ngày không cùng chữ đầu thì cột đầu là `NGÀY` và ghi đủ
+  tên ngày). Trường nhiều cơ sở: tên lớp ở cơ sở khác cơ sở đầu tô vàng; cả trường vẫn một bảng.
+- Dòng 2: `GVCN` và tên viết tắt của GVCN mỗi lớp.
+- Mỗi ngày, mỗi buổi, mỗi tiết (đánh số trong buổi) **hai dòng**: dòng trên môn viết tắt, dòng dưới tên viết tắt
+  của người dạy khi không phải GVCN của lớp; GVCN dạy thì gộp hai dòng, chỉ ghi môn. Ô người khác GVCN tô màu, mỗi
+  người một màu (16 màu, nhiều người hơn thì lặp lại). Các môn học cùng giờ: `A / B`.
+- Tên viết tắt GV: cột Tên Viết Tắt (mục 2.1.1), trống thì tự viết tắt (`writer.short_names`). Môn viết tắt
+  (`writer.short_subjects`): `Tên trong TKB` của môn, trống thì tên môn; tên nhiều từ lấy chữ đầu mỗi từ, từ viết
+  hoa cả giữ nguyên (`Tiếng Việt` → `TV`, `TV tăng cường` → `TVTC`); hai môn ra cùng chữ thì giữ tên đầy đủ.
+- Kẻ đậm quanh bảng, giữa các ngày, giữa các khối; kẻ đứt giữa các buổi; không kẻ giữa dòng môn và dòng tên. Dưới
+  bảng ghi chú màu. In: A3 ngang, vừa một trang.
 
 ## 12. Cấu hình
 
