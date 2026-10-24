@@ -399,8 +399,10 @@ def test_school_timetable(tmp_path):
     assert sorted(seen) == sorted(want)
     assert all(len(colours) == 1 for colours in fills.values())  # mỗi người một màu
     assert len({next(iter(c)) for c in fills.values()}) == len(fills)  # người khác nhau màu khác nhau
-    # Kẻ đậm giữa các ngày, đứt giữa buổi sáng và chiều.
+    # Kẻ đậm quanh mỗi ô (như TKB nhà trường kẻ tay), đứt giữa buổi sáng và chiều; số tiết chữ thường.
     assert ws["D3"].border.top.style == "medium"
+    assert all(getattr(ws["E5"].border, side).style == "medium" for side in ("left", "right", "top"))
+    assert ws["C3"].font.b is not True and ws["A3"].font.b and ws["D1"].font.b
     afternoon = 3 + 2 * len(khung_gio.sessions(0)[0].periods)
     assert ws.cell(afternoon, 4).border.top.style == "mediumDashed"
     assert ws.cell(r + 1, 1).value == writer.SCHOOL_COLOUR_NOTE  # chú thích màu dưới bảng

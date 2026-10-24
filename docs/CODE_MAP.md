@@ -671,7 +671,7 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
 - `_day_labels(days)` — Cột ngày của TKB toàn trường: các ngày cùng chữ đầu (vd "Thứ 2" … "Thứ 6") thì tiêu đề là chữ đó viết hoa
 - `_session_labels()` — Cột BUỔI của TKB toàn trường: chữ cái đầu tên buổi ("S", "C"); hai buổi cùng chữ đầu thì ghi đủ tên.
 - `write_school_timetable(solution, path, style)` — File TKB toàn trường (như TKB nhà trường dán bảng tin): một sheet, mỗi lớp một cột (theo khối), mỗi ngày – buổi
-  · Kẻ: viền mỏng như file vào, đậm quanh bảng, giữa hai dòng tiêu đề và phần ngày, giữa các ngày, giữa các khối (và sau cột TIẾT); đứt giữa các buổi; không kẻ giữa dòng môn và dòng tên GV của một tiết.
+  · Kẻ đậm mọi đường như TKB nhà trường kẻ tay (mỗi tiết của mỗi lớp là một ô đóng khung); đứt giữa các buổi; không kẻ giữa dòng môn và dòng tên GV của một tiết (hai dòng đó là một ô).
 - `_stats_name(t)`
 - `move_headers(problem)` — Hai cột thống kê người dạy ở nhiều cơ sở (MOVE_HEADERS; các cơ sở khác Cơ sở 1, Cơ sở 2: MOVE_OTHER).
 - `campus_moves(solution)` — GV dạy ở nhiều cơ sở -> (các buổi không ở cơ sở đầu, vd "Sáng T3", có hơn hai cơ sở thì ghi thêm tên cơ sở; các
