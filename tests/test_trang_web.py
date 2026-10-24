@@ -126,6 +126,12 @@ def test_simple_mode_has_three_steps(page, tmp_path):
     page.wait_for_function("document.querySelector('.tabs button.active')?.dataset.tab === 'xep'")
     shown = "() => [...document.querySelectorAll('.tabs button')].filter((b) => b.offsetParent).map((b) => b.dataset.tab)"
     assert page.evaluate(shown) == ["mo", "xep", "tkb"]
+    # Bước Xếp TKB: tự kiểm tra dữ liệu; chỉ còn nút Xếp TKB, cài đặt gấp lại sau nút Cài đặt…
+    _wait_text(page, "#check-result", "Dữ liệu hợp lệ")
+    assert page.locator("#btn-check").is_hidden() and page.locator("#run-settings").is_hidden()
+    page.click("#btn-settings")
+    assert page.locator("#run-settings").is_visible()
+    page.click("#btn-settings")
     _wait_mark(page, "mo", "✓")
     # Một giáo viên sai số tiết: bước Mở file Excel báo lỗi, ghi chỗ trong file thay cho liên kết tới bước soạn.
     page.evaluate("() => { st.scenario.staff[2].lessons = null; changed(); }")  # như sửa trong Excel rồi mở lại

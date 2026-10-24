@@ -28,11 +28,13 @@ mục kết quả, thư mục Tải về) trang để nguyên, vì có thể là
 
 ## 2. Nhập dữ liệu
 
-Trang mở ở **giao diện gọn**, chỉ ba bước: **1. Mở file Excel** → **2. Kiểm tra & xếp TKB** → **3. Thời khóa biểu**.
+Trang mở ở **giao diện gọn**, chỉ ba bước: **1. Mở file Excel** → **2. Xếp TKB** → **3. Thời khóa biểu**. Mở file xong
+trang tự sang bước 2 và tự kiểm tra dữ liệu: thấy "Dữ liệu hợp lệ" thì bấm nút **Xếp TKB** (cài đặt ở nút **Cài đặt…**,
+thường không cần đổi).
 Giáo viên, chương trình học và luật điền trong file Excel (mục *Điền file Excel* dưới đây); có lỗi thì bước 1 ghi rõ
 sheet và dòng cần sửa: sửa trong Excel, lưu, rồi bấm **Mở file Excel khác…** để mở lại. Muốn soạn ngay trên trang (và
 các cách bắt đầu khác dưới đây), chọn **Tệp ▾ › Hiện đủ các bước soạn (nâng cao)**; các hình và số bước dưới đây là của
-giao diện đầy đủ đó (bước 7, 8 của nó là bước 2, 3 của giao diện gọn).
+giao diện đầy đủ đó (bước 7, 8 của nó là bước 2, 3 của giao diện gọn, bước 2 gọn chỉ hiện nút Xếp TKB).
 
 Ở giao diện đầy đủ, lần đầu mở trang là **trang bắt đầu** với các cách:
 - **Mở file Excel của trường** (mẫu V8; hoặc file `_cap_nhat.xlsx` của lần xếp trước);

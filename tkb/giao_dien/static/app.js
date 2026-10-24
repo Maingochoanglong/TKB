@@ -1470,7 +1470,7 @@ function renderCheck(res) {
   if (!res.errors.length) items.push(`<li class="ok">Dữ liệu hợp lệ, xếp TKB được.</li>`);
   items.push(...res.errors.map((t) => msgItem(t, "err")));
   items.push(...res.warnings.map((t) => msgItem(t, "warn")));
-  items.push(...res.info.map((t) => `<li class="info">${esc(t)}</li>`));
+  items.push(...res.info.map((t) => `<li class="info full-only">${esc(t)}</li>`)); // dự toán: chỉ ở giao diện đầy đủ
   $("#check-result").innerHTML = `<ul class="msgs">${items.join("")}</ul>`;
 }
 async function check() {
@@ -1553,7 +1553,7 @@ function resultFacts(sum) {
   const ot = sum.overtime;
   if (ot) facts.push(["Dạy bù", ot.total ? `${num(ot.total)} tiết: GVCN ${num(ot.homeroom[0])} tiết (${ot.homeroom[1]} người), bộ môn ${num(ot.general[0])} tiết (${ot.general[1]} người)${ot.levels ? `; ${ot.levels}` : ""}` : "không ai phải dạy bù"]);
   if (sum.hires) facts.push(["Tuyển thêm", sum.hires[0] ? `cần ${sum.hires[0]} người cho ${num(sum.hires[1])} tiết (dòng "${S.saved_marks.hire}" trong file cập nhật)` : "không cần tuyển thêm"]);
-  for (const line of sum.soft) {
+  for (const line of gon ? [] : sum.soft) { // giao diện gọn: các dòng luật ưu tiên chỉ ở mục Chất lượng
     const i = line.indexOf(": ");
     facts.push(i > 0 ? [line.slice(0, i), line.slice(i + 2)] : ["", line]);
   }
@@ -1569,6 +1569,16 @@ function qualityHtml(q) {
     <small>Đủ mọi luật ở sheet Chất lượng của Thong_Ke.xlsx. Muốn TKB tốt hơn: tăng thời gian xếp, hoặc nâng mức ưu tiên
     của luật cần theo hơn.</small></details>`;
 }
+// Tên dễ hiểu của các file ra (tên file vẫn ghi dưới, nhỏ).
+const FILE_LABELS = [[/_cap_nhat\.xlsx$/i, "File của trường đã cập nhật: lần sau mở file này (giữ TKB đã xếp)"],
+  [/^TKB_chuc_vu/i, "TKB kèm tên và chức vụ giáo viên"], [/^TKB_giao_vien/i, "TKB của từng giáo viên"],
+  [/^TKB_toan_truong/i, "TKB toàn trường trên một trang"], [/^TKB_phong/i, "TKB các phòng học dùng chung"],
+  [/^Thong_Ke/i, "Thống kê: số tiết, dạy bù, chất lượng"], [/^TKB/i, "TKB các lớp"]];
+function fileLabel(name) {
+  const label = (FILE_LABELS.find(([re]) => re.test(name)) || [null, name])[1];
+  const campus = /_diem_chinh\b/i.test(name) ? " (điểm chính)" : /_diem_phu\b/i.test(name) ? " (điểm phụ)" : "";
+  return label + campus;
+}
 function renderResult(s) {
   const sum = s.summary || { files: [], soft: [] };
   const updated = sum.files.find((p) => /_cap_nhat\.xlsx$/i.test(p));
@@ -1580,10 +1590,10 @@ function renderResult(s) {
   const [title, cls] = titles[s.exit] || [s.stopping ? "Đã dừng trước khi có TKB." : "Không xếp được TKB.", "bad"];
   const files = sum.files.map((p) => {
     const name = p.split(/[\\/]/).pop();
-    return `<li><span>${esc(name)}</span><span class="actions">
+    return `<li><span class="file-name">${esc(fileLabel(name))}<small>${esc(name)}</small></span><span class="actions">
       <button type="button" class="ghost" data-act="open" data-path="${esc(p)}">Mở</button>
       <a class="btn ghost" href="/api/file?path=${encodeURIComponent(p)}&t=${encodeURIComponent(TOKEN)}">Tải</a>
-      ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">Nạp vào giao diện</button>` : ""}
+      ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost full-only" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">Nạp vào giao diện</button>` : ""}
       </span></li>`;
   }).join("");
   const facts = resultFacts(sum).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
@@ -1596,7 +1606,7 @@ function renderResult(s) {
     <div class="actions">${updated && [0, 2].includes(s.exit) ? `<button type="button" class="primary" data-act="view-tkb"
       data-path="${esc(updated)}" data-code="${esc(sum.code || "")}">Xem TKB trên trang</button>` : ""}
       <button type="button" class="ghost" data-act="open" data-path="">Mở thư mục kết quả</button></div>
-    ${files ? `<details class="files-box" ${sum.code ? "" : "open"}><summary>Các file Excel (${sum.files.length})</summary><ul class="files">${files}</ul></details>` : ""}
+    ${files ? `<details class="files-box" ${sum.code && !gon ? "" : "open"}><summary>Các file Excel (${sum.files.length})</summary><ul class="files">${files}</ul></details>` : ""}
   </div>`;
 }
 
@@ -2061,6 +2071,7 @@ function setGon(on) {
   document.body.classList.toggle("gon", on);
   try { localStorage.setItem(GON_KEY, on ? "1" : "0"); } catch { /* bỏ qua */ }
   $("#btn-gon").textContent = on ? "Hiện đủ các bước soạn (nâng cao)" : "Về giao diện gọn (3 bước)";
+  $("#log-card").open = !on; // giao diện gọn: nhật ký gấp lại, bấm tiêu đề để xem
   if (lastCheck) renderStepChecks(lastCheck); // câu lỗi: liên kết tới bước soạn, hay chỗ trong file Excel
   const tab = $(".tabs button.active")?.dataset.tab;
   if (tab && st) showTab(tab); // lúc mở trang: init chọn bước sau
@@ -2116,7 +2127,10 @@ function useImported(data, label) {
   hideStart();
   renderAll();
   changed();
-  if (gon) showTab("xep"); // giao diện gọn: mở file xong là tới bước Kiểm tra & xếp
+  if (gon) { // giao diện gọn: mở file xong là tới bước Xếp TKB, kiểm tra luôn dữ liệu
+    showTab("xep");
+    check().catch(fail);
+  }
   const warns = data.warnings.map((w) => `<li>${esc(w)}</li>`).join("");
   notify(`Đã mở ${esc(label)}: ${st.scenario.staff.length} dòng nhân sự, ${st.scenario.subjects.length} môn.` +
     (st.scenario.saved ? ` File có TKB đã xếp (xem ở bước ${stepNo("tkb")}):` + " xếp lại sẽ giữ TKB đó nếu vẫn đúng luật, sai thì chỉ sửa chỗ cần." : "") + fit +
@@ -2767,6 +2781,11 @@ function wire() {
   $$(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
   $("#btn-new").onclick = () => showStart(true);
   $("#btn-gon").onclick = () => { $("#file-menu").open = false; setGon(!gon); };
+  $("#btn-settings").onclick = () => {
+    const on = document.body.classList.toggle("show-settings");
+    $("#btn-settings").setAttribute("aria-expanded", String(on));
+    $("#btn-settings").textContent = on ? "Ẩn cài đặt" : "Cài đặt…";
+  };
   $("#btn-forget").onclick = askForget;
   $("#forget-open").onclick = openOutDir;
   $("#forget-dialog").addEventListener("close", () => {
