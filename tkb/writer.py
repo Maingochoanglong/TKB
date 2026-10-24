@@ -523,8 +523,8 @@ def write_school_timetable(solution: Solution, path: str | Path, style: Style | 
     """File TKB toàn trường (như TKB nhà trường dán bảng tin): một sheet, mỗi lớp một cột (theo khối), mỗi ngày – buổi
     – tiết hai dòng: dòng trên tên môn viết tắt (short_subjects), dòng dưới tên viết tắt của giáo viên (short_names)
     khi người dạy không phải GVCN của lớp; GVCN dạy thì gộp hai dòng, chỉ ghi môn. Dòng GVCN dưới tên lớp. Ô của
-    giáo viên khác GVCN tô màu, mỗi người một màu; tên lớp ở cơ sở khác cơ sở đầu tô vàng. Kẻ đậm giữa các ngày, giữa
-    các khối; kẻ đứt giữa các buổi."""
+    giáo viên khác GVCN tô màu, mỗi người một màu; tên lớp ở cơ sở khác cơ sở đầu tô vàng. Kẻ đậm quanh mỗi ô (mỗi
+    tiết của mỗi lớp là một ô hai dòng, như TKB nhà trường kẻ tay); kẻ đứt giữa các buổi."""
     from openpyxl.styles import Border, Side
     style = style or Style()
     problem = solution.problem
@@ -575,7 +575,7 @@ def write_school_timetable(solution: Solution, path: str | Path, style: Style | 
             session_tops.append(r)
             start = r
             for k, p in enumerate(session.periods, start=1):
-                merge(r, 3, r + 1, k, header=True)
+                merge(r, 3, r + 1, k)  # số tiết chữ thường, như TKB nhà trường
                 for i, cls in enumerate(classes):
                     c = first_col + i
                     items = lessons.get((cls, d, p), [])
@@ -598,20 +598,16 @@ def write_school_timetable(solution: Solution, path: str | Path, style: Style | 
         merge(top, 1, r - 1, day_label[d], header=True)
     last_row = r - 1
 
-    # Kẻ: viền mỏng như file vào, đậm quanh bảng, giữa hai dòng tiêu đề và phần ngày, giữa các ngày, giữa các khối
-    # (và sau cột TIẾT); đứt giữa các buổi; không kẻ giữa dòng môn và dòng tên GV của một tiết.
-    base = style.body.border
+    # Kẻ đậm mọi đường như TKB nhà trường kẻ tay (mỗi tiết của mỗi lớp là một ô đóng khung); đứt giữa các buổi;
+    # không kẻ giữa dòng môn và dòng tên GV của một tiết (hai dòng đó là một ô).
     thick, dashed = Side(style="medium"), Side(style="mediumDashed")
-    grade_starts = {first_col + i for i, cls in enumerate(classes)
-                    if i == 0 or grade_of(cls) != grade_of(classes[i - 1])}
     day_starts = set(day_tops) | {3, last_row + 1}
     session_starts = set(session_tops) - day_starts
     for row in range(1, last_row + 1):
         for col in range(1, last_col + 1):
-            left = thick if col == 1 or col in grade_starts else base.left
-            right = thick if col in (3, last_col) or col + 1 in grade_starts else base.right
-            top = thick if row in (1, *day_starts) else dashed if row in session_starts else base.top
-            bottom = thick if row + 1 in day_starts else dashed if row + 1 in session_starts else base.bottom
+            left = right = thick
+            top = dashed if row in session_starts else thick
+            bottom = dashed if row + 1 in session_starts else thick
             if (row, col) in split_rows:
                 bottom = Side()
             if (row - 1, col) in split_rows:
