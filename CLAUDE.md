@@ -120,9 +120,14 @@ infeasible model), `Lesson.locked` writes the mark back, `writer.change_rows` �
 `GIU_TKB_DA_XEP = False` / `--xep-lai` re-solves from scratch.
 
 Web UI (`giao_dien.py` → `tkb.giao_dien`): a stdlib `ThreadingHTTPServer` on 127.0.0.1 (Host check + per-start token
-`X-TKB-Token`, injected into `static/index.html`; files opened/served only inside the output folder, default
-`out/giao_dien`, frozen exe `ket_qua/` next to TKB.exe) serving a no-dependency HTML/JS page. Nothing is written outside the program folder (school's demand: deleting the
-folder leaves nothing): `server.app_dir`/`data_dir` (frozen: TKB.exe's folder, `ket_qua/` + `du_lieu/`; source: `out/`),
+`X-TKB-Token`, injected into `static/index.html`) serving a no-dependency HTML/JS page. Every file the page reads or
+writes is inside the **TKB folder** (`App.home` = `server.app_dir`: frozen TKB.exe's folder, source `out/`, `--thu-muc`
+in tests; `App.inside`), subfolders `server.FOLDERS`: `chuong_trinh_hoc`/`nhan_su`/`luat` (the three entities,
+`kich_ban.ENTITIES`: Tệp › Lưu = `/api/save` → `kich_ban.to_entity_files`, three V8 files with only their sheets, plus
+the full file in `ket_qua`; Tệp › Mở… = `#files-dialog` from `/api/files`, a "bộ" = same stem in ≥ 2 entity folders,
+`/api/open_set` → `kich_ban.read_files` merges them), `tep_nhap` (uploads: original copied there by `App._keep`),
+`ket_qua` (`App.out_dir`, runs), `du_lieu`; no download links, no "Đổi" out dir; plan of the three entities:
+`docs/Thiet_Ke_Ba_Thuc_The.md`. Nothing is written outside it (school's demand: deleting the folder leaves nothing): `server.app_dir`/`data_dir`,
 the page's draft and choices live in `du_lieu/trang.json` (`/api/store`; `store` in app.js replaces localStorage,
 beacon on pagehide), `serve` points `tempfile` (and the solve child's TMP) at `du_lieu/tam`, and `open_page` starts
 Edge/Chrome `--app` with `--user-data-dir=du_lieu/trinh_duyet` (downloads into the out folder), else the default
@@ -399,4 +404,7 @@ cơ sở = campus; thai sản = maternity; hợp đồng = contract teacher; bu�
   §11 outputs, §13 reference results.
 - `docs/Thiet_Ke_Giai_Doan_4.md`: approved design of phase 4 (4A shared rooms, 4B lessons at the same time: split
   groups/co-teaching then merged classes, 4C languages postponed) and the school's decisions on it (§5 proposals).
+- `docs/Thiet_Ke_Ba_Thuc_The.md`: plan (school's request 25/10/2026) of the three entities Chương trình học / Nhân sự /
+  Luật: TKB folder (GĐ1, done), no default rules (GĐ2), subject tags (GĐ3), one uniform staff profile with roles as
+  profile templates (GĐ4a–c), UI (GĐ5); old files are converted and keep their result codes. §7 = open decisions.
 - `docs/Tham_Khao_TKB_Truong_Khac.md`: how other schools arrange subjects; §5 proposals (5.1 done, 5.2 dropped); §6 not adopted (incl. the homeroom-gap trial).

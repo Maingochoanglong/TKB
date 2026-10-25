@@ -539,6 +539,91 @@ def rules_to_excel(scenario: dict, path: str | Path) -> None:
     wb.save(path)
 
 
+# ---- ba thực thể, mỗi thực thể một file (docs/Thiet_Ke_Ba_Thuc_The.md, GĐ1) ----
+# Thực thể -> các sheet của file vào V8 thuộc về nó; sheet HƯỚNG DẪN đi kèm mọi file. Sheet TKB đã xếp không thuộc
+# thực thể nào: nó ở file vào đủ ("full": mọi sheet) của thư mục kết quả.
+ENTITIES = {
+    "program": (config.PROGRAM_SHEET, config.CLASSES_SHEET, config.ROOMS_SHEET, config.RULES_SHEET),
+    "staff": (config.STAFF_SHEET, config.ROLES_SHEET),
+    "rules": (luat_rieng.RULES_SHEET, luat_rieng.SHEET),
+}
+
+
+def entity_of(sheets: list[str]) -> str | None:
+    """Thực thể của một file theo các sheet nó có (`sheets_in`): "full" nếu có cả nhân sự và chương trình học (file
+    vào đủ, file cập nhật), không thì thực thể đầu tiên có sheet trong file; None nếu không có sheet nào đọc được."""
+    have = set(sheets)
+    if {config.STAFF_SHEET, config.PROGRAM_SHEET} <= have:
+        return "full"
+    return next((key for key, names in ENTITIES.items() if have & set(names)), None)
+
+
+def to_entity_files(scenario: dict, paths: dict[str, Path]) -> list[Path]:
+    """Ghi kịch bản thành file của từng thực thể (`paths`: thực thể -> đường dẫn; "full" là file vào đủ, có cả TKB đã
+    xếp). Mỗi file là file vào đủ bỏ bớt các sheet của thực thể khác, nên đọc lại bằng chính các hàm đọc file V8."""
+    with tempfile.TemporaryDirectory() as tmp:
+        full = Path(tmp) / "du.xlsx"
+        to_excel(scenario, full)
+        return split_file(full, paths)
+
+
+def split_file(full: Path, paths: dict[str, Path]) -> list[Path]:
+    """Chia file vào đủ `full` thành file của từng thực thể (`paths` như `to_entity_files`)."""
+    from .template import GUIDE_SHEET
+    written = []
+    for key, path in paths.items():
+        wb = openpyxl.load_workbook(full)
+        if key != "full":
+            keep = {*ENTITIES[key], GUIDE_SHEET}
+            for ws in list(wb.worksheets):
+                if ws.title not in keep:
+                    wb.remove(ws)
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        wb.save(path)
+        written.append(path)
+    return written
+
+
+def merge_files(paths: list[Path], target: Path) -> None:
+    """Gộp các file (vd chương trình học, nhân sự, luật) thành một file vào: chép chữ, ô gộp, dòng/cột ẩn của từng
+    sheet (đủ cho các hàm đọc); sheet trùng tên (không phân biệt hoa thường, dấu) lấy ở file đứng trước."""
+    out = openpyxl.Workbook()
+    out.remove(out.active)
+    seen: set[str] = set()
+    for path in paths:
+        wb = openpyxl.load_workbook(path, data_only=True)
+        for ws in wb.worksheets:
+            if _fold(ws.title) in seen:
+                continue
+            seen.add(_fold(ws.title))
+            new = out.create_sheet(ws.title)
+            for row in ws.iter_rows():
+                for c in row:
+                    if c.value is not None:
+                        new.cell(c.row, c.column, c.value)
+            for rng in ws.merged_cells.ranges:
+                new.merge_cells(str(rng))
+            for i, dim in ws.row_dimensions.items():
+                if dim.hidden:
+                    new.row_dimensions[i].hidden = True
+            for k, dim in ws.column_dimensions.items():
+                if dim.hidden:
+                    new.column_dimensions[k].hidden = True
+        wb.close()
+    out.save(target)
+
+
+def read_files(paths: list[Path]) -> tuple[dict, list[str], list[str]]:
+    """Đọc các file của một bộ (chương trình học, nhân sự, luật: file chương trình học trước để luật đọc theo khung
+    giờ của trường) như một file vào đủ: (kịch bản, các cảnh báo, các sheet có trong các file)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        merged = Path(tmp) / "bo.xlsx"
+        merge_files(paths, merged)
+        scenario, warnings = from_excel(merged)
+        return scenario, warnings, sheets_in(merged)
+
+
 def _custom_cell(key: str, value):
     """Ô của sheet LUẬT RIÊNG (cả dòng trống: dòng i của bảng là dòng i + 2 của sheet)."""
     if key == "hard":

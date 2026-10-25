@@ -12,7 +12,7 @@ from urllib.parse import quote
 
 import pytest
 
-from tkb import config
+from tkb import config, kich_ban
 from tkb.giao_dien import server as server_module
 from tkb.giao_dien.server import (FILE_NAMES, InputError, TOKEN_MARK, Job, make_server, run_argv, safe_name, summary)
 from tkb.template import write_staff_template
@@ -23,7 +23,7 @@ from .test_reproducible import REFERENCE
 
 @pytest.fixture
 def server(tmp_path):
-    httpd, app, url = make_server(port=0, out_dir=tmp_path / "ket_qua")
+    httpd, app, url = make_server(port=0, home=tmp_path / "TKB")
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     yield app, url
@@ -57,21 +57,40 @@ def test_page_and_token(server):
     assert _call(url, "/../server.py")[0] == 404
     status, schema = _call(url, "/api/schema", token=app.token)
     assert status == 200 and schema["run_defaults"]["mode"] == config.MODE_OVERTIME
-    assert schema["out_dir"] == str(app.out_dir)
+    assert schema["out_dir"] == str(app.out_dir) and schema["home"] == str(app.home)
+    assert app.out_dir == app.home / "ket_qua" and all(Path(p).is_dir() for p in schema["folders"].values())
 
 
-def test_import_check_export(server):
+def test_import_check_save(server):
+    """File lấy từ chỗ khác: đọc được thì chép bản gốc vào tep_nhap/. Tệp › Lưu: ba file cùng tên (chương trình học,
+    nhân sự, luật) và file vào đủ ở ket_qua/; Mở bộ đó đọc ra đúng kịch bản đã lưu."""
     app, url = server
-    status, data = _call(url, "/api/import", "POST", INPUT_FILE.read_bytes(), app.token,
-                         {"X-File-Name": "Truong%20M%E1%BA%ABu.xlsx"})
+    body = INPUT_FILE.read_bytes()
+    status, data = _call(url, "/api/import", "POST", body, app.token, {"X-File-Name": "Truong%20M%E1%BA%ABu.xlsx"})
     assert status == 200 and len(data["scenario"]["staff"]) == 45 and data["name"] == "Truong Mẫu"
     assert data["sheets"] == ["NHÂN SỰ", "CHƯƠNG TRÌNH HỌC", "LỚP", "PHÒNG", "CHỨC VỤ", "QUY ĐỊNH", "LUẬT"]
+    kept = Path(data["kept"])
+    assert kept == app.folders["imported"] / "Truong Mẫu.xlsx" and kept.read_bytes() == body
+    assert Path(_call(url, "/api/import", "POST", body, app.token, {"X-File-Name": quote(kept.name)})[1]["kept"]) == kept
     status, res = _call(url, "/api/check", "POST", {"scenario": data["scenario"], "run": {"overtime_max": 2}}, app.token)
     assert status == 200 and res["errors"] == []
-    status, xlsx = _call(url, "/api/export", "POST", {"scenario": data["scenario"], "name": "a/b"}, app.token)
-    assert status == 200 and xlsx[:2] == b"PK"  # file .xlsx (zip)
+    status, saved = _call(url, "/api/save", "POST", {"scenario": data["scenario"], "name": "a/b"}, app.token)
+    assert status == 200 and [Path(p) for p in saved["files"]] == [
+        app.folders["program"] / "ab.xlsx", app.folders["staff"] / "ab.xlsx", app.folders["rules"] / "ab.xlsx",
+        app.out_dir / "ab.xlsx"]
+    status, listed = _call(url, "/api/files", token=app.token)
+    assert [x["name"] for x in listed["sets"]] == ["ab"] and set(listed["sets"][0]["parts"]) == {"program", "staff", "rules"}
+    kinds = {f["key"]: [(x["name"], x["kind"]) for x in f["files"]] for f in listed["folders"]}
+    assert kinds == {"program": [("ab.xlsx", "program")], "staff": [("ab.xlsx", "staff")], "rules": [("ab.xlsx", "rules")],
+                     "imported": [("Truong Mẫu.xlsx", "full")], "results": [("ab.xlsx", "full")]}
+    status, opened = _call(url, "/api/open_set", "POST", {"name": "AB"}, app.token)
+    assert status == 200 and opened["name"] == "AB"
+    assert {k: v for k, v in opened["scenario"].items() if k != "saved"} == \
+        {k: v for k, v in data["scenario"].items() if k != "saved"}
+    assert _call(url, "/api/open_set", "POST", {"name": "khong_co"}, app.token)[0] == 400
     status, err = _call(url, "/api/import", "POST", b"khong phai excel", app.token)
     assert status == 400 and "Excel" in err["error"]
+    assert len(list(app.folders["imported"].iterdir())) == 1  # file hỏng không chép vào
     status, err = _call(url, "/api/check", "POST", {"scenario": data["scenario"], "run": {"workers": 0}}, app.token)
     assert status == 400 and "luồng" in err["error"]
 
@@ -103,27 +122,32 @@ def test_describe_rules(server):
            for r, t in zip(new["scenario"]["rules"], data["rules"])]  # bản nháp cũ: luật tiết trống ghi 10 điểm
     status, data = _call(url, "/api/describe", "POST", {"scenario": {**new["scenario"], "rules": old}}, app.token)
     assert [r["level"] for r in data["rules"] if r["tuned"]] == ["Thấp"]
-    status, xlsx = _call(url, "/api/rules_file", "POST", {"template": True}, app.token)
-    assert status == 200 and xlsx[:2] == b"PK"
-    status, imported = _call(url, "/api/import", "POST", xlsx, app.token)
+    status, res = _call(url, "/api/rules_file", "POST", {"template": True}, app.token)
+    assert status == 200 and [Path(p) for p in res["files"]] == [app.folders["rules"] / "Mau_Luat.xlsx"]
+    status, imported = _call(url, "/api/import_path", "POST", {"path": res["files"][0]}, app.token)
     assert imported["sheets"] == ["LUẬT"] and imported["scenario"]["rules"] == new["scenario"]["rules"]
-    status, xlsx = _call(url, "/api/rules_file", "POST", {"scenario": new["scenario"], "name": "a"}, app.token)
-    assert status == 200 and xlsx[:2] == b"PK"
+    status, res = _call(url, "/api/rules_file", "POST", {"scenario": new["scenario"], "name": "a"}, app.token)
+    assert status == 200 and [Path(p) for p in res["files"]] == [app.folders["rules"] / "a.xlsx"]
 
 
 def test_blank_template(server, tmp_path):
-    """Nút Tải file mẫu: đúng file mẫu trống của python -m tkb.template; nhập lại được."""
+    """Nút Ghi file mẫu trống: file mẫu trống của python -m tkb.template chia thành ba file (chương trình học, nhân
+    sự, luật) ở ba thư mục; mỗi file có đúng các sheet của thực thể đó (và HƯỚNG DẪN), nhập lại được."""
     import openpyxl
 
     app, url = server
-    status, xlsx = _call(url, f"/api/template?t={app.token}")
-    assert status == 200 and xlsx[:2] == b"PK"
-    (tmp_path / "tai.xlsx").write_bytes(xlsx)
+    status, res = _call(url, "/api/template", "POST", {}, app.token)
+    assert status == 200 and [Path(p) for p in res["files"]] == [
+        app.folders["program"] / "Mau_Chuong_Trinh_Hoc.xlsx", app.folders["staff"] / "Mau_Nhan_Su.xlsx",
+        app.folders["rules"] / "Mau_Luat.xlsx"]
     write_staff_template(tmp_path / "mau.xlsx")
-    values = lambda p: [list(ws.values) for ws in openpyxl.load_workbook(p).worksheets]  # noqa: E731
-    assert values(tmp_path / "tai.xlsx") == values(tmp_path / "mau.xlsx")
-    status, data = _call(url, "/api/import", "POST", xlsx, app.token)
-    assert status == 200 and data["scenario"]["staff"] == [] and data["warnings"] == []
+    full = {ws.title: list(ws.values) for ws in openpyxl.load_workbook(tmp_path / "mau.xlsx").worksheets}
+    for path, key in zip(res["files"], ("program", "staff", "rules")):
+        sheets = {ws.title: list(ws.values) for ws in openpyxl.load_workbook(path).worksheets}
+        assert set(sheets) == {*kich_ban.ENTITIES[key], "HƯỚNG DẪN"} - {"LUẬT RIÊNG"}
+        assert all(sheets[name] == full[name] for name in sheets)
+    status, data = _call(url, "/api/import_path", "POST", {"path": res["files"][1]}, app.token)
+    assert status == 200 and data["scenario"]["staff"] == [] and data["sheets"] == ["NHÂN SỰ", "CHỨC VỤ"]
 
 
 def test_sample_and_quick_check(server):
@@ -179,13 +203,17 @@ def test_board_import(server, small_updated):
     assert status == 400 and "còn lỗi" in err["error"]
 
 
-def test_files_only_inside_output_folder(server, tmp_path):
+def test_files_only_inside_the_tkb_folder(server, tmp_path):
+    """Trang chỉ đọc, mở file trong thư mục TKB (không đọc du_lieu/ của chương trình); không còn lệnh tải file ra
+    ngoài hay đổi thư mục kết quả."""
     app, url = server
     (tmp_path / "ngoai.xlsx").write_bytes(b"x")
-    status, err = _call(url, f"/api/file?path={quote(str(tmp_path / 'ngoai.xlsx'))}&t={app.token}")
-    assert status == 400 and "thư mục kết quả" in err["error"]
-    status, err = _call(url, "/api/open", "POST", {"path": str(tmp_path / "ngoai.xlsx")}, app.token)
-    assert status == 400
+    status, err = _call(url, "/api/import_path", "POST", {"path": str(tmp_path / "ngoai.xlsx")}, app.token)
+    assert status == 400 and "thư mục TKB" in err["error"]
+    assert _call(url, "/api/open", "POST", {"path": str(tmp_path / "ngoai.xlsx")}, app.token)[0] == 400
+    assert _call(url, "/api/import_path", "POST", {"path": str(app.data / "trang.json")}, app.token)[0] == 400
+    assert _call(url, f"/api/file?path=x&t={app.token}")[0] == 404
+    assert _call(url, "/api/settings", "POST", {"out_dir": str(tmp_path)}, app.token)[0] == 404
 
 
 def test_run_argv_like_main():
@@ -254,12 +282,11 @@ def test_run_from_the_ui_gives_the_reference_timetable(server, tmp_path, mode):
     expected = REFERENCE.get(sys.platform, {}).get(mode)
     if expected is not None:
         assert result["code"] == expected
-    status, body = _call(url, f"/api/file?path={quote(result['files'][0])}&t={app.token}")
-    assert status == 200 and body[:2] == b"PK"
+    assert all(Path(p).parent == app.out_dir and Path(p).is_file() for p in result["files"])
 
 
-def test_open_only_files_inside_output_folder(server, monkeypatch):
-    """Nút Mở file: mở đúng file trong thư mục kết quả bằng ứng dụng mặc định (Windows: os.startfile; máy khác:
+def test_open_only_files_inside_the_tkb_folder(server, monkeypatch):
+    """Nút Mở file: mở đúng file trong thư mục TKB bằng ứng dụng mặc định (Windows: os.startfile; máy khác:
     xdg-open / open), giả lập để không mở Excel thật; file ngoài thư mục hay không có thì báo lỗi."""
     app, url = server
     app.out_dir.mkdir(parents=True, exist_ok=True)
@@ -271,7 +298,7 @@ def test_open_only_files_inside_output_folder(server, monkeypatch):
     else:
         monkeypatch.setattr(server_module.subprocess, "Popen", lambda args, **_: opened.append(Path(args[-1])))
     assert _call(url, "/api/open", "POST", {"path": str(target)}, app.token) == (200, {"ok": True})
-    assert _call(url, "/api/open", "POST", {"path": FILE_NAMES["tkb"]}, app.token)[0] == 200  # tên trong thư mục
+    assert _call(url, "/api/open", "POST", {"path": f"ket_qua/{FILE_NAMES['tkb']}"}, app.token)[0] == 200  # trong thư mục TKB
     assert opened == [target.resolve()] * 2
     status, err = _call(url, "/api/open", "POST", {"path": str(app.out_dir / "khong_co.xlsx")}, app.token)
     assert status == 400 and "Không có" in err["error"] and len(opened) == 2
@@ -324,7 +351,7 @@ def test_page_store_lives_in_the_program_folder(server):
     assert _call(url, "/api/store", token=app.token) == (200, {})
     assert _call(url, "/api/store", "POST", {"items": {"tkb-luoi": "1", "tkb-tab": "xep"}}, app.token)[0] == 200
     path = app.data / server_module.STORE_NAME
-    assert app.out_dir in path.parents and json.loads(path.read_text(encoding="utf-8"))["tkb-tab"] == "xep"
+    assert app.home in path.parents and json.loads(path.read_text(encoding="utf-8"))["tkb-tab"] == "xep"
     assert _call(url, "/api/store", token=app.token)[1] == {"tkb-luoi": "1", "tkb-tab": "xep"}
     # Đóng trang gửi bằng sendBeacon: mã phiên ở địa chỉ (?t=) thay cho tiêu đề.
     assert _call(url, f"/api/store?t={quote(app.token)}", "POST", {"items": {"tkb-luoi": "0"}})[0] == 200
@@ -345,6 +372,7 @@ def test_packaged_app_keeps_everything_in_its_folder(tmp_path, monkeypatch):
     httpd, app, url = make_server(port=0)
     try:
         assert app.out_dir == (exe.parent / "ket_qua").resolve() and app.data == (exe.parent / "du_lieu").resolve()
+        assert {p.name for p in exe.parent.iterdir()} == {"chuong_trinh_hoc", "nhan_su", "luat", "tep_nhap", "ket_qua"}
         started = []
         monkeypatch.setattr(server_module, "find_browser", lambda: "msedge")
         monkeypatch.setattr(server_module.subprocess, "Popen", lambda args, **_: started.append(args))

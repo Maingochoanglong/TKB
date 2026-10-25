@@ -3,10 +3,12 @@
 An toàn khi chạy trên máy của trường:
 - chỉ nghe trên 127.0.0.1 và chỉ nhận yêu cầu có Host là 127.0.0.1/localhost (trang web lạ không gọi được);
 - mọi lệnh /api/ cần mã phiên (X-TKB-Token, sinh mới mỗi lần mở) nên trang web khác không gửi lệnh thay được;
-- chỉ mở, tải các file trong thư mục kết quả.
+- chỉ mở, ghi các file trong thư mục TKB.
 
-Không để lại gì ngoài thư mục của chương trình (bản đóng gói: thư mục có TKB.exe): kết quả ở ket_qua/, bản nháp của
-trang, file tạm và hồ sơ trình duyệt ở du_lieu/ (xem data_dir, serve). Xóa thư mục là hết.
+Mọi file trang đọc, ghi đều ở thư mục TKB (thư mục của chương trình; bản đóng gói: thư mục có TKB.exe; xem FOLDERS,
+docs/Thiet_Ke_Ba_Thuc_The.md 2.1): ba thực thể chương trình học, nhân sự, luật mỗi thực thể một thư mục; file lấy từ
+chỗ khác được chép bản gốc vào tep_nhap/ rồi mới đọc; kết quả ở ket_qua/; bản nháp của trang, file tạm và hồ sơ trình
+duyệt ở du_lieu/ (xem data_dir, serve). Xóa thư mục là hết.
 
 Xếp TKB chạy `python -m tkb <file vào> ...` (đúng như main.py) ở tiến trình con: giao diện không treo, in ra từng
 dòng như khi chạy dòng lệnh, và nút Dừng gửi Ctrl+C (Windows: Ctrl+Break) để chương trình dừng sớm mà vẫn ghi TKB tốt
@@ -29,7 +31,7 @@ import webbrowser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, quote, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .. import config, kich_ban, nhap_tkb
 from ..staff import InputError
@@ -41,7 +43,6 @@ TOKEN_MARK = "__TKB_TOKEN__"  # chỗ ghi mã phiên trong index.html
 MAX_BODY = 20 * 1024 * 1024
 TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
-XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 MODES = [{"key": config.MODE_OVERTIME, "label": "Bù giờ",
           "note": "GVCN và bộ môn dạy bù vượt định mức; bù tối đa vẫn thiếu thì báo lỗi, ghi bảng tiết thiếu."},
          {"key": config.MODE_HIRE, "label": "Tuyển thêm",
@@ -51,33 +52,37 @@ RUN_DEFAULTS = {"name": "kich_ban", "mode": config.MODE_OVERTIME, "overtime_max"
                 "student_rules": True, "time_limit": 1200, "reproducible": True, "keep_saved": True, "workers": 8}
 FILE_NAMES = {"tkb": "TKB.xlsx", "roles": "TKB_chuc_vu.xlsx", "teachers": "TKB_giao_vien.xlsx",
               "school": "TKB_toan_truong.xlsx", "stats": "Thong_Ke.xlsx"}
-TEMPLATE_NAME = "Mau_Input_V8.xlsx"  # file mẫu trống (như data/Input_Template_V8.xlsx)
-RULES_TEMPLATE_NAME = "Mau_Luat.xlsx"  # mẫu luật: chỉ sheet LUẬT với các luật có sẵn (và HƯỚNG DẪN)
+# Thư mục con của thư mục TKB: khóa -> tên thư mục. Ba thư mục đầu là ba thực thể (kich_ban.ENTITIES).
+FOLDERS = {"program": "chuong_trinh_hoc", "staff": "nhan_su", "rules": "luat", "imported": "tep_nhap",
+           "results": "ket_qua"}
+FOLDER_LABELS = {"program": "Chương trình học", "staff": "Nhân sự", "rules": "Luật",
+                 "imported": "File lấy từ chỗ khác (bản gốc)", "results": "Kết quả (file vào đủ, file cập nhật)"}
+DATA_FOLDER = "du_lieu"  # của riêng chương trình: bản nháp của trang, file tạm, hồ sơ trình duyệt
+# File mẫu trống của từng thực thể (python -m tkb.template chia theo thực thể); mẫu luật: các luật có sẵn.
+TEMPLATE_NAMES = {"program": "Mau_Chuong_Trinh_Hoc.xlsx", "staff": "Mau_Nhan_Su.xlsx", "rules": "Mau_Luat.xlsx"}
+RULES_TEMPLATE_NAME = TEMPLATE_NAMES["rules"]
 
 
 STORE_NAME = "trang.json"  # bản nháp và lựa chọn của trang (thay cho bộ nhớ trình duyệt), trong data_dir
 
 
 def app_dir() -> Path:
-    """Thư mục của chương trình: bản đóng gói là thư mục có TKB.exe; chạy từ mã nguồn là out/ của dự án (đã bỏ qua
-    trong git vì có tên giáo viên)."""
+    """Thư mục TKB, của chương trình: bản đóng gói là thư mục có TKB.exe; chạy từ mã nguồn là out/ của dự án (đã bỏ
+    qua trong git vì có tên giáo viên)."""
     if getattr(sys, "frozen", False) or not (PROJECT / "main.py").is_file():
         return Path(sys.executable).resolve().parent
     return PROJECT / "out"
 
 
 def default_out_dir() -> Path:
-    """Thư mục kết quả mặc định, trong thư mục của chương trình: bản đóng gói ket_qua/ cạnh TKB.exe; mã nguồn
-    out/giao_dien."""
-    if getattr(sys, "frozen", False) or not (PROJECT / "main.py").is_file():
-        return app_dir() / "ket_qua"
-    return PROJECT / "out" / "giao_dien"
+    """Thư mục kết quả: ket_qua/ của thư mục TKB."""
+    return app_dir() / FOLDERS["results"]
 
 
-def data_dir(out_dir=None) -> Path:
-    """Chỗ để bản nháp của trang, file tạm và hồ sơ trình duyệt: du_lieu/ của thư mục chương trình; mở với
-    --thu-muc riêng (vd test) thì _du_lieu/ trong thư mục đó."""
-    return Path(out_dir) / "_du_lieu" if out_dir else app_dir() / "du_lieu"
+def data_dir(home=None) -> Path:
+    """Chỗ để bản nháp của trang, file tạm và hồ sơ trình duyệt: du_lieu/ của thư mục TKB (`home`; không ghi: thư
+    mục của chương trình)."""
+    return Path(home or app_dir()) / DATA_FOLDER
 
 
 def cli_command(argv: list[str]) -> list[str]:
@@ -244,28 +249,96 @@ class Job:
 
 
 class App:
-    """Trạng thái của giao diện: thư mục kết quả, mã phiên, việc xếp TKB đang chạy."""
+    """Trạng thái của giao diện: thư mục TKB, mã phiên, việc xếp TKB đang chạy."""
 
-    def __init__(self, out_dir: Path, token: str, data: Path | None = None):
-        self.out_dir = Path(out_dir).expanduser().resolve()
-        self.data = Path(data or data_dir(self.out_dir)).resolve()  # bản nháp của trang (store)
+    def __init__(self, home: Path, token: str):
+        self.home = Path(home).expanduser().resolve()
+        self.folders = {k: self.home / name for k, name in FOLDERS.items()}
+        for folder in self.folders.values():  # tạo sẵn để nhà trường thấy chỗ để file
+            folder.mkdir(parents=True, exist_ok=True)
+        self.out_dir = self.folders["results"]
+        self.data = data_dir(self.home).resolve()  # bản nháp của trang (store)
         self.token = token
         self.lock = threading.Lock()  # kịch bản <-> Excel đổi tạm config (rules.applied): mỗi lúc một việc
         self.job: Job | None = None
         self.grid: tuple[str, kich_ban.Grid] | None = None  # bài toán của TKB đang xem (đổi ô thì dùng lại)
 
     def inside(self, path) -> Path:
-        """Đường dẫn trong thư mục kết quả, không thì báo lỗi."""
+        """Đường dẫn trong thư mục TKB (trừ du_lieu/ của chương trình), không thì báo lỗi."""
         p = Path(str(path)).expanduser()
-        p = (p if p.is_absolute() else self.out_dir / p).resolve()
-        if p != self.out_dir and self.out_dir not in p.parents:
-            raise InputError("Chỉ mở được file trong thư mục kết quả")
+        p = (p if p.is_absolute() else self.home / p).resolve()
+        if (p != self.home and self.home not in p.parents) or p == self.data or self.data in p.parents:
+            raise InputError(f"Chỉ mở được file trong thư mục TKB ({self.home})")
         return p
+
+    def _keep(self, body: bytes, name: str) -> Path:
+        """Chép bản gốc của file lấy từ chỗ khác vào tep_nhap/ (giữ tên; trùng tên khác nội dung thì thêm số)."""
+        folder = self.folders["imported"]
+        folder.mkdir(parents=True, exist_ok=True)
+        stem = safe_name(Path(name).stem)
+        path, n = folder / f"{stem}.xlsx", 2
+        while path.exists() and path.read_bytes() != body:
+            path, n = folder / f"{stem} ({n}).xlsx", n + 1
+        if not path.exists():
+            path.write_bytes(body)
+        return path
+
+    @staticmethod
+    def _write(paths: list[Path], write) -> list[str]:
+        """Ghi các file bằng `write()`; file đang mở trong Excel (Windows khóa file) thì báo rõ."""
+        try:
+            return [str(p) for p in write()]
+        except PermissionError as exc:
+            name = Path(exc.filename or "").name or ", ".join(p.name for p in paths)
+            raise InputError(f"Không ghi được {name}: file đang mở trong Excel? Đóng file rồi bấm lại") from None
 
     # ---- các lệnh /api/ ----
     def schema(self, _):
         return {**kich_ban.schema(), "modes": MODES, "run_defaults": RUN_DEFAULTS, "out_dir": str(self.out_dir),
+                "home": str(self.home), "folders": {k: str(p) for k, p in self.folders.items()},
                 "files": FILE_NAMES, "running": bool(self.job and self.job.running)}
+
+    def files(self, _):
+        """Các file Excel đọc được trong thư mục TKB (hộp Mở của trang), mới nhất trước: theo thư mục ({key, label,
+        path, files: [{name, path, kind, saved, time}]}; kind: thực thể, "full" là file vào đủ), và các bộ: file cùng
+        tên ở từ hai thư mục thực thể trở lên (Lưu ghi ba file cùng tên)."""
+        folders, sets = [], {}
+        for key, folder in self.folders.items():
+            items = []
+            paths = [p for p in folder.glob("*.xlsx") if not p.name.startswith("~$")]  # ~$: file khóa của Excel
+            for p in sorted(paths, key=lambda p: (-p.stat().st_mtime, p.name)):
+                try:
+                    sheets = kich_ban.sheets_in(p)
+                except Exception:  # không phải file Excel đọc được: không hiện
+                    continue
+                kind = kich_ban.entity_of(sheets)
+                if kind is None:  # vd TKB.xlsx, Thong_Ke.xlsx: file ra, không mở vào trang được
+                    continue
+                item = {"name": p.name, "path": str(p), "kind": kind, "saved": config.SAVED_SHEET in sheets,
+                        "time": int(p.stat().st_mtime)}
+                items.append(item)
+                if key in kich_ban.ENTITIES and kind == key:
+                    entry = sets.setdefault(p.stem.lower(), {"name": p.stem, "parts": {}, "time": 0})
+                    entry["parts"][key] = p.name
+                    entry["time"] = max(entry["time"], item["time"])
+            folders.append({"key": key, "label": FOLDER_LABELS[key], "path": str(folder), "files": items})
+        full_sets = sorted((v for v in sets.values() if len(v["parts"]) > 1), key=lambda v: (-v["time"], v["name"]))
+        return {"home": str(self.home), "folders": folders, "sets": full_sets}
+
+    def open_set(self, data: dict):
+        """Mở một bộ: các file cùng tên `name` ở ba thư mục thực thể, đọc như một file vào đủ."""
+        name = str(data.get("name") or "")
+        paths = [p for key in kich_ban.ENTITIES for p in self.folders[key].glob("*.xlsx")
+                 if p.stem.lower() == name.lower() and not p.name.startswith("~$")]
+        if not paths:
+            raise InputError(f"Không có file {name}.xlsx trong các thư mục {', '.join(FOLDERS[k] for k in kich_ban.ENTITIES)}")
+        try:
+            with self.lock:
+                scenario, warnings, sheets = kich_ban.read_files(paths)
+        except InputError as exc:
+            raise InputError(f"Không đọc được bộ {name}: {exc}") from None
+        return {"scenario": scenario, "warnings": warnings, "name": safe_name(name), "sheets": sheets,
+                "files": [str(p.relative_to(self.home)) for p in paths]}
 
     def new(self, query: dict):
         """Kịch bản mới theo bộ luật mẫu `mau` (tkb/bo_mau.py; không ghi: Tiểu học Việt Nam)."""
@@ -294,10 +367,13 @@ class App:
         return {"scenario": scenario, "warnings": warnings, "name": safe_name(stem), "sheets": kich_ban.sheets_in(path)}
 
     def import_file(self, body: bytes, name: str):
+        """File lấy từ chỗ khác (hộp chọn file của trình duyệt): đọc được thì chép bản gốc vào tep_nhap/."""
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "vao.xlsx"
             path.write_bytes(body)
-            return self._import(path, name or "vào")
+            result = self._import(path, name or "vào")
+        result["kept"] = str(self._keep(body, name or "vao.xlsx"))
+        return result
 
     def import_path(self, data: dict):
         path = self.inside(data.get("path", ""))
@@ -333,12 +409,13 @@ class App:
                         text = not_xlsx_message(name)
                         raise InputError(text[0].upper() + text[1:]) from None
                     raise
+            kept = self._keep(body, name)
             problem = grid.problem
             subjects = list(dict.fromkeys(problem.subject_label(c.subject) for c in problem.courses))
             teachers = [{"code": t.code, "name": t.name} for t in sorted(
                 (t for t in problem.teachers.values() if not t.supplementary), key=lambda t: t.row or 0)]
         return {"grid": rows, "report": report, "lines": nhap_tkb.describe(report), "subjects": subjects,
-                "teachers": teachers}
+                "teachers": teachers, "kept": str(kept)}
 
     def upgrade(self, data: dict):
         """Bản nháp kịch bản của bản trước (khung giờ cách cũ) -> bản hiện tại (kich_ban.upgrade)."""
@@ -377,23 +454,24 @@ class App:
             return {"swaps": self._grid(data).swaps(data["scenario"].get("saved"), str(data.get("cls")),
                                                     int(data.get("d", -1)), int(data.get("p", -1)))}
 
-    def export(self, data: dict) -> tuple[bytes, str]:
+    def save(self, data: dict):
+        """Tệp › Lưu: ba file cùng tên <tên>.xlsx, mỗi thực thể một file ở thư mục của nó, và file vào đủ (có cả TKB
+        đã xếp) ở ket_qua/ như file vào của lần xếp."""
         name = safe_name(data.get("name"))
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / f"{name}.xlsx"
-            with self.lock:
-                kich_ban.to_excel(data["scenario"], path)
-            return path.read_bytes(), path.name
+        paths = {**{k: self.folders[k] / f"{name}.xlsx" for k in kich_ban.ENTITIES}, "full": self.out_dir / f"{name}.xlsx"}
+        with self.lock:
+            files = self._write(list(paths.values()), lambda: kich_ban.to_entity_files(data["scenario"], paths))
+        return {"files": files}
 
-    def rules_file(self, data: dict) -> tuple[bytes, str]:
-        """File Excel chỉ có các luật (sheet LUẬT, HƯỚNG DẪN): các luật của kịch bản, hoặc (mẫu) các luật mặc định."""
-        name = RULES_TEMPLATE_NAME if data.get("template") else f"{safe_name(data.get('name'))}_luat.xlsx"
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / name
-            with self.lock:
-                scenario = kich_ban.default_scenario() if data.get("template") else data["scenario"]
-                kich_ban.rules_to_excel(scenario, path)
-            return path.read_bytes(), path.name
+    def rules_file(self, data: dict):
+        """File chỉ có các luật (sheet LUẬT, HƯỚNG DẪN) ở luat/: các luật của kịch bản (<tên>.xlsx), hoặc (mẫu) các
+        luật có sẵn (Mau_Luat.xlsx)."""
+        name = RULES_TEMPLATE_NAME if data.get("template") else f"{safe_name(data.get('name'))}.xlsx"
+        path = self.folders["rules"] / name
+        with self.lock:
+            scenario = kich_ban.default_scenario() if data.get("template") else data["scenario"]
+            files = self._write([path], lambda: [kich_ban.rules_to_excel(scenario, path) or path])
+        return {"files": files}
 
     def store(self, data=None):
         """Bản nháp và lựa chọn của trang ({khóa: chữ}), ghi ở data/trang.json thay cho bộ nhớ trình duyệt: xóa thư
@@ -411,15 +489,18 @@ class App:
         os.replace(tmp, path)
         return {"ok": True}
 
-    def template(self) -> tuple[bytes, str]:
-        """File vào mẫu trống (python -m tkb.template): nhà trường điền trong Excel rồi nhập lại."""
+    def template(self, _=None):
+        """Mẫu trống của ba thực thể (file mẫu python -m tkb.template chia theo thực thể), mỗi file ở thư mục của nó:
+        nhà trường điền trong Excel rồi mở lại ở đây."""
         from ..template import write_staff_template
 
+        paths = {k: self.folders[k] / name for k, name in TEMPLATE_NAMES.items()}
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / TEMPLATE_NAME
+            full = Path(tmp) / "mau.xlsx"
             with self.lock:
-                write_staff_template(path)
-            return path.read_bytes(), path.name
+                write_staff_template(full)
+                files = self._write(list(paths.values()), lambda: kich_ban.split_file(full, paths))
+        return {"files": files}
 
     def run(self, data: dict):
         if self.job and self.job.running:
@@ -430,11 +511,8 @@ class App:
         source = out / f"{name}.xlsx"
         argv = run_argv(source, out, name, run)
         out.mkdir(parents=True, exist_ok=True)
-        try:
-            with self.lock:
-                kich_ban.to_excel(data["scenario"], source)
-        except PermissionError:
-            raise InputError(f"Không ghi được {source}: file đang mở trong Excel? Đóng file rồi bấm lại") from None
+        with self.lock:
+            self._write([source], lambda: [kich_ban.to_excel(data["scenario"], source) or source])
         self.job = Job(argv, out)
         return {"input": str(source), "command": " ".join(cli_command(argv))}
 
@@ -466,19 +544,6 @@ class App:
         except OSError as exc:
             raise InputError(f"Không mở được {path.name}: {exc}") from None
         return {"ok": True}
-
-    def settings(self, data: dict):
-        if self.job and self.job.running:
-            raise InputError("Đang xếp TKB, chưa đổi được thư mục kết quả")
-        folder = Path(str(data.get("out_dir") or "")).expanduser()
-        if not str(folder).strip() or not folder.is_absolute():
-            raise InputError("Ghi đường dẫn đầy đủ của thư mục, vd C:\\Users\\ten\\TKB")
-        try:
-            folder.mkdir(parents=True, exist_ok=True)
-        except OSError as exc:
-            raise InputError(f"Không tạo được thư mục {folder}: {exc}") from None
-        self.out_dir = folder.resolve()
-        return {"out_dir": str(self.out_dir)}
 
     def forget(self, _):
         """Tệp › Xóa dữ liệu trên máy này: bỏ TKB đang xem và nhật ký lần chạy (có tên giáo viên) khỏi bộ nhớ.
@@ -566,30 +631,19 @@ class Handler(BaseHTTPRequestHandler):
         app = self.app
         name = url.path[len("/api/"):]
         try:
-            if method == "GET" and name == "file":
-                path = app.inside((query.get("path") or [""])[0])
-                if not path.is_file():
-                    raise InputError(f"Không có file {path.name}")
-                return self._send(HTTPStatus.OK, path.read_bytes(), XLSX if path.suffix == ".xlsx" else
-                                  "application/octet-stream",
-                                  {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(path.name)}"})
-            if (method, name) in (("POST", "export"), ("GET", "template"), ("POST", "rules_file")):
-                data = json.loads(self._body() or b"{}") if method == "POST" else {}
-                body, filename = (app.export(data) if name == "export" else app.rules_file(data)
-                                  if name == "rules_file" else app.template())
-                return self._send(HTTPStatus.OK, body, XLSX,
-                                  {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
             if method == "POST" and name == "import":
                 return self._json(HTTPStatus.OK, app.import_file(self._body(),
                                                                  unquote(self.headers.get("X-File-Name") or "")))
             routes = {("GET", "schema"): app.schema, ("GET", "new"): app.new, ("GET", "sample"): app.sample,
                       ("GET", "status"): app.status, ("GET", "ping"): lambda _: {"ok": True},  # trang hỏi còn chạy
                       ("POST", "import_path"): app.import_path, ("POST", "check"): app.check, ("POST", "run"): app.run,
+                      ("GET", "files"): app.files, ("POST", "open_set"): app.open_set, ("POST", "save"): app.save,
+                      ("POST", "template"): app.template, ("POST", "rules_file"): app.rules_file,
                       ("POST", "describe"): app.describe, ("POST", "timetable"): app.timetable,
                       ("POST", "upgrade"): app.upgrade, ("POST", "board"): app.board,
                       ("POST", "swaps"): app.swaps,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
-                      ("POST", "settings"): app.settings, ("POST", "forget"): app.forget,
+                      ("POST", "forget"): app.forget,
                       ("GET", "store"): app.store, ("POST", "store"): app.store}
             handler = routes.get((method, name))
             if handler is None:
@@ -602,10 +656,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(HTTPStatus.BAD_REQUEST, {"error": f"Dữ liệu gửi lên không hợp lệ: {exc}"})
 
 
-def make_server(port: int = PORT, out_dir=None) -> tuple[ThreadingHTTPServer, App, str]:
-    """Máy chủ trên 127.0.0.1 (cổng bận thì lấy cổng khác): (máy chủ, trạng thái, đường dẫn trang)."""
-    app = App(Path(out_dir) if out_dir else default_out_dir(), secrets.token_urlsafe(16),
-              None if out_dir else data_dir())
+def make_server(port: int = PORT, home=None) -> tuple[ThreadingHTTPServer, App, str]:
+    """Máy chủ trên 127.0.0.1 (cổng bận thì lấy cổng khác): (máy chủ, trạng thái, đường dẫn trang). `home`: thư mục
+    TKB (không ghi: thư mục của chương trình)."""
+    app = App(Path(home) if home else app_dir(), secrets.token_urlsafe(16))
     handler = type("TkbHandler", (Handler,), {"app": app})
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
@@ -649,14 +703,14 @@ def open_page(url: str, app: App) -> None:
         webbrowser.open(url)
 
 
-def serve(port: int = PORT, open_browser: bool = True, out_dir=None) -> int:
-    httpd, app, url = make_server(port, out_dir)
+def serve(port: int = PORT, open_browser: bool = True, home=None) -> int:
+    httpd, app, url = make_server(port, home)
     tmp = app.data / "tam"  # file tạm (đọc, kiểm tra file Excel) cũng trong thư mục chương trình; tắt thì xóa
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir(parents=True, exist_ok=True)
     tempfile.tempdir = str(tmp)
     print(f"Giao diện xếp TKB: {url}")
-    print(f"Thư mục kết quả : {app.out_dir}")
+    print(f"Thư mục TKB     : {app.home}")
     print("Giữ cửa sổ này mở trong khi dùng giao diện; bấm Ctrl+C để tắt.")
     if open_browser:
         open_page(url, app)

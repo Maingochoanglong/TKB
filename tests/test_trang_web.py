@@ -31,7 +31,7 @@ def browser():
 
 @pytest.fixture
 def page(browser, tmp_path):
-    httpd, app, url = make_server(port=0, out_dir=tmp_path / "ket_qua")
+    httpd, app, url = make_server(port=0, home=tmp_path / "TKB")
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     context = browser.new_context(viewport={"width": 1280, "height": 900})
@@ -132,6 +132,35 @@ def test_start_screen_and_all_steps(page, tmp_path):
     assert page.locator("#btn-check").is_visible() and page.locator("#run-settings").is_visible()
 
 
+def test_save_and_open_in_the_tkb_folder(page, tmp_path):
+    """Tệp › Lưu ghi ba file cùng tên (chương trình học, nhân sự, luật) vào thư mục TKB; Tệp › Mở… liệt kê bộ đó và
+    file lấy từ chỗ khác (bản gốc chép vào tep_nhap/); Mở bộ này rồi Nhập là có lại đúng dữ liệu đã lưu."""
+    from tkb.truong_mau import write_sample_input
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="open"]')
+    page.wait_for_selector("#files-dialog[open]")
+    assert "Chưa có file nào" in page.text_content("#files-list")
+    page.set_input_files("#file-open", str(write_sample_input(tmp_path / "Truong_mau.xlsx")))
+    page.wait_for_selector("#import-dialog[open]")
+    page.click("#import-apply")
+    page.wait_for_selector("#start", state="hidden")
+    assert (page.app.folders["imported"] / "Truong_mau.xlsx").is_file()
+    page.click("#file-menu summary")
+    page.click("#btn-export")
+    _wait_text(page, "#notice", "Đã lưu")
+    assert all((page.app.folders[k] / "Truong_mau.xlsx").is_file() for k in ("program", "staff", "rules"))
+    page.evaluate("st.scenario.staff.pop(); renderAll(); changed()")
+    page.wait_for_function("document.querySelector('#count-gv').textContent === '44'")
+    page.click("#file-menu summary")
+    page.click("#btn-open")
+    page.wait_for_selector('#files-dialog[open] [data-act="open-set"]')
+    page.click('#files-list [data-act="open-set"][data-name="Truong_mau"]')
+    page.wait_for_selector("#import-dialog[open]")
+    page.click("#import-apply")
+    page.wait_for_function("document.querySelector('#count-gv').textContent === '45'")
+    assert page.locator("#files-dialog[open]").count() == 0
+
+
 def test_banner_when_program_stops_and_restarts(page, tmp_path):
     """Cửa sổ dòng lệnh bị đóng: trang tự thấy (hỏi /api/ping định kỳ) và hiện dải báo cách mở lại. Mở lại chương
     trình trên cùng cổng (mã trang mới): dải báo đổi thành nút Tải lại trang, tải lại thì trang chạy bình thường."""
@@ -142,7 +171,7 @@ def test_banner_when_program_stops_and_restarts(page, tmp_path):
     page.httpd.server_close()
     page.locator("#offline").wait_for(state="visible", timeout=15000)
     assert "Chương trình đã tắt" in page.text_content("#offline")
-    httpd, app, _ = make_server(port=port, out_dir=tmp_path / "lan_hai")
+    httpd, app, _ = make_server(port=port, home=tmp_path / "lan_hai")
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     try:
         if httpd.server_port != port:
@@ -159,7 +188,7 @@ def test_banner_when_program_stops_and_restarts(page, tmp_path):
 
 def test_forget_data_on_a_shared_machine(page):
     """Tệp › Xóa dữ liệu trên máy này: Hủy thì giữ nguyên; Xóa thì mất bản nháp, hoàn tác và TKB máy chủ đang giữ,
-    trang về màn hình Bắt đầu và chỉ thư mục kết quả (file trong đó để nguyên)."""
+    trang về màn hình Bắt đầu và chỉ thư mục TKB (file trong đó để nguyên)."""
     draft = "JSON.parse(store.getItem('tkb-ban-nhap-v1') || 'null')"
     page.wait_for_selector("#start:not([hidden])")
     page.click('[data-start="sample"]')
@@ -169,7 +198,7 @@ def test_forget_data_on_a_shared_machine(page):
     page.click("#file-menu summary")
     page.click("#btn-forget")
     page.wait_for_selector("#forget-dialog[open]")
-    assert page.text_content("#forget-dir") == str(page.app.out_dir)
+    assert page.text_content("#forget-dir") == str(page.app.home)
     page.locator("#forget-dialog button", has_text="Hủy").click()
     assert page.text_content("#count-gv") == "45" and page.app.grid is not None
     page.click("#file-menu summary")

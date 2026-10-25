@@ -408,6 +408,18 @@ table.off-grid tbody th { text-align: left; }
 .import-part .muted { margin: 0; }
 .import-part.off { opacity: .7; }
 .import-part select { width: auto; margin-left: auto; }
+
+/* Mở file trong thư mục TKB */
+#files-dialog { width: min(760px, calc(100vw - 32px)); }
+.files-list { display: grid; gap: 14px; max-height: 60vh; overflow: auto; }
+.files-list h3 { margin: 0 0 6px; font-size: 16px; }
+.files-list .muted { margin: 0; }
+.file-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; }
+.file-row + .file-row { margin-top: 6px; }
+.file-row .file-name { flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }
+.file-row .file-name small { display: block; color: var(--muted); }
+.file-row .actions { margin: 0; gap: 6px; }
 .card .toolbar h2 { margin-bottom: 0; }
 
 /* Thời khóa biểu (bước 7): xem, đổi hai ô, khóa ô */

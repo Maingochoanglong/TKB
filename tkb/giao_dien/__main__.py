@@ -1,4 +1,4 @@
-"""Chạy: python -m tkb.giao_dien [--cong 8765] [--thu-muc <thư mục kết quả>] [--khong-mo-trinh-duyet]"""
+"""Chạy: python -m tkb.giao_dien [--cong 8765] [--thu-muc <thư mục TKB>] [--khong-mo-trinh-duyet]"""
 from __future__ import annotations
 
 import argparse
@@ -16,7 +16,8 @@ def main(argv: list[str] | None = None) -> int:
     use_utf8_output()
     ap = argparse.ArgumentParser(prog="python -m tkb.giao_dien", description="Giao diện web xếp thời khóa biểu")
     ap.add_argument("--cong", type=int, default=PORT, help=f"Cổng trên máy này (mặc định {PORT}; bận thì lấy cổng khác)")
-    ap.add_argument("--thu-muc", help="Thư mục ghi file vào và kết quả (mặc định out/giao_dien của dự án)")
+    ap.add_argument("--thu-muc", help="Thư mục TKB: mọi file trang đọc, ghi đều ở đây (mặc định out/ của dự án; bản "
+                    "đóng gói: thư mục có TKB.exe)")
     ap.add_argument("--khong-mo-trinh-duyet", action="store_true", help="Không tự mở trình duyệt")
     args = ap.parse_args(argv)
     return serve(args.cong, not args.khong_mo_trinh_duyet, args.thu_muc)
