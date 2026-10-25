@@ -389,6 +389,21 @@ def test_new_from_empty_preset(page):
     assert page.evaluate("st.scenario.rules.filter((r) => r.off).length") == 0
 
 
+def test_custom_role_card_updates_when_a_subject_is_ticked(page):
+    """Chức vụ trường tự đặt: tích môn đầu tiên thì thẻ bỏ ngay dòng "Chưa chọn môn nào" (không cần vẽ lại cả bước)."""
+    from tkb.bo_mau import TIN_HOC
+    page.wait_for_selector("#start:not([hidden])")
+    page.click('[data-start="sample"]')
+    page.click('.tabs [data-tab="chucvu"]')
+    n = page.evaluate("st.scenario.roles.length")
+    page.click("#btn-add-role")
+    state = page.locator(f'[data-role-state="{n}"]')
+    assert "Chưa chọn môn nào" in state.text_content()
+    page.check(f'#role-cards [data-f="role-subject"][data-i="{n}"][data-s="{TIN_HOC}"]')
+    assert "Chưa chọn môn nào" not in state.text_content()
+    assert page.evaluate(f"st.scenario.roles[{n}].subjects") == [TIN_HOC]
+
+
 def test_extra_roles_picker(page):
     """Hộp thoại giáo viên: cột Chức Vụ Thêm chọn bằng ô đánh dấu (Bộ Môn và các chức vụ của bước Chức vụ, trừ chức vụ
     chính), ghi theo thứ tự danh sách; bảng nhân sự hiện thành nhãn và kiểm tra vẫn ✓."""
