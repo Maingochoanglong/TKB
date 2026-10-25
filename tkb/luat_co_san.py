@@ -1,15 +1,20 @@
 """Luật có sẵn của chương trình là các dòng của sheet LUẬT, viết bằng câu của bộ ghép luật (tkb/bo_ghep.py).
 
-Mọi luật nằm trong file Excel: file mẫu ghi sẵn mỗi luật có sẵn thành một dòng (`default_rows`); nhà trường sửa số,
-điểm, đổi Bắt buộc/Ưu tiên, xóa dòng (hoặc ghi Tạm tắt = Có) để tắt luật, thêm dòng để có luật mới. Khi đọc
-(`apply`, chỉ các dòng không tạm tắt) mọi dòng xếp bằng bộ ghép (config.CUSTOM_RULES), cả dòng ở **dạng gốc** của một
-luật có sẵn (`NATIVES`, chỉ khác số hay điểm): mỗi luật chỉ có một cách cài (docs/Thiet_Ke_Gop_Luat.md). Riêng hai
-luật chỉ có dạng gốc vì đọc cột của sheet NHÂN SỰ (`NATIVE_ONLY`: Buổi nghỉ, Cơ sở 2) có mã riêng, bật khi có dòng
-(config.OFF). Dạng gốc còn dùng để đọc tên dễ đọc của dòng (`title`) và nhận ra luật bảo vệ học sinh (`student`, tắt
-bằng --no-student-rules).
+Mọi luật nằm trong file Excel và không có luật mặc định (docs/Thiet_Ke_Ba_Thuc_The.md, GĐ2): mẫu trống, "Soạn mới"
+không có dòng nào; các luật có sẵn (`NATIVES`) là **câu mẫu** người soạn thêm khi muốn (trang: Thêm luật › Luật mẫu;
+file luat/Mau_Luat.xlsx = `default_rows`). Nhà trường sửa số, mức, đổi Bắt buộc/Ưu tiên, xóa dòng (hoặc ghi Tạm tắt =
+Có) để tắt luật, thêm dòng để có luật mới. Khi đọc (`apply`, chỉ các dòng không tạm tắt) mọi dòng xếp bằng bộ ghép
+(config.CUSTOM_RULES), cả dòng ở **dạng gốc** của một luật có sẵn (chỉ khác số hay điểm): mỗi luật chỉ có một cách cài
+(docs/Thiet_Ke_Gop_Luat.md). Dạng gốc còn dùng để đọc tên dễ đọc của dòng (`title`) và nhận ra luật bảo vệ học sinh
+(`student`, tắt bằng --no-student-rules).
 
-File không có sheet LUẬT (file cũ) dùng các dòng mặc định, lấy số từ các cột quy định cũ (Số tiết tối đa một nhóm môn
-mỗi buổi, Ghép cặp khi nhóm môn có từ, Tối đa tiết mỗi ngày), cộng các dòng của sheet LUẬT RIÊNG.
+Buổi nghỉ và "chỉ dạy cơ sở 2" (`NATIVE_ONLY`) không còn là luật: là dữ liệu của nhân sự (cột Buổi Nghỉ; Cơ sở 2, Thai
+Sản), luôn áp dụng (mã riêng ở solver, checker, phân công; chỉ chẩn đoán tạm bỏ qua bằng config.OFF). Dòng của chúng ở
+file cũ đọc được nhưng bỏ đi (không đổi gì).
+
+File không có sheet LUẬT (file cũ) dùng các dòng của bản trước (`default_rows`, như trước khi bỏ luật mặc định), lấy
+số từ các cột quy định cũ (Số tiết tối đa một nhóm môn mỗi buổi, Ghép cặp khi nhóm môn có từ, Tối đa tiết mỗi ngày),
+cộng các dòng của sheet LUẬT RIÊNG: file cũ xếp đúng như trước.
 
 Phần không phải luật vẫn ở chương trình (`STRUCTURE`): cấu trúc TKB, các thuật toán (chia phần GVCN, tách tiết cho
 người tuyển, LNS) và dữ liệu (khung giờ, chương trình học, nhân sự).
@@ -26,7 +31,8 @@ CUSTOM_GROUP = "Luật riêng"
 STRUCTURE = ("Cấu trúc của TKB (không phải luật, luôn có): mỗi lớp mỗi giờ học một tiết; mỗi lớp học đủ số tiết của "
              "chương trình học; giáo viên không dạy hai nơi cùng lúc, dạy không quá định mức (cộng số tiết bù tối đa ở "
              "chế độ bù giờ), Quản Lý dạy đúng định mức; giáo viên chỉ dạy các môn chức vụ được dạy (sheet CHƯƠNG "
-             "TRÌNH HỌC, CHỨC VỤ).")
+             "TRÌNH HỌC, CHỨC VỤ); giáo viên không dạy buổi nghỉ ghi ở cột Buổi Nghỉ và nghỉ đủ số buổi ghi ở đó; "
+             "giáo viên không chủ nhiệm ghi Cơ sở 2 hoặc Thai Sản chỉ dạy các lớp ở cơ sở 2 (sheet NHÂN SỰ).")
 
 
 def _r(**kw) -> CustomRule:
@@ -144,22 +150,30 @@ NATIVES = (
         titles=("Giáo viên, trừ GV chủ nhiệm, không có tiết trống xen giữa các tiết trong buổi",)),
 )
 BY_KEY = {n.key: n for n in NATIVES}
-# Luật chỉ có dạng gốc (đọc cột của sheet NHÂN SỰ, không có câu bộ ghép): solver, checker, phân công dùng mã riêng,
-# bật khi có dòng (config.OFF).
+# Dữ liệu của nhân sự, không phải luật (đọc cột của sheet NHÂN SỰ, không có câu bộ ghép): solver, checker, phân công
+# dùng mã riêng, luôn áp dụng (chỉ chẩn đoán tạm bỏ qua: config.OFF). Dòng của chúng ở file cũ bỏ đi khi đọc.
 NATIVE_ONLY = ("buoi_nghi", "co_so_2")
+STRUCTURAL = {"buoi_nghi": "sheet NHÂN SỰ, cột Buổi Nghỉ: giáo viên không dạy buổi nghỉ",
+              "co_so_2": "sheet NHÂN SỰ, cột Cơ sở 2 / Thai Sản: giáo viên không chủ nhiệm chỉ dạy các lớp ở cơ sở 2"}
 STUDENT = frozenset(n.key for n in NATIVES if n.student)
 
 
+def _structural(r: CustomRule) -> bool:
+    """Dòng của Buổi nghỉ, Cơ sở 2 (NATIVE_ONLY): dữ liệu nhân sự, không phải luật."""
+    return (n := native_of(r)) is not None and n.key in NATIVE_ONLY
+
+
 def default_rows() -> list[CustomRule]:
-    """Các dòng mặc định của sheet LUẬT: mỗi luật có sẵn ở dạng gốc, số và điểm theo config hiện tại."""
-    return [replace(r, group_label=n.group) for n in NATIVES for r in n.rows()]
+    """Các luật có sẵn, mỗi luật ở dạng gốc, số và điểm theo config hiện tại (trừ NATIVE_ONLY, không phải luật): luật
+    mẫu (luat/Mau_Luat.xlsx, Thêm luật › Luật mẫu), và các luật của file cũ không có sheet LUẬT."""
+    return [replace(r, group_label=n.group) for n in NATIVES if n.key not in NATIVE_ONLY for r in n.rows()]
 
 
 def rows() -> list[CustomRule]:
     """Các dòng luật đang dùng: sheet LUẬT của file vào; không có sheet thì các dòng mặc định (trừ dòng đã có trong
     config.CUSTOM_RULES) và luật riêng, theo thứ tự các luật có sẵn rồi luật riêng."""
     if config.RULES is not None:
-        return list(config.RULES)
+        return [r for r in config.RULES if not _structural(r)]
     have = {replace(r, row=0, group_label="") for r in config.CUSTOM_RULES}
     out = [r for r in default_rows() if replace(r, group_label="") not in have]
     out += [replace(r, group_label=r.group_label or CUSTOM_GROUP) for r in config.CUSTOM_RULES]
@@ -259,16 +273,10 @@ def plain(r: CustomRule) -> CustomRule:
 
 
 def apply(all_rows: list[CustomRule]) -> dict:
-    """Các dòng luật -> giá trị config: mọi dòng xếp bằng bộ ghép (CUSTOM_RULES), trừ dòng của luật chỉ có dạng gốc
-    (NATIVE_ONLY: bật khi có dòng, không thì vào OFF). Gọi trong rules.applied của các quy định khác."""
-    present, custom = set(), []
-    for r in all_rows:
-        native = native_of(r)
-        if native is not None and native.key in NATIVE_ONLY:
-            present.add(native.key)
-        else:
-            custom.append(r)
-    return {"OFF": frozenset(k for k in NATIVE_ONLY if k not in present), "CUSTOM_RULES": custom}
+    """Các dòng luật -> giá trị config: mọi dòng xếp bằng bộ ghép (CUSTOM_RULES), trừ dòng của Buổi nghỉ, Cơ sở 2
+    (NATIVE_ONLY: dữ liệu nhân sự, luôn áp dụng; dòng của file cũ bỏ đi). Gọi trong rules.applied của các quy định
+    khác."""
+    return {"OFF": frozenset(), "CUSTOM_RULES": [r for r in all_rows if not _structural(r)]}
 
 
 def numbers(all_rows: list[CustomRule]) -> dict:

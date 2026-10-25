@@ -302,7 +302,7 @@ def test_quick_check_and_sample():
     assert kich_ban.check(sample, quick=True)["unchecked"] == ["LUẬT", ""]  # chưa đếm chéo được
     sample["rules"].append({"kind": "Học trước", "subject": "Toán"})  # luật ghi sai: báo trước khi đọc nhân sự
     res = kich_ban.check(sample, quick=True)
-    assert res["errors"] == ["LUẬT, dòng 26: kiểu luật Học trước phải ghi cột Môn thứ hai"]
+    assert res["errors"] == ["LUẬT, dòng 24: kiểu luật Học trước phải ghi cột Môn thứ hai"]
     assert res["unchecked"] == ["CHƯƠNG TRÌNH HỌC", "NHÂN SỰ", "LUẬT", ""]  # trang hiện "?", không hiện ✓
 
 

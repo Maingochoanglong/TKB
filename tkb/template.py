@@ -323,8 +323,9 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m tkb.template",
                                  description="Tạo file vào mẫu V8 trống (nhân sự, chương trình học, quy định)")
     ap.add_argument("output", help="File mẫu cần tạo (.xlsx)")
-    ap.add_argument("--mau", choices=list(bo_mau.PRESETS), default=bo_mau.DEFAULT,
-                    help="Bộ luật mẫu: " + "; ".join(f"{k} = {name}" for k, (name, _) in bo_mau.PRESETS.items()))
+    ap.add_argument("--mau", choices=list(bo_mau.PRESETS), default=bo_mau.BLANK,
+                    help="Bộ luật mẫu (mặc định trong: chưa có môn, chưa có luật): "
+                         + "; ".join(f"{k} = {name}" for k, (name, _) in bo_mau.PRESETS.items()))
     args = ap.parse_args(argv)
     write_staff_template(args.output, mau=args.mau)
     print(f"Đã ghi: {args.output}")

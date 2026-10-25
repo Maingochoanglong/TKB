@@ -1,5 +1,5 @@
 """Bộ luật mẫu (tkb/bo_mau.py): giá trị mặc định của chương trình là bộ Tiểu học Việt Nam (dữ liệu, không phải code);
-bộ Trống không có quy định nào gắn tên môn, các luật có sẵn theo quy ước để Tạm tắt."""
+bộ Trống không có quy định nào gắn tên môn và không có luật nào (không có luật mặc định)."""
 import openpyxl
 
 from tkb import bo_mau, config, kich_ban, luat_co_san
@@ -7,8 +7,6 @@ from tkb.__main__ import main
 from tkb.rules import applied, code, mau, read_rules
 from tkb.staff import read_saved_timetable
 from tkb.template import write_staff_template
-
-OFF = {n.key for n in luat_co_san.NATIVES} - bo_mau.TRONG_ON - {"toi_da_ngay"}  # toi_da_ngay: bộ Trống không có môn
 
 
 def test_defaults_are_the_vietnamese_preset():
@@ -31,15 +29,14 @@ def test_empty_preset_template(tmp_path):
     assert not any(row[0] for row in program[1:])  # chưa có môn nào
     rules = read_rules(path)
     with applied(rules):
-        on = {luat_co_san.native_of(r).key for r in config.CUSTOM_RULES} | (set(luat_co_san.NATIVE_ONLY) - config.OFF)
-        assert on == set(bo_mau.TRONG_ON)  # chỉ các luật bật của bộ Trống, xếp bằng bộ ghép
+        assert config.RULES == [] and config.CUSTOM_RULES == [] and config.OFF == frozenset()  # không có luật nào
+        assert all(config.on(k) for k in luat_co_san.NATIVE_ONLY)  # buổi nghỉ, cơ sở 2: dữ liệu nhân sự, luôn áp dụng
         assert config.HDTN == "" and not config.HOMEROOM_PERIODS and not config.HEAVY_SUBJECTS
         assert not config.HOMEROOM_PRIORITY and not config.GENERAL_FORBIDDEN_SUBJECTS and not config.MANAGER_RULES
         assert all([s.name for s in config.DAY_SESSIONS[d]] == ["Sáng", "Chiều"] for d in range(5))
-        assert {luat_co_san.native_of(r).key for r in config.RULES if r.off} == OFF
     # Kịch bản Soạn mới bộ Trống trên giao diện: cùng nội dung với file mẫu đó.
     sc = kich_ban.default_scenario("trong")
-    assert sc["subjects"] == [] and sum(r["off"] for r in sc["rules"]) == len(sc["rules"]) - len(bo_mau.TRONG_ON)
+    assert sc["subjects"] == [] and sc["rules"] == []
     assert kich_ban.from_excel(path)[0]["rules"] == sc["rules"]
 
 

@@ -80,10 +80,8 @@ TRONG: dict[str, object] = {
 # Khung giờ của bộ Trống: 5 ngày, mỗi ngày buổi Sáng 4 tiết và buổi Chiều 3 tiết (sửa ở bước Khung giờ).
 TRONG_FRAME: list[tuple[str, list[tuple[str, int]]]] = [
     (day, [("Sáng", 4), ("Chiều", 3)]) for day in ("Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6")]
-# Các luật có sẵn bộ Trống để bật (khóa trong tkb/luat_co_san.py): theo dữ liệu trường ghi và các ưu tiên chung.
-# Các luật có sẵn khác ghi ở sheet LUẬT ở trạng thái Tạm tắt.
-TRONG_ON: frozenset[str] = frozenset({"lien_tiet", "buoi_nghi", "co_so", "doi_co_so", "co_so_2", "tai_ngay",
-                                      "tai_ngay_1", "rai_deu", "tiet_trong"})
+# Bộ Trống không có luật nào (không có luật mặc định, docs/Thiet_Ke_Ba_Thuc_The.md GĐ2): người soạn thêm luật, có thể
+# từ các luật mẫu (tkb/luat_co_san.py) hay file luật mẫu.
 
 # Các bộ mẫu: khóa -> (tên hiện trên giao diện, giải thích).
 PRESETS: dict[str, tuple[str, str]] = {
@@ -92,7 +90,8 @@ PRESETS: dict[str, tuple[str, str]] = {
                     "Thứ 2 tiết 1 và Thứ 6 tiết 4, tiết 1 luôn do GVCN dạy, ghép cặp Tiếng Việt, Toán mỗi ngày 1 "
                     "tiết…"),
     "trong": ("Trống",
-              "Chưa có môn nào, không theo quy ước của nước nào: các luật có sẵn như ghép cặp, HĐTN, tiết của GVCN "
-              "đều Tạm tắt (bật lại ở bước Luật); chỉ bật luật theo buổi nghỉ, cơ sở và các ưu tiên chung."),
+              "Chưa có môn nào, không theo quy ước của nước nào, chưa có luật nào: thêm luật ở bước Luật (câu điền "
+              "chỗ trống, luật mẫu, tự ghép) hoặc nhập file luật."),
 }
-DEFAULT = "tieu_hoc_vn"
+DEFAULT = "tieu_hoc_vn"  # giá trị mặc định của config (file cũ, test)
+BLANK = "trong"  # file mẫu trống (python -m tkb.template, giao diện): không có môn, không có luật

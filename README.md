@@ -42,7 +42,7 @@ chức vụ, giáo viên, luật ngay trên trang, rồi kiểm tra, xếp và x
 vd "TKB của từng giáo viên", với nút Mở, Tải.
 
 1. Lần đầu mở trang (hoặc **Tệp ▾ › Bắt đầu lại…**) là **trang bắt đầu**: **Mở file Excel của trường**, **Soạn mới**
-   (bản trống, không theo quy ước của nước nào: tự đặt khung giờ, môn, khối, lớp; các luật có sẵn để Tạm tắt, bật luật
+   (bản trống, không theo quy ước của nước nào: tự đặt khung giờ, môn, khối, lớp; không có luật mặc định: thêm luật
    cần dùng ở bước Luật), và **Xem thử với trường mẫu** (trường mẫu tên giả
    29 lớp, 45 giáo viên của `tkb/truong_mau.py`: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì). Mọi việc với
    file nằm ở menu **Tệp ▾**: **Mở…** (các file trong thư mục TKB: bộ đã lưu, file mẫu đã điền, file cập nhật; file
@@ -82,9 +82,12 @@ vd "TKB của từng giáo viên", với nút Mở, Tải.
      cố định trên bảng ngày × buổi và ghi số buổi nghỉ thêm bất kỳ: buổi sáng, buổi chiều, hoặc sáng hay chiều đều được
      (GVCN không nghỉ buổi sáng); **Chức Vụ Thêm** đánh dấu Bộ Môn hay các chức vụ của bước Chức vụ. Trang ghi ra
      đúng chữ như ghi tay, vd `3/1, 3/2`, `Chiều T5, 2 buổi chiều` và `Bộ Môn, Tiếng Anh`.
-   - **Luật** (bộ ghép luật, sheet LUẬT): mọi luật, kể cả các luật có sẵn, xếp theo nhóm, mỗi luật một câu dễ đọc
-     (luật có sẵn có tên riêng, vd "Mỗi buổi, một lớp học tối đa 2 tiết của một môn…") và nhãn **Bắt buộc** hoặc
-     **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mặc định** là luật có sẵn chưa sửa dạng (đọc bằng tên riêng). **Sửa** mở hộp thoại
+   - **Luật** (bộ ghép luật, sheet LUẬT): **không có luật mặc định**, mọi luật do người soạn thêm. Các luật xếp theo
+     nhóm, mỗi luật một câu dễ đọc (luật mẫu có tên riêng, vd "Mỗi buổi, một lớp học tối đa 2 tiết của một môn…") và
+     nhãn **Bắt buộc** hoặc **Ưu tiên thấp / vừa / cao / rất cao**; dòng đánh dấu **mẫu** là luật mẫu chương trình viết
+     sẵn, chưa sửa dạng (đọc bằng tên riêng). Chưa có luật nào thì bước Luật và bước Xếp báo, có nút **Thêm luật** và
+     **Lấy bộ luật mẫu…** (nhập `luat/Mau_Luat.xlsx`: các luật mẫu). **Thêm luật** có các câu điền chỗ trống và mục
+     **Luật mẫu** (21 luật viết sẵn: bấm là thêm đúng luật đó). **Sửa** mở hộp thoại
      theo thứ tự câu luật: **Loại luật** (một ô chọn chia theo bốn câu hỏi **Ở đâu**, **Bao nhiêu**, **Đi cùng nhau**,
      **Ai dạy**, gồm các mẫu và "Tự ghép · <phép đo>") · **Với mỗi** · **Các tiết nào** (Môn, Khối, Lớp; các ô ít dùng
      nằm trong **Thêm điều kiện**, nhãn môn và nhãn giờ học tách riêng) · **Giờ nào?** (họ Ở đâu) · **Thì** (Áp dụng
@@ -99,7 +102,7 @@ vd "TKB của từng giáo viên", với nút Mở, Tải.
      chương trình bỏ qua; đánh dấu lại là dùng lại); nút thùng rác xóa luật.
      Menu **Tệp luật ▾**: **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (ghi
      `luat/<tên>.xlsx`, chỉ có sheet LUẬT, HƯỚNG DẪN: sửa trong Excel, chép sang trường khác), **Ghi mẫu luật**
-     (`luat/Mau_Luat.xlsx`: các luật có sẵn), **Về mặc định**.
+     (`luat/Mau_Luat.xlsx`: các luật mẫu).
 
    Các bước Môn học, Giáo viên, Luật có **ô tìm** (tên môn; họ tên, Mã GV, lớp; chữ trong câu luật): chỉ hiện các dòng
    khớp, bấm vào một lỗi ở dòng đang ẩn thì ô tìm tự xóa.
@@ -412,15 +415,18 @@ GV chuyên biệt không dạy hết).
 - File vào cập nhật ghi thêm sheet này nếu chưa có (các chức vụ GV chuyên biệt đang có), để thấy mỗi chức vụ dạy môn
   nào. Không có sheet, hoặc chỉ có các dòng trùng tên môn, thì cùng mã kết quả, cùng mã quy định như trước.
 
-**Sheet `LUẬT`**: **mọi luật xếp TKB**, mỗi dòng một luật, không cần sửa code. File mẫu ghi sẵn **các luật có sẵn**
-của chương trình (23 luật, nhóm Bảo vệ học sinh, HĐTN và GVCN, Người dạy, Lịch giáo viên, Ưu tiên khi xếp giờ): sửa số
-hoặc Mức để chỉnh, đổi Bắt buộc/Ưu tiên, xóa dòng để bỏ luật, thêm dòng để có luật mới. Muốn **tạm tắt** một luật mà
+**Sheet `LUẬT`**: **mọi luật xếp TKB**, mỗi dòng một luật, không cần sửa code. **Không có luật mặc định**: file mẫu
+trống có sheet LUẬT trống; các **luật mẫu** chương trình viết sẵn (21 luật, nhóm Bảo vệ học sinh, HĐTN và GVCN, Người
+dạy, Lịch giáo viên, Ưu tiên khi xếp giờ) nằm ở file luật mẫu (`python -m tkb.template x.xlsx --mau tieu_hoc_vn`, trang:
+`luat/Mau_Luat.xlsx`) để chép vào khi muốn: sửa số hoặc Mức để chỉnh, đổi Bắt buộc/Ưu tiên, xóa dòng để bỏ luật, thêm
+dòng để có luật mới. Buổi nghỉ (cột Buổi Nghỉ) và "giáo viên ghi Cơ sở 2 hoặc Thai Sản chỉ dạy cơ sở 2" không phải luật
+mà là dữ liệu của sheet NHÂN SỰ, luôn áp dụng (dòng của hai luật này ở file cũ bỏ đi). Muốn **tạm tắt** một luật mà
 vẫn giữ dòng thì ghi `Có` ở cột **Tạm tắt** (cột cuối): chương trình bỏ qua dòng đó như khi xóa (cùng mã quy định), cột
 Luật đọc là ghi `(Tạm tắt) …`, sheet Chất lượng ghi "tắt"; xóa chữ `Có` là dùng lại. Dòng luật có sẵn chưa sửa dạng
 (chỉ khác số, mức) thì chương trình xếp như trước, nên để mặc định thì cùng mã kết quả. Không có sheet này (file của
-bản trước) thì dùng các luật có sẵn, cộng các luật của sheet `LUẬT RIÊNG` cũ. Phần không phải luật vẫn ở chương trình:
-mỗi lớp mỗi giờ học một tiết, đủ số tiết của chương trình học, giáo viên không dạy hai nơi cùng lúc và không quá định
-mức, chỉ dạy các môn chức vụ được dạy. Mỗi luật là một câu của **bộ ghép luật** (`tkb/bo_ghep.py`):
+bản trước) thì dùng các luật có sẵn của bản trước (màn hình báo), cộng các luật của sheet `LUẬT RIÊNG` cũ: file cũ
+xếp đúng như trước. Phần không phải luật vẫn ở chương trình: mỗi lớp mỗi giờ học một tiết, đủ số tiết của chương trình
+học, giáo viên không dạy hai nơi cùng lúc và không quá định mức, chỉ dạy các môn chức vụ được dạy, không dạy buổi nghỉ. Mỗi luật là một câu của **bộ ghép luật** (`tkb/bo_ghep.py`):
 
 > **Với mỗi** [phạm vi] · **các tiết** [Môn, Nhãn, Khối, Lớp, Ngày, Tiết, Buổi, Giáo viên] · **thì** [Phép đo] [So sánh]
 > [Số] · **khi** [Áp dụng khi] · [Bắt buộc / Mức]
@@ -542,18 +548,18 @@ trở lên").
 - "Học 2 tiết liền" bắt buộc: số tiết/tuần phải chẵn, mỗi người dạy số tiết chẵn ở lớp đó (phân công tự đổi chéo để
   chẵn); dùng chung cơ chế ghép cặp của luật bảo vệ học sinh (tắt luật học sinh thì luật này cũng tắt). Giáo viên dạy
   nhiều lớp phải ghép cặp mà tiết 1 luôn do GVCN dạy thì mỗi buổi sáng chỉ ghép được một cặp: khi đó nên để ưu tiên.
-- Các luật để mặc định (hoặc không có sheet LUẬT) thì mọi thứ như trước (cùng mã kết quả, cùng mã quy định).
+- Sheet LUẬT có đủ các luật mẫu (hoặc không có sheet LUẬT) thì mọi thứ như trước (cùng mã kết quả, cùng mã quy định).
 
 Chỉ đọc mẫu V8. File mẫu cũ (V5–V7: chức vụ ghi kèm số như `bộ môn 5`, chương trình học ở file riêng) không còn đọc được: tạo file mẫu trống rồi chép dữ liệu sang, bỏ số thứ tự ở cột Chức Vụ.
 
 File vào mẫu trống có sẵn: **`data/Input_Template_V8.xlsx`**. Tạo lại (hoặc tạo ở chỗ khác):
 
 ```bash
-python -m tkb.template data/Mau_Input.xlsx               # bộ luật mẫu Tiểu học Việt Nam
-python -m tkb.template data/Mau_Trong.xlsx --mau trong   # bộ Trống: chưa có môn, luật theo quy ước để Tạm tắt
+python -m tkb.template data/Mau_Input.xlsx                    # trống: chưa có môn, chưa có luật
+python -m tkb.template data/Mau_VN.xlsx --mau tieu_hoc_vn     # bộ mẫu Tiểu học Việt Nam: các môn và mọi luật mẫu
 ```
 
-File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền mảnh, không cố định dòng/cột, không danh sách thả xuống, không ghi chú trong ô, không sheet ẩn. Gồm 8 sheet: `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (điền sẵn các môn có quy định mặc định và các cột quy định, số tiết để trống), `LỚP` (chỉ có dòng tiêu đề), `PHÒNG` (chỉ có dòng tiêu đề), `CHỨC VỤ` (chỉ có dòng tiêu đề), `QUY ĐỊNH` (điền sẵn giá trị mặc định), `LUẬT` (các luật có sẵn) và `HƯỚNG DẪN` (cách ghi từng cột, từng sheet, từng mẫu luật và phép đo). Cột Lớp, Lớp Đang Dạy định dạng chữ để Excel không đổi `1/1` thành ngày tháng.
+File mẫu đơn giản, tiếng Việt: chữ đen, không tô nền, viền mảnh, không cố định dòng/cột, không danh sách thả xuống, không ghi chú trong ô, không sheet ẩn. Gồm 8 sheet: `NHÂN SỰ`, `CHƯƠNG TRÌNH HỌC` (các cột quy định, chưa có môn; bộ mẫu Tiểu học Việt Nam: điền sẵn các môn, số tiết để trống), `LỚP` (chỉ có dòng tiêu đề), `PHÒNG` (chỉ có dòng tiêu đề), `CHỨC VỤ` (chỉ có dòng tiêu đề), `QUY ĐỊNH` (khung giờ 5 ngày sáng 4 tiết, chiều 3 tiết), `LUẬT` (trống; bộ mẫu Tiểu học Việt Nam: các luật mẫu) và `HƯỚNG DẪN` (cách ghi từng cột, từng sheet, từng mẫu luật và phép đo). Cột Lớp, Lớp Đang Dạy định dạng chữ để Excel không đổi `1/1` thành ngày tháng.
 
 ## Cái gì nằm trong file vào, cái gì nằm trong code
 

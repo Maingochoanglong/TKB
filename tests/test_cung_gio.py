@@ -89,9 +89,9 @@ def test_rule_errors(tmp_path):
                              "other": bo_mau.MY_THUAT}])
     with pytest.raises(InputError) as err:
         read_rules(path)
-    for text in ("dòng 26: kiểu luật Học cùng giờ phải ghi cột Môn thứ hai", "dòng 27: học cùng giờ chỉ ghi Bắt buộc",
-                 "dòng 28: cột Ngày không dùng cho kiểu luật Học cùng giờ",
-                 "dòng 29: phép đo Cùng giờ: cột Với mỗi ghi Lớp"):
+    for text in ("dòng 24: kiểu luật Học cùng giờ phải ghi cột Môn thứ hai", "dòng 25: học cùng giờ chỉ ghi Bắt buộc",
+                 "dòng 26: cột Ngày không dùng cho kiểu luật Học cùng giờ",
+                 "dòng 27: phép đo Cùng giờ: cột Với mỗi ghi Lớp"):
         assert text in str(err.value), str(err.value)
     path = _file(tmp_path, [{**ART, "other": bo_mau.TIN_HOC + ", " + bo_mau.TIENG_ANH}, HELP], name="so_tiet")
     errors = kich_ban.check(kich_ban.from_excel(path)[0], quick=True)["errors"]

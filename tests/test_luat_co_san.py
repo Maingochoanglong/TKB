@@ -44,20 +44,21 @@ def _keys(rows) -> set[str]:
 
 
 def test_default_rows_are_the_defaults():
-    """Mọi dòng mặc định xếp bằng bộ ghép, trừ hai luật chỉ có dạng gốc (bật vì có dòng). Đó cũng là giá trị mặc định
-    của config (tkb/__init__.py): không có file và file ghi các dòng mặc định cùng một mã quy định."""
+    """Mọi luật có sẵn (luật mẫu, luật của file cũ không có sheet LUẬT) xếp bằng bộ ghép. Đó cũng là giá trị mặc định
+    của config (tkb/__init__.py): không có file và file ghi các dòng đó cùng một mã quy định. Buổi nghỉ, Cơ sở 2 không
+    còn là luật: không có dòng, luôn áp dụng; dòng của chúng ở file cũ bỏ đi."""
     rows = luat_co_san.default_rows()
     assert {r.group_label for r in rows} == set(luat_co_san.GROUPS)
     assert all(luat_co_san.native_of(r) is not None for r in rows)
     values = luat_co_san.apply(rows)
-    assert values == {"OFF": frozenset(), "CUSTOM_RULES": [r for r in rows if luat_co_san.native_of(r).key
-                                                            not in luat_co_san.NATIVE_ONLY]}
+    assert values == {"OFF": frozenset(), "CUSTOM_RULES": rows}
+    assert not _keys(rows) & set(luat_co_san.NATIVE_ONLY)
     assert values["CUSTOM_RULES"] == config.CUSTOM_RULES and values["OFF"] == config.OFF
     assert luat_co_san.numbers(rows) == {"DAILY_LIMITS": config.DAILY_LIMITS,
                                          "SESSION_GROUP_LIMIT": config.SESSION_GROUP_LIMIT,
                                          "PAIR_MIN_LESSONS": config.PAIR_MIN_LESSONS}
-    without = [r for r in rows if luat_co_san.native_of(r).key != "co_so_2"]
-    assert luat_co_san.apply(without)["OFF"] == {"co_so_2"}  # xóa dòng luật chỉ có dạng gốc: tắt
+    old = [*rows, *(r for k in luat_co_san.NATIVE_ONLY for r in luat_co_san.BY_KEY[k].rows())]  # file cũ có hai dòng đó
+    assert luat_co_san.apply(old) == values and luat_co_san.apply([]) == {"OFF": frozenset(), "CUSTOM_RULES": []}
     with applied(values):
         assert code() == NO_FILE_CODE
 

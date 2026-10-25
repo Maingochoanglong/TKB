@@ -257,18 +257,19 @@ CUSTOM_RULES: list[CustomRule] = []  # các dòng của sheet LUẬT xếp bằn
 PEOPLE: dict[str, str] = {}
 
 # Sheet LUẬT (tkb/luat_co_san.py): mọi luật là một dòng câu ghép, kể cả luật có sẵn, và xếp bằng bộ ghép
-# (CUSTOM_RULES); số và điểm nằm ở dòng. Riêng hai luật chỉ có dạng gốc (luat_co_san.NATIVE_ONLY: Buổi nghỉ, Giáo
-# viên chỉ dạy cơ sở 2) đọc cột của sheet NHÂN SỰ: không có dòng thì tắt (OFF).
+# (CUSTOM_RULES); số và điểm nằm ở dòng. Không có luật mặc định (file không có sheet LUẬT là file của bản trước:
+# dùng các luật có sẵn). Buổi nghỉ, Giáo viên chỉ dạy cơ sở 2 (luat_co_san.NATIVE_ONLY) là dữ liệu của sheet NHÂN SỰ,
+# luôn áp dụng (chỉ chẩn đoán tạm bỏ qua: OFF).
 RULES_SHEET_ROWS = "LUẬT"
 RULES: list[CustomRule] | None = None  # mọi dòng của sheet LUẬT; None: file không có sheet, dùng các dòng mặc định
-# Các luật chỉ có dạng gốc bị tắt (khóa trong luat_co_san.NATIVE_ONLY); khi chẩn đoán có thêm "phong" (bỏ sức chứa
-# phòng học dùng chung, tkb/chan_doan.py).
+# Chỉ khi chẩn đoán (tkb/chan_doan.py): các phần tạm bỏ qua, khóa trong luat_co_san.NATIVE_ONLY (buổi nghỉ, cơ sở 2)
+# và "phong" (sức chứa phòng học dùng chung).
 OFF: frozenset[str] = frozenset()
 
 
 def on(key: str) -> bool:
-    """Luật chỉ có dạng gốc `key` đang bật (có dòng trong sheet LUẬT, hoặc file không có sheet LUẬT); "phong": sức
-    chứa phòng học dùng chung (chỉ tắt khi chẩn đoán)."""
+    """Phần `key` đang áp dụng: buổi nghỉ, cơ sở 2 (luat_co_san.NATIVE_ONLY), "phong" (sức chứa phòng học dùng
+    chung); chỉ tắt khi chẩn đoán."""
     return key not in OFF
 
 

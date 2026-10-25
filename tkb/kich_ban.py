@@ -113,6 +113,8 @@ def schema() -> dict:
                    "structure": luat_co_san.STRUCTURE,
                    # cột tham số của từng luật có sẵn: sửa cột đó vẫn là luật có sẵn (trang chỉ hiện các cột này)
                    "natives": {n.key: list(n.free) for n in luat_co_san.NATIVES},
+                   # luật mẫu (không có luật mặc định): Thêm luật › Luật mẫu thêm đúng các dòng này
+                   "samples": _samples(),
                    "composer": composer()},
         "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "classes": config.CLASSES_SHEET,
                    "rooms": config.ROOMS_SHEET, "roles": config.ROLES_SHEET,
@@ -122,6 +124,17 @@ def schema() -> dict:
         "saved_marks": {"locked": config.SAVED_LOCKED, "overtime": config.SAVED_OVERTIME,
                         "hire": config.SUPPLEMENT_NAME, "off": config.OFF_LABEL},
     }
+
+
+def _samples() -> list[dict]:
+    """Các luật có sẵn để người soạn thêm khi muốn (luat_co_san.default_rows theo từng luật): {key, group, title,
+    rows} theo thứ tự luật có sẵn; title là câu đọc lại của dòng đầu."""
+    out: dict[str, dict] = {}
+    for r in luat_co_san.default_rows():
+        n = luat_co_san.native_of(r)
+        item = out.setdefault(n.key, {"key": n.key, "group": n.group, "title": luat_co_san.title(r) or "", "rows": []})
+        item["rows"].append(rule_dict(r))
+    return list(out.values())
 
 
 def composer() -> dict:

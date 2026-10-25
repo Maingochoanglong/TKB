@@ -6,8 +6,8 @@
    allocation.build_problem (tổng số tiết vượt khung giờ, GVCN không đủ tiết cho tiết Luôn do GVCN dạy) và
    solver.allowed_slots.
 2. `diagnose(staff, curriculum, settings, log)`: khi bộ giải không tìm được TKB. Mỗi lần thử là một mô hình CP-SAT
-   tìm nghiệm đầu tiên (solver.feasible) với một số dòng luật bắt buộc được bỏ (bỏ khỏi config.CUSTOM_RULES; luật chỉ
-   có dạng gốc và sức chứa phòng: config.OFF), mỗi dòng bắt buộc của sheet LUẬT là một nhóm:
+   tìm nghiệm đầu tiên (solver.feasible) với một số dòng luật bắt buộc được bỏ (bỏ khỏi config.CUSTOM_RULES; buổi
+   nghỉ, cơ sở 2 của nhân sự và sức chứa phòng: config.OFF), mỗi dòng bắt buộc của sheet LUẬT là một nhóm:
    - không nới gì mà vẫn xếp được, hoặc chưa biết: do thiếu thời gian, không phải mâu thuẫn;
    - nới hết các nhóm luật mà vẫn không xếp được: do nhân sự, định mức, quyền dạy;
    - còn lại: lọc bỏ dần từng nhóm luật để còn nhóm nhỏ nhất vẫn mâu thuẫn, rồi thử nới riêng từng luật trong đó.
@@ -79,18 +79,19 @@ def same_teacher(problem: Problem, lessons: dict[tuple[int, str], int]) -> list[
 class _Rule:
     """Một dòng luật bắt buộc có thể bỏ khi chẩn đoán."""
     label: str  # tên như nhà trường thấy: sheet LUẬT dòng n: câu luật
-    off: str = ""  # luật chỉ có dạng gốc (luat_co_san.NATIVE_ONLY), sức chứa phòng: khóa bỏ (config.OFF)
+    off: str = ""  # buổi nghỉ, cơ sở 2 (luat_co_san.NATIVE_ONLY), sức chứa phòng: khóa bỏ (config.OFF)
     custom: int = -1  # dòng xếp bằng bộ ghép: chỉ số trong config.CUSTOM_RULES
 
 
 def _matters(key: str, staff: list[Teacher]) -> bool:
-    """Luật chỉ có dạng gốc có tác dụng với dữ liệu này không (không thì không cần thử bỏ)."""
+    """Buổi nghỉ, cơ sở 2 (dữ liệu nhân sự) có tác dụng với dữ liệu này không (không thì không cần thử bỏ)."""
     return {"buoi_nghi": any(t.off_sessions or t.off_any for t in staff),
             "co_so_2": any(t.campus2_only for t in staff)}.get(key, True)
 
 
 def _rules(staff: list[Teacher], settings: config.Settings) -> list[_Rule]:
-    """Các dòng luật bắt buộc đang có hiệu lực, theo thứ tự dòng của sheet LUẬT."""
+    """Các dòng luật bắt buộc đang có hiệu lực, theo thứ tự dòng của sheet LUẬT, rồi buổi nghỉ, cơ sở 2 của nhân sự
+    và sức chứa phòng."""
     from . import luat_co_san
     from .luat_rieng import label
     out = []
@@ -101,11 +102,9 @@ def _rules(staff: list[Teacher], settings: config.Settings) -> list[_Rule]:
             continue
         if plain(r) in custom:  # xếp bằng bộ ghép
             out.append(_Rule(label(r), custom=custom.index(plain(r))))
-            continue
-        native = luat_co_san.native_of(r)
-        if native is not None and native.key in luat_co_san.NATIVE_ONLY and config.on(native.key) \
-                and _matters(native.key, staff):
-            out.append(_Rule(label(r), off=native.key))
+    for key, text in luat_co_san.STRUCTURAL.items():  # buổi nghỉ, chỉ dạy cơ sở 2: dữ liệu nhân sự, không phải dòng luật
+        if config.on(key) and _matters(key, staff):
+            out.append(_Rule(text, off=key))
     if config.ROOMS and config.on("phong"):  # sheet PHÒNG: sức chứa các phòng học dùng chung
         out.append(_Rule(f"sheet {config.ROOMS_SHEET}: phòng học dùng chung (mỗi giờ không quá sức chứa)",
                          off="phong"))

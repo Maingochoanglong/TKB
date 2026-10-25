@@ -101,6 +101,9 @@ def main(argv: list[str] | None = None) -> int:
         diff = changed(rules)
         print("Quy định: đọc từ file vào" + (f", khác mặc định: {', '.join(diff)}." if diff else ", giống mặc định."))
     with applied(rules):  # quy định trong file vào thay giá trị mặc định trong tkb/config.py
+        if config.RULES is None:  # file của bản trước: không có luật mặc định nữa, nhưng file cũ xếp như trước
+            print(f"Luật: file vào không có sheet {config.RULES_SHEET_ROWS} (file của bản trước) nên dùng các luật "
+                  f"có sẵn của bản trước; muốn không có luật nào thì thêm sheet {config.RULES_SHEET_ROWS} trống.")
         return _run(args, settings)
 
 

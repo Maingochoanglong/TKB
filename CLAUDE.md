@@ -50,9 +50,13 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   vars when rooms are shared in part), `placed`/`assign` pick each lesson's room after solving with `MinCostFlow`, not in
   the result code, `errors` for the checker; relaxed in diagnosis as `config.OFF` key `phong`; empty/no sheet = old codes);
   **every scheduling
-  rule, built-in ones included, is a row of sheet `LUẬT`** (old files: sheet `LUẬT RIÊNG`; see Architecture).
+  rule is a row of sheet `LUẬT` and there are no default rules** (school's decision 25/10/2026: blank template and
+  "Soạn mới" have none; the built-in rules are only samples the user adds: UI Thêm luật › Luật mẫu = `kich_ban.schema`
+  `custom.samples`, Lấy bộ luật mẫu = `luat/Mau_Luat.xlsx`; a file without sheet `LUẬT` is an old file and keeps the
+  built-in rules, a message says so; old files: sheet `LUẬT RIÊNG`; see Architecture).
   `python -m tkb.template` writes a plain template (black text, no fill/freeze/dropdowns/comments/hidden sheets) with
-  NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), LỚP, PHÒNG, CHỨC VỤ, QUY ĐỊNH, LUẬT (the built-in rule rows), HƯỚNG DẪN. Grades
+  NHÂN SỰ, CHƯƠNG TRÌNH HỌC (+ rule columns), LỚP, PHÒNG, CHỨC VỤ, QUY ĐỊNH, LUẬT, HƯỚNG DẪN; default preset
+  `bo_mau.BLANK` (`trong`: no subjects, empty LUẬT); `--mau tieu_hoc_vn` gives the VN subjects and all sample rules. Grades
   are free names (`Khối <tên>` columns, `staff.parse_grade`: all digits → int, else the text; sort with
   `staff.grade_key`, never `sorted()` alone). Class names are free with sheet `LỚP`, else `g/n` or grade + name
   (`1D15`): use `staff.grade_of` / `class_sort_key` / `class_list`, never split on "/". A class of sheet `LỚP` may have
@@ -71,8 +75,8 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   file. The app must not be tied to any country's rules: the code holds mechanisms only, every rule, frame and name is
   data the school can change, and defaults are a removable template (plan: frame and classes free, roles as rules,
   staff tags; one PR per phase). Subject names and subject-tied defaults live only in the rule presets of
-  `tkb/bo_mau.py` (`TIEU_HOC_VN` = the defaults, `TRONG` = blank start; `rules.mau(key)` → config values, used by
-  `template --mau` and the UI's "Soạn mới", which uses `trong`); tests use `bo_mau.TV`, `bo_mau.TOAN`…, never names in code.
+  `tkb/bo_mau.py` (`TIEU_HOC_VN` = the config defaults, `TRONG` = blank start without any rule; `rules.mau(key)` →
+  config values, used by `template --mau` and the UI's "Soạn mới", which uses `trong`); tests use `bo_mau.TV`, `bo_mau.TOAN`…, never names in code.
   `tkb/config.py` holds the defaults of the rules (taken from `bo_mau.TIEU_HOC_VN`, overridden by the file's rules),
   weights and LNS params. A new business rule the school may want to change gets a `Col` in `tkb/rules.py` (read in `_Reader`,
   written in `rule_tables`/`subject_columns`, listed in `ATTRS`), keeping the Có/Không/number convention.
@@ -251,12 +255,14 @@ then [measure `MEASURES`] [op] [number or `DERIVED` threshold] · when [curricul
 scope has one]", hard or soft (Điểm points, else Mức Thấp/Vừa/Cao/Rất cao = level 1–4 `Weights.custom_levels`,
 `luat_rieng.LEVELS`; written as words, read as words or 1–4). Soft rows are written with Mức only (no `Điểm` column unless a row has its own points, `template.write_luat_sheet`): `luat_rieng.parse` ends with `luat_co_san.tuned` (a native-shaped soft row at its native's level, `luat_rieng.level_of` = nearest level, gets the native's tuned points, so the codes stay) and `luat_rieng.cells` starts with `plain` (the inverse); old files' `Điểm` still read. `Kiểu luật` is a preset
 (`luat_rieng.KINDS`, expanded by `bo_ghep.PRESETS`; `nghi_gv`, `co_so_2` exist only in native form) or "Tự ghép".
-**Built-in rules** are the default rows of `tkb/luat_co_san.py` (`NATIVES`, `default_rows`, written by the template):
+**Built-in rules** are the sample rows of `tkb/luat_co_san.py` (`NATIVES`, `default_rows`: the rules of an old file
+without sheet LUẬT, `luat/Mau_Luat.xlsx`, the `tieu_hoc_vn` template, the config defaults of tests):
 `rules.read_rules` → `luat_co_san.apply(rows)`: **every row goes to `config.CUSTOM_RULES` (composer)**, built-in rows
-too (one encoding per rule, `docs/Thiet_Ke_Gop_Luat.md` PR D), except the two native-only rules `NATIVE_ONLY`
-(`nghi_gv`, `co_so_2`: they read NHÂN SỰ columns and keep their own code in `solver._teacher_leave`,
-`allocation.build_problem`, `phan_cong.teacher_slots`, `checker._check_teacher_sessions`; off = key in `config.OFF`
-when their row is absent, `config.on(key)`; `config.OFF` also holds "phong" while diagnosing). The other natives have
+too (one encoding per rule, `docs/Thiet_Ke_Gop_Luat.md` PR D). `NATIVE_ONLY` (`buoi_nghi` leave, `co_so_2`) are no
+longer rules but NHÂN SỰ data, always applied (own code in `solver._teacher_leave`, `allocation.build_problem`,
+`phan_cong.teacher_slots`, `checker._check_teacher_sessions`; their rows in old files are dropped by `apply`/`rows`,
+not in `default_rows`; `config.on(key)` is False only while diagnosing: `chan_doan` relaxes them as
+`luat_co_san.STRUCTURAL` families, `config.OFF` also holds "phong" then). The other natives have
 no code of their own any more (PR E): default points are literals in `NATIVES` (not `config.Weights`);
 `SESSION_GROUP_LIMIT`, `DAILY_LIMITS`, `PAIR_MIN_LESSONS` are only the numbers of the default rows (old files: the old
 columns), not in `rules.ATTRS`; `luat_co_san.numbers(rows)` reads them back only for the old-column warning.

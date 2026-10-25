@@ -183,15 +183,15 @@ Hằng số: `SCOPES`, `SCOPE`, `TIME_DIMS`, `COUNT_OPS`, `FAMILIES`, `MEASURES`
 - `validate(problem, sheet, role_label)` — Lỗi ghi chỉ thấy khi có chương trình học và nhân sự: môn, lớp (hay nhãn lớp) không có; tên ở cột Giáo viên không
 
 ## tkb/bo_mau.py — Bộ luật mẫu: giá trị ban đầu của các quy định gắn với tên môn và với cách tổ chức của một loại trường.
-Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `TIEU_HOC_VN`, `TRONG`, `TRONG_FRAME`, `TRONG_ON`, `PRESETS`, `DEFAULT`
+Hằng số: `TV`, `TOAN`, `HDTN`, `KH`, `LSDL`, `DD`, `TNXH`, `KNS`, `CONG_NGHE`, `TOAN_TC`, `TV_TC`, `TIENG_ANH`, `TIN_HOC`, `AM_NHAC`, `MY_THUAT`, `TIEU_HOC_VN`, `TRONG`, `TRONG_FRAME`, `PRESETS`, `DEFAULT`, `BLANK`
 
 ## tkb/chan_doan.py — Chẩn đoán vì sao không xếp được TKB: luật bắt buộc nào mâu thuẫn, nói bằng dòng luật nhà trường đã ghi (sheet LUẬT).
 Hằng số: `SECONDS`
 - `precheck(problem, student_rules)` — Các mâu thuẫn chắc chắn giữa chương trình học, khung giờ và các luật bắt buộc, tìm bằng phép đếm; trừ luật bảo
 - `same_teacher(problem, lessons)` — Học cùng giờ (problem.links): sau phân công (course, GV) -> số tiết, hai môn của một nhóm ở một lớp không được
 - `class _Rule` — Một dòng luật bắt buộc có thể bỏ khi chẩn đoán.
-- `_matters(key, staff)` — Luật chỉ có dạng gốc có tác dụng với dữ liệu này không (không thì không cần thử bỏ).
-- `_rules(staff, settings)` — Các dòng luật bắt buộc đang có hiệu lực, theo thứ tự dòng của sheet LUẬT.
+- `_matters(key, staff)` — Buổi nghỉ, cơ sở 2 (dữ liệu nhân sự) có tác dụng với dữ liệu này không (không thì không cần thử bỏ).
+- `_rules(staff, settings)` — Các dòng luật bắt buộc đang có hiệu lực, theo thứ tự dòng của sheet LUẬT, rồi buổi nghỉ, cơ sở 2 của nhân sự
 - `_relaxed(rules)`
 - `class Diagnosis`
 - `diagnose(staff, curriculum, settings, log, seconds)` — Tìm luật bắt buộc nào làm không xếp được (xem đầu module).
@@ -214,7 +214,7 @@ Hằng số: `_MAU`, `DISPLAY_NAMES`, `HDTN`, `DAYS`, `MORNING`, `AFTERNOON`, `D
 - `class Room` — Một phòng học dùng chung của sheet PHÒNG (không bắt buộc, đọc ở tkb/rules.py; tkb/phong_hoc.py): tiết của
 - `class ManagerRule` — Quản lý chỉ dạy môn `subject` của khối `grade`.
 - `class CustomRule`
-- `on(key)` — Luật chỉ có dạng gốc `key` đang bật (có dòng trong sheet LUẬT, hoặc file không có sheet LUẬT); "phong": sức
+- `on(key)` — Phần `key` đang áp dụng: buổi nghỉ, cơ sở 2 (luat_co_san.NATIVE_ONLY), "phong" (sức chứa phòng học dùng
 - `rule_subjects()` — Các môn được nhắc tới trong luật ở trên (để kiểm tra tên môn trong file vào).
 - `class Weights`
 - `class Settings`
@@ -241,6 +241,7 @@ Hằng số: `_DAY_WORDS`
 Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGESTIONS`, `RULE_KEYS`, `STAFF_COLS`, `_HEADERS`, `ROLES`, `SUBJECT_GROUPS`, `ROLE_RULES`, `ENTITIES`
 - `_col(c)`
 - `schema()` — Mô tả các bảng, cột cho giao diện (sinh ô nhập theo đây).
+- `_samples()` — Các luật có sẵn để người soạn thêm khi muốn (luat_co_san.default_rows theo từng luật): {key, group, title,
 - `composer()` — Từ vựng của bộ ghép luật (tkb/bo_ghep.py) cho giao diện: thêm một chiều, phép đo, nhãn ở Python là trang có.
 - `_blank(value)`
 - `_number(value)` — Số nguyên nếu ô là số nguyên (cả "23 tiết", "23,0": staff.to_number), ô trống là None, còn lại giữ chữ (kiểm
@@ -314,11 +315,12 @@ Hằng số: `SECONDS`
   · Ctrl+C; trên Windows giao diện (tkb/giao_dien) dừng sớm tiến trình xếp TKB bằng Ctrl+Break (SIGBREAK).
 
 ## tkb/luat_co_san.py — Luật có sẵn của chương trình là các dòng của sheet LUẬT, viết bằng câu của bộ ghép luật (tkb/bo_ghep.py).
-Hằng số: `GROUPS`, `CUSTOM_GROUP`, `STRUCTURE`, `NATIVES`, `BY_KEY`, `NATIVE_ONLY`, `STUDENT`
+Hằng số: `GROUPS`, `CUSTOM_GROUP`, `STRUCTURE`, `NATIVES`, `BY_KEY`, `NATIVE_ONLY`, `STRUCTURAL`, `STUDENT`
 - `_r(**kw)`
 - `class Native` — Một luật có sẵn: các dòng ở dạng gốc (tham số theo config hiện tại) và cột nào là tham số.
 - `_daily(subject, n)`
-- `default_rows()` — Các dòng mặc định của sheet LUẬT: mỗi luật có sẵn ở dạng gốc, số và điểm theo config hiện tại.
+- `_structural(r)` — Dòng của Buổi nghỉ, Cơ sở 2 (NATIVE_ONLY): dữ liệu nhân sự, không phải luật.
+- `default_rows()` — Các luật có sẵn, mỗi luật ở dạng gốc, số và điểm theo config hiện tại (trừ NATIVE_ONLY, không phải luật): luật
 - `rows()` — Các dòng luật đang dùng: sheet LUẬT của file vào; không có sheet thì các dòng mặc định (trừ dòng đã có trong
 - `student(r)` — Dòng ở dạng gốc của một luật bảo vệ học sinh (tắt cả nhóm bằng --no-student-rules, main.py LUAT_HOC_SINH).
 - `without_student(rules)` — Các dòng trừ dòng luật bảo vệ học sinh (Settings.student_rules False: solver.solve, chan_doan.precheck).
@@ -331,7 +333,7 @@ Hằng số: `GROUPS`, `CUSTOM_GROUP`, `STRUCTURE`, `NATIVES`, `BY_KEY`, `NATIVE
 - `_tuned_points(r)` — Điểm mặc định của luật ưu tiên có sẵn mà dòng r là dạng gốc (None: không phải dòng như vậy).
 - `tuned(r)` — Dòng vừa đọc (sheet LUẬT, trang soạn): luật ưu tiên có sẵn ghi đúng mức mặc định của nó, không ghi Điểm, thì
 - `plain(r)` — Dòng sắp ghi ra (sheet LUẬT, trang soạn): luật ưu tiên có sẵn với điểm mặc định ghi bằng Mức (chữ), không ghi
-- `apply(all_rows)` — Các dòng luật -> giá trị config: mọi dòng xếp bằng bộ ghép (CUSTOM_RULES), trừ dòng của luật chỉ có dạng gốc
+- `apply(all_rows)` — Các dòng luật -> giá trị config: mọi dòng xếp bằng bộ ghép (CUSTOM_RULES), trừ dòng của Buổi nghỉ, Cơ sở 2
 - `numbers(all_rows)` — Số ở các dòng dạng gốc "tối đa n tiết một nhóm môn mỗi buổi", "ghép cặp khi nhóm môn có từ n tiết", "tối đa n
 - `notes()` — Dòng của sheet HƯỚNG DẪN về phần không phải luật.
 
