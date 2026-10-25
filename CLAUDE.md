@@ -246,7 +246,7 @@ lessons [subject(+group), tags, excluded tags, grades, classes, days, periods, s
 or 'trừ <…>'; matched by `bo_ghep.picks`] ·
 then [measure `MEASURES`] [op] [number or `DERIVED` threshold] · when [curriculum condition, per subject/group if the
 scope has one]", hard or soft (Điểm points, else Mức Thấp/Vừa/Cao/Rất cao = level 1–4 `Weights.custom_levels`,
-`luat_rieng.LEVELS`; written as words, read as words or 1–4). `Kiểu luật` is a preset
+`luat_rieng.LEVELS`; written as words, read as words or 1–4). Soft rows are written with Mức only (no `Điểm` column unless a row has its own points, `template.write_luat_sheet`): `luat_rieng.parse` ends with `luat_co_san.tuned` (a native-shaped soft row at its native's level, `luat_rieng.level_of` = nearest level, gets the native's tuned points, so the codes stay) and `luat_rieng.cells` starts with `plain` (the inverse); old files' `Điểm` still read. `Kiểu luật` is a preset
 (`luat_rieng.KINDS`, expanded by `bo_ghep.PRESETS`; `nghi_gv`, `co_so_2` exist only in native form) or "Tự ghép".
 **Built-in rules** are the default rows of `tkb/luat_co_san.py` (`NATIVES`, `default_rows`, written by the template):
 `rules.read_rules` → `luat_co_san.apply(rows)`: **every row goes to `config.CUSTOM_RULES` (composer)**, built-in rows
@@ -315,8 +315,12 @@ the quality sheet read them; add a hand count to `tests/kiem_tra_cu.py`). Everyt
 `CUSTOM_RULES` is empty. `tests/test_luat_co_san.py` checks default rows change nothing,
 edits work, the composer matches the old hand-written checks both ways (`test_composer_matches_the_old_checker`) and
 its lowering can replace natives. The UI rules step edits
-`scenario["rules"]` (all rows) in a composer dialog driven by `kich_ban.composer()`, asks `/api/describe`
-(`kich_ban.describe`: sentence, errors, native key), and imports/exports rules-only files (`kich_ban.rules_to_excel`,
+`scenario["rules"]` (all rows) in a composer dialog driven by `kich_ban.composer()`: `+ Thêm luật` opens `#rule-pick`
+(fill-in sentences `PICK_GROUPS` in app.js; Tự ghép and other kinds under Nâng cao), a preset opens as that sentence
+(`ruleEdit.pick`; place fields under "Giờ nào?", the rest under "Chỉ áp dụng cho"), a built-in row opens compact (a free
+number only, `S.custom.natives`, + Mức độ) until `#rule-full`; Mức độ is one select (`data-k=mode`: Bắt buộc or a level,
+no points field; drafts with a native's tuned points are rewritten as its level via `describe`'s `tuned`). It asks
+`/api/describe` (`kich_ban.describe`: sentence, errors, native key), and imports/exports rules-only files (`kich_ban.rules_to_excel`,
 `/api/rules_file`).
 
 `checker.check` re-verifies the timetable independently of the model: the structural part in code (one lesson per

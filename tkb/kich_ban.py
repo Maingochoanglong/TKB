@@ -111,6 +111,8 @@ def schema() -> dict:
                    "campus_default": CAMPUS1,  # lớp không ghi cơ sở (tên cơ sở cũng là nhãn lớp, staff.class_tags)
                    "campus2": CAMPUS2,  # cơ sở của lớp ghi Có ở cột Cơ sở 2 (dòng Chủ Nhiệm, kịch bản cũ)
                    "structure": luat_co_san.STRUCTURE,
+                   # cột tham số của từng luật có sẵn: sửa cột đó vẫn là luật có sẵn (trang chỉ hiện các cột này)
+                   "natives": {n.key: list(n.free) for n in luat_co_san.NATIVES},
                    "composer": composer()},
         "sheets": {"staff": config.STAFF_SHEET, "program": config.PROGRAM_SHEET, "classes": config.CLASSES_SHEET,
                    "rooms": config.ROOMS_SHEET, "roles": config.ROLES_SHEET,
@@ -559,8 +561,9 @@ def _lines(exc: Exception, sheet: str = "") -> list[str]:
 
 def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool = True) -> dict:
     """Câu đọc lại của từng luật (rows; mặc định các luật của kịch bản), theo quy định của kịch bản: {rules: [{text,
-    errors, native, level}]}; native là khóa luật có sẵn nếu dòng ở dạng gốc (đọc bằng tên riêng của luật đó),
-    level là mức ưu tiên bằng chữ (dòng ghi Điểm: mức gần nhất). Lỗi các sheet khác không chặn (nút Kiểm tra báo)."""
+    errors, native, level, tuned}]}; native là khóa luật có sẵn nếu dòng ở dạng gốc (đọc bằng tên riêng của luật
+    đó), level là mức ưu tiên bằng chữ (dòng ghi Điểm: mức gần nhất), tuned: dòng ghi đúng điểm mặc định của luật có
+    sẵn (trang ghi lại bằng mức). Lỗi các sheet khác không chặn (nút Kiểm tra báo)."""
     from .config import Role
     rows = scenario.get("rules") or [] if rows is None else rows
     values: dict = {}
@@ -585,7 +588,9 @@ def describe(scenario: dict, rows: list[dict] | None = None, student_rules: bool
             native = luat_co_san.native_of(rule) if rule else None
             out.append({"text": luat_rieng.describe(rule) if rule else None, "errors": errors,
                         "native": native.key if native else None,
-                        "level": luat_rieng.level_label(rule) if rule and not rule.hard else None})
+                        "level": luat_rieng.level_label(rule) if rule and not rule.hard else None,
+                        # điểm ghi ở dòng là điểm mặc định của luật có sẵn: ghi được bằng mức (luat_co_san.plain)
+                        "tuned": bool(rule and cells["points"] is not None and luat_co_san.plain(rule).points is None)})
     return {"rules": out}
 
 

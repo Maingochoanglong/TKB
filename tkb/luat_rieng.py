@@ -17,9 +17,9 @@ họ tên (config.PEOPLE).
 """
 from __future__ import annotations
 
-import math
 import re
 from dataclasses import dataclass, replace
+from fractions import Fraction
 
 from . import bo_ghep, config
 from .bo_ghep import MEASURE, MEASURES, OPS, SCOPE, SCOPES
@@ -369,7 +369,10 @@ def parse(values: dict, row: int, error) -> CustomRule | None:
     if ok and kind.key in ("nghi_gv", "co_so_2") and not out.get("hard"):
         error(f"kiểu luật {kind.label} chỉ ghi Bắt buộc = Có (muốn bỏ luật thì xóa dòng hoặc ghi Tạm tắt = Có)")
         ok = False
-    return CustomRule(**out) if ok else None
+    if not ok:
+        return None
+    from .luat_co_san import tuned
+    return tuned(CustomRule(**out))
 
 
 def _check_composed(out: dict, place: bool, error) -> bool:
@@ -466,18 +469,23 @@ def _when_say(when) -> str:
     return "số tiết/tuần của môn " + " và ".join(parts)
 
 
+def level_of(points: int) -> int:
+    """Mức ưu tiên (1–4) có điểm gần `points` nhất, so theo tỉ lệ; cách đều hai mức thì lấy mức thấp hơn."""
+    levels = config.Weights().custom_levels
+    return 1 + min(range(len(levels)), key=lambda k: max(Fraction(points, levels[k]), Fraction(levels[k], points)))
+
+
 def level_label(rule: CustomRule) -> str:
     """Mức ưu tiên bằng chữ (Thấp, Vừa, Cao, Rất cao); dòng ghi Điểm thì lấy mức có điểm gần nhất."""
-    if rule.points is None:
-        return LEVELS[rule.level - 1]
-    levels = config.Weights().custom_levels
-    i = min(range(len(levels)), key=lambda k: abs(math.log(rule.points / levels[k])))
-    return LEVELS[i]
+    return LEVELS[(rule.level if rule.points is None else level_of(rule.points)) - 1]
 
 
 def cells(rule: CustomRule) -> dict:
-    """Các ô của luật khi ghi ra sheet LUẬT ({khóa cột: giá trị}), ngược với `parse`."""
+    """Các ô của luật khi ghi ra sheet LUẬT ({khóa cột: giá trị}), ngược với `parse`. Luật có sẵn giữ điểm mặc định
+    thì ghi Mức bằng chữ, không ghi Điểm (luat_co_san.plain)."""
+    from .luat_co_san import plain
     from .rules import NO, YES
+    rule = plain(rule)
     role = ", ".join(_role_label(r) for r in bo_ghep.names(rule.role))
     return {"kind": BY_KEY[rule.kind].label, "scope": ", ".join(SCOPE[d].label for d in rule.scope) or None,
             "subject": rule.subject or None, "group": YES if rule.group else None,

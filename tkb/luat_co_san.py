@@ -230,6 +230,34 @@ def native_of(r: CustomRule) -> Native | None:
     return next((n for n in NATIVES if fits(n, r)), None)
 
 
+def _tuned_points(r: CustomRule) -> int | None:
+    """Điểm mặc định của luật ưu tiên có sẵn mà dòng r là dạng gốc (None: không phải dòng như vậy)."""
+    if r.hard or (native := native_of(r)) is None:
+        return None
+    shape = _shape(r, native.free)
+    return next((p.points for p in native.rows() if not p.hard and p.points is not None
+                 and _shape(p, native.free) == shape), None)
+
+
+def tuned(r: CustomRule) -> CustomRule:
+    """Dòng vừa đọc (sheet LUẬT, trang soạn): luật ưu tiên có sẵn ghi đúng mức mặc định của nó, không ghi Điểm, thì
+    lấy điểm đã chỉnh sẵn của luật đó (vd tiết trống 10 điểm, mức Thấp), để chọn mức mà TKB không đổi; mức khác thì
+    theo điểm chung của mức (config.Weights.custom_levels). Ngược với `plain`."""
+    from .luat_rieng import level_of
+    if r.points is None and (p := _tuned_points(r)) is not None and level_of(p) == r.level:
+        return replace(r, points=p, level=CustomRule("").level)
+    return r
+
+
+def plain(r: CustomRule) -> CustomRule:
+    """Dòng sắp ghi ra (sheet LUẬT, trang soạn): luật ưu tiên có sẵn với điểm mặc định ghi bằng Mức (chữ), không ghi
+    Điểm. Ngược với `tuned`."""
+    from .luat_rieng import level_of
+    if r.points is not None and _tuned_points(r) == r.points:
+        return replace(r, points=None, level=level_of(r.points))
+    return r
+
+
 def apply(all_rows: list[CustomRule]) -> dict:
     """Các dòng luật -> giá trị config: mọi dòng xếp bằng bộ ghép (CUSTOM_RULES), trừ dòng của luật chỉ có dạng gốc
     (NATIVE_ONLY: bật khi có dòng, không thì vào OFF). Gọi trong rules.applied của các quy định khác."""
