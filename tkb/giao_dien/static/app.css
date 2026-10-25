@@ -409,6 +409,12 @@ table.off-grid tbody th { text-align: left; }
 .import-part.off { opacity: .7; }
 .import-part select { width: auto; margin-left: auto; }
 
+/* Bước Luật khi chưa có luật nào */
+.empty-box { border: 1px dashed var(--line); border-radius: 8px; padding: 12px 14px; margin: 8px 0 12px; }
+.empty-box p { margin: 0 0 10px; }
+.empty-box .actions { margin: 0; justify-content: flex-start; }
+#pick-body h4 { margin: 10px 0 6px; font-size: 15px; color: var(--muted); }
+
 /* Mở file trong thư mục TKB */
 #files-dialog { width: min(760px, calc(100vw - 32px)); }
 .files-list { display: grid; gap: 14px; max-height: 60vh; overflow: auto; }

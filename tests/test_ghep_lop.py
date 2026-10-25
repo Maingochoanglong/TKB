@@ -106,15 +106,15 @@ def test_rule_errors(tmp_path):
              {**MERGE, "hard": False}, {**MERGE, "days": "Thứ 2"}]
     with pytest.raises(InputError) as err:
         read_rules(_file(tmp_path, rules))
-    for text in ("dòng 26: phép đo Cùng giờ, so sánh Cùng một người (ghép lớp): cột Với mỗi để trống hoặc ghi Khối",
-                 "dòng 27: ghép lớp chỉ ghi Bắt buộc", "dòng 28: cột Ngày không dùng cho kiểu luật Ghép lớp"):
+    for text in ("dòng 24: phép đo Cùng giờ, so sánh Cùng một người (ghép lớp): cột Với mỗi để trống hoặc ghi Khối",
+                 "dòng 25: ghép lớp chỉ ghi Bắt buộc", "dòng 26: cột Ngày không dùng cho kiểu luật Ghép lớp"):
         assert text in str(err.value), str(err.value)
     rules = [{**MERGE, "other": bo_mau.TIN_HOC}, {**MERGE, "classes": "3/1"},
              {"kind": "Ghép lớp", "subject": bo_mau.AM_NHAC, "other": bo_mau.TIN_HOC, "classes": "3/1, 3/2"}]
     errors = kich_ban.check(kich_ban.from_excel(_file(tmp_path, rules, name="sai"))[0], quick=True)["errors"]
-    for text in (f"dòng 26: ghép lớp {TD}: lớp 3/1, 3/2 có nhiều môn của nhóm",
-                 f"dòng 27: ghép lớp {TD}: chỉ có lớp 3/1: ghép lớp cần ít nhất hai lớp",
-                 f"dòng 28: ghép lớp {bo_mau.AM_NHAC}: lớp 3/1, 3/2 có nhiều môn"):
+    for text in (f"dòng 24: ghép lớp {TD}: lớp 3/1, 3/2 có nhiều môn của nhóm",
+                 f"dòng 25: ghép lớp {TD}: chỉ có lớp 3/1: ghép lớp cần ít nhất hai lớp",
+                 f"dòng 26: ghép lớp {bo_mau.AM_NHAC}: lớp 3/1, 3/2 có nhiều môn"):
         assert any(text in e for e in errors), errors
     path = _file(tmp_path, [{"kind": "Ghép lớp", "subject": bo_mau.HDTN, "classes": "3/1, 3/2"}], name="gvcn")
     with applied(read_rules(path)), pytest.raises(InputError, match="chỉ GVCN được dạy .* nên không ghép lớp được"):

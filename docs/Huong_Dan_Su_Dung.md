@@ -35,14 +35,15 @@ luật tới kiểm tra, xếp và xem TKB. Dữ liệu soạn ngay trên trang,
 
 Lần đầu mở trang là **trang bắt đầu** với các cách:
 - **Mở file Excel của trường** (mẫu V8; hoặc file `_cap_nhat.xlsx` của lần xếp trước);
-- **Soạn mới**: bản trống, không theo quy ước của nước nào: tự đặt khung giờ, môn, khối, lớp, chức vụ, giáo viên; các
-  luật có sẵn như ghép cặp, HĐTN, tiết của GVCN để **Tạm tắt**, bật luật nào cần ở bước Luật (ô **Dùng**);
+- **Soạn mới**: bản trống, không theo quy ước của nước nào: tự đặt khung giờ, môn, khối, lớp, chức vụ, giáo viên;
+  **không có luật mặc định**: thêm các luật cần dùng ở bước Luật (có luật mẫu viết sẵn, bấm là thêm);
 - **Xem thử với trường mẫu** (tên giả): muốn biết chương trình làm gì thì chọn cách này, bấm Kiểm tra rồi Xếp TKB.
 
 ![Trang bắt đầu](hinh/0_bat_dau.jpg)
 
 **Điền file Excel** (mục *Ghi file mẫu trống*): chỉ bắt buộc sheet `NHÂN SỰ` (bốn cột đầu: Họ và Tên, Chức Vụ, Lớp,
-Số Tiết/Tuần) và số tiết từng môn ở sheet `CHƯƠNG TRÌNH HỌC`; các sheet khác có sẵn giá trị mặc định (đầu sheet
+Số Tiết/Tuần) và các môn, số tiết từng môn ở sheet `CHƯƠNG TRÌNH HỌC`; sheet `LUẬT` để trống là chưa có luật nào
+(thêm trên trang, hoặc chép từ file luật mẫu); các sheet khác có sẵn giá trị mặc định (đầu sheet
 `HƯỚNG DẪN` của file mẫu có mục *Bắt đầu nhanh*). Chương trình chịu được các lỗi gõ hay gặp:
 - tên sheet, tên cột viết không dấu hay thừa dấu cách (`Quy dinh`, `Ho va Ten`);
 - ô Có/Không ghi `x`, `✓`, `Đúng`;
@@ -99,22 +100,26 @@ không có lỗi có dấu **✓**. Sửa nhầm thì bấm **↶ Hoàn tác** (
    vụ, vd `Bộ Môn 3`, `Chủ Nhiệm 1/1`.
    ![Bước 5: giáo viên](hinh/5_giao_vien.jpg)
 6. **Luật**: mọi luật xếp TKB, mỗi luật một câu dễ đọc, nhãn **Bắt buộc** hoặc **Ưu tiên** (thấp, vừa, cao, rất
-   cao). Các luật mặc định đã đủ dùng; sửa số, đổi mức, bỏ hay thêm luật khi trường cần. Bỏ dấu ô **Dùng** để **tạm
-   tắt** một luật (luật mờ đi, chương trình bỏ qua; đánh dấu lại là dùng lại), bấm ✕ để xóa hẳn. Ô **Tìm luật** lọc
-   theo môn, lớp, chữ trong câu. Menu **Tệp luật ▾** để nhập, xuất luật ra Excel (chép luật sang trường khác) hay
-   đưa các luật về mặc định.
+   cao). **Không có luật mặc định**: mọi luật do người soạn thêm. Chưa có luật nào thì trang báo (TKB khi đó chỉ theo
+   cấu trúc: không trùng giờ, đủ số tiết…), với hai nút **Thêm luật** và **Lấy bộ luật mẫu…** (các luật mẫu chương
+   trình viết sẵn, ở file `luat/Mau_Luat.xlsx`). Sửa số, đổi mức, bỏ hay thêm luật khi trường cần. Bỏ dấu ô **Dùng**
+   để **tạm tắt** một luật (luật mờ đi, chương trình bỏ qua; đánh dấu lại là dùng lại), bấm ✕ để xóa hẳn. Ô **Tìm
+   luật** lọc theo môn, lớp, chữ trong câu. Menu **Tệp luật ▾** để nhập, xuất luật ra Excel (chép luật sang trường
+   khác). Buổi nghỉ của giáo viên không phải luật: ghi ở hồ sơ giáo viên (bước 5) là luôn được giữ.
    ![Bước 6: danh sách luật](hinh/6_luat.jpg)
 
    **Thêm luật**: bấm **+ Thêm luật**, chọn một câu hay gặp (vd "Môn … không học vào …", "Giáo viên … bận, không dạy
    vào …", "Giáo viên dạy tối đa … tiết mỗi ngày", "Môn … học 2 tiết liền"), rồi điền vào chỗ trống ngay trong câu;
    giờ học chọn ở ô **Giờ nào?**, khối, lớp… (nếu cần) trong **Chỉ áp dụng cho**. Câu ít gặp hơn và **Tự ghép** nằm ở
-   **Nâng cao**. **Mức độ** là một ô chọn: Bắt buộc, hoặc Ưu tiên rất cao / cao / vừa / thấp; không phải ghi điểm.
+   **Nâng cao**; mục **Luật mẫu** liệt kê các luật chương trình viết sẵn (vd "Mỗi buổi, một lớp học tối đa 2 tiết của
+   một môn", "Hai tiết liền nhau của một môn do cùng một giáo viên dạy"): bấm là thêm đúng luật đó, luật đã có ghi
+   "(đã có)". **Mức độ** là một ô chọn: Bắt buộc, hoặc Ưu tiên rất cao / cao / vừa / thấp; không phải ghi điểm.
    Hộp thoại đọc lại ngay thành câu. Ví dụ **giờ bận** của một giáo viên: chọn "Giáo viên … bận, không dạy vào …",
    ghi `Bộ Môn 3`, đánh dấu Thứ 2, Tiết `1-2`.
    ![Thêm luật: chọn một câu](hinh/7a_them_luat.jpg)
    ![Câu điền chỗ trống: giờ bận của một giáo viên](hinh/7_ghep_luat.jpg)
 
-   Sửa một **luật có sẵn** chỉ hiện số (nếu luật có số chỉnh được) và mức độ; **Sửa chi tiết luật** mở cả câu luật.
+   Sửa một **luật mẫu** chỉ hiện số (nếu luật có số chỉnh được) và mức độ; **Sửa chi tiết luật** mở cả câu luật.
 7. **Kiểm tra & xếp TKB**: chọn chế độ (bù giờ hay tuyển thêm), số tiết bù tối đa, thời gian; bấm **Kiểm tra** (vài
    giây): lỗi hiện kèm chỗ sửa (bấm vào lỗi để tới đúng dòng), cùng **dự toán** số tiết bù, tiết thiếu.
    ![Bước 7: kiểm tra và dự toán](hinh/8_kiem_tra.jpg)

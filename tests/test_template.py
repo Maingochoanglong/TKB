@@ -2,7 +2,7 @@ from pathlib import Path
 
 import openpyxl
 
-from tkb import config
+from tkb import bo_mau, config
 from tkb.program import read_program
 from tkb.solver import solve
 from tkb.staff import read_staff
@@ -74,8 +74,9 @@ def _values(path):
 
 
 def test_saved_input_template_is_up_to_date(tmp_path):
-    """data/Input_Template_V8.xlsx là file mẫu trống (python -m tkb.template data/Input_Template_V8.xlsx)."""
-    write_staff_template(tmp_path / "moi.xlsx")
+    """data/Input_Template_V8.xlsx là file mẫu trống (python -m tkb.template data/Input_Template_V8.xlsx): chưa có
+    môn, chưa có luật (không có luật mặc định)."""
+    write_staff_template(tmp_path / "moi.xlsx", mau=bo_mau.BLANK)
     assert _values(ROOT / "data" / "Input_Template_V8.xlsx") == _values(tmp_path / "moi.xlsx"), \
         "data/Input_Template_V8.xlsx đã cũ: chạy  python -m tkb.template data/Input_Template_V8.xlsx"
 

@@ -903,6 +903,7 @@ function updateCounts() {
   $("#count-mon").textContent = subjects.length || "";
   $("#count-cv").textContent = S.roles.length + st.scenario.roles.filter(named).length;
   $("#count-luat").textContent = (st.scenario.rules || []).filter((r) => !r.off).length || "";
+  $("#run-no-rules").hidden = (st.scenario.rules || []).some((r) => !r.off); // không có luật mặc định: báo khi chưa có luật
   const classes = schoolClasses().length;
   $("#count-lop").textContent = classes || "";
   const quota = staff.reduce((n, t) => n + (Number.isInteger(t.lessons) ? t.lessons : 0), 0);
@@ -984,7 +985,7 @@ function renderRuleList() {
       const r = said && said.rules[i];
       const errs = r ? r.errors : [];
       const text = r && r.text ? r.text.replace(/ \((bắt buộc|ưu tiên[^)]*)\)$/, "") : `${kindOf(row).label}…`;
-      const native = r && r.native ? `<span class="tag" title="Luật có sẵn của chương trình, chỉ sửa số hoặc mức: đọc bằng tên riêng">mặc định</span>` : "";
+      const native = r && r.native ? `<span class="tag" title="Luật mẫu chương trình viết sẵn, chỉ sửa số hoặc mức: đọc bằng tên riêng">mẫu</span>` : "";
       const off = row.off ? `<span class="tag off-tag">tạm tắt</span>` : "";
       return `<li class="rule-item${errs.length ? " bad" : ""}${row.off ? " off" : ""}" data-row="${i + 2}" title="Dòng ${i + 2} của sheet LUẬT trong file Excel">
         <div class="say">${levelBadge(row, r)} ${esc(text)} ${native}${off}${errs.map((e) => `<div class="warn-text">${esc(e)}</div>`).join("")}</div>
@@ -1071,11 +1072,30 @@ function pickOf(row) {
 function renderPicks() {
   const blank = '<span class="gap">…</span>';
   const tu = COMPOSE_KIND().label;
+  const plain = (r) => JSON.stringify({ ...r, group_label: "", off: false });
+  const have = new Set((st ? st.scenario.rules : []).map(plain));
+  const groups = [...new Set(S.custom.samples.map((x) => x.group))];
   $("#pick-body").innerHTML = PICK_GROUPS.map(([title, list]) => `<h3>${esc(title)}</h3><div class="choices">${list.map((p) =>
     `<button type="button" class="choice" data-pick="${PICKS.indexOf(p)}">${p.parts.map((x) => (BLANKS.includes(x) ? blank
       : esc(x))).join(" ")}</button>`).join("")}</div>`).join("")
+    + `<h3>Luật mẫu (chương trình viết sẵn)</h3><p class="muted">Bấm để thêm đúng luật đó; sửa số hoặc mức sau.</p>`
+    + groups.map((g) => `<h4>${esc(g)}</h4><div class="choices">${S.custom.samples.filter((x) => x.group === g).map((x) => {
+      const added = x.rows.every((r) => have.has(plain(r)));
+      return `<button type="button" class="choice" data-sample="${esc(x.key)}" ${added ? "disabled title=\"Đã có\"" : ""}>
+        ${esc(x.title)}${added ? " (đã có)" : ""}</button>`;
+    }).join("")}</div>`).join("")
     + `<p class="muted">Không có việc mình cần? <button type="button" class="link" data-pick="tu">${esc(tu)} một câu luật
       (nâng cao)</button></p>`;
+}
+// Thêm luật, mục Luật mẫu: thêm đúng các dòng của luật có sẵn đó (không có luật mặc định).
+function addSample(key) {
+  const sample = S.custom.samples.find((x) => x.key === key);
+  $("#rule-pick").close();
+  st.scenario.rules.push(...JSON.parse(JSON.stringify(sample.rows)));
+  said = null;
+  renderRules();
+  changed();
+  done(`Đã thêm luật mẫu: ${esc(sample.title)}.`);
 }
 function pickRule(value) {
   $("#rule-pick").close();
@@ -2285,8 +2305,8 @@ async function startWith(how, mau = "") {
     await newScenario(mau);
     hideStart();
     showTab("khung");
-    notify(`Dữ liệu mới: đặt khung giờ ở bước này, rồi thêm môn, khối, lớp, chức vụ, giáo viên; các luật có sẵn đang Tạm
-      tắt, bật luật cần dùng ở bước Luật.`, "ok", back ? UNDO : null);
+    notify(`Dữ liệu mới: đặt khung giờ ở bước này, rồi thêm môn, khối, lớp, chức vụ, giáo viên; chưa có luật nào: thêm
+      luật cần dùng ở bước Luật (có luật mẫu viết sẵn).`, "ok", back ? UNDO : null);
   } else if (how === "sample") {
     const data = await api("GET", "/api/sample");
     useImported({ ...data, warnings: [] }, "Trường mẫu (tên giả)");
@@ -3048,14 +3068,25 @@ function wire() {
     changed();
     done(`Đã bớt cột Khối ${g}.`);
   };
-  $("#btn-add-rule").onclick = () => $("#rule-pick").showModal();
+  const openPick = () => { renderPicks(); $("#rule-pick").showModal(); }; // "(đã có)" theo các luật đang có
+  $("#btn-add-rule").onclick = openPick;
+  $("#rule-empty-add").onclick = openPick;
   $("#rule-body").addEventListener("click", (e) => {
     if (e.target.closest("#rule-full")) { ruleEdit.full = true; renderComposer(); }
   });
   $("#pick-body").addEventListener("click", (e) => {
     const b = e.target.closest("[data-pick]");
     if (b) pickRule(b.dataset.pick);
+    const s = e.target.closest("[data-sample]");
+    if (s) addSample(s.dataset.sample);
   });
+  $("#rule-samples").onclick = async () => {
+    try {
+      const res = await api("POST", "/api/rules_file", { template: true });
+      const data = await api("POST", "/api/import_path", { path: res.files[0] });
+      openImport(data, relPath(res.files[0]), ["rules"]);
+    } catch (err) { fail(err); }
+  };
   $("#btn-rules-export").onclick = async () => {
     try {
       written("Đã ghi các luật đang soạn", await api("POST", "/api/rules_file", { scenario: st.scenario, name: st.run.name }));
@@ -3064,15 +3095,6 @@ function wire() {
   $("#btn-rules-template").onclick = async () => {
     try {
       written("Đã ghi mẫu luật (các luật có sẵn)", await api("POST", "/api/rules_file", { template: true }));
-    } catch (err) { fail(err); }
-  };
-  $("#btn-rules-reset").onclick = async () => {
-    try {
-      st.scenario.rules = (await api("GET", "/api/new")).scenario.rules;
-      said = null;
-      renderRules();
-      changed();
-      done("Đã đưa các luật về mặc định (bỏ các luật thêm vào và các chỗ đã sửa).");
     } catch (err) { fail(err); }
   };
   $("#rule-dialog").addEventListener("close", () => {

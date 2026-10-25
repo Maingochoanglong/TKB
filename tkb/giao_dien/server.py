@@ -33,7 +33,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from .. import config, kich_ban, nhap_tkb
+from .. import bo_mau, config, kich_ban, nhap_tkb
 from ..staff import InputError
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -498,7 +498,7 @@ class App:
         with tempfile.TemporaryDirectory() as tmp:
             full = Path(tmp) / "mau.xlsx"
             with self.lock:
-                write_staff_template(full)
+                write_staff_template(full, mau=bo_mau.BLANK)
                 files = self._write(list(paths.values()), lambda: kich_ban.split_file(full, paths))
         return {"files": files}
 

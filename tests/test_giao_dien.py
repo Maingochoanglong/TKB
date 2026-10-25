@@ -131,8 +131,9 @@ def test_describe_rules(server):
 
 
 def test_blank_template(server, tmp_path):
-    """Nút Ghi file mẫu trống: file mẫu trống của python -m tkb.template chia thành ba file (chương trình học, nhân
-    sự, luật) ở ba thư mục; mỗi file có đúng các sheet của thực thể đó (và HƯỚNG DẪN), nhập lại được."""
+    """Nút Ghi file mẫu trống: file mẫu trống của python -m tkb.template (chưa có môn, chưa có luật) chia thành ba
+    file (chương trình học, nhân sự, luật) ở ba thư mục; mỗi file có đúng các sheet của thực thể đó (và HƯỚNG DẪN),
+    nhập lại được."""
     import openpyxl
 
     app, url = server
@@ -140,7 +141,7 @@ def test_blank_template(server, tmp_path):
     assert status == 200 and [Path(p) for p in res["files"]] == [
         app.folders["program"] / "Mau_Chuong_Trinh_Hoc.xlsx", app.folders["staff"] / "Mau_Nhan_Su.xlsx",
         app.folders["rules"] / "Mau_Luat.xlsx"]
-    write_staff_template(tmp_path / "mau.xlsx")
+    write_staff_template(tmp_path / "mau.xlsx", mau="trong")  # mẫu trống: chưa có môn, chưa có luật
     full = {ws.title: list(ws.values) for ws in openpyxl.load_workbook(tmp_path / "mau.xlsx").worksheets}
     for path, key in zip(res["files"], ("program", "staff", "rules")):
         sheets = {ws.title: list(ws.values) for ws in openpyxl.load_workbook(path).worksheets}

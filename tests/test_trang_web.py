@@ -379,16 +379,35 @@ def test_class_step(page):
 
 
 def test_new_from_empty_preset(page):
-    """Trang bắt đầu, Soạn mới (bản trống): chưa có môn nào, các luật có sẵn theo quy ước Tạm tắt (bật lại bằng ô
-    Dùng)."""
+    """Trang bắt đầu, Soạn mới (bản trống): chưa có môn nào, không có luật nào (không có luật mặc định): bước Luật và
+    bước Xếp báo chưa có luật. Thêm luật › Luật mẫu thêm đúng luật đó (lần sau ghi "đã có"); Lấy bộ luật mẫu nhập cả
+    các luật mẫu từ file luat/Mau_Luat.xlsx."""
     page.wait_for_selector("#start:not([hidden])")
     page.click('[data-start="new"][data-mau="trong"]')
     page.wait_for_selector("#start", state="hidden")
-    sc = page.evaluate("({subjects: st.scenario.subjects.length, off: st.scenario.rules.filter((r) => r.off).length,"
-                       " rules: st.scenario.rules.length})")
-    assert sc["subjects"] == 0 and sc["off"] == 14 and sc["rules"] == 23
-    assert page.text_content("#count-luat") == "9"
+    sc = page.evaluate("({subjects: st.scenario.subjects.length, rules: st.scenario.rules.length})")
+    assert sc == {"subjects": 0, "rules": 0} and page.text_content("#count-luat") == ""
     _wait_mark(page, "mon", "⚠")  # chưa có môn nào: bước Môn học báo
+    page.click('.tabs [data-tab="xep"]')
+    assert page.locator("#run-no-rules").is_visible()
+    page.click('.tabs [data-tab="luat"]')
+    assert page.locator("#rule-empty").is_visible() and page.locator("#btn-rules-reset").count() == 0
+    page.click("#rule-empty-add")
+    page.click('#pick-body [data-sample="nhom_buoi"]')
+    page.wait_for_function("st.scenario.rules.length === 1")
+    assert page.text_content("#count-luat") == "1" and page.locator("#rule-empty").is_hidden()
+    assert "mẫu" in page.text_content("#rule-list .rule-item .tag")
+    page.click("#btn-add-rule")
+    assert page.locator('#pick-body [data-sample="nhom_buoi"]').is_disabled()
+    page.keyboard.press("Escape")
+    page.click("#tab-luat details.menu > summary")
+    page.evaluate("st.scenario.rules = []; renderRules(); changed()")
+    page.click("#rule-samples")
+    page.wait_for_selector("#import-dialog[open]")
+    page.click("#import-apply")
+    n = len(page.evaluate("S.custom.samples.flatMap((x) => x.rows)"))
+    page.wait_for_function(f"st.scenario.rules.length === {n}")
+    assert (page.app.folders["rules"] / "Mau_Luat.xlsx").is_file()
 
 
 def test_extra_roles_picker(page):
