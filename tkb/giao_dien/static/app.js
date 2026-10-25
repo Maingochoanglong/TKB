@@ -1748,7 +1748,6 @@ function renderResult(s) {
     const name = p.split(/[\\/]/).pop();
     return `<li><span class="file-name">${esc(fileLabel(name))}<small>${esc(name)}</small></span><span class="actions">
       <button type="button" class="ghost" data-act="open" data-path="${esc(p)}">${icon("open")} Mở</button>
-      <a class="btn ghost" href="/api/file?path=${encodeURIComponent(p)}&t=${encodeURIComponent(TOKEN)}">${icon("download")} Tải</a>
       ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">${icon("excel")} Nạp vào giao diện</button>` : ""}
       </span></li>`;
   }).join("");
@@ -2279,7 +2278,7 @@ function hideStart() {
 }
 async function startWith(how, mau = "") {
   const back = !$("#start-back").hidden; // đang có kịch bản: chọn cách khác thì hoàn tác được
-  if (how === "open") $("#file-open").click();
+  if (how === "open") openFiles().catch(fail);
   else if (how === "template") $("#btn-template").click();
   else if (how === "back") hideStart();
   else if (how === "new") {
@@ -2303,8 +2302,9 @@ async function startWith(how, mau = "") {
 // ghi ra máy thì không xóa (thư mục kết quả có thể là thư mục trường tự chọn, có file cần giữ): hộp thoại chỉ chỗ.
 const FORGOT = "#da-xoa"; // dấu trên địa chỉ để trang tải lại báo đã xóa
 const openOutDir = () => api("POST", "/api/open", { path: "" }).catch(fail);
+const openHome = () => api("POST", "/api/open", { path: S.home }).catch(fail);
 function askForget() {
-  $("#forget-dir").textContent = S.out_dir;
+  $("#forget-dir").textContent = S.home;
   $("#forget-dialog").returnValue = ""; // Esc giữ giá trị lần trước (vd lần Xóa bị máy chủ từ chối): không xóa nhầm
   $("#forget-dialog").showModal();
 }
@@ -2486,12 +2486,51 @@ function applyBoard() {
   board = null;
 }
 
-async function downloadBlob(blob, name) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+// ---------------------------------------------------------------- thư mục TKB: mở, lưu
+// Mọi file trang đọc, ghi đều ở thư mục TKB (máy chủ: FOLDERS). Mở: hộp liệt kê các bộ (ba file cùng tên ở các thư
+// mục chương trình học, nhân sự, luật) và các file đọc được; file ở chỗ khác thì máy chủ chép bản gốc vào tep_nhap/.
+// Lưu: ba file cùng tên, mỗi thực thể một file (và file vào đủ ở thư mục kết quả).
+const KIND_LABELS = { full: "file đủ", program: "chương trình học", staff: "nhân sự", rules: "luật" };
+const when = (t) => new Date(t * 1000).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" });
+const relPath = (p) => (String(p).startsWith(S.home) ? String(p).slice(S.home.length).replace(/^[\\/]+/, "") : String(p));
+async function openFiles(preset = null) {
+  importPreset = preset;
+  const data = await api("GET", "/api/files");
+  $("#files-home").textContent = data.home;
+  const sets = data.sets.map((x) => `<div class="file-row"><span class="file-name"><b>${esc(x.name)}</b>
+      <small>${esc(Object.keys(x.parts).map((k) => KIND_LABELS[k]).join(", "))} · ${esc(when(x.time))}</small></span>
+      <span class="actions"><button type="button" class="primary" data-act="open-set" data-name="${esc(x.name)}">${icon("open")} Mở bộ này</button></span></div>`).join("");
+  const folders = data.folders.map((f) => `<section><h3>${esc(f.label)} <small class="muted">${esc(relPath(f.path))}</small></h3>${
+    f.files.length ? f.files.map((x) => `<div class="file-row"><span class="file-name">${esc(x.name)}
+      <small>${esc(KIND_LABELS[x.kind] || "")}${x.saved ? ", có TKB đã xếp" : ""} · ${esc(when(x.time))}</small></span>
+      <span class="actions"><button type="button" class="ghost" data-act="open-file" data-path="${esc(x.path)}">${icon("open")} Mở…</button></span></div>`).join("")
+      : `<p class="muted">Chưa có file nào.</p>`}</section>`).join("");
+  $("#files-list").innerHTML = (sets ? `<section><h3>Bộ đã lưu</h3><p class="muted">Ba file cùng tên ở các thư mục chương
+    trình học, nhân sự, luật (nút Lưu của menu Tệp ghi đúng như vậy).</p>${sets}</section>` : "") + folders;
+  if (!$("#files-dialog").open) $("#files-dialog").showModal();
+}
+async function openListed(e) {
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const preset = importPreset;
+  let data;
+  let label;
+  if (btn.dataset.act === "open-set") {
+    data = await api("POST", "/api/open_set", { name: btn.dataset.name });
+    label = `bộ ${btn.dataset.name}`;
+  } else if (btn.dataset.act === "open-file") {
+    data = await api("POST", "/api/import_path", { path: btn.dataset.path });
+    label = relPath(btn.dataset.path);
+  } else return;
+  $("#files-dialog").close();
+  openImport(data, label, preset);
+}
+function written(title, res) {
+  const items = res.files.map((p) => `<li><code>${esc(relPath(p))}</code></li>`).join("");
+  notify(`${esc(title)} vào thư mục TKB:<ul>${items}</ul>`, "ok", { label: "Mở thư mục TKB", fn: openHome });
+}
+async function saveFiles() {
+  written("Đã lưu", await api("POST", "/api/save", { scenario: st.scenario, name: st.run.name }));
 }
 
 // ---------------------------------------------------------------- sự kiện
@@ -2655,8 +2694,7 @@ async function onClick(e) {
   }
   const imp = e.target.closest("[data-import]");
   if (imp) {
-    importPreset = [imp.dataset.import];
-    $("#file-open").click();
+    openFiles([imp.dataset.import]).catch(fail);
     return;
   }
   const go = e.target.closest("[data-go]");
@@ -2909,7 +2947,7 @@ function wire() {
   $$(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
   $("#btn-new").onclick = () => showStart(true);
   $("#btn-forget").onclick = askForget;
-  $("#forget-open").onclick = openOutDir;
+  $("#forget-open").onclick = openHome;
   $("#forget-dialog").addEventListener("close", () => {
     if ($("#forget-dialog").returnValue === "forget") forget().catch(fail);
   });
@@ -2936,15 +2974,21 @@ function wire() {
   $("#file-open").onchange = async (e) => {
     const file = e.target.files[0];
     const preset = importPreset;
-    importPreset = null;
     e.target.value = "";
     if (!file) return;
     try {
       const data = await api("POST", "/api/import", await file.arrayBuffer(),
         { headers: { "X-File-Name": encodeURIComponent(file.name) } });
+      $("#files-dialog").close();
       openImport(data, file.name, preset);
+      notify(`Đã chép bản gốc của ${esc(file.name)} vào thư mục TKB: <code>${esc(data.kept)}</code>.`, "ok");
     } catch (err) { fail(err); }
   };
+  $("#btn-open").onclick = () => openFiles().catch(fail);
+  $("#btn-open-home").onclick = openHome;
+  $("#files-folder").onclick = openHome;
+  $("#files-list").addEventListener("click", (e) => openListed(e).catch(fail));
+  $("#files-dialog").addEventListener("close", () => { if (!$("#import-dialog").open) importPreset = null; });
   $("#board-open").onchange = async (e) => {
     const file = e.target.files[0];
     e.target.value = "";
@@ -2964,15 +3008,10 @@ function wire() {
   });
   $("#btn-template").onclick = async () => {
     try {
-      downloadBlob(await api("GET", "/api/template", undefined, { blob: true }), "Mau_Input_V8.xlsx");
+      written("Đã ghi ba file mẫu trống (điền trong Excel rồi bấm Tệp, Mở…)", await api("POST", "/api/template", {}));
     } catch (err) { fail(err); }
   };
-  $("#btn-export").onclick = async () => {
-    try {
-      const blob = await api("POST", "/api/export", { scenario: st.scenario, name: st.run.name }, { blob: true });
-      downloadBlob(blob, `${st.run.name || "kich_ban"}.xlsx`);
-    } catch (err) { fail(err); }
-  };
+  $("#btn-export").onclick = () => saveFiles().catch(fail);
   $("#btn-add-subject").onclick = () => {
     const lessons = Object.fromEntries(st.scenario.grades.map((g) => [String(g), null]));
     st.scenario.subjects.push({ name: "", lessons, rules: newSubjectRules() });
@@ -3019,13 +3058,12 @@ function wire() {
   });
   $("#btn-rules-export").onclick = async () => {
     try {
-      const blob = await api("POST", "/api/rules_file", { scenario: st.scenario, name: st.run.name }, { blob: true });
-      downloadBlob(blob, `${st.run.name || "kich_ban"}_luat.xlsx`);
+      written("Đã ghi các luật đang soạn", await api("POST", "/api/rules_file", { scenario: st.scenario, name: st.run.name }));
     } catch (err) { fail(err); }
   };
   $("#btn-rules-template").onclick = async () => {
     try {
-      downloadBlob(await api("POST", "/api/rules_file", { template: true }, { blob: true }), "Mau_Luat.xlsx");
+      written("Đã ghi mẫu luật (các luật có sẵn)", await api("POST", "/api/rules_file", { template: true }));
     } catch (err) { fail(err); }
   };
   $("#btn-rules-reset").onclick = async () => {
@@ -3101,14 +3139,6 @@ function wire() {
   });
   $("#btn-tkb-unlock").onclick = unlockAll;
   $("#btn-tkb-run").onclick = () => repairRun().catch(fail);
-  $("#btn-out-dir").onclick = async () => {
-    try {
-      const res = await api("POST", "/api/settings", { out_dir: $("#out-dir").value });
-      S.out_dir = res.out_dir;
-      renderRun();
-      notify(`Thư mục kết quả: ${esc(res.out_dir)}`, "ok");
-    } catch (err) { fail(err); }
-  };
   $("#btn-open-dir").onclick = openOutDir;
 }
 
@@ -3139,8 +3169,8 @@ async function init() {
     showStart(false);
   }
   if (forgot) notify(`Đã xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác khỏi trang. File đã ghi ra máy vẫn còn
-    (thư mục kết quả <code>${esc(S.out_dir)}</code>, thư mục Tải về): xóa tay nếu không cần, rồi đóng cửa sổ đen của
-    chương trình.`, "ok", { label: "Mở thư mục kết quả", fn: openOutDir });
+    (thư mục TKB <code>${esc(S.home)}</code>): xóa tay nếu không cần, rồi đóng cửa sổ đen của chương trình.`, "ok",
+    { label: "Mở thư mục TKB", fn: openHome });
   lastSnap = st ? JSON.stringify(st.scenario) : null; // mốc đầu của hoàn tác
   if (st) trackStaff(); // mốc đầu của Mã GV, họ tên từng người (luật theo người đi theo đúng người)
   undoStack.length = 0;

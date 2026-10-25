@@ -21,7 +21,7 @@ thiếu, số tiết bù của từng người, số người cần tuyển và 
 [`TKB_Windows.zip`](https://github.com/Maingochoanglong/TKB/raw/main/TKB_Windows.zip) ở thư mục gốc của dự án (bản thử
 của từng lần sửa mã: mục Actions → workflow **Đóng gói TKB.exe** → Artifacts), giải nén, bấm đúp `TKB.exe`
 (Windows báo "Windows protected your PC" vì gói chưa ký số thì bấm More info › Run anyway): mở đúng giao diện web ở
-Cách 0; mọi thứ nằm trong thư mục `TKB` vừa giải nén: kết quả ở `TKB\ket_qua`, bản nháp của trang, file tạm và dữ liệu trình duyệt ở `TKB\du_lieu`. Không ghi gì ra ngoài: xóa thư mục `TKB` là không còn gì trên máy.
+Cách 0; mọi thứ nằm trong thư mục `TKB` vừa giải nén: `chuong_trinh_hoc`, `nhan_su`, `luat` (ba file của trường, Tệp ▾ › Lưu ghi vào đây), `tep_nhap` (bản gốc file lấy từ chỗ khác), `ket_qua` (TKB, thống kê), `du_lieu` (bản nháp của trang, file tạm, dữ liệu trình duyệt). Trang chỉ đọc, ghi file trong thư mục này: xóa thư mục `TKB` là không còn gì trên máy.
 Gói dựng bằng `python tools/dong_goi.py` (PyInstaller, `pip install -r requirements-build.txt`), cùng OR-Tools ghim
 nên ra cùng mã kết quả như `python -m tkb` trên Windows; gói không chứa file Excel nào của trường.
 
@@ -45,9 +45,11 @@ vd "TKB của từng giáo viên", với nút Mở, Tải.
    (bản trống, không theo quy ước của nước nào: tự đặt khung giờ, môn, khối, lớp; các luật có sẵn để Tạm tắt, bật luật
    cần dùng ở bước Luật), và **Xem thử với trường mẫu** (trường mẫu tên giả
    29 lớp, 45 giáo viên của `tkb/truong_mau.py`: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì). Mọi việc với
-   file nằm ở menu **Tệp ▾**: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (như
-   `data/Input_Template_V8.xlsx`, điền trong Excel rồi mở lại), Bắt đầu lại…. Mở được file vào V8 bất kỳ, kể cả file
-   cập nhật `*_cap_nhat.xlsx` của lần chạy trước. Hộp thoại mở file cho chọn phần nào lấy từ file (Giáo viên: thay danh
+   file nằm ở menu **Tệp ▾**: **Mở…** (các file trong thư mục TKB: bộ đã lưu, file mẫu đã điền, file cập nhật; file
+   ở chỗ khác thì **Lấy file từ chỗ khác…**, chương trình chép bản gốc vào `tep_nhap` rồi mới đọc), **Lưu** (ba file
+   cùng tên `<tên>.xlsx` ở `chuong_trinh_hoc`, `nhan_su`, `luat` và file vào đủ ở `ket_qua`), **Ghi file mẫu trống**
+   (`data/Input_Template_V8.xlsx` chia thành ba file, điền trong Excel rồi mở lại), Mở thư mục TKB, Bắt đầu lại….
+   Mở được file vào V8 bất kỳ, kể cả file cập nhật `*_cap_nhat.xlsx` của lần chạy trước. Hộp thoại mở file cho chọn phần nào lấy từ file (Giáo viên: thay danh
    sách hoặc thêm vào cuối; Môn học; Chức vụ; Khung giờ và quy định chung; Luật: thay hoặc thêm vào cuối; TKB đã xếp),
    phần không chọn giữ như đang soạn; file đủ (có nhân sự) mặc định thay toàn bộ, file chỉ có vài sheet (vd file luật)
    chỉ chọn sẵn các phần file có. Cài đặt chạy không nằm trong file Excel: file có TKB đã xếp với số tiết bù (ô ghi
@@ -95,9 +97,9 @@ vd "TKB của từng giáo viên", với nút Mở, Tải.
      sai, và cảnh báo khi sửa làm luật có sẵn mất dạng gốc (đọc bằng câu ghép, tắt luật bảo vệ học sinh không tắt nó), vd "Mỗi GV bộ môn, mỗi ngày: dạy tối
      đa 3 lớp khác nhau (bắt buộc)". Ô **Dùng** ở mỗi luật: bỏ dấu là **tạm tắt** (luật mờ đi, ghi `Có` ở cột Tạm tắt,
      chương trình bỏ qua; đánh dấu lại là dùng lại); nút thùng rác xóa luật.
-     Menu **Tệp luật ▾**: **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (file chỉ có sheet
-     LUẬT, HƯỚNG DẪN: sửa trong Excel, chép sang trường khác), **Tải mẫu luật** (các luật có sẵn mặc định), **Về mặc
-     định**.
+     Menu **Tệp luật ▾**: **Nhập luật từ Excel…** (thay hoặc thêm vào cuối), **Xuất luật ra Excel** (ghi
+     `luat/<tên>.xlsx`, chỉ có sheet LUẬT, HƯỚNG DẪN: sửa trong Excel, chép sang trường khác), **Ghi mẫu luật**
+     (`luat/Mau_Luat.xlsx`: các luật có sẵn), **Về mặc định**.
 
    Các bước Môn học, Giáo viên, Luật có **ô tìm** (tên môn; họ tên, Mã GV, lớp; chữ trong câu luật): chỉ hiện các dòng
    khớp, bấm vào một lỗi ở dòng đang ẩn thì ô tìm tự xóa.
@@ -111,11 +113,12 @@ vd "TKB của từng giáo viên", với nút Mở, Tải.
      (như Ctrl+C: vẫn ghi TKB tốt nhất), rồi **kết quả tóm tắt**: mã TKB (mã kết quả), xếp giờ bao lâu và vì sao dừng,
      dạy bù bao nhiêu tiết (bao nhiêu người +1, +2), cần tuyển mấy người, môn nặng ở tiết cuối, so với TKB trước đổi
      bao nhiêu ô, và **Chất lượng**: số lần chưa theo luật ưu tiên, điểm trừ, các luật trừ nhiều điểm nhất kèm ví dụ
-     (đọc từ sheet Chất lượng); các file ra (nút Mở, Tải) gom trong mục **Các file Excel**. **Nạp vào giao diện** mở
+     (đọc từ sheet Chất lượng); các file ra (nút Mở) gom trong mục **Các file Excel**. **Nạp vào giao diện** mở
      file cập nhật (có người cần tuyển và TKB đã xếp) để sửa tiếp, vd đổi "chưa có" thành tên người mới rồi xếp lại:
      TKB giữ nguyên.
-   - **Tệp ▾ › Lưu ra file Excel**: file vào V8 đầy đủ (nhân sự, chương trình học kèm quy định, CHỨC VỤ, QUY ĐỊNH,
-     LUẬT, HƯỚNG DẪN), dùng được cho `main.py` và dòng lệnh, gửi cho trường khác được.
+   - **Tệp ▾ › Lưu**: ba file của ba thực thể (`chuong_trinh_hoc/<tên>.xlsx`: CHƯƠNG TRÌNH HỌC kèm quy định, LỚP,
+     PHÒNG, QUY ĐỊNH; `nhan_su/<tên>.xlsx`: NHÂN SỰ, CHỨC VỤ; `luat/<tên>.xlsx`: LUẬT), mở lại bằng **Mở… › Mở bộ
+     này**; và file vào V8 đầy đủ `ket_qua/<tên>.xlsx` (cả TKB đã xếp), dùng được cho `main.py` và dòng lệnh.
 4. **Thời khóa biểu** (bước 8): xếp xong bấm **Xem TKB trên trang** (hoặc mở file `_cap_nhat.xlsx`): TKB đã xếp hiện
    thành lưới theo khối, theo lớp hoặc theo giáo viên (ô: môn, người dạy, 🔒 ô khóa, **bù** tiết dạy bù), kiểm mọi luật
    bắt buộc như khi dùng lại TKB; tab có dấu ✓ hoặc ⚠ n.
@@ -131,12 +134,13 @@ vd "TKB của từng giáo viên", với nút Mở, Tải.
      vào trang, các ô đã đổi tô vàng. Ô khóa sai luật bắt buộc (vd dời HĐTN khỏi tiết cố định) không giữ được: trang
      báo rõ ô nào. TKB đúng mọi luật thì nút là **Ghi TKB này ra file Excel** (dùng lại nguyên vẹn, mã TKB mới).
 
-- Thư mục kết quả mặc định `out/giao_dien` của dự án (đã bỏ qua trong git; bản `TKB.exe`: `ket_qua` cạnh `TKB.exe`);
-  đổi ở trang Kiểm tra & xếp TKB (giao diện đầy đủ). Kịch bản đang soạn và các lựa chọn của trang được lưu tự động ở
-  file `trang.json` trong thư mục dữ liệu của chương trình (`out/du_lieu`; bản `TKB.exe`: `du_lieu` cạnh `TKB.exe`),
+- Thư mục TKB: `out/` của dự án (đã bỏ qua trong git; bản `TKB.exe`: thư mục có `TKB.exe`; `--thu-muc` để chọn
+  thư mục khác), có các thư mục `chuong_trinh_hoc`, `nhan_su`, `luat`, `tep_nhap`, `ket_qua`, `du_lieu`. Trang chỉ
+  mở, ghi file trong đó (không còn nút đổi thư mục kết quả, không tải file ra thư mục Tải về). Kịch bản đang soạn và
+  các lựa chọn của trang được lưu tự động ở file `trang.json` trong thư mục dữ liệu của chương trình (`du_lieu`),
   không ở bộ nhớ của trình duyệt. File tạm cũng ở đó (`tam`, xóa khi tắt). Trang mở trong cửa sổ riêng của Edge (không
-  có thì Chrome) với hồ sơ trình duyệt ở `du_lieu/trinh_duyet` (lịch sử, bộ nhớ đệm, file tải về vào thư mục kết
-  quả); máy không có hai trình duyệt đó thì mở bằng trình duyệt mặc định. Xóa thư mục chương trình là không còn gì.
+  có thì Chrome) với hồ sơ trình duyệt ở `du_lieu/trinh_duyet` (lịch sử, bộ nhớ đệm); máy không có hai trình duyệt
+  đó thì mở bằng trình duyệt mặc định. Xóa thư mục TKB là không còn gì.
 - Cài đặt chạy mặc định như `main.py`, riêng số tiết bù tối đa là mức được duyệt 2 (file của trường hiện cần 3).
   Các cài đặt này không nằm trong file Excel; cùng file vào và cùng cài đặt thì ra cùng mã kết quả như dòng lệnh.
 - Mọi ô quy định sinh từ `tkb/rules.py`: thêm một quy định vào đó là giao diện tự có ô nhập.

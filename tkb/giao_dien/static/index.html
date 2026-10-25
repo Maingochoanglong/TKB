@@ -74,18 +74,21 @@
     <details class="menu" id="file-menu">
       <summary class="btn"><svg class="ic" aria-hidden="true"><use href="#i-files"></use></svg> Tệp <svg class="ic" aria-hidden="true"><use href="#i-caret"></use></svg></summary>
       <div class="menu-list" role="menu">
-        <label class="menu-item" role="menuitem"
-          title="File của trường, file mẫu đã điền, hay file cập nhật *_cap_nhat.xlsx của lần xếp trước: chọn phần nào lấy từ file">
-          <svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden></label>
+        <button type="button" class="menu-item" role="menuitem" id="btn-open"
+          title="Các file trong thư mục TKB: bộ đã lưu (chương trình học, nhân sự, luật), file mẫu đã điền, file cập nhật *_cap_nhat.xlsx của lần xếp trước; hoặc lấy file từ chỗ khác vào">
+          <svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> Mở…</button>
         <label class="menu-item" role="menuitem"
           title="TKB nhà trường đang dùng, dạng bảng tin (mỗi lớp một cột, mỗi tiết ghi môn và tên giáo viên): đọc vào bước 8 để kiểm luật, rồi sửa ít ô nhất">
           <svg class="ic" aria-hidden="true"><use href="#i-board"></use></svg> Nhập TKB đang dùng…<input type="file" id="board-open" accept=".xlsx" hidden></label>
         <button type="button" class="menu-item" role="menuitem" id="btn-export"
-          title="Lưu mọi thứ đang soạn thành một file Excel: mở lại được ở đây, gửi cho trường khác được">
-          <svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu ra file Excel</button>
+          title="Lưu mọi thứ đang soạn thành ba file Excel cùng tên trong thư mục TKB: chương trình học, nhân sự, luật (và file vào đủ ở thư mục kết quả)">
+          <svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-template"
-          title="File Excel trống, đủ các sheet và luật mặc định, để điền trong Excel rồi mở lại ở đây">
-          <svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Tải file mẫu trống</button>
+          title="Ba file Excel trống (chương trình học, nhân sự, luật) ghi vào thư mục TKB, để điền trong Excel rồi mở lại ở đây">
+          <svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Ghi file mẫu trống</button>
+        <button type="button" class="menu-item" role="menuitem" id="btn-open-home"
+          title="Mở thư mục TKB: mọi file trang đọc, ghi đều ở đây">
+          <svg class="ic" aria-hidden="true"><use href="#i-folder"></use></svg> Mở thư mục TKB</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-new"><svg class="ic" aria-hidden="true"><use href="#i-restart"></use></svg> Bắt đầu lại…</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-forget"
           title="Dùng máy chung: xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác khỏi trang trước khi rời máy">
@@ -101,7 +104,8 @@
   <div class="start-cards">
     <button type="button" class="start-card" data-start="open">
       <b><svg class="ic" aria-hidden="true"><use href="#i-excel"></use></svg> Mở file Excel của trường</b>
-      <span>File mẫu đã điền, hoặc file cập nhật <code>_cap_nhat.xlsx</code> của lần xếp trước (giữ TKB đã xếp).</span>
+      <span>Bộ đã lưu trong thư mục TKB, file mẫu đã điền, file cập nhật <code>_cap_nhat.xlsx</code> của lần xếp trước
+        (giữ TKB đã xếp), hoặc file lấy từ chỗ khác.</span>
     </button>
     <button type="button" class="start-card" data-start="new" data-mau="trong">
       <b><svg class="ic" aria-hidden="true"><use href="#i-plus"></use></svg> Soạn mới</b>
@@ -113,7 +117,7 @@
       <span>29 lớp, 45 giáo viên tên giả: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì.</span>
     </button>
   </div>
-  <p class="start-links"><button type="button" class="link" data-start="template"><svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Tải file mẫu trống để điền trong Excel</button>
+  <p class="start-links"><button type="button" class="link" data-start="template"><svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Ghi file mẫu trống vào thư mục TKB để điền trong Excel</button>
     <span id="start-back"> · <button type="button" class="link" data-start="back"><svg class="ic" aria-hidden="true"><use href="#i-back"></use></svg> Quay lại dữ liệu đang soạn</button></span></p>
 </section>
 
@@ -263,11 +267,11 @@
             <summary class="btn ghost"><svg class="ic" aria-hidden="true"><use href="#i-files"></use></svg> Tệp luật <svg class="ic" aria-hidden="true"><use href="#i-caret"></use></svg></summary>
             <div class="menu-list" role="menu">
               <button type="button" class="menu-item" role="menuitem" data-import="rules"
-                title="Lấy các luật từ một file Excel (file luật hay file đủ của trường khác): thay hoặc thêm vào cuối">Nhập luật từ Excel…</button>
+                title="Lấy các luật từ một file Excel trong thư mục TKB (file luật hay file đủ của trường khác): thay hoặc thêm vào cuối">Nhập luật từ Excel…</button>
               <button type="button" class="menu-item" role="menuitem" id="btn-rules-export"
-                title="File Excel chỉ có các luật đang soạn: sửa trong Excel, chép sang trường khác">Xuất luật ra Excel</button>
+                title="Ghi file Excel chỉ có các luật đang soạn vào thư mục luat của thư mục TKB: sửa trong Excel, chép sang trường khác">Xuất luật ra Excel</button>
               <button type="button" class="menu-item" role="menuitem" id="btn-rules-template"
-                title="File Excel có các luật mặc định">Tải mẫu luật</button>
+                title="Ghi file Excel có các luật có sẵn (Mau_Luat.xlsx) vào thư mục luat">Ghi mẫu luật</button>
               <button type="button" class="menu-item" role="menuitem" id="btn-rules-reset"
                 title="Thay mọi luật bằng các luật mặc định (hoàn tác được)">Về mặc định</button>
             </div>
@@ -298,7 +302,8 @@
         <div class="form" id="run-form">
           <label class="row"><span>Tên file vào</span>
             <input type="text" data-run="name" spellcheck="false">
-            <small>Lưu thành &lt;tên&gt;.xlsx trong thư mục kết quả; file cập nhật là &lt;tên&gt;_cap_nhat.xlsx.</small>
+            <small>Xếp TKB ghi &lt;tên&gt;.xlsx và file cập nhật &lt;tên&gt;_cap_nhat.xlsx vào thư mục kết quả; Tệp, Lưu ghi
+              ba file &lt;tên&gt;.xlsx vào thư mục chương trình học, nhân sự, luật.</small>
           </label>
           <fieldset class="row"><legend>Khi thiếu người</legend><div id="mode-options"></div></fieldset>
           <label class="row"><span>Số tiết bù tối đa mỗi người</span>
@@ -324,9 +329,9 @@
               <small>Đổi số này thì TKB ra khác (vẫn đúng luật).</small></label>
           </details>
           <label class="row"><span>Thư mục kết quả</span>
-            <span class="inline"><input type="text" id="out-dir" spellcheck="false">
-              <button type="button" id="btn-out-dir" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-folder"></use></svg> Đổi</button>
+            <span class="inline"><input type="text" id="out-dir" spellcheck="false" readonly>
               <button type="button" id="btn-open-dir" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> Mở</button></span>
+            <small>Trong thư mục TKB: mọi file chương trình đọc, ghi đều ở thư mục TKB.</small>
           </label>
         </div>
       </div>
@@ -391,6 +396,24 @@
       <button value="cancel" class="ghost">Hủy</button>
       <button value="append" id="paste-append">Thêm vào cuối</button>
       <button value="replace" id="paste-replace" class="primary">Thay toàn bộ</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="files-dialog">
+  <form method="dialog">
+    <div class="toolbar">
+      <h2><svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> Mở file trong thư mục TKB</h2>
+      <button value="cancel" class="icon" title="Đóng" aria-label="Đóng"><svg class="ic" aria-hidden="true"><use href="#i-close"></use></svg></button>
+    </div>
+    <p class="muted">Mọi file chương trình đọc, ghi đều ở thư mục TKB <code id="files-home"></code>. File ở chỗ khác
+      (USB, thư mục Tải về): bấm <b>Lấy file từ chỗ khác</b>, chương trình chép bản gốc vào thư mục
+      <code>tep_nhap</code> rồi mới đọc.</p>
+    <div id="files-list" class="files-list"></div>
+    <div class="actions end">
+      <label class="btn ghost"><svg class="ic" aria-hidden="true"><use href="#i-download"></use></svg> Lấy file từ chỗ khác…<input type="file" id="file-open" accept=".xlsx" hidden></label>
+      <button type="button" class="ghost" id="files-folder"><svg class="ic" aria-hidden="true"><use href="#i-folder"></use></svg> Mở thư mục TKB</button>
+      <button value="cancel" class="ghost">Đóng</button>
     </div>
   </form>
 </dialog>
@@ -480,12 +503,12 @@
     <h2><svg class="ic" aria-hidden="true"><use href="#i-erase"></use></svg> Xóa dữ liệu trên máy này</h2>
     <p>Dùng khi máy dùng chung. Trang sẽ xóa <b>dữ liệu đang soạn</b> (danh sách giáo viên, môn, luật, TKB đang xem),
       <b>bản nháp tự lưu</b> và <b>lịch sử hoàn tác</b>, rồi về trang Bắt đầu. Không hoàn tác được: cần giữ thì
-      <b>Tệp <svg class="ic" aria-hidden="true"><use href="#i-chevron"></use></svg> Lưu ra file Excel</b> trước.</p>
-    <p class="muted">Trang không xóa các file đã ghi ra máy, vì có thể là file trường cần giữ: file của các lần xếp TKB
-      (và file đã tải về) nằm ở thư mục kết quả <code id="forget-dir"></code>. Xóa tay những file không cần, rồi đóng
-      cửa sổ đen của chương trình. Muốn không để lại gì: xóa cả thư mục chương trình.</p>
+      <b>Tệp <svg class="ic" aria-hidden="true"><use href="#i-chevron"></use></svg> Lưu</b> trước.</p>
+    <p class="muted">Trang không xóa các file đã ghi ra máy, vì có thể là file trường cần giữ: file đã lưu, file lấy từ
+      chỗ khác và file của các lần xếp TKB đều nằm ở thư mục TKB <code id="forget-dir"></code>. Xóa tay những file không
+      cần, rồi đóng cửa sổ đen của chương trình. Muốn không để lại gì: xóa cả thư mục TKB.</p>
     <div class="actions end">
-      <button type="button" class="ghost" id="forget-open"><svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> Mở thư mục kết quả</button>
+      <button type="button" class="ghost" id="forget-open"><svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> Mở thư mục TKB</button>
       <button value="cancel" class="ghost">Hủy</button>
       <button value="forget" class="danger" id="forget-ok"><svg class="ic" aria-hidden="true"><use href="#i-erase"></use></svg> Xóa dữ liệu</button>
     </div>

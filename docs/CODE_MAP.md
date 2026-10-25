@@ -238,7 +238,7 @@ Hằng số: `_DAY_WORDS`
 - `split_session_day(text)` — "Chiều T5", "Sáng thứ 6", "Tối Mon", "T5 chiều" -> (buổi, ngày); None nếu không đọc được.
 
 ## tkb/kich_ban.py — Kịch bản của một trường cho giao diện (tkb/giao_dien): toàn bộ nội dung file vào V8 dưới dạng dữ liệu JSON.
-Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGESTIONS`, `RULE_KEYS`, `STAFF_COLS`, `_HEADERS`, `ROLES`, `SUBJECT_GROUPS`, `ROLE_RULES`
+Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGESTIONS`, `RULE_KEYS`, `STAFF_COLS`, `_HEADERS`, `ROLES`, `SUBJECT_GROUPS`, `ROLE_RULES`, `ENTITIES`
 - `_col(c)`
 - `schema()` — Mô tả các bảng, cột cho giao diện (sinh ô nhập theo đây).
 - `composer()` — Từ vựng của bộ ghép luật (tkb/bo_ghep.py) cho giao diện: thêm một chiều, phép đo, nhãn ở Python là trang có.
@@ -268,6 +268,11 @@ Hằng số: `VERSION`, `SUBJECT_COLS`, `GENERAL_COLS`, `DAY_COLS_V`, `DAY_SUGGE
 - `to_excel(scenario, path)` — Ghi kịch bản ra file vào V8 (NHÂN SỰ, CHƯƠNG TRÌNH HỌC kèm cột quy định, LỚP, CHỨC VỤ, QUY ĐỊNH, LUẬT, HƯỚNG
 - `luat_sheet_rows(rows)` — Các dòng của sheet LUẬT từ các luật của kịch bản (cả dòng trống: dòng i là dòng i + 2 của sheet); cột Luật đọc
 - `rules_to_excel(scenario, path)` — File Excel chỉ có các luật (sheet LUẬT) và cách ghi (sheet HƯỚNG DẪN): xuất luật để sửa trong Excel, chép
+- `entity_of(sheets)` — Thực thể của một file theo các sheet nó có (`sheets_in`): "full" nếu có cả nhân sự và chương trình học (file
+- `to_entity_files(scenario, paths)` — Ghi kịch bản thành file của từng thực thể (`paths`: thực thể -> đường dẫn; "full" là file vào đủ, có cả TKB đã
+- `split_file(full, paths)` — Chia file vào đủ `full` thành file của từng thực thể (`paths` như `to_entity_files`).
+- `merge_files(paths, target)` — Gộp các file (vd chương trình học, nhân sự, luật) thành một file vào: chép chữ, ô gộp, dòng/cột ẩn của từng
+- `read_files(paths)` — Đọc các file của một bộ (chương trình học, nhân sự, luật: file chương trình học trước để luật đọc theo khung
 - `_custom_cell(key, value)` — Ô của sheet LUẬT RIÊNG (cả dòng trống: dòng i của bảng là dòng i + 2 của sheet).
 - `_lines(exc, sheet)` — Các dòng lỗi của một InputError (dòng tiêu đề "... có n lỗi:" bỏ đi), thêm tên sheet nếu lỗi chưa ghi.
 - `describe(scenario, rows, student_rules)` — Câu đọc lại của từng luật (rows; mặc định các luật của kịch bản), theo quy định của kịch bản: {rules: [{text,
@@ -700,14 +705,14 @@ Hằng số: `MAX_DAY_WIDTH`, `BLOCK_GAP`, `LABEL_PAD`, `HIRE_LABEL`, `CODE_HEAD
   · Tô nền cả dòng (đến cột tiêu đề cuối); chạy lại trên file cập nhật thì bỏ màu cũ của chương trình.
   · Ghi đủ các quy định đã dùng: cột quy định của môn, sheet CHỨC VỤ, QUY ĐỊNH (nếu file vào chưa có, sau sheet chương trình học); sheet HƯỚNG DẪN viết lại, kèm giải thích phần kết quả; cuối cùng là TKB đã xếp.
 
-## tkb/giao_dien/__main__.py — Chạy: python -m tkb.giao_dien [--cong 8765] [--thu-muc <thư mục kết quả>] [--khong-mo-trinh-duyet]
+## tkb/giao_dien/__main__.py — Chạy: python -m tkb.giao_dien [--cong 8765] [--thu-muc <thư mục TKB>] [--khong-mo-trinh-duyet]
 - `main(argv)`
 
 ## tkb/giao_dien/server.py — Máy chủ HTTP của giao diện (chỉ thư viện chuẩn) và việc xếp TKB ở tiến trình con.
-Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XLSX`, `MODES`, `RUN_DEFAULTS`, `FILE_NAMES`, `TEMPLATE_NAME`, `RULES_TEMPLATE_NAME`, `STORE_NAME`, `BROWSERS`, `BROWSER_NAMES`
-- `app_dir()` — Thư mục của chương trình: bản đóng gói là thư mục có TKB.exe; chạy từ mã nguồn là out/ của dự án (đã bỏ qua
-- `default_out_dir()` — Thư mục kết quả mặc định, trong thư mục của chương trình: bản đóng gói ket_qua/ cạnh TKB.exe; mã nguồn
-- `data_dir(out_dir)` — Chỗ để bản nháp của trang, file tạm và hồ sơ trình duyệt: du_lieu/ của thư mục chương trình; mở với
+Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `MODES`, `RUN_DEFAULTS`, `FILE_NAMES`, `FOLDERS`, `FOLDER_LABELS`, `DATA_FOLDER`, `TEMPLATE_NAMES`, `RULES_TEMPLATE_NAME`, `STORE_NAME`, `BROWSERS`, `BROWSER_NAMES`
+- `app_dir()` — Thư mục TKB, của chương trình: bản đóng gói là thư mục có TKB.exe; chạy từ mã nguồn là out/ của dự án (đã bỏ
+- `default_out_dir()` — Thư mục kết quả: ket_qua/ của thư mục TKB.
+- `data_dir(home)` — Chỗ để bản nháp của trang, file tạm và hồ sơ trình duyệt: du_lieu/ của thư mục TKB (`home`; không ghi: thư
 - `cli_command(argv)` — Lệnh chạy `python -m tkb`; bản đóng gói (PyInstaller) gọi lại chính nó với --cli (xem __main__.py).
 - `safe_name(name)` — Tên file vào: bỏ ký tự Windows không cho phép, bỏ đuôi .xlsx.
 - `run_argv(source, out, name, run)` — Tham số dòng lệnh `python -m tkb` theo cài đặt chạy (như main.run); báo lỗi nếu cài đặt sai.
@@ -719,13 +724,17 @@ Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XL
   - `.stop()` — Dừng sớm như bấm Ctrl+C: chương trình xếp xong vùng đang xếp rồi ghi TKB tốt nhất.
   - `.kill()`
   - `.state(since)`
-- `class App` — Trạng thái của giao diện: thư mục kết quả, mã phiên, việc xếp TKB đang chạy.
-  - `.inside(path)` — Đường dẫn trong thư mục kết quả, không thì báo lỗi.
+- `class App` — Trạng thái của giao diện: thư mục TKB, mã phiên, việc xếp TKB đang chạy.
+  - `.inside(path)` — Đường dẫn trong thư mục TKB (trừ du_lieu/ của chương trình), không thì báo lỗi.
+  - `._keep(body, name)` — Chép bản gốc của file lấy từ chỗ khác vào tep_nhap/ (giữ tên; trùng tên khác nội dung thì thêm số).
+  - `._write(paths, write)` — Ghi các file bằng `write()`; file đang mở trong Excel (Windows khóa file) thì báo rõ.
   - `.schema(_)`
+  - `.files(_)` — Các file Excel đọc được trong thư mục TKB (hộp Mở của trang), mới nhất trước: theo thư mục ({key, label,
+  - `.open_set(data)` — Mở một bộ: các file cùng tên `name` ở ba thư mục thực thể, đọc như một file vào đủ.
   - `.new(query)` — Kịch bản mới theo bộ luật mẫu `mau` (tkb/bo_mau.py; không ghi: Tiểu học Việt Nam).
   - `.sample(_)` — Trường mẫu tên giả (nút "Xem thử với trường mẫu" của trang bắt đầu).
   - `._import(path, name)`
-  - `.import_file(body, name)`
+  - `.import_file(body, name)` — File lấy từ chỗ khác (hộp chọn file của trình duyệt): đọc được thì chép bản gốc vào tep_nhap/.
   - `.import_path(data)`
   - `.board(data)` — Nhập TKB đang dùng (dạng bảng tin, tkb/nhap_tkb.py) theo kịch bản đang soạn: lưới TKB đã xếp (để thay
   - `.upgrade(data)` — Bản nháp kịch bản của bản trước (khung giờ cách cũ) -> bản hiện tại (kich_ban.upgrade).
@@ -734,16 +743,15 @@ Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XL
   - `._grid(data)` — Bài toán của kịch bản để xem, đổi ô TKB (gọi trong self.lock): dựng lại khi kịch bản (trừ TKB) hay cài
   - `.timetable(data)` — TKB đã xếp của kịch bản để vẽ trên trang, kèm lỗi luật bắt buộc và các ô có lỗi (kich_ban.Grid.view).
   - `.swaps(data)` — Các ô cùng lớp đổi chỗ được với một ô mà không thêm lỗi luật bắt buộc (kich_ban.Grid.swaps).
-  - `.export(data)`
-  - `.rules_file(data)` — File Excel chỉ có các luật (sheet LUẬT, HƯỚNG DẪN): các luật của kịch bản, hoặc (mẫu) các luật mặc định.
+  - `.save(data)` — Tệp › Lưu: ba file cùng tên <tên>.xlsx, mỗi thực thể một file ở thư mục của nó, và file vào đủ (có cả TKB
+  - `.rules_file(data)` — File chỉ có các luật (sheet LUẬT, HƯỚNG DẪN) ở luat/: các luật của kịch bản (<tên>.xlsx), hoặc (mẫu) các
   - `.store(data)` — Bản nháp và lựa chọn của trang ({khóa: chữ}), ghi ở data/trang.json thay cho bộ nhớ trình duyệt: xóa thư
-  - `.template()` — File vào mẫu trống (python -m tkb.template): nhà trường điền trong Excel rồi nhập lại.
+  - `.template(_)` — Mẫu trống của ba thực thể (file mẫu python -m tkb.template chia theo thực thể), mỗi file ở thư mục của nó:
   - `.run(data)`
   - `.status(query)`
   - `.stop(_)`
   - `.kill(_)`
   - `.open(data)`
-  - `.settings(data)`
   - `.forget(_)` — Tệp › Xóa dữ liệu trên máy này: bỏ TKB đang xem và nhật ký lần chạy (có tên giáo viên) khỏi bộ nhớ.
   - `.shutdown()`
 - `class Handler`
@@ -757,10 +765,10 @@ Hằng số: `STATIC`, `PROJECT`, `PORT`, `TOKEN_MARK`, `MAX_BODY`, `TYPES`, `XL
   - `.do_POST()`
   - `._static(path)`
   - `._api(method, url)`
-- `make_server(port, out_dir)` — Máy chủ trên 127.0.0.1 (cổng bận thì lấy cổng khác): (máy chủ, trạng thái, đường dẫn trang).
+- `make_server(port, home)` — Máy chủ trên 127.0.0.1 (cổng bận thì lấy cổng khác): (máy chủ, trạng thái, đường dẫn trang). `home`: thư mục
 - `find_browser()`
 - `open_page(url, app)` — Mở trang: trình duyệt họ Chromium với --user-data-dir trong data/trinh_duyet (file tải về vào thư mục kết
-- `serve(port, open_browser, out_dir)`
+- `serve(port, open_browser, home)`
 
 ## .github/scripts/chay_mau.py — Chạy xếp TKB file FILE_VAO với các hằng số mặc định của main.py (mặc định 2 lần); các lần phải ra cùng mã.
 Hằng số: `ROOT`
@@ -835,7 +843,7 @@ Hằng số: `ROOT`, `_ROLES`
 - `tests/test_cung_gio.py`: test_split_group_and_assistant_end_to_end, test_rule_errors, test_checker_and_rules_off, test_saved_cell_with_two_subjects
 - `tests/test_de_dung.py`: test_sheet_and_column_names_without_accents, test_yes_no_words_roles_and_classes, test_merged_cells_hidden_rows_and_unread_columns, test_two_row_header, test_near_sheet_names, test_same_names_quota_and_total_row, test_suggestions, test_not_xlsx, test_numbers_written_by_hand, test_footer_rows_and_sheet_names, test_class_names_and_leave_written_by_hand, test_empty_staff_and_renamed_xlsx
 - `tests/test_ghep_lop.py`: test_merge_end_to_end, test_rule_errors, test_checker_and_integrated_model, test_merge_in_one_room, test_merge_per_grade_on_sample_school
-- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_board_import, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_forget_drops_what_the_server_holds, test_stop_ends_early_and_keeps_the_timetable, test_page_store_lives_in_the_program_folder, test_packaged_app_keeps_everything_in_its_folder, test_page_icons_are_embedded_svg
+- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_save, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_board_import, test_files_only_inside_the_tkb_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_the_tkb_folder, test_forget_drops_what_the_server_holds, test_stop_ends_early_and_keeps_the_timetable, test_page_store_lives_in_the_program_folder, test_packaged_app_keeps_everything_in_its_folder, test_page_icons_are_embedded_svg
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
 - `tests/test_lich_co_so.py`: test_each_teacher_is_at_one_campus_a_day, test_the_model_follows_the_plan, test_no_plan_when_one_campus_a_day_is_impossible, test_no_plan_for_one_campus_or_without_the_rule, test_unrealisable_plan_falls_back
@@ -855,5 +863,5 @@ Hằng số: `ROOT`, `_ROLES`
 - `tests/test_teacher_rules.py`: test_maternity_homeroom_takes_no_overtime, test_maternity_general_teaches_only_campus_two, test_contract_homeroom_takes_overtime_first, test_contract_general_takes_overtime_first, test_general_teachers_keep_their_old_grade, test_general_teachers_keep_their_old_class, test_one_campus_per_session_and_leave_are_kept, test_whole_day_at_one_campus_is_preferred, test_checker_flags_campus_and_leave_violations, test_overtime_lessons_keep_the_leave_of_the_teacher, test_overtime_of_a_general_teacher_never_clashes, test_timetable_class_column_is_plain_name, test_statistics_show_campus_moves, test_cli_splits_timetables_by_campus
 - `tests/test_template.py`: test_template_is_plain, test_saved_input_template_is_up_to_date, test_blank_template, test_updated_staff_keeps_template_and_style, test_cli_writes_blank_template, test_optional_columns_round_trip, test_updated_staff_turns_formulas_into_values
 - `tests/test_thu_tu_bu.py`: test_parse_order, test_default_order_keeps_the_old_prices, test_general_teacher_first, test_general_teacher_first_end_to_end, test_order_only_matters_for_overtime
-- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_start_screen_and_all_steps, test_banner_when_program_stops_and_restarts, test_forget_data_on_a_shared_machine, test_page_keeps_nothing_in_the_browser, test_board_import, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog, test_add_rule_as_a_sentence_and_pick_a_level, test_rooms_step, test_split_group_cells, test_merged_cells
+- `tests/test_trang_web.py`: test_sample_steps_undo_switch_and_search, test_start_screen_and_all_steps, test_save_and_open_in_the_tkb_folder, test_banner_when_program_stops_and_restarts, test_forget_data_on_a_shared_machine, test_page_keeps_nothing_in_the_browser, test_board_import, test_timetable_view_swap_and_undo, test_free_time_frame, test_class_step, test_new_from_empty_preset, test_extra_roles_picker, test_tags_in_rule_dialog, test_add_rule_as_a_sentence_and_pick_a_level, test_rooms_step, test_split_group_cells, test_merged_cells
 - `tests/test_writer.py`: test_style_is_read_from_input_file, test_timetable_layout, test_statistics_file_is_one_table, test_teacher_timetable, test_quality_sheet, test_supplement_in_statistics, test_updated_staff_file_is_reusable, test_teacher_labels, test_blank_names_show_teacher_code, test_timetable_with_codes, test_shortage_file, test_long_names_widen_columns_and_rows, test_statistics_file, test_statistics_file_overtime, test_mark_colours_are_not_copied_as_input_style, test_short_names, test_short_subjects, test_school_timetable

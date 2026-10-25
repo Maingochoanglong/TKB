@@ -14,7 +14,7 @@ Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập li
 2. Giải nén, mở thư mục `TKB`, bấm đúp **`TKB.exe`**. Một cửa sổ dòng lệnh mở ra (giữ cửa sổ này mở khi dùng), trình
    duyệt tự mở trang nhập liệu. Trình duyệt không tự mở thì chép đường dẫn in trong cửa sổ (`http://127.0.0.1:...`)
    vào trình duyệt.
-3. Tắt: đóng cửa sổ dòng lệnh. Mọi thứ nằm trong thư mục `TKB` vừa giải nén: kết quả ở `TKB\ket_qua`, bản nháp của trang, file tạm và dữ liệu trình duyệt ở `TKB\du_lieu`. Không ghi gì ra ngoài: xóa thư mục `TKB` là không còn gì trên máy.
+3. Tắt: đóng cửa sổ dòng lệnh. Mọi thứ nằm trong thư mục `TKB` vừa giải nén: `chuong_trinh_hoc`, `nhan_su`, `luat` (ba file của trường, Tệp ▾ › Lưu ghi vào đây), `tep_nhap` (bản gốc file lấy từ chỗ khác), `ket_qua` (TKB, thống kê), `du_lieu` (bản nháp của trang, file tạm, dữ liệu trình duyệt). Trang chỉ đọc, ghi file trong thư mục này: xóa thư mục `TKB` là không còn gì trên máy.
    Lỡ đóng cửa sổ khi còn đang dùng thì trang hiện dải đỏ *Chương trình đã tắt* ở cuối màn hình; dữ liệu đang soạn
    vẫn còn: bấm đúp lại `TKB.exe` rồi bấm *Tải lại trang* (hoặc dùng trang mới mở ra).
 
@@ -24,7 +24,7 @@ Bản ngắn cho nhà trường: cài đặt, các bước trên trang nhập li
 Mọi thứ chạy **ngay trên máy**: không cần Internet, tên giáo viên không rời máy. Trang tự lưu bản nháp vào thư mục
 `TKB\du_lieu` (không vào bộ nhớ trình duyệt) và mở trong một cửa sổ Edge riêng có hồ sơ cũng trong thư mục đó. **Máy dùng chung** (phòng máy, máy mượn): xong việc thì bấm **Tệp ▾ › Xóa dữ liệu trên máy
 này…**: trang xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác rồi về trang bắt đầu. Các file đã ghi ra máy (thư
-mục kết quả) trang để nguyên, vì có thể là file cần giữ: hộp thoại chỉ thư mục kết quả để xóa tay. Muốn không để
+mục TKB) trang để nguyên, vì có thể là file cần giữ: hộp thoại chỉ thư mục TKB để xóa tay. Muốn không để
 lại gì: xóa cả thư mục `TKB`.
 
 ## 2. Nhập dữ liệu
@@ -41,7 +41,7 @@ Lần đầu mở trang là **trang bắt đầu** với các cách:
 
 ![Trang bắt đầu](hinh/0_bat_dau.jpg)
 
-**Điền file Excel** (mục *Tải file mẫu trống*): chỉ bắt buộc sheet `NHÂN SỰ` (bốn cột đầu: Họ và Tên, Chức Vụ, Lớp,
+**Điền file Excel** (mục *Ghi file mẫu trống*): chỉ bắt buộc sheet `NHÂN SỰ` (bốn cột đầu: Họ và Tên, Chức Vụ, Lớp,
 Số Tiết/Tuần) và số tiết từng môn ở sheet `CHƯƠNG TRÌNH HỌC`; các sheet khác có sẵn giá trị mặc định (đầu sheet
 `HƯỚNG DẪN` của file mẫu có mục *Bắt đầu nhanh*). Chương trình chịu được các lỗi gõ hay gặp:
 - tên sheet, tên cột viết không dấu hay thừa dấu cách (`Quy dinh`, `Ho va Ten`);
@@ -63,9 +63,12 @@ Những chỗ dễ nhầm thì trang báo khi mở file hoặc khi kiểm tra:
 Chỉ đọc file `.xlsx`: file `.xls`, `.csv` thì mở bằng Excel rồi *Lưu thành* Excel Workbook (file `.xlsx` bị đổi
 đuôi thì chỉ cần đổi lại tên).
 
-Mọi việc với file nằm ở menu **Tệp ▾** góc trên: Mở file Excel…, Lưu ra file Excel, Tải file mẫu trống (điền trong
-Excel rồi mở lại), Nhập TKB đang dùng… (mục 4), Bắt đầu lại…, Xóa dữ liệu trên máy này…. Mở file thì hộp thoại
-cho chọn phần nào lấy từ file.
+Mọi việc với file nằm ở menu **Tệp ▾** góc trên: **Mở…**, **Lưu**, **Ghi file mẫu trống** (ba file: chương trình
+học, nhân sự, luật; điền trong Excel rồi mở lại), Nhập TKB đang dùng… (mục 4), Mở thư mục TKB, Bắt đầu lại…, Xóa dữ
+liệu trên máy này…. Trang chỉ mở, ghi file trong thư mục TKB: **Mở…** liệt kê các bộ đã lưu (ba file cùng tên) và
+các file đọc được; file ở USB, thư mục Tải về thì bấm **Lấy file từ chỗ khác…**, chương trình chép bản gốc vào
+`tep_nhap` rồi mới đọc. **Lưu** ghi ba file cùng tên vào `chuong_trinh_hoc`, `nhan_su`, `luat`. Mở file thì hộp
+thoại cho chọn phần nào lấy từ file.
 
 ![Mở file Excel: chọn phần lấy từ file](hinh/1_nhap_excel.jpg)
 
@@ -156,7 +159,7 @@ bảng tiết thiếu (lớp, môn, lý do); tăng số tiết bù tối đa, s�
 ## 4. Sửa giữa năm học
 
 Luôn làm việc trên file **`<tên>_cap_nhat.xlsx`** của lần chạy trước (**Nạp vào giao diện** ở trang kết quả, hoặc
-**Tệp ▾ › Mở file Excel…**): file này giữ TKB đã xếp.
+**Tệp ▾ › Mở…**, thư mục Kết quả): file này giữ TKB đã xếp.
 
 **Trường đang dùng một TKB xếp tay** (chưa xếp bằng chương trình): mở file Excel của trường (nhân sự, môn) như thường,
 rồi **Tệp ▾ › Nhập TKB đang dùng…** và chọn file TKB dạng bảng tin (mỗi lớp một cột, mỗi tiết ghi môn, dưới là tên
