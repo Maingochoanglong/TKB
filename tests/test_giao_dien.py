@@ -358,3 +358,20 @@ def test_packaged_app_keeps_everything_in_its_folder(tmp_path, monkeypatch):
         assert prefs["download"]["default_directory"] == str(app.out_dir)
     finally:
         httpd.server_close()
+
+
+def test_page_icons_are_embedded_svg():
+    """Biểu tượng của trang là SVG của Bootstrap Icons nhúng trong index.html (tools/bieu_tuong.py): mọi tên trang dùng
+    (icon("…") trong app.js, #i-… trong index.html) đều có <symbol>; không dùng ký tự đặc biệt thay biểu tượng."""
+    import re
+    static = Path(server_module.STATIC)
+    page = (static / "index.html").read_text(encoding="utf-8")
+    script = (static / "app.js").read_text(encoding="utf-8")
+    symbols = set(re.findall(r'<symbol id="i-([a-z0-9-]+)"', page))
+    used = set(re.findall(r'icon\("([a-z0-9-]+)"\)', script)) | set(re.findall(r'href="#i-([a-z0-9-]+)"', page))
+    used |= {m for pair in re.findall(r'icon\((\w+) \? "([a-z-]+)" : "([a-z-]+)"\)', script) for m in pair[1:]}
+    assert used and used <= symbols, used - symbols
+    body = re.sub(r"<!-- BIEU_TUONG -->.*?<!-- /BIEU_TUONG -->", "", page, flags=re.S)
+    code = "\n".join(line for line in script.splitlines() if not line.strip().startswith("//"))
+    for text in (body, code):
+        assert not set(text) & set("✓✕⚠↶↷▾▸↑↓←→🔒›"), set(text) & set("✓✕⚠↶↷▾▸↑↓←→🔒›")

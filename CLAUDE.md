@@ -131,7 +131,9 @@ browser. Default is the simple mode (`body.gon`, store key `tkb-gon`, `setGon`; 
 six editing steps `EDIT_TABS`, written as sheet/row, no jump links) → `xep` (auto `check()` after opening a file; only
 the Xếp TKB button, settings card `#run-settings` behind `#btn-settings`, log folded, no estimate lines or soft-rule facts,
 files named by `fileLabel`) → `tkb`, numbered 1–3 (`stepNo`); elements
-`.full-only`/`.gon-only` hide per mode; the browser tests run in full mode (init script sets `tkb-gon` = 0). The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
+`.full-only`/`.gon-only` hide per mode; icons are Bootstrap Icons (MIT) SVG symbols embedded in index.html by
+`tools/bieu_tuong.py` and used through `icon(name)` in app.js, never symbol characters (✓ ✕ ↑ …:
+`test_page_icons_are_embedded_svg`); step marks are the classes good/bad/wait; the browser tests run in full mode (init script sets `tkb-gon` = 0). The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
 JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself
 (subject detail groups `kich_ban.SUBJECT_GROUPS`, ungrouped columns go to "Khác"). Steps: Khung giờ → Môn học (list +
 detail dialog) → Lớp (grade names: rename updates lessons, classes, manager grade, LUẬT Khối; class table

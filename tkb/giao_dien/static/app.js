@@ -14,6 +14,8 @@ let logNext = 0;
 let stopAt = 0;
 
 const $ = (sel, root = document) => root.querySelector(sel);
+// Biểu tượng SVG của Bootstrap Icons nhúng sẵn trong index.html (tools/bieu_tuong.py), dùng thay mọi ký tự đặc biệt.
+const icon = (name) => `<svg class="ic" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -137,7 +139,8 @@ function notify(html, kind = "", action = null) {
   close.type = "button";
   close.className = "icon";
   close.title = "Đóng";
-  close.textContent = "✕";
+  close.innerHTML = icon("close");
+  close.setAttribute("aria-label", "Đóng");
   close.onclick = () => { box.hidden = true; };
   $(".actions", box).append(close);
   box.hidden = false;
@@ -238,16 +241,16 @@ function renderDays() {
   const head = `<thead><tr><th class="left">Ngày</th>${sessions.map((name, j) => `<th class="session-head">
       ${esc(S.session_prefix)} <input type="text" class="session-name" data-f="session-name" data-j="${j}" value="${esc(name)}"
         aria-label="Tên buổi ${j + 1}" title="Tên buổi (vd Sáng, Chiều, Tối)">
-      <button type="button" class="icon" data-act="session-del" data-j="${j}" title="Bỏ buổi này" ${sessions.length < 2 ? "disabled" : ""}>✕</button></th>`).join("")}
+      <button type="button" class="icon" data-act="session-del" data-j="${j}" title="Bỏ buổi này" ${sessions.length < 2 ? "disabled" : ""}>${icon("close")}</button></th>`).join("")}
     ${S.day.map((c) => `<th ${colTitle(c)}>${esc(c.header)}</th>`).join("")}<th></th></tr></thead>`;
   const body = sc.days.map((day, i) => `<tr><td class="left"><input type="text" class="day-name" data-f="day-name" data-i="${i}"
       value="${esc(day.name)}" aria-label="Tên ngày ${i + 1}"></td>${sessions.map((name, j) => `<td><input type="number" min="0" max="15"
       step="1" class="tiny" data-f="day-count" data-i="${i}" data-j="${j}" value="${esc(dayCount(day, name) || "")}" placeholder="0"
       aria-label="${esc(`Số tiết buổi ${name} ${day.name}`)}"></td>`).join("")}
     ${S.day.map((c) => `<td>${input(c.kind, day[c.key], { f: "day", i, k: c.key })}</td>`).join("")}
-    <td class="nowrap"><button type="button" class="icon" data-act="day-up" data-i="${i}" title="Lên" ${i ? "" : "disabled"}>↑</button>
-      <button type="button" class="icon" data-act="day-down" data-i="${i}" title="Xuống" ${i < sc.days.length - 1 ? "" : "disabled"}>↓</button>
-      <button type="button" class="icon" data-act="day-del" data-i="${i}" title="Xóa ngày này" ${sc.days.length < 2 ? "disabled" : ""}>✕</button></td></tr>`).join("");
+    <td class="nowrap"><button type="button" class="icon" data-act="day-up" data-i="${i}" title="Lên" ${i ? "" : "disabled"}>${icon("up")}</button>
+      <button type="button" class="icon" data-act="day-down" data-i="${i}" title="Xuống" ${i < sc.days.length - 1 ? "" : "disabled"}>${icon("down")}</button>
+      <button type="button" class="icon" data-act="day-del" data-i="${i}" title="Xóa ngày này" ${sc.days.length < 2 ? "disabled" : ""}>${icon("trash")}</button></td></tr>`).join("");
   $("#day-table").innerHTML = head + `<tbody>${body}</tbody>`;
 }
 const dayCount = (day, name) => { const n = Number((day.periods || {})[name]); return Number.isInteger(n) && n > 0 ? n : 0; };
@@ -465,7 +468,7 @@ function extraBox(t, i) {
   return `<div class="checks">${names.map((n) => `<label class="check-item"><input type="checkbox" data-f="extra"
     data-i="${i}" data-r="${esc(n)}" ${chosen.has(key(n)) ? "checked" : ""}> ${esc(n)}</label>`).join("")}</div>` +
     unknown.map((r) => `<p class="warn-text">Không có chức vụ "${esc(r)}" ở bước 4
-    <button type="button" class="icon" data-act="extra-drop" data-i="${i}" data-r="${esc(r)}" title="Bỏ chức vụ này">✕</button></p>`).join("");
+    <button type="button" class="icon" data-act="extra-drop" data-i="${i}" data-r="${esc(r)}" title="Bỏ chức vụ này">${icon("close")}</button></p>`).join("");
 }
 function historyBox(t, i) {
   if (isHomeroom(t)) return `<p class="muted">Chủ Nhiệm dạy lớp mình; cột này dành cho GV bộ môn, chuyên biệt.</p>`;
@@ -482,7 +485,7 @@ function historyBox(t, i) {
   const known = new Set(classes.map(classKey));
   const unknown = histList(t).filter((c) => !known.has(classKey(c)));
   return rows + unknown.map((c) => `<p class="warn-text">Không có lớp "${esc(c)}"
-    <button type="button" class="icon" data-act="hist-drop" data-i="${i}" data-c="${esc(c)}" title="Bỏ lớp này">✕</button></p>`).join("");
+    <button type="button" class="icon" data-act="hist-drop" data-i="${i}" data-c="${esc(c)}" title="Bỏ lớp này">${icon("close")}</button></p>`).join("");
 }
 // Khung giờ của kịch bản: các buổi (tên tùy ý) và các ngày học (dòng có ít nhất một tiết), theo thứ tự; d là chỉ số
 // ngày học như trong chương trình (tkb/khung_gio.py).
@@ -588,7 +591,7 @@ function offNote(t, i) {
     notes.push(`<p class="warn-text">GVCN không nghỉ được buổi có tiết Luôn do GVCN dạy (bước 1, bảng Tiết).</p>`);
   }
   notes.push(...o.other.map((x, k) => `<p class="warn-text">"${esc(x.raw)}": ${esc(x.note)}
-    <button type="button" class="icon" data-act="off-drop" data-i="${i}" data-k="${k}" title="Bỏ mục này">✕</button></p>`));
+    <button type="button" class="icon" data-act="off-drop" data-i="${i}" data-k="${k}" title="Bỏ mục này">${icon("close")}</button></p>`));
   return `<p class="preview">Ghi vào file: <b>${esc(t.off || "không nghỉ buổi nào")}</b></p>${notes.join("")}`;
 }
 
@@ -624,13 +627,13 @@ function renderSubjects() {
       <td class="left stick">${input("text", s.name, { f: "subject", i, k: "name" }, "wide")}</td>
       ${lessonCells(s, i)}
       ${S.subject.map((c) => `<td>${input(c.kind, (s.rules || {})[c.key], { f: "rule", i, k: c.key })}</td>`).join("")}
-      <td><button type="button" class="icon" data-act="del-subject" data-i="${i}" title="Xóa môn">✕</button></td></tr>`).join("");
+      <td><button type="button" class="icon" data-act="del-subject" data-i="${i}" title="Xóa môn">${icon("trash")}</button></td></tr>`).join("");
   } else {
     head = `<thead><tr><th>Dòng</th><th class="left stick">Môn học</th>${grades}<th class="left">Ai dạy</th>
       <th class="left">Quy định khác</th><th></th></tr></thead>`;
     body = sc.subjects.map((s, i) => {
       const [who, ok] = whoTeaches(s.name);
-      const whoText = ok ? esc(who.join(", ")) : `<span class="warn-text" title="Bộ Môn không dạy môn này và chưa có chức vụ nào dạy: thêm chức vụ ở bước 4">⚠ chưa có ai</span>`;
+      const whoText = ok ? esc(who.join(", ")) : `<span class="warn-text" title="Bộ Môn không dạy môn này và chưa có chức vụ nào dạy: thêm chức vụ ở bước 4">${icon("bad")} chưa có ai</span>`;
       return `<tr data-row="${nums[i] ?? ""}" ${hit(search.subjects, s.name) ? "" : "hidden"}>
       <td class="num">${nums[i] ?? "—"}</td>
       <td class="left stick">${input("text", s.name, { f: "subject", i, k: "name" }, "wide")}</td>
@@ -638,7 +641,7 @@ function renderSubjects() {
       <td class="left who">${whoText}</td>
       <td class="left chips">${ruleChips(s)}</td>
       <td class="nowrap"><button type="button" class="ghost small" data-act="edit-subject" data-i="${i}">Sửa</button>
-        <button type="button" class="icon" data-act="del-subject" data-i="${i}" title="Xóa môn">✕</button></td></tr>`;
+        <button type="button" class="icon" data-act="del-subject" data-i="${i}" title="Xóa môn">${icon("trash")}</button></td></tr>`;
     }).join("");
   }
   const none = search.subjects && !sc.subjects.some((s) => hit(search.subjects, s.name)) ? noHit(99, search.subjects) : "";
@@ -703,7 +706,7 @@ function renderClasses() {
   $("#grade-list").innerHTML = sc.grades.map((g, i) => `<span class="grade-item">
     <input type="text" class="short" data-f="grade" data-i="${i}" value="${esc(g)}" aria-label="Tên khối" spellcheck="false">
     <span class="muted">${hasClassList() ? `${count(g)} lớp` : ""}</span>
-    <button type="button" class="icon" data-act="del-grade" data-i="${i}" title="Bỏ khối này">✕</button></span>`).join("")
+    <button type="button" class="icon" data-act="del-grade" data-i="${i}" title="Bỏ khối này">${icon("close")}</button></span>`).join("")
     || `<p class="muted">Chưa có khối nào.</p>`;
   const head = `<thead><tr><th>Dòng</th><th class="left">Lớp</th><th>Khối</th><th class="left">Cơ sở</th>
     <th class="left">Nhãn</th><th class="left">Chủ Nhiệm</th><th></th></tr></thead>`;
@@ -718,7 +721,7 @@ function renderClasses() {
         { f: "class", i, k: "campus" })}</td>
       <td class="left">${input("text", c.tags, { f: "class", i, k: "tags" })}</td>
       <td class="left">${who}</td>
-      <td><button type="button" class="icon" data-act="del-class" data-i="${i}" title="Xóa lớp">✕</button></td></tr>`;
+      <td><button type="button" class="icon" data-act="del-class" data-i="${i}" title="Xóa lớp">${icon("trash")}</button></td></tr>`;
   }).join("");
   $("#class-table").innerHTML = sc.classes.length ? head + `<tbody>${body}</tbody>` : "";
   const campuses = [S.custom.campus_default, S.custom.campus2, ...sc.classes.map(campusOf)];
@@ -750,7 +753,7 @@ function renderRooms() {
     <td class="left"><input type="text" data-f="room" data-i="${i}" data-k="grades" value="${esc(r.grades)}"
       spellcheck="false" placeholder="mọi khối" class="short"></td>
     <td>${input("int", r.capacity, { f: "room", i, k: "capacity" }, "short")}</td>
-    <td><button type="button" class="icon" data-act="del-room" data-i="${i}" title="Xóa phòng">✕</button></td></tr>`).join("");
+    <td><button type="button" class="icon" data-act="del-room" data-i="${i}" title="Xóa phòng">${icon("trash")}</button></td></tr>`).join("");
   $("#room-table").innerHTML = sc.rooms.length ? head + `<tbody>${body}</tbody>` : "";
   $("#room-table").parentElement.hidden = !sc.rooms.length;
   $("#room-subject-list").innerHTML = [...new Set([...subjectNames(), ...CP().tags.subject])]
@@ -819,7 +822,7 @@ function renderRoleHints() {
     const roles = st.scenario.roles.filter((role) => (role.subjects || []).some((x) => key(x) === key(s.name)));
     if (!roles.length) {
       hints.push(`<li class="warn">Môn <b>${esc(named(s))}</b>: Bộ Môn không được dạy và chưa có chức vụ nào dạy.
-        <button type="button" class="ghost small" data-act="add-role-for" data-s="${esc(named(s))}">+ Thêm chức vụ "${esc(named(s))}"</button></li>`);
+        <button type="button" class="ghost small" data-act="add-role-for" data-s="${esc(named(s))}">${icon("plus")} Thêm chức vụ "${esc(named(s))}"</button></li>`);
     } else if (!roles.some((role) => teachersOf(role.name))) {
       hints.push(`<li class="warn">Môn <b>${esc(named(s))}</b>: chưa có giáo viên nào giữ chức vụ
         ${esc(roles.map(named).join(", "))} (thêm ở bước 5).</li>`);
@@ -877,9 +880,9 @@ function renderStaff() {
     <td class="left chips">${staffChips(t)}</td>
     <td class="nowrap">
       <button type="button" class="ghost small" data-act="edit-staff" data-i="${i}">Sửa</button>
-      <button type="button" class="icon" data-act="up" data-i="${i}" title="Lên">↑</button>
-      <button type="button" class="icon" data-act="down" data-i="${i}" title="Xuống">↓</button>
-      <button type="button" class="icon" data-act="del-staff" data-i="${i}" title="Xóa dòng">✕</button></td></tr>`;
+      <button type="button" class="icon" data-act="up" data-i="${i}" title="Lên">${icon("up")}</button>
+      <button type="button" class="icon" data-act="down" data-i="${i}" title="Xuống">${icon("down")}</button>
+      <button type="button" class="icon" data-act="del-staff" data-i="${i}" title="Xóa dòng">${icon("trash")}</button></td></tr>`;
   }).join("");
   const none = search.staff && !shown ? noHit(7, search.staff) : "";
   $("#staff-table").innerHTML = head + `<tbody>${body}${none}</tbody>`;
@@ -984,7 +987,7 @@ function renderRuleList() {
         <span class="nowrap"><label class="switch" title="${row.off ? "Đang tạm tắt: chương trình bỏ qua luật này. Bấm để dùng lại" : "Đang dùng. Bỏ đánh dấu để tạm tắt (giữ luật, bật lại được)"}">
           <input type="checkbox" data-act="toggle-rule" data-i="${i}" ${row.off ? "" : "checked"}><span>Dùng</span></label>
           <button type="button" class="ghost small" data-act="edit-rule" data-i="${i}">Sửa</button>
-          <button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật (bỏ luật này)">✕</button></span></li>`;
+          <button type="button" class="icon" data-act="del-rule" data-i="${i}" title="Xóa luật (bỏ luật này)">${icon("trash")}</button></span></li>`;
     }).join("")}</ol></li>`;
   }).join("");
   $("#rule-empty").hidden = rows.length > 0;
@@ -1436,7 +1439,7 @@ function msgItem(text, cls) {
 
 // ---------------------------------------------------------------- kiểm tra tự động, dấu từng bước
 // Sửa xong 1,5 giây thì kiểm tra nhanh (đọc lại như khi chạy, không dự toán). Lỗi chia về bước theo sheet ghi trong
-// câu: tab có dấu ⚠ số lỗi hoặc ✓, đầu mỗi bước có hộp lỗi của bước đó (bấm vào lỗi để tới đúng dòng). Lỗi không
+// câu: tab có dấu cảnh báo kèm số lỗi hoặc dấu đạt, đầu mỗi bước có hộp lỗi của bước đó (bấm vào lỗi để tới đúng dòng). Lỗi không
 // thuộc sheet nào về bước Kiểm tra & xếp.
 const STEP_TABS = ["khung", "mon", "lop", "chucvu", "gv", "luat", "xep"];
 const EDIT_TABS = STEP_TABS.slice(0, -1); // các bước soạn: ẩn ở giao diện gọn, lỗi của chúng về bước Mở file Excel
@@ -1483,7 +1486,7 @@ function renderStepChecks(res) {
     if (!mark) { mark = document.createElement("span"); btn.append(mark); }
     const wait = !list.length && waiting.has(tab);
     mark.className = `mark ${list.length ? "bad" : wait ? "wait" : "good"}`;
-    mark.textContent = list.length ? `⚠ ${list.length}` : wait ? "?" : "✓";
+    mark.innerHTML = list.length ? `${icon("bad")} ${list.length}` : icon(wait ? "wait" : "ok");
     mark.title = list.length ? `${list.length} lỗi cần sửa ở bước này`
       : wait ? "Chưa kiểm được bước này: sửa các lỗi đang báo ở bước khác trước" : "Bước này chưa thấy lỗi";
     const section = $(`#tab-${tab}`);
@@ -1621,9 +1624,9 @@ function renderResult(s) {
   const files = sum.files.map((p) => {
     const name = p.split(/[\\/]/).pop();
     return `<li><span class="file-name">${esc(fileLabel(name))}<small>${esc(name)}</small></span><span class="actions">
-      <button type="button" class="ghost" data-act="open" data-path="${esc(p)}">Mở</button>
-      <a class="btn ghost full-only" href="/api/file?path=${encodeURIComponent(p)}&t=${encodeURIComponent(TOKEN)}">Tải</a>
-      ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost full-only" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">Nạp vào giao diện</button>` : ""}
+      <button type="button" class="ghost" data-act="open" data-path="${esc(p)}">${icon("open")} Mở</button>
+      <a class="btn ghost full-only" href="/api/file?path=${encodeURIComponent(p)}&t=${encodeURIComponent(TOKEN)}">${icon("download")} Tải</a>
+      ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost full-only" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">${icon("excel")} Nạp vào giao diện</button>` : ""}
       </span></li>`;
   }).join("");
   const facts = resultFacts(sum).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
@@ -1634,8 +1637,8 @@ function renderResult(s) {
     ${facts ? `<dl class="facts">${facts}</dl>` : ""}
     ${qualityHtml(sum.quality)}
     <div class="actions">${updated && [0, 2].includes(s.exit) ? `<button type="button" class="primary" data-act="view-tkb"
-      data-path="${esc(updated)}" data-code="${esc(sum.code || "")}">Xem TKB trên trang</button>` : ""}
-      <button type="button" class="ghost" data-act="open" data-path="">Mở thư mục kết quả</button></div>
+      data-path="${esc(updated)}" data-code="${esc(sum.code || "")}">${icon("calendar")} Xem TKB trên trang</button>` : ""}
+      <button type="button" class="ghost" data-act="open" data-path="">${icon("open")} Mở thư mục kết quả</button></div>
     ${files ? `<details class="files-box" ${sum.code && !gon ? "" : "open"}><summary>Các file Excel (${sum.files.length})</summary><ul class="files">${files}</ul></details>` : ""}
   </div>`;
 }
@@ -1711,7 +1714,7 @@ function tkbMark() {
   const n = tkb.errors.length;
   const wait = tkb.input_errors.length > 0;
   mark.className = `mark ${n ? "bad" : wait ? "wait" : "good"}`;
-  mark.textContent = n ? `⚠ ${n}` : wait ? "?" : "✓";
+  mark.innerHTML = n ? `${icon("bad")} ${n}` : icon(wait ? "wait" : "ok");
   mark.title = n ? `${n} lỗi luật bắt buộc trong TKB` : wait ? "Chưa kiểm được TKB: các bước trước còn lỗi"
     : "TKB đạt mọi luật bắt buộc";
 }
@@ -1747,10 +1750,10 @@ function renderTkb() {
   const locked = tkb.cells.filter((c) => c.locked).length;
   const unlock = $("#btn-tkb-unlock");
   unlock.disabled = !locked;
-  unlock.textContent = locked ? `Mở khóa ${locked} ô` : "Không có ô khóa";
+  unlock.innerHTML = `${icon("unlock")} ${locked ? `Mở khóa ${locked} ô` : "Không có ô khóa"}`;
   const fine = tkb.ok && !tkb.rules_changed;
   const run = $("#btn-tkb-run");
-  run.textContent = fine ? "Ghi TKB này ra file Excel" : "Xếp lại phần còn lại";
+  run.innerHTML = fine ? `${icon("save")} Ghi TKB này ra file Excel` : `${icon("play")} Xếp lại phần còn lại`;
   run.title = fine ? "Chạy như nút Xếp TKB: TKB đúng mọi luật nên được dùng lại nguyên vẹn, ghi ra các file Excel"
     : "Giữ các ô khóa, dời ít tiết nhất để đạt mọi luật bắt buộc (thường dưới một phút)";
   run.disabled = !!tkb.input_errors.length || jobRunning;
@@ -1759,10 +1762,10 @@ function renderTkb() {
     items.push(`<li class="warn">Các bước trước còn lỗi nên chưa kiểm được TKB: sửa các lỗi này trước.</li>`,
       ...tkb.input_errors.map((t) => msgItem(t, "err")));
   } else if (tkb.ok) {
-    items.push(`<li class="ok">✓ TKB đạt mọi luật bắt buộc.${locked ? ` ${locked} ô khóa.` : ""}</li>`);
+    items.push(`<li class="ok">${icon("ok")} TKB đạt mọi luật bắt buộc.${locked ? ` ${locked} ô khóa.` : ""}</li>`);
   } else if (tkb.errors.length) {
     items.push(`<li class="err"><b>${tkb.errors.length} lỗi luật bắt buộc</b> (bấm vào lỗi để xem ô): đổi lại các ô,
-      bấm ↶ Hoàn tác, hoặc <b>Xếp lại phần còn lại</b>.</li>`,
+      bấm ${icon("undo")} Hoàn tác, hoặc <b>Xếp lại phần còn lại</b>.</li>`,
       ...tkb.errors.map((e, i) => `<li class="err" data-tkb-err="${i}">${esc(e.text)}</li>`));
   }
   if (tkb.rules_changed && !tkb.input_errors.length) {
@@ -1792,7 +1795,7 @@ function tkbCellHtml(c) {
     c.merged ? `ghép lớp với ${c.merged.join(", ")}` : null, c.overtime ? "tiết dạy bù" : null,
     c.locked ? "ô khóa" : null].filter(Boolean).join(" · ") : "Ô trống";
   return `<td class="${cls.join(" ")}" data-cell="${esc(k)}" title="${esc(title)}">${c.overtime ? `<span class="ot">bù</span>` : ""}${
-    c.locked ? `<span class="lock" aria-label="ô khóa">🔒</span>` : ""}${c.subject
+    c.locked ? `<span class="lock" aria-label="ô khóa">${icon("lock")}</span>` : ""}${c.subject
     ? `<b>${esc(c.subject)}</b><small>${esc(who)}</small>${c.merged ? `<small class="room">ghép ${esc(c.merged.join(", "))}</small>` : ""}${
       c.room ? `<small class="room">${esc(c.room)}</small>` : ""}`
     : "<small>trống</small>"}</td>`;
@@ -1826,7 +1829,7 @@ function renderTkbGrid() {
       const merged = list.every((c) => list.every((o) => o === c || (c.merged || []).includes(o.cls)));
       const bad = ks.some((k) => tkb.bad.has(k)) || (room === null && list.length > 1 && !merged);
       return `<td class="cell${bad ? " bad" : ""}${ks.some((k) => tkbChanged.has(k)) ? " changed" : ""}" data-cell="${esc(ks[0])}"
-        title="${esc(list.map((c) => `${c.cls} · ${subjectOf(c)}`).join("\n"))}">${list.some((c) => c.locked) ? `<span class="lock">🔒</span>` : ""}${
+        title="${esc(list.map((c) => `${c.cls} · ${subjectOf(c)}`).join("\n"))}">${list.some((c) => c.locked) ? `<span class="lock" aria-label="ô khóa">${icon("lock")}</span>` : ""}${
         (merged && list.length > 1 ? `<b>${esc(list.map((c) => c.cls).join(", "))}</b><small>${esc(subjectOf(list[0]))}</small>`
           : list.map((c) => `<b>${esc(c.cls)}</b><small>${esc(subjectOf(c))}</small>`).join(""))}</td>`;
     }).join("")}</tr>`).join("");
@@ -1851,7 +1854,7 @@ function renderPick() {
   const where = `lớp ${esc(c.cls)}, ${esc(tkb.days[c.d])} tiết ${c.p}`;
   const what = c.subject ? `<b>${esc(c.subject)}</b> (${esc(c.code)}) · ${where}` : `ô trống · ${where}`;
   const html = `<span>Đã chọn ${what}. <span class="hint">${pickHint()}</span></span><span class="actions">${teacherPicker(c)}${c.subject
-    ? `<button type="button" class="ghost small" data-tkb="lock">${c.locked ? "Mở khóa ô này" : "🔒 Khóa ô này"}</button>` : ""}
+    ? `<button type="button" class="ghost small" data-tkb="lock">${c.locked ? `${icon("unlock")} Mở khóa ô này` : `${icon("lock")} Khóa ô này`}</button>` : ""}
     <button type="button" class="ghost small" data-tkb="cancel">Bỏ chọn (Esc)</button></span>`;
   if (box.dataset.html === html) return; // kiểm lại tự động mà không đổi gì: không vẽ lại ô chọn đang mở
   box.dataset.html = html;
@@ -2100,7 +2103,7 @@ function setGon(on) {
   gon = on;
   document.body.classList.toggle("gon", on);
   store.setItem(GON_KEY, on ? "1" : "0");
-  $("#btn-gon").textContent = on ? "Hiện đủ các bước soạn (nâng cao)" : "Về giao diện gọn (3 bước)";
+  $("#btn-gon").innerHTML = `${icon("mode")} ${on ? "Hiện đủ các bước soạn (nâng cao)" : "Về giao diện gọn (3 bước)"}`;
   $("#log-card").open = !on; // giao diện gọn: nhật ký gấp lại, bấm tiêu đề để xem
   if (lastCheck) renderStepChecks(lastCheck); // câu lỗi: liên kết tới bước soạn, hay chỗ trong file Excel
   const tab = $(".tabs button.active")?.dataset.tab;
@@ -2820,7 +2823,7 @@ function wire() {
   $("#btn-settings").onclick = () => {
     const on = document.body.classList.toggle("show-settings");
     $("#btn-settings").setAttribute("aria-expanded", String(on));
-    $("#btn-settings").textContent = on ? "Ẩn cài đặt" : "Cài đặt…";
+    $("#btn-settings").innerHTML = `${icon("gear")} ${on ? "Ẩn cài đặt" : "Cài đặt…"}`;
   };
   $("#btn-forget").onclick = askForget;
   $("#forget-open").onclick = openOutDir;
@@ -3030,7 +3033,7 @@ async function init() {
   wire();
   await store.load();
   setGon(store.getItem(GON_KEY) !== "0");
-  const forgot = location.hash === FORGOT; // vừa bấm Tệp › Xóa dữ liệu trên máy này
+  const forgot = location.hash === FORGOT; // vừa bấm Tệp, mục Xóa dữ liệu trên máy này
   if (forgot) history.replaceState(null, "", location.pathname + location.search);
   subjectGrid = store.getItem(GRID_KEY) === "1";
   $("#subject-grid").checked = subjectGrid;

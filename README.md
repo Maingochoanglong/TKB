@@ -142,6 +142,9 @@ lại. Chọn nào thì trang nhớ trên máy này.
 - Cài đặt chạy mặc định như `main.py`, riêng số tiết bù tối đa là mức được duyệt 2 (file của trường hiện cần 3).
   Các cài đặt này không nằm trong file Excel; cùng file vào và cùng cài đặt thì ra cùng mã kết quả như dòng lệnh.
 - Mọi ô quy định sinh từ `tkb/rules.py`: thêm một quy định vào đó là giao diện tự có ô nhập.
+- Biểu tượng của trang là SVG của [Bootstrap Icons](https://icons.getbootstrap.com) (giấy phép MIT), nhúng sẵn trong
+  `tkb/giao_dien/static/index.html` nên chạy không cần Internet; thêm biểu tượng: sửa danh sách trong
+  `tools/bieu_tuong.py` rồi chạy lại công cụ đó.
 - Tùy chọn dòng lệnh: `python -m tkb.giao_dien --cong 8765 --thu-muc <thư mục> --khong-mo-trinh-duyet`.
 
 ### Cách 1 — bấm nút Run trong `main.py` (dễ nhất cho người dùng Python)

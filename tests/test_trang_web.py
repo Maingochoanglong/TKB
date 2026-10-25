@@ -57,9 +57,12 @@ def _mark(page, tab):
     return page.locator(f'.tabs [data-tab="{tab}"] .mark')
 
 
+MARKS = {"✓": "good", "⚠": "bad", "?": "wait"}  # dấu của bước (biểu tượng SVG) theo lớp: đạt, có lỗi, chưa kiểm
+
+
 def _wait_mark(page, tab, text):
     page.wait_for_function(f"""() => (document.querySelector('.tabs [data-tab="{tab}"] .mark') || {{}})
-        .textContent?.startsWith("{text}")""", timeout=30000)
+        .classList?.contains("{MARKS[text]}")""", timeout=30000)
 
 
 def _solved(page, make):

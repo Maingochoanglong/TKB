@@ -777,6 +777,11 @@ Hằng số: `ROOT`, `FILES`
 - `ui(exe, work)`
 - `main()`
 
+## tools/bieu_tuong.py — Nhúng các biểu tượng SVG của Bootstrap Icons (MIT) vào tkb/giao_dien/static/index.html, giữa hai dòng
+Hằng số: `ROOT`, `PAGE`, `VERSION`, `ICONS`
+- `sprite(folder)`
+- `main(argv)`
+
 ## tools/code_map.py — Bản đồ code: mỗi module một dòng mô tả, rồi các hàm/lớp kèm tham số và dòng đầu docstring.
 Hằng số: `ROOT`, `OUT`, `SOURCES`, `TESTS`, `LONG_FUNCTION`, `HEADER`
 - `_files(pattern)`
@@ -827,7 +832,7 @@ Hằng số: `ROOT`, `_ROLES`
 - `tests/test_cung_gio.py`: test_split_group_and_assistant_end_to_end, test_rule_errors, test_checker_and_rules_off, test_saved_cell_with_two_subjects
 - `tests/test_de_dung.py`: test_sheet_and_column_names_without_accents, test_yes_no_words_roles_and_classes, test_merged_cells_hidden_rows_and_unread_columns, test_two_row_header, test_near_sheet_names, test_same_names_quota_and_total_row, test_suggestions, test_not_xlsx, test_numbers_written_by_hand, test_footer_rows_and_sheet_names, test_class_names_and_leave_written_by_hand, test_empty_staff_and_renamed_xlsx
 - `tests/test_ghep_lop.py`: test_merge_end_to_end, test_rule_errors, test_checker_and_integrated_model, test_merge_in_one_room, test_merge_per_grade_on_sample_school
-- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_board_import, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_forget_drops_what_the_server_holds, test_stop_ends_early_and_keeps_the_timetable, test_page_store_lives_in_the_program_folder, test_template_saved_in_the_output_folder, test_packaged_app_keeps_everything_in_its_folder
+- `tests/test_giao_dien.py`: test_page_and_token, test_import_check_export, test_describe_rules, test_blank_template, test_sample_and_quick_check, test_timetable_view_and_swaps, test_board_import, test_files_only_inside_output_folder, test_run_argv_like_main, test_summary_reads_printed_result, test_run_from_the_ui_gives_the_reference_timetable, test_open_only_files_inside_output_folder, test_forget_drops_what_the_server_holds, test_stop_ends_early_and_keeps_the_timetable, test_page_store_lives_in_the_program_folder, test_template_saved_in_the_output_folder, test_packaged_app_keeps_everything_in_its_folder, test_page_icons_are_embedded_svg
 - `tests/test_khung_gio.py`: test_free_frame_is_read, test_free_frame_end_to_end
 - `tests/test_kich_ban.py`: test_round_trip_keeps_the_file, test_new_scenario_is_the_blank_template, test_schema_follows_rules_columns, test_rules_edited_in_the_scenario_reach_the_file, test_old_draft_frame_is_upgraded, test_check_reads_back_like_a_run, test_check_estimates_shortage, test_blank_staff_rows_keep_row_numbers, test_excel_date_in_class_column_is_read_back_with_a_warning, test_saved_timetable_sheet_is_kept, test_check_finds_rules_in_conflict, test_rules_round_trip, test_teacher_rules_read_with_codes, test_rules_only_file, test_rule_switched_off_on_the_page, test_history_and_leave_as_the_page_writes_them, test_quick_check_and_sample, test_timetable_view_marks_errors_and_tries_swaps, test_error_marks_follow_the_message
 - `tests/test_lich_co_so.py`: test_each_teacher_is_at_one_campus_a_day, test_the_model_follows_the_plan, test_no_plan_when_one_campus_a_day_is_impossible, test_no_plan_for_one_campus_or_without_the_rule, test_unrealisable_plan_falls_back
