@@ -29,21 +29,14 @@ lại gì: xóa cả thư mục `TKB`.
 
 ## 2. Nhập dữ liệu
 
-Trang mở ở **giao diện gọn**, chỉ ba bước: **1. Mở file Excel** → **2. Xếp TKB** → **3. Thời khóa biểu**. Mở file xong
-trang tự sang bước 2 và tự kiểm tra dữ liệu: thấy "Dữ liệu hợp lệ" thì bấm nút **Xếp TKB** (cài đặt ở nút **Cài đặt…**,
-thường không cần đổi).
-Giáo viên, chương trình học và luật điền trong file Excel (mục *Điền file Excel* dưới đây); có lỗi thì bước 1 ghi rõ
-sheet và dòng cần sửa: sửa trong Excel, lưu, rồi bấm **Mở file Excel khác…** để mở lại. Muốn soạn ngay trên trang (và
-các cách bắt đầu khác dưới đây), chọn **Tệp ▾ › Hiện đủ các bước soạn (nâng cao)**; các hình và số bước dưới đây là của
-giao diện đầy đủ đó (bước 7, 8 của nó là bước 2, 3 của giao diện gọn, bước 2 gọn chỉ hiện nút Xếp TKB).
+Trang là chương trình soạn chung cho mọi trường: luôn có đủ tám bước, từ khung giờ, môn học, lớp, chức vụ, giáo viên,
+luật tới kiểm tra, xếp và xem TKB. Dữ liệu soạn ngay trên trang, hoặc điền trong file Excel (mục *Điền file Excel* dưới
+đây) rồi mở vào trang.
 
-Ở giao diện đầy đủ, lần đầu mở trang là **trang bắt đầu** với các cách:
+Lần đầu mở trang là **trang bắt đầu** với các cách:
 - **Mở file Excel của trường** (mẫu V8; hoặc file `_cap_nhat.xlsx` của lần xếp trước);
-- **Soạn mới: Tiểu học Việt Nam**: có sẵn các môn, luật và quy định của trường tiểu học Việt Nam, chỉ cần nhập số tiết
-  và giáo viên;
-- **Soạn mới: Trống**: chưa có môn nào, không theo quy ước của nước nào (vd trường mầm non, trường quốc tế): tự đặt
-  khung giờ, môn, khối, lớp; các luật có sẵn như ghép cặp, HĐTN, tiết của GVCN để **Tạm tắt**, bật luật nào cần ở bước
-  Luật (ô **Dùng**);
+- **Soạn mới**: bản trống, không theo quy ước của nước nào: tự đặt khung giờ, môn, khối, lớp, chức vụ, giáo viên; các
+  luật có sẵn như ghép cặp, HĐTN, tiết của GVCN để **Tạm tắt**, bật luật nào cần ở bước Luật (ô **Dùng**);
 - **Xem thử với trường mẫu** (tên giả): muốn biết chương trình làm gì thì chọn cách này, bấm Kiểm tra rồi Xếp TKB.
 
 ![Trang bắt đầu](hinh/0_bat_dau.jpg)

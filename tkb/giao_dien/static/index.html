@@ -77,18 +77,16 @@
         <label class="menu-item" role="menuitem"
           title="File của trường, file mẫu đã điền, hay file cập nhật *_cap_nhat.xlsx của lần xếp trước: chọn phần nào lấy từ file">
           <svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> Mở file Excel…<input type="file" id="file-open" accept=".xlsx" hidden></label>
-        <label class="menu-item full-only" role="menuitem"
+        <label class="menu-item" role="menuitem"
           title="TKB nhà trường đang dùng, dạng bảng tin (mỗi lớp một cột, mỗi tiết ghi môn và tên giáo viên): đọc vào bước 8 để kiểm luật, rồi sửa ít ô nhất">
           <svg class="ic" aria-hidden="true"><use href="#i-board"></use></svg> Nhập TKB đang dùng…<input type="file" id="board-open" accept=".xlsx" hidden></label>
-        <button type="button" class="menu-item full-only" role="menuitem" id="btn-export"
+        <button type="button" class="menu-item" role="menuitem" id="btn-export"
           title="Lưu mọi thứ đang soạn thành một file Excel: mở lại được ở đây, gửi cho trường khác được">
           <svg class="ic" aria-hidden="true"><use href="#i-save"></use></svg> Lưu ra file Excel</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-template"
           title="File Excel trống, đủ các sheet và luật mặc định, để điền trong Excel rồi mở lại ở đây">
           <svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Tải file mẫu trống</button>
         <button type="button" class="menu-item" role="menuitem" id="btn-new"><svg class="ic" aria-hidden="true"><use href="#i-restart"></use></svg> Bắt đầu lại…</button>
-        <button type="button" class="menu-item" role="menuitem" id="btn-gon"
-          title="Giao diện gọn: chỉ Mở file Excel, Xếp TKB, Thời khóa biểu (sửa dữ liệu trong Excel). Đầy đủ: thêm các bước soạn giáo viên, môn, luật ngay trên trang"></button>
         <button type="button" class="menu-item" role="menuitem" id="btn-forget"
           title="Dùng máy chung: xóa dữ liệu đang soạn, bản nháp và lịch sử hoàn tác khỏi trang trước khi rời máy">
           <svg class="ic" aria-hidden="true"><use href="#i-erase"></use></svg> Xóa dữ liệu trên máy này…</button>
@@ -99,69 +97,41 @@
 
 <section id="start" class="start" hidden>
   <h2>Bắt đầu</h2>
-  <p class="muted full-only">Chọn một cách để bắt đầu. Mọi thứ chạy ngay trên máy này, trang tự lưu nháp.</p>
-  <p class="muted gon-only">Mở file Excel của trường (giáo viên, chương trình học, luật), rồi bấm Xếp TKB. Mọi thứ chạy
-    ngay trên máy này.</p>
+  <p class="muted">Chọn một cách để bắt đầu. Mọi thứ chạy ngay trên máy này, trang tự lưu nháp.</p>
   <div class="start-cards">
     <button type="button" class="start-card" data-start="open">
       <b><svg class="ic" aria-hidden="true"><use href="#i-excel"></use></svg> Mở file Excel của trường</b>
       <span>File mẫu đã điền, hoặc file cập nhật <code>_cap_nhat.xlsx</code> của lần xếp trước (giữ TKB đã xếp).</span>
     </button>
-    <button type="button" class="start-card gon-only" data-start="template">
-      <b><svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Chưa có file? Tải file mẫu trống</b>
-      <span>Mở file mẫu bằng Excel, điền danh sách giáo viên và số tiết từng môn (sheet HƯỚNG DẪN chỉ cách điền), lưu
-        lại rồi bấm <b>Mở file Excel của trường</b>.</span>
+    <button type="button" class="start-card" data-start="new" data-mau="trong">
+      <b><svg class="ic" aria-hidden="true"><use href="#i-plus"></use></svg> Soạn mới</b>
+      <span>Soạn ngay trên trang, dùng được cho mọi trường: tự đặt khung giờ, môn, khối, lớp, chức vụ, giáo viên; các
+        luật có sẵn để Tạm tắt, bật luật nào cần ở bước Luật.</span>
     </button>
-    <button type="button" class="start-card full-only" data-start="new" data-mau="tieu_hoc_vn">
-      <b><svg class="ic" aria-hidden="true"><use href="#i-book"></use></svg> Soạn mới: Tiểu học Việt Nam</b>
-      <span>Các môn, luật và quy định của trường tiểu học Việt Nam; nhập số tiết ở bước Môn học, danh sách ở bước
-        Giáo viên.</span>
-    </button>
-    <button type="button" class="start-card full-only" data-start="new" data-mau="trong">
-      <b><svg class="ic" aria-hidden="true"><use href="#i-plus"></use></svg> Soạn mới: Trống</b>
-      <span>Chưa có môn nào, không theo quy ước của nước nào: tự đặt khung giờ, môn, khối, lớp; các luật có sẵn để
-        Tạm tắt, bật luật nào cần ở bước Luật.</span>
-    </button>
-    <button type="button" class="start-card full-only" data-start="sample">
+    <button type="button" class="start-card" data-start="sample">
       <b><svg class="ic" aria-hidden="true"><use href="#i-eye"></use></svg> Xem thử với trường mẫu</b>
       <span>29 lớp, 45 giáo viên tên giả: bấm Kiểm tra rồi Xếp TKB để xem chương trình làm gì.</span>
     </button>
   </div>
-  <p class="start-links"><button type="button" class="link full-only" data-start="template"><svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Tải file mẫu trống để điền trong Excel</button>
+  <p class="start-links"><button type="button" class="link" data-start="template"><svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Tải file mẫu trống để điền trong Excel</button>
     <span id="start-back"> · <button type="button" class="link" data-start="back"><svg class="ic" aria-hidden="true"><use href="#i-back"></use></svg> Quay lại dữ liệu đang soạn</button></span></p>
 </section>
 
 <nav class="tabs" role="tablist">
-  <button type="button" role="tab" data-tab="mo" class="gon-only"><svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> 1. Mở file Excel</button>
-  <button type="button" role="tab" data-tab="khung" class="active full-only"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> 1. Khung giờ &amp; quy định chung</button>
-  <button type="button" role="tab" data-tab="mon" class="full-only"><svg class="ic" aria-hidden="true"><use href="#i-book"></use></svg> 2. Môn học <span class="count" id="count-mon"></span></button>
-  <button type="button" role="tab" data-tab="lop" class="full-only"><svg class="ic" aria-hidden="true"><use href="#i-people"></use></svg> 3. Lớp <span class="count" id="count-lop"></span></button>
-  <button type="button" role="tab" data-tab="chucvu" class="full-only"><svg class="ic" aria-hidden="true"><use href="#i-badge"></use></svg> 4. Chức vụ <span class="count" id="count-cv"></span></button>
-  <button type="button" role="tab" data-tab="gv" class="full-only"><svg class="ic" aria-hidden="true"><use href="#i-person"></use></svg> 5. Giáo viên <span class="count" id="count-gv"></span></button>
-  <button type="button" role="tab" data-tab="luat" class="full-only"><svg class="ic" aria-hidden="true"><use href="#i-rules"></use></svg> 6. Luật <span class="count" id="count-luat"></span></button>
-  <button type="button" role="tab" data-tab="xep"><svg class="ic" aria-hidden="true"><use href="#i-play"></use></svg> <span class="full-only">7. Kiểm tra &amp; xếp TKB</span><span class="gon-only">2. Xếp TKB</span></button>
-  <button type="button" role="tab" data-tab="tkb"><svg class="ic" aria-hidden="true"><use href="#i-calendar"></use></svg> <span class="full-only">8. Thời khóa biểu</span><span class="gon-only">3. Thời khóa biểu</span></button>
+  <button type="button" role="tab" data-tab="khung" class="active"><svg class="ic" aria-hidden="true"><use href="#i-clock"></use></svg> 1. Khung giờ &amp; quy định chung</button>
+  <button type="button" role="tab" data-tab="mon"><svg class="ic" aria-hidden="true"><use href="#i-book"></use></svg> 2. Môn học <span class="count" id="count-mon"></span></button>
+  <button type="button" role="tab" data-tab="lop"><svg class="ic" aria-hidden="true"><use href="#i-people"></use></svg> 3. Lớp <span class="count" id="count-lop"></span></button>
+  <button type="button" role="tab" data-tab="chucvu"><svg class="ic" aria-hidden="true"><use href="#i-badge"></use></svg> 4. Chức vụ <span class="count" id="count-cv"></span></button>
+  <button type="button" role="tab" data-tab="gv"><svg class="ic" aria-hidden="true"><use href="#i-person"></use></svg> 5. Giáo viên <span class="count" id="count-gv"></span></button>
+  <button type="button" role="tab" data-tab="luat"><svg class="ic" aria-hidden="true"><use href="#i-rules"></use></svg> 6. Luật <span class="count" id="count-luat"></span></button>
+  <button type="button" role="tab" data-tab="xep"><svg class="ic" aria-hidden="true"><use href="#i-play"></use></svg> 7. Kiểm tra &amp; xếp TKB</button>
+  <button type="button" role="tab" data-tab="tkb"><svg class="ic" aria-hidden="true"><use href="#i-calendar"></use></svg> 8. Thời khóa biểu</button>
 </nav>
 
 <div id="offline" class="notice error offline" role="alert" hidden></div>
 <div id="notice" class="notice" hidden></div>
 
 <main>
-  <section id="tab-mo" class="tab" role="tabpanel">
-    <div class="card">
-      <h2><svg class="ic" aria-hidden="true"><use href="#i-excel"></use></svg> File Excel đang mở: <span id="mo-file"></span></h2>
-      <p id="mo-summary" class="muted"></p>
-      <p class="muted">Giáo viên, chương trình học và luật ghi trong file Excel. Muốn sửa: sửa trong Excel, lưu, rồi bấm
-        <b>Mở file Excel khác…</b> để mở lại. File cập nhật <code>_cap_nhat.xlsx</code> của lần xếp trước giữ cả TKB đã
-        xếp.</p>
-      <div class="actions">
-        <button type="button" data-start="open"><svg class="ic" aria-hidden="true"><use href="#i-open"></use></svg> Mở file Excel khác…</button>
-        <button type="button" class="ghost" data-start="template"><svg class="ic" aria-hidden="true"><use href="#i-template"></use></svg> Tải file mẫu trống</button>
-      </div>
-    </div>
-    <div class="next"><button type="button" data-go="xep" class="primary">Tiếp: Xếp TKB <svg class="ic" aria-hidden="true"><use href="#i-next"></use></svg></button></div>
-  </section>
-
   <section id="tab-khung" class="tab active" role="tabpanel">
     <div class="grid2">
       <div class="card">
@@ -326,7 +296,7 @@
       <div class="card" id="run-settings">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-gear"></use></svg> Cài đặt khi xếp</h2>
         <div class="form" id="run-form">
-          <label class="row full-only"><span>Tên file vào</span>
+          <label class="row"><span>Tên file vào</span>
             <input type="text" data-run="name" spellcheck="false">
             <small>Lưu thành &lt;tên&gt;.xlsx trong thư mục kết quả; file cập nhật là &lt;tên&gt;_cap_nhat.xlsx.</small>
           </label>
@@ -347,7 +317,7 @@
           <label class="check"><input type="checkbox" data-run="student_rules"> Áp dụng luật bảo vệ học sinh</label>
           <label class="check"><input type="checkbox" data-run="keep_saved"> Giữ TKB đã xếp trong file vào: còn đúng
             luật thì dùng lại, không thì chỉ sửa chỗ cần (ô ghi "(khóa)" giữ nguyên) <small id="saved-hint"></small></label>
-          <details class="advanced full-only"><summary>Nâng cao</summary>
+          <details class="advanced"><summary>Nâng cao</summary>
             <label class="check"><input type="checkbox" data-run="reproducible"> Kết quả tái lập (chạy lại ra đúng TKB
               cũ)</label>
             <label class="row"><span>Số luồng</span><input type="number" min="1" step="1" data-run="workers">
@@ -361,15 +331,12 @@
         </div>
       </div>
       <div class="card">
-        <h2><svg class="ic" aria-hidden="true"><use href="#i-play"></use></svg> <span class="full-only">Kiểm tra dữ liệu và xếp TKB</span><span class="gon-only">Xếp thời khóa biểu</span></h2>
-        <p class="muted gon-only">Bấm <b>Xếp TKB</b>: chương trình kiểm tra dữ liệu rồi xếp, thường mất 5–10 phút. Cần gấp
-          thì bấm <b>Dừng sớm</b> lúc nào cũng được: vẫn có TKB tốt nhất tới lúc đó.</p>
-        <p class="muted full-only">Kiểm tra đọc lại dữ liệu đúng như khi xếp và dự toán số tiết bù, tiết thiếu (vài giây).
+        <h2><svg class="ic" aria-hidden="true"><use href="#i-play"></use></svg> Kiểm tra dữ liệu và xếp TKB</h2>
+        <p class="muted">Kiểm tra đọc lại dữ liệu đúng như khi xếp và dự toán số tiết bù, tiết thiếu (vài giây).
           Xếp TKB lưu dữ liệu thành file Excel ở thư mục kết quả rồi xếp.</p>
         <div class="actions">
-          <button type="button" id="btn-check" class="ghost full-only"><svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg> Kiểm tra</button>
+          <button type="button" id="btn-check" class="ghost"><svg class="ic" aria-hidden="true"><use href="#i-check"></use></svg> Kiểm tra</button>
           <button type="button" id="btn-run" class="primary"><svg class="ic" aria-hidden="true"><use href="#i-play"></use></svg> Xếp TKB</button>
-          <button type="button" id="btn-settings" class="ghost gon-only" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-gear"></use></svg> Cài đặt…</button>
           <button type="button" id="btn-stop" class="danger" hidden><svg class="ic" aria-hidden="true"><use href="#i-stop"></use></svg> Dừng sớm</button>
           <button type="button" id="btn-kill" class="danger ghost" hidden><svg class="ic" aria-hidden="true"><use href="#i-stop"></use></svg> Dừng hẳn</button>
         </div>
@@ -387,16 +354,16 @@
   <section id="tab-tkb" class="tab" role="tabpanel">
     <div class="card" id="tkb-empty">
       <h2><svg class="ic" aria-hidden="true"><use href="#i-calendar"></use></svg> Chưa có thời khóa biểu</h2>
-      <p class="muted">Xếp TKB ở bước <span class="full-only">7</span><span class="gon-only">2</span> rồi bấm <b>Xem TKB trên trang</b>; hoặc mở file <code>_cap_nhat.xlsx</code> của lần
+      <p class="muted">Xếp TKB ở bước 7 rồi bấm <b>Xem TKB trên trang</b>; hoặc mở file <code>_cap_nhat.xlsx</code> của lần
         xếp trước (<b>Tệp <svg class="ic" aria-hidden="true"><use href="#i-chevron"></use></svg> Mở file Excel…</b>): file đó giữ TKB đã xếp.</p>
-      <div class="actions"><button type="button" data-go="xep">Tới bước <span class="full-only">7</span><span class="gon-only">2</span>: Xếp TKB</button></div>
+      <div class="actions"><button type="button" data-go="xep">Tới bước 7: Xếp TKB</button></div>
     </div>
     <div class="card" id="tkb-card" hidden>
       <div class="toolbar">
         <h2><svg class="ic" aria-hidden="true"><use href="#i-calendar"></use></svg> Thời khóa biểu <span class="muted small-text" id="tkb-code"></span></h2>
         <div class="actions">
           <select id="tkb-view" aria-label="Xem theo lớp hay giáo viên"></select>
-          <button type="button" id="btn-tkb-unlock" class="ghost full-only" title="Bỏ chữ (khóa) ở mọi ô: xếp lại được dời mọi ô"><svg class="ic" aria-hidden="true"><use href="#i-unlock"></use></svg> Mở khóa mọi ô</button>
+          <button type="button" id="btn-tkb-unlock" class="ghost" title="Bỏ chữ (khóa) ở mọi ô: xếp lại được dời mọi ô"><svg class="ic" aria-hidden="true"><use href="#i-unlock"></use></svg> Mở khóa mọi ô</button>
           <button type="button" id="btn-tkb-run" class="primary"></button>
         </div>
       </div>

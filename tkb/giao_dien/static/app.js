@@ -6,7 +6,6 @@ const TOKEN = window.TKB_TOKEN;
 const DRAFT_KEY = "tkb-ban-nhap-v1";
 const TAB_KEY = "tkb-tab";
 const GRID_KEY = "tkb-mon-bang";
-const GON_KEY = "tkb-gon"; // "0": giao diện đầy đủ (có các bước soạn); không có hoặc khác: giao diện gọn 3 bước
 let S = null; // schema từ máy chủ
 let st = null; // {scenario, run, label}
 let poller = null;
@@ -1560,10 +1559,6 @@ function msgItem(text, cls) {
   const { sheet, rows } = sheetOf(text);
   const shown = esc(friendly(text));
   const where = sheet ? ` title="Trong file Excel: ${esc(text)}"` : "";
-  if (gon && sheet) { // giao diện gọn: sửa trong file Excel, nên ghi chỗ trong file thay cho liên kết tới bước soạn
-    const at = rows.length ? `, dòng ${rows.join(", ")}` : "";
-    return `<li class="${cls}">${shown} <small class="muted">(sheet ${esc(sheet)}${esc(at)})</small></li>`;
-  }
   const body = sheet ? `<a href="#" data-jump="${esc(sheet)}|${rows.join(",")}"${where}>${shown}</a>` : shown;
   return `<li class="${cls}">${body}</li>`;
 }
@@ -1573,7 +1568,6 @@ function msgItem(text, cls) {
 // câu: tab có dấu cảnh báo kèm số lỗi hoặc dấu đạt, đầu mỗi bước có hộp lỗi của bước đó (bấm vào lỗi để tới đúng dòng). Lỗi không
 // thuộc sheet nào về bước Kiểm tra & xếp.
 const STEP_TABS = ["khung", "mon", "lop", "chucvu", "gv", "luat", "xep"];
-const EDIT_TABS = STEP_TABS.slice(0, -1); // các bước soạn: ẩn ở giao diện gọn, lỗi của chúng về bước Mở file Excel
 let stepErrors = []; // lỗi của lần kiểm tra gần nhất (tô đỏ nhạt các dòng có lỗi, cả khi bước dựng lại)
 let lastCheck = null; // kết quả kiểm tra gần nhất (vẽ lại khi có câu đọc lại của luật)
 let checkTimer = null;
@@ -1608,9 +1602,7 @@ function renderStepChecks(res) {
   const by = Object.fromEntries(STEP_TABS.map((t) => [t, []]));
   for (const t of errors) by[sheetTab(sheetOf(t).sheet) || "xep"].push(t);
   const waiting = new Set((res.unchecked || []).map((sheet) => sheetTab(sheet) || "xep"));
-  by.mo = EDIT_TABS.flatMap((t) => by[t]);
-  if (!by.mo.length && EDIT_TABS.some((t) => waiting.has(t))) waiting.add("mo");
-  for (const tab of [...STEP_TABS, "mo"]) {
+  for (const tab of STEP_TABS) {
     const list = by[tab];
     const btn = $(`.tabs button[data-tab="${tab}"]`);
     let mark = $(".mark", btn);
@@ -1624,7 +1616,7 @@ function renderStepChecks(res) {
     let box = $(".step-errors", section);
     if (!box) { box = document.createElement("div"); box.className = "step-errors"; section.prepend(box); }
     box.hidden = !list.length;
-    box.innerHTML = list.length ? `<b>${tab === "mo" ? "Cần sửa trong file Excel" : "Cần sửa ở bước này"} (${list.length}):</b>
+    box.innerHTML = list.length ? `<b>Cần sửa ở bước này (${list.length}):</b>
       <ul class="msgs">${list.map((t) => msgItem(t, "err")).join("")}</ul>` : "";
     markRows(tab);
   }
@@ -1634,7 +1626,7 @@ function renderCheck(res) {
   if (!res.errors.length) items.push(`<li class="ok">Dữ liệu hợp lệ, xếp TKB được.</li>`);
   items.push(...res.errors.map((t) => msgItem(t, "err")));
   items.push(...res.warnings.map((t) => msgItem(t, "warn")));
-  items.push(...res.info.map((t) => `<li class="info full-only">${esc(t)}</li>`)); // dự toán: chỉ ở giao diện đầy đủ
+  items.push(...res.info.map((t) => `<li class="info">${esc(t)}</li>`)); // dự toán
   $("#check-result").innerHTML = `<ul class="msgs">${items.join("")}</ul>`;
 }
 async function check() {
@@ -1717,7 +1709,7 @@ function resultFacts(sum) {
   const ot = sum.overtime;
   if (ot) facts.push(["Dạy bù", ot.total ? `${num(ot.total)} tiết: GVCN ${num(ot.homeroom[0])} tiết (${ot.homeroom[1]} người), bộ môn ${num(ot.general[0])} tiết (${ot.general[1]} người)${ot.levels ? `; ${ot.levels}` : ""}` : "không ai phải dạy bù"]);
   if (sum.hires) facts.push(["Tuyển thêm", sum.hires[0] ? `cần ${sum.hires[0]} người cho ${num(sum.hires[1])} tiết (dòng "${S.saved_marks.hire}" trong file cập nhật)` : "không cần tuyển thêm"]);
-  for (const line of gon ? [] : sum.soft) { // giao diện gọn: các dòng luật ưu tiên chỉ ở mục Chất lượng
+  for (const line of sum.soft) {
     const i = line.indexOf(": ");
     facts.push(i > 0 ? [line.slice(0, i), line.slice(i + 2)] : ["", line]);
   }
@@ -1756,8 +1748,8 @@ function renderResult(s) {
     const name = p.split(/[\\/]/).pop();
     return `<li><span class="file-name">${esc(fileLabel(name))}<small>${esc(name)}</small></span><span class="actions">
       <button type="button" class="ghost" data-act="open" data-path="${esc(p)}">${icon("open")} Mở</button>
-      <a class="btn ghost full-only" href="/api/file?path=${encodeURIComponent(p)}&t=${encodeURIComponent(TOKEN)}">${icon("download")} Tải</a>
-      ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost full-only" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">${icon("excel")} Nạp vào giao diện</button>` : ""}
+      <a class="btn ghost" href="/api/file?path=${encodeURIComponent(p)}&t=${encodeURIComponent(TOKEN)}">${icon("download")} Tải</a>
+      ${/_cap_nhat\.xlsx$/i.test(name) ? `<button type="button" class="ghost" data-act="load" data-path="${esc(p)}" title="Mở file vào cập nhật (có người cần tuyển, TKB đã xếp) để sửa tiếp">${icon("excel")} Nạp vào giao diện</button>` : ""}
       </span></li>`;
   }).join("");
   const facts = resultFacts(sum).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
@@ -1770,7 +1762,7 @@ function renderResult(s) {
     <div class="actions">${updated && [0, 2].includes(s.exit) ? `<button type="button" class="primary" data-act="view-tkb"
       data-path="${esc(updated)}" data-code="${esc(sum.code || "")}">${icon("calendar")} Xem TKB trên trang</button>` : ""}
       <button type="button" class="ghost" data-act="open" data-path="">${icon("open")} Mở thư mục kết quả</button></div>
-    ${files ? `<details class="files-box" ${sum.code && !gon ? "" : "open"}><summary>Các file Excel (${sum.files.length})</summary><ul class="files">${files}</ul></details>` : ""}
+    ${files ? `<details class="files-box" ${sum.code ? "" : "open"}><summary>Các file Excel (${sum.files.length})</summary><ul class="files">${files}</ul></details>` : ""}
   </div>`;
 }
 
@@ -2212,11 +2204,9 @@ function renderAll() {
 // Mỗi bước dựng lại khi mở: bước Chức vụ sửa quy định của môn, bước Môn học hiện ai dạy, nên luôn khớp nhau.
 const RENDER_TAB = { mon: () => renderSubjects(), lop: () => renderClasses(), chucvu: () => renderRoles(),
   gv: () => renderStaff(),
-  luat: () => renderRules(), tkb: () => refreshTkb(), mo: () => renderOpened() };
+  luat: () => renderRules(), tkb: () => refreshTkb() };
 function showTab(name) {
-  if (!$(`#tab-${name}`)) name = gon ? "mo" : "khung";
-  if (gon && EDIT_TABS.includes(name)) name = "mo"; // bước soạn đang ẩn
-  if (!gon && name === "mo") name = "khung";
+  if (!$(`#tab-${name}`)) name = "khung";
   if (st) RENDER_TAB[name]?.();
   markRows(name);
   $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
@@ -2225,31 +2215,7 @@ function showTab(name) {
   store.setItem(TAB_KEY, name);
 }
 
-// ---------------------------------------------------------------- giao diện gọn / đầy đủ
-// Gọn (mặc định): 1. Mở file Excel, 2. Kiểm tra & xếp TKB, 3. Thời khóa biểu; dữ liệu sửa trong file Excel. Đầy đủ
-// (Tệp › Hiện đủ các bước soạn): thêm sáu bước soạn khung giờ, môn, lớp, chức vụ, giáo viên, luật ngay trên trang.
-let gon = true;
-const stepNo = (tab) => (gon ? { mo: 1, xep: 2, tkb: 3 } : { xep: 7, tkb: 8 })[tab] ?? "";
-function setGon(on) {
-  gon = on;
-  document.body.classList.toggle("gon", on);
-  store.setItem(GON_KEY, on ? "1" : "0");
-  $("#btn-gon").innerHTML = `${icon("mode")} ${on ? "Hiện đủ các bước soạn (nâng cao)" : "Về giao diện gọn (3 bước)"}`;
-  $("#log-card").open = !on; // giao diện gọn: nhật ký gấp lại, bấm tiêu đề để xem
-  if (lastCheck) renderStepChecks(lastCheck); // câu lỗi: liên kết tới bước soạn, hay chỗ trong file Excel
-  const tab = $(".tabs button.active")?.dataset.tab;
-  if (tab && st) showTab(tab); // lúc mở trang: init chọn bước sau
-}
-function renderOpened() {
-  if (!st) return;
-  const sc = st.scenario;
-  const staff = sc.staff.filter((t) => String(t.name || "").trim() || String(t.role || "").trim()).length;
-  const subjects = sc.subjects.filter((x) => String(x.name || "").trim()).length;
-  const rules = (sc.rules || []).filter((r) => !r.off).length;
-  $("#mo-file").textContent = st.label || "";
-  $("#mo-summary").textContent = `${staff} giáo viên, ${schoolClasses().length} lớp, ${subjects} môn, ${rules} luật` +
-    (sc.saved ? "; có TKB đã xếp (xem ở bước 3)." : ".");
-}
+const stepNo = (tab) => ({ xep: 7, tkb: 8 })[tab] ?? ""; // số thứ tự bước trên thanh bước
 
 async function newScenario(mau = "") {
   const data = await api("GET", `/api/new${mau ? `?mau=${encodeURIComponent(mau)}` : ""}`);
@@ -2291,10 +2257,6 @@ function useImported(data, label) {
   hideStart();
   renderAll();
   changed();
-  if (gon) { // giao diện gọn: mở file xong là tới bước Xếp TKB, kiểm tra luôn dữ liệu
-    showTab("xep");
-    check().catch(fail);
-  }
   const warns = data.warnings.map((w) => `<li>${esc(w)}</li>`).join("");
   notify(`Đã mở ${esc(label)}: ${st.scenario.staff.length} dòng nhân sự, ${st.scenario.subjects.length} môn.` +
     (st.scenario.saved ? ` File có TKB đã xếp (xem ở bước ${stepNo("tkb")}):` + " xếp lại sẽ giữ TKB đó nếu vẫn đúng luật, sai thì chỉ sửa chỗ cần." : "") + fit +
@@ -2323,13 +2285,9 @@ async function startWith(how, mau = "") {
   else if (how === "new") {
     await newScenario(mau);
     hideStart();
-    const name = (S.presets.find((p) => p.key === mau) || S.presets[0]).name;
-    showTab(mau === "trong" ? "khung" : "mon");
-    notify(mau === "trong"
-      ? `Dữ liệu mới, bộ mẫu ${esc(name)}: đặt khung giờ ở bước này, rồi thêm môn, khối, lớp, giáo viên; các luật có sẵn
-        đang Tạm tắt, bật luật cần dùng ở bước Luật.`
-      : `Dữ liệu mới, bộ mẫu ${esc(name)}: nhập số tiết ở bước Môn học, danh sách ở bước Giáo viên.`, "ok",
-    back ? UNDO : null);
+    showTab("khung");
+    notify(`Dữ liệu mới: đặt khung giờ ở bước này, rồi thêm môn, khối, lớp, chức vụ, giáo viên; các luật có sẵn đang Tạm
+      tắt, bật luật cần dùng ở bước Luật.`, "ok", back ? UNDO : null);
   } else if (how === "sample") {
     const data = await api("GET", "/api/sample");
     useImported({ ...data, warnings: [] }, "Trường mẫu (tên giả)");
@@ -2950,12 +2908,6 @@ function wire() {
   document.addEventListener("click", (e) => onClick(e).catch(fail));
   $$(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
   $("#btn-new").onclick = () => showStart(true);
-  $("#btn-gon").onclick = () => { $("#file-menu").open = false; setGon(!gon); };
-  $("#btn-settings").onclick = () => {
-    const on = document.body.classList.toggle("show-settings");
-    $("#btn-settings").setAttribute("aria-expanded", String(on));
-    $("#btn-settings").innerHTML = `${icon("gear")} ${on ? "Ẩn cài đặt" : "Cài đặt…"}`;
-  };
   $("#btn-forget").onclick = askForget;
   $("#forget-open").onclick = openOutDir;
   $("#forget-dialog").addEventListener("close", () => {
@@ -3012,13 +2964,6 @@ function wire() {
   });
   $("#btn-template").onclick = async () => {
     try {
-      if (gon) { // giao diện gọn: ghi file mẫu vào thư mục kết quả rồi mở bằng Excel, không tải về chỗ khác
-        const { path } = await api("POST", "/api/template_save", {});
-        await api("POST", "/api/open", { path });
-        notify(`Đã mở file mẫu trống <code>${esc(path)}</code>: điền trong Excel, lưu lại, rồi bấm <b>Mở file Excel
-          của trường</b>.`, "ok");
-        return;
-      }
       downloadBlob(await api("GET", "/api/template", undefined, { blob: true }), "Mau_Input_V8.xlsx");
     } catch (err) { fail(err); }
   };
@@ -3170,7 +3115,6 @@ function wire() {
 async function init() {
   wire();
   await store.load();
-  setGon(store.getItem(GON_KEY) !== "0");
   const forgot = location.hash === FORGOT; // vừa bấm Tệp, mục Xóa dữ liệu trên máy này
   if (forgot) history.replaceState(null, "", location.pathname + location.search);
   subjectGrid = store.getItem(GRID_KEY) === "1";
@@ -3190,7 +3134,7 @@ async function init() {
     else notify("Đã mở lại dữ liệu đang soạn lần trước (lưu tự động trên máy này).", "",
       { label: "Bắt đầu lại", fn: () => showStart(true) });
   } else {
-    await newScenario().catch(fail); // kịch bản trống để các bước có dữ liệu; trang bắt đầu che đi
+    await newScenario("trong").catch(fail); // kịch bản trống để các bước có dữ liệu; trang bắt đầu che đi
     if (st) st.fresh = true;
     showStart(false);
   }
@@ -3203,9 +3147,7 @@ async function init() {
   updateUndo();
   quickCheck().catch(() => {});
   renderHelp();
-  let tab = gon ? "mo" : "khung";
-  tab = store.getItem(TAB_KEY) || tab;
-  showTab(tab);
+  showTab(store.getItem(TAB_KEY) || "khung");
   if (S.running) startPolling();
   setInterval(ping, PING_MS);
   document.addEventListener("visibilitychange", ping);

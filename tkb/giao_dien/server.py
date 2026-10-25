@@ -411,17 +411,6 @@ class App:
         os.replace(tmp, path)
         return {"ok": True}
 
-    def template_save(self, _):
-        """Giao diện gọn: ghi file mẫu trống vào thư mục kết quả (không tải về thư mục khác) rồi trang mở nó."""
-        body, name = self.template()
-        path = self.out_dir / name
-        self.out_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            path.write_bytes(body)
-        except OSError as exc:
-            raise InputError(f"Không ghi được {name} (file đang mở trong Excel?): {exc}") from None
-        return {"path": str(path)}
-
     def template(self) -> tuple[bytes, str]:
         """File vào mẫu trống (python -m tkb.template): nhà trường điền trong Excel rồi nhập lại."""
         from ..template import write_staff_template
@@ -601,8 +590,7 @@ class Handler(BaseHTTPRequestHandler):
                       ("POST", "swaps"): app.swaps,
                       ("POST", "stop"): app.stop, ("POST", "kill"): app.kill, ("POST", "open"): app.open,
                       ("POST", "settings"): app.settings, ("POST", "forget"): app.forget,
-                      ("GET", "store"): app.store, ("POST", "store"): app.store,
-                      ("POST", "template_save"): app.template_save}
+                      ("GET", "store"): app.store, ("POST", "store"): app.store}
             handler = routes.get((method, name))
             if handler is None:
                 return self._json(HTTPStatus.NOT_FOUND, {"error": f"Không có lệnh {name}"})
