@@ -770,6 +770,13 @@ function roleCard(title, badge, teachers, body, extra = "") {
   return `<div class="card role" ${extra}><div class="toolbar"><h2>${title} <span class="badge">${esc(badge)}</span></h2>
     <span class="muted">${teachers} giáo viên</span></div>${body}</div>`;
 }
+// Dòng trạng thái dưới các môn của chức vụ trường tự đặt (vẽ lại ngay khi tích môn).
+function roleState(role) {
+  return (role.subjects || []).filter((x) => !subjectNames().some((n) => key(n) === key(x))).map((x) =>
+    `<p class="warn-text">Môn "${esc(x)}" không có ở bước 2.</p>`).join("")
+    + (!(role.subjects || []).length ? `<p class="warn-text">Chưa chọn môn nào.</p>` : teachersOf(role.name) ? "" :
+      `<p class="muted">Chưa có giáo viên nào giữ chức vụ này (chọn ở bước 5).</p>`);
+}
 function renderRoles() {
   const sc = st.scenario;
   const rr = RR();
@@ -801,10 +808,7 @@ function renderRoles() {
       <h3>Môn được dạy</h3>${subjectChecks((s, j, only) => ({
         checked: (role.subjects || []).some((x) => key(x) === key(s.name)),
         attrs: `data-f="role-subject" data-i="${i}" data-s="${esc(named(s))}"`, disabled: only && "Chỉ GVCN được dạy" }))}
-      ${(role.subjects || []).filter((x) => !subjectNames().some((n) => key(n) === key(x))).map((x) =>
-        `<p class="warn-text">Môn "${esc(x)}" không có ở bước 2.</p>`).join("")}
-      ${!(role.subjects || []).length ? `<p class="warn-text">Chưa chọn môn nào.</p>` : teachersOf(role.name) ? "" :
-        `<p class="muted">Chưa có giáo viên nào giữ chức vụ này (chọn ở bước 5).</p>`}
+      <div data-role-state="${i}">${roleState(role)}</div>
       <div class="actions end"><button type="button" class="danger ghost" data-act="del-role" data-i="${i}">Xóa chức vụ</button></div>`,
       `data-row="${i + 2}"`)),
   ];
@@ -2631,6 +2635,8 @@ function onEdit(e) {
     // Giữ thứ tự môn như bước 2.
     const order = subjectNames().map(key);
     role.subjects.sort((a, b) => order.indexOf(key(a)) - order.indexOf(key(b)));
+    const state = $(`[data-role-state="${i}"]`);
+    if (state) state.innerHTML = roleState(role);
     renderRoleHints();
   } else if (d.f === "grade") {
     const from = sc.grades[i];
