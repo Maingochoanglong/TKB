@@ -32,10 +32,6 @@ def browser():
 @pytest.fixture
 def page(browser, tmp_path):
     httpd, app, url = make_server(port=0, out_dir=tmp_path / "ket_qua")
-    # Các test soạn dữ liệu dùng giao diện đầy đủ (lựa chọn của trang lưu ở máy chủ, file trang.json của app.data);
-    # test của giao diện gọn đặt lại "1".
-    app.data.mkdir(parents=True)
-    (app.data / server.STORE_NAME).write_text(json.dumps({"tkb-gon": "0"}), encoding="utf-8")
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     context = browser.new_context(viewport={"width": 1280, "height": 900})
@@ -117,41 +113,23 @@ def test_sample_steps_undo_switch_and_search(page):
     assert 0 < page.locator("#rule-list .rule-item").count() < total
 
 
-def test_simple_mode_has_three_steps(page, tmp_path):
-    """Giao diện gọn (mặc định): trang bắt đầu chỉ có Mở file Excel; mở file xong là tới bước Kiểm tra & xếp, chỉ có ba
-    bước; lỗi của dữ liệu về bước Mở file Excel. Tệp › Hiện đủ các bước soạn thì có đủ tám bước, tải lại vẫn giữ."""
+def test_start_screen_and_all_steps(page, tmp_path):
+    """Trang bắt đầu: Mở file Excel, Soạn mới (một bản trống chung cho mọi trường), Xem thử; không có giao diện gọn hay
+    bộ mẫu riêng của một nước. Mở file Excel xong thì có đủ tám bước soạn và xếp."""
     from tkb.truong_mau import write_sample_input
-    page.evaluate("async () => { store.setItem('tkb-gon', '1'); await store.flush(); }")
-    page.reload()
     page.wait_for_selector("#start:not([hidden])")
-    assert page.locator('[data-start="open"]').first.is_visible()
-    assert page.locator('[data-start="sample"]').is_hidden()
+    starts = page.evaluate("[...document.querySelectorAll('.start-card')].filter((b) => b.offsetParent)"
+                           ".map((b) => b.dataset.start + (b.dataset.mau ? ':' + b.dataset.mau : ''))")
+    assert starts == ["open", "new:trong", "sample"]
+    assert page.locator("#btn-gon").count() == 0 and page.locator('[data-tab="mo"]').count() == 0
     page.set_input_files("#file-open", str(write_sample_input(tmp_path / "Truong_mau.xlsx")))
     page.wait_for_selector("#import-dialog[open]")
     page.click("#import-apply")
-    page.wait_for_function("document.querySelector('.tabs button.active')?.dataset.tab === 'xep'")
+    page.wait_for_selector("#start", state="hidden")
     shown = "() => [...document.querySelectorAll('.tabs button')].filter((b) => b.offsetParent).map((b) => b.dataset.tab)"
-    assert page.evaluate(shown) == ["mo", "xep", "tkb"]
-    # Bước Xếp TKB: tự kiểm tra dữ liệu; chỉ còn nút Xếp TKB, cài đặt gấp lại sau nút Cài đặt…
-    _wait_text(page, "#check-result", "Dữ liệu hợp lệ")
-    assert page.locator("#btn-check").is_hidden() and page.locator("#run-settings").is_hidden()
-    page.click("#btn-settings")
-    assert page.locator("#run-settings").is_visible()
-    page.click("#btn-settings")
-    _wait_mark(page, "mo", "✓")
-    # Một giáo viên sai số tiết: bước Mở file Excel báo lỗi, ghi chỗ trong file thay cho liên kết tới bước soạn.
-    page.evaluate("() => { st.scenario.staff[2].lessons = null; changed(); }")  # như sửa trong Excel rồi mở lại
-    _wait_mark(page, "mo", "⚠")
-    page.click('.tabs [data-tab="mo"]')
-    assert "NHÂN SỰ" in page.text_content("#tab-mo .step-errors")
-    assert page.locator("#tab-mo .step-errors a").count() == 0
-    page.click("#file-menu summary")
-    page.click("#btn-gon")
-    assert len(page.evaluate(shown)) == 8
-    assert page.evaluate("document.querySelector('.tabs button.active').dataset.tab") == "khung"
-    page.reload()
-    page.wait_for_function("!document.body.classList.contains('gon')")
-    assert len(page.evaluate(shown)) == 8
+    assert page.evaluate(shown) == ["khung", "mon", "lop", "chucvu", "gv", "luat", "xep", "tkb"]
+    page.click('.tabs [data-tab="xep"]')
+    assert page.locator("#btn-check").is_visible() and page.locator("#run-settings").is_visible()
 
 
 def test_banner_when_program_stops_and_restarts(page, tmp_path):
@@ -372,8 +350,8 @@ def test_class_step(page):
 
 
 def test_new_from_empty_preset(page):
-    """Trang bắt đầu, Soạn mới bộ Trống: chưa có môn nào, các luật có sẵn theo quy ước Tạm tắt (bật lại bằng ô Dùng);
-    bộ Tiểu học Việt Nam có đủ các môn mặc định."""
+    """Trang bắt đầu, Soạn mới (bản trống): chưa có môn nào, các luật có sẵn theo quy ước Tạm tắt (bật lại bằng ô
+    Dùng)."""
     page.wait_for_selector("#start:not([hidden])")
     page.click('[data-start="new"][data-mau="trong"]')
     page.wait_for_selector("#start", state="hidden")
@@ -382,11 +360,6 @@ def test_new_from_empty_preset(page):
     assert sc["subjects"] == 0 and sc["off"] == 14 and sc["rules"] == 23
     assert page.text_content("#count-luat") == "9"
     _wait_mark(page, "mon", "⚠")  # chưa có môn nào: bước Môn học báo
-    page.click("#file-menu summary")
-    page.click("#btn-new")
-    page.click('[data-start="new"][data-mau="tieu_hoc_vn"]')
-    page.wait_for_function("document.querySelector('#count-mon').textContent === '15'")
-    assert page.evaluate("st.scenario.rules.filter((r) => r.off).length") == 0
 
 
 def test_extra_roles_picker(page):

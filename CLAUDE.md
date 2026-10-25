@@ -72,7 +72,7 @@ docstrings, docs and printed messages are Vietnamese; keep that style.
   data the school can change, and defaults are a removable template (plan: frame and classes free, roles as rules,
   staff tags; one PR per phase). Subject names and subject-tied defaults live only in the rule presets of
   `tkb/bo_mau.py` (`TIEU_HOC_VN` = the defaults, `TRONG` = blank start; `rules.mau(key)` → config values, used by
-  `template --mau` and the UI's "Soạn mới"); tests use `bo_mau.TV`, `bo_mau.TOAN`…, never names in code.
+  `template --mau` and the UI's "Soạn mới", which uses `trong`); tests use `bo_mau.TV`, `bo_mau.TOAN`…, never names in code.
   `tkb/config.py` holds the defaults of the rules (taken from `bo_mau.TIEU_HOC_VN`, overridden by the file's rules),
   weights and LNS params. A new business rule the school may want to change gets a `Col` in `tkb/rules.py` (read in `_Reader`,
   written in `rule_tables`/`subject_columns`, listed in `ATTRS`), keeping the Có/Không/number convention.
@@ -126,14 +126,12 @@ folder leaves nothing): `server.app_dir`/`data_dir` (frozen: TKB.exe's folder, `
 the page's draft and choices live in `du_lieu/trang.json` (`/api/store`; `store` in app.js replaces localStorage,
 beacon on pagehide), `serve` points `tempfile` (and the solve child's TMP) at `du_lieu/tam`, and `open_page` starts
 Edge/Chrome `--app` with `--user-data-dir=du_lieu/trinh_duyet` (downloads into the out folder), else the default
-browser. Default is the simple mode (`body.gon`, store key `tkb-gon`, `setGon`; Tệp ›
-"Hiện đủ các bước soạn" toggles): only tabs `mo` (Mở file Excel: `renderOpened` summary + the quick-check errors of the
-six editing steps `EDIT_TABS`, written as sheet/row, no jump links) → `xep` (auto `check()` after opening a file; only
-the Xếp TKB button, settings card `#run-settings` behind `#btn-settings`, log folded, no estimate lines or soft-rule facts,
-files named by `fileLabel`) → `tkb`, numbered 1–3 (`stepNo`); elements
-`.full-only`/`.gon-only` hide per mode; icons are Bootstrap Icons (MIT) SVG symbols embedded in index.html by
+browser. The page is a general composing app for any school: always the eight steps below (the old simple 3-step mode
+and its `tkb-gon` key are gone), the start screen offers open file / "Soạn mới" (blank preset `trong` only; the UI no
+longer offers the Tiểu học Việt Nam preset, which stays the config defaults and the Excel template's) / fake sample;
+result files are named by `fileLabel`; icons are Bootstrap Icons (MIT) SVG symbols embedded in index.html by
 `tools/bieu_tuong.py` and used through `icon(name)` in app.js, never symbol characters (✓ ✕ ↑ …:
-`test_page_icons_are_embedded_svg`); step marks are the classes good/bad/wait; the browser tests run in full mode (init script sets `tkb-gon` = 0). The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
+`test_page_icons_are_embedded_svg`); step marks are the classes good/bad/wait. The page edits a "kịch bản" (`tkb/kich_ban.py`): the V8 input as
 JSON whose columns come from `rules.py` `Col`s (`kich_ban.schema`), so a new rule column appears in the UI by itself
 (subject detail groups `kich_ban.SUBJECT_GROUPS`, ungrouped columns go to "Khác"). Steps: Khung giờ → Môn học (list +
 detail dialog) → Lớp (grade names: rename updates lessons, classes, manager grade, LUẬT Khối; class table

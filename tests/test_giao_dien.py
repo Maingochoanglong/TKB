@@ -322,24 +322,16 @@ def test_page_store_lives_in_the_program_folder(server):
     trình duyệt); Tệp › Xóa dữ liệu trên máy này xóa file đó."""
     app, url = server
     assert _call(url, "/api/store", token=app.token) == (200, {})
-    assert _call(url, "/api/store", "POST", {"items": {"tkb-gon": "1", "tkb-tab": "xep"}}, app.token)[0] == 200
+    assert _call(url, "/api/store", "POST", {"items": {"tkb-luoi": "1", "tkb-tab": "xep"}}, app.token)[0] == 200
     path = app.data / server_module.STORE_NAME
     assert app.out_dir in path.parents and json.loads(path.read_text(encoding="utf-8"))["tkb-tab"] == "xep"
-    assert _call(url, "/api/store", token=app.token)[1] == {"tkb-gon": "1", "tkb-tab": "xep"}
+    assert _call(url, "/api/store", token=app.token)[1] == {"tkb-luoi": "1", "tkb-tab": "xep"}
     # Đóng trang gửi bằng sendBeacon: mã phiên ở địa chỉ (?t=) thay cho tiêu đề.
-    assert _call(url, f"/api/store?t={quote(app.token)}", "POST", {"items": {"tkb-gon": "0"}})[0] == 200
+    assert _call(url, f"/api/store?t={quote(app.token)}", "POST", {"items": {"tkb-luoi": "0"}})[0] == 200
     assert _call(url, "/api/store", "POST", {"items": {}})[0] == 403  # không có mã phiên
-    assert json.loads(path.read_text(encoding="utf-8")) == {"tkb-gon": "0"}
+    assert json.loads(path.read_text(encoding="utf-8")) == {"tkb-luoi": "0"}
     assert _call(url, "/api/forget", "POST", {}, app.token)[0] == 200
     assert not path.exists() and _call(url, "/api/store", token=app.token)[1] == {}
-
-
-def test_template_saved_in_the_output_folder(server):
-    """Giao diện gọn: file mẫu trống ghi vào thư mục kết quả (rồi trang mở bằng Excel), không tải về chỗ khác."""
-    app, url = server
-    status, res = _call(url, "/api/template_save", "POST", {}, app.token)
-    path = Path(res["path"])
-    assert status == 200 and path.parent == app.out_dir and path.read_bytes()[:2] == b"PK"
 
 
 def test_packaged_app_keeps_everything_in_its_folder(tmp_path, monkeypatch):
